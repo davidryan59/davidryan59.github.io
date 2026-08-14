@@ -136,6 +136,30 @@
     border-radius: 50%;
     box-shadow: 0 0 0 1px var(--ring);
   }
+  /* The pseudo-element clears the floated thumbnail, so a short description
+     can't let it spill into the next list item's marker. overflow: hidden
+     would do the same but clips the li's own marker in some browsers, so a
+     clearfix is used instead. Same diameter as the portrait, via --head, so
+     the two stay in step at the mobile breakpoint too. */
+  .nft-item::after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+  .nft-thumb-link {
+    float: right;
+    line-height: 0;
+    margin: 0 0 var(--gap-tight) 1.25rem;
+    shape-outside: circle(50%);
+    shape-margin: 1.25rem;
+  }
+  .nft-thumb {
+    display: block;
+    width: var(--head);
+    height: var(--head);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--ring);
+  }
   @media (max-width: 480px) {
     :root { --head: 88px; }
     .portrait-stack { shape-margin: 0.85rem; }
@@ -385,7 +409,7 @@
   <li>
     <a target="_blank" rel="noopener" href="https://re-tuner.web.app/">ReTuner</a>
     – a musical instrument with Just Intonation tuning, that retunes itself as you play.
-    Here is the <a target="_blank" rel="noopener" href="https://github.com/davidryan59/retuner">ReTuner code</a>.
+    Here is the <a target="_blank" rel="noopener" href="https://github.com/davidryan59/retuner">code on GitHub</a>.
   </li>
   <li>
     <a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a>
@@ -399,23 +423,29 @@
 
 <h3>Ethereum &amp; NFTs</h3>
 <ul>
-  <li>
+  <li class="nft-item">
+    <a class="nft-thumb-link" target="_blank" rel="noopener" href="https://opensea.io/item/ethereum/0xceaab19bab4adbc831b98a4cf54a6a85a79218a4/1904" aria-label="Ethereum Merge Fractal #1904 on OpenSea">
+      <img class="nft-thumb" src="merge-fractal-1904.svg" width="120" height="120" alt="Ethereum Merge Fractal #1904, an animated on-chain fractal">
+    </a>
     <strong>Ethereum Merge Fractals</strong> – a generative collection of 5,875 pieces marking
     Ethereum's Merge to Proof of Stake in Sept 2022, with proceeds going to core protocol developers via
     <a target="_blank" rel="noopener" href="https://protocolguild.org">Protocol Guild</a> and StatefulWorks.
     <br>
-    <a target="_blank" rel="noopener" href="https://opensea.io/collection/mergefractals">View on OpenSea</a> ·
-    <a target="_blank" rel="noopener" href="https://etherscan.io/address/0xCeaAb19BaB4AdBc831b98A4Cf54A6A85A79218a4">Contract on Etherscan</a> ·
-    <a target="_blank" rel="noopener" href="https://github.com/davidryan59/scaffold-eth/tree/merge-fractal">Source on GitHub</a>
+    <a target="_blank" rel="noopener" href="https://opensea.io/collection/mergefractals">OpenSea collection</a> ·
+    <a target="_blank" rel="noopener" href="https://etherscan.io/address/0xCeaAb19BaB4AdBc831b98A4Cf54A6A85A79218a4">contract</a> ·
+    <a target="_blank" rel="noopener" href="https://github.com/davidryan59/scaffold-eth/tree/merge-fractal">code</a>
   </li>
-  <li>
+  <li class="nft-item">
+    <a class="nft-thumb-link" target="_blank" rel="noopener" href="https://opensea.io/item/optimism/0x423021c7ab37a289e47c3f39f3978bd14fd580b4/133" aria-label="Optimism Moving Mondrian #133 on OpenSea">
+      <img class="nft-thumb" src="moving-mondrian-133.svg" width="120" height="120" alt="Optimism Moving Mondrian #133, an animated on-chain generative artwork">
+    </a>
     <strong>Moving Mondrian</strong> – a fully on-chain generative NFT on Optimism, built
     for the Optimism Foundation's "We Love The Art" competition in Jan 2024. The
     artwork and its traits are generated entirely inside the contract.
     <br>
-    <a target="_blank" rel="noopener" href="https://opensea.io/collection/moving-mondrian">View on OpenSea</a> ·
-    <a target="_blank" rel="noopener" href="https://optimistic.etherscan.io/address/0x423021c7ab37a289e47c3f39f3978bd14fd580b4">Contract on Optimistic Etherscan</a> ·
-    <a target="_blank" rel="noopener" href="https://github.com/davidryan59/moving-mondrian">Source on GitHub</a>
+    <a target="_blank" rel="noopener" href="https://opensea.io/collection/moving-mondrian">OpenSea collection</a> ·
+    <a target="_blank" rel="noopener" href="https://optimistic.etherscan.io/address/0x423021c7ab37a289e47c3f39f3978bd14fd580b4">contract</a> ·
+    <a target="_blank" rel="noopener" href="https://github.com/davidryan59/moving-mondrian">code</a>
   </li>
   <li>
     <strong>Nifty Ink</strong> – generative fractal art, minted as NFTs.
