@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>David Ryan's Builder Page</title>
+<meta name="description" content="Software, Ethereum art, music, and academic work – everything David Ryan has built or published, in one place.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- Share previews. The two absolute URLs must change if this ever moves off
+     davidryan59.github.io to a custom domain; scrapers reject relative ones. -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://davidryan59.github.io/">
+<meta property="og:title" content="David Ryan's Builder Page">
+<meta property="og:description" content="Software, Ethereum art, music, and academic work – everything David Ryan has built or published, in one place.">
+<meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
+<meta property="og:image:alt" content="David Ryan">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:creator" content="@davidryan59">
+<style>
+  /* Text brightness runs h1 > h2 > h3 > body in even steps. The body colour is
+     the one colour for all body text: bare list text, descriptions after a
+     link, section notes and <strong> all inherit it. Each token pairs its light
+     value with its dark one, and the page follows the system setting until the
+     toggle pins data-theme, which sets color-scheme and flips every pair. */
+  :root {
+    color-scheme: light dark;
+    --bg: light-dark(#f6f3ec, #16161a);
+    --text: light-dark(#46443d, #c8c4b9);
+    --h1: light-dark(#1a1a1a, #f5f3ec);
+    --h2: light-dark(#2a2922, #e6e2d8);
+    --h3: light-dark(#38362e, #d8d4c9);
+    --link: light-dark(#1552a1, #7aa6e0);
+    --link-visited: light-dark(#6a3d9a, #b79ad6);
+    --rule: light-dark(#ddd8cc, #3a3a3a);
+    --ring: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.16));
+    /* Both belong to the nested copy at the foot of this file. The veil is the
+       background colour again, carrying enough alpha to sink the page behind
+       it without hiding it. */
+    --veil: light-dark(rgba(246, 243, 236, 0.82), rgba(22, 22, 26, 0.84));
+    --drop: light-dark(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.6));
+
+    /* Vertical rhythm. Every gap is one of these five, all multiples of
+       0.5rem. A heading sits closer to the content below it than to the
+       content above, so each group reads as one block. */
+    --gap-tight: 0.5rem;   /* heading down to its own content */
+    --gap-item: 1rem;      /* list item to list item */
+    --gap-para: 1.5rem;    /* paragraph to paragraph */
+    --gap-group: 2.5rem;   /* above an h3, between one group and the last */
+    --gap-section: 3.5rem; /* above the h2 rule, between major sections */
+    --head: 120px; /* portrait diameter; a droste level's stack height is a multiple of this */
+    --head-gap: 10px; /* space between stacked heads; each droste level scales it down along with everything else */
+    --twist: 5deg; /* magnitude of the droste twist; the wave later swings between +this and -this */
+  }
+  :root[data-theme="light"] { color-scheme: light; }
+  :root[data-theme="dark"]  { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    position: relative;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.65;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 4rem 1.25rem 6rem;
+  }
+  /* Absolute, so it sits in the top padding without shifting the h1 or the
+     portrait. Hidden until the script runs: with no script it cannot work,
+     and the page follows the system setting anyway. */
+  .theme-toggle {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 2rem;
+    height: 2rem;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    color: var(--h3);
+    background: none;
+    border: 1px solid var(--ring);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  .theme-toggle:hover {
+    color: var(--h1);
+    border-color: var(--rule);
+  }
+  .theme-toggle:focus-visible {
+    outline: 2px solid var(--link);
+    outline-offset: 3px;
+  }
+  .theme-toggle svg {
+    display: block;
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+  /* Show the mode the click will move to, not the one already on. */
+  :root[data-theme="dark"] .theme-toggle .moon { display: none; }
+  :root[data-theme="light"] .theme-toggle .sun { display: none; }
+  h1, h2, h3 {
+    line-height: 1.25;
+  }
+  h1 {
+    font-size: 1.9rem;
+    color: var(--h1);
+    margin: 0 0 var(--gap-para);
+  }
+  /* One head per droste level, appended by script into this stack rather
+     than written N times in the HTML. shape-outside makes the surrounding
+     text follow the stack rather than its square box: same-size circles
+     centred on one vertical line have a stadium as their convex hull
+     regardless of the gap between them, so inset()...round with a radius of
+     half the head width traces it exactly. A float aligns to the top of the
+     line box, so the 6px margin drops the first head to where the h1's
+     tallest glyph actually starts. Nothing later clears the float, so a
+     tall enough stack runs on past the intro and into the Building section
+     below, displacing its text the same way. */
+  .portrait-stack {
+    float: right;
+    display: flex;
+    flex-direction: column;
+    gap: var(--head-gap);
+    width: var(--head);
+    margin: 6px 0 var(--gap-para) 0;
+    shape-outside: inset(0 round calc(var(--head) / 2)) border-box;
+    shape-margin: 1.25rem;
+  }
+  .portrait {
+    width: var(--head);
+    height: var(--head);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--ring);
+  }
+  @media (max-width: 480px) {
+    :root { --head: 88px; }
+    .portrait-stack { shape-margin: 0.85rem; }
+  }
+  p.intro {
+    margin: 0 0 var(--gap-para);
+  }
+  h2 {
+    font-size: 1.4rem;
+    color: var(--h2);
+    margin: var(--gap-section) 0 var(--gap-tight);
+    padding-top: var(--gap-para);
+    border-top: 1px solid var(--rule);
+  }
+  h3 {
+    font-size: 1.12rem;
+    color: var(--h3);
+    margin: var(--gap-group) 0 var(--gap-tight);
+  }
+  h2 + h3 {
+    margin-top: var(--gap-item);
+  }
+  p.section-note {
+    margin: var(--gap-para) 0 0;
+  }
+  ul {
+    margin: var(--gap-item) 0 0;
+    padding-left: 1.3rem;
+  }
+  li {
+    margin-bottom: var(--gap-item);
+  }
+  li:last-child {
+    margin-bottom: 0;
+  }
+  a {
+    color: var(--link);
+  }
+  a:visited {
+    color: var(--link-visited);
+  }
+
+  /* The third Building link opens this page inside itself. The copy is a real
+     iframe of the same document, so it scrolls, its links work, and its own
+     copy of the script at the foot of this file lets it open a copy inside
+     itself, and so on down.
+
+     The frame fills its container and is shrunk by a transform afterwards,
+     rather than being sized at 70% to begin with. Sizing it small would reflow
+     the copy into a narrower column and break the responsive layout at every
+     level; scaling after layout keeps each copy the same page, only smaller.
+     That is what makes the nesting self-similar. The twist compounds the same
+     way, --twist at each level against the one holding it. A level holds
+     that fixed twist for WAVE_START_DELAY_SECONDS (script, near MAX_DEPTH),
+     then wanders between +twist and -twist forever, each level to its own
+     period from WAVE_PERIOD_SECONDS there, so the levels drift in and out of
+     phase with each other rather than locking into a repeating pattern.
+     Both are set inline per frame in open(), which is also why they have
+     fallbacks below: without JS there's no click handler to open a frame in
+     the first place, so the fallbacks are only a backstop, never a second
+     place that needs updating to match the script's constants.
+     animation-delay counts from when the animation is first applied, which
+     for a frame built by open() is the instant it's clicked open, so no
+     clock needs to be read or stored to get a per-level start time. */
+  .droste-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    background: var(--veil);
+    animation: droste-open 240ms ease-out both;
+  }
+  .droste-frame {
+    position: absolute;
+    inset: 0;
+    /* transform-origin is the centre, so this scales the frame down in place
+       and no other centring is needed. rotate is animated on its own,
+       separate from scale, so the wave doesn't need to repeat "scale(0.7)"
+       at every keyframe. --twist-period is set inline per frame in open(). */
+    scale: 0.7;
+    rotate: var(--twist);
+    animation: droste-wave var(--twist-period, 25s) linear var(--wave-start-delay, 10s) infinite;
+  }
+  /* 21 stops sampling cos() at 18-degree steps: t=0 and t=1 both land back on
+     +twist, so the wave picks up exactly where the fixed hold left off, with
+     no jump. Written as literal coefficients rather than a live cos() call
+     so the wave doesn't depend on CSS trig-function support. */
+  @keyframes droste-wave {
+    0%   { rotate: var(--twist); }
+    5%   { rotate: calc(var(--twist) * 0.9511); }
+    10%  { rotate: calc(var(--twist) * 0.809); }
+    15%  { rotate: calc(var(--twist) * 0.5878); }
+    20%  { rotate: calc(var(--twist) * 0.309); }
+    25%  { rotate: 0deg; }
+    30%  { rotate: calc(var(--twist) * -0.309); }
+    35%  { rotate: calc(var(--twist) * -0.5878); }
+    40%  { rotate: calc(var(--twist) * -0.809); }
+    45%  { rotate: calc(var(--twist) * -0.9511); }
+    50%  { rotate: calc(var(--twist) * -1); }
+    55%  { rotate: calc(var(--twist) * -0.9511); }
+    60%  { rotate: calc(var(--twist) * -0.809); }
+    65%  { rotate: calc(var(--twist) * -0.5878); }
+    70%  { rotate: calc(var(--twist) * -0.309); }
+    75%  { rotate: 0deg; }
+    80%  { rotate: calc(var(--twist) * 0.309); }
+    85%  { rotate: calc(var(--twist) * 0.5878); }
+    90%  { rotate: calc(var(--twist) * 0.809); }
+    95%  { rotate: calc(var(--twist) * 0.9511); }
+    100% { rotate: var(--twist); }
+  }
+  .droste-window {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    box-shadow: 0 26px 64px -14px var(--drop);
+    overflow: hidden; /* holds the iframe corners inside the radius */
+  }
+  .droste-window iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: var(--bg);
+    opacity: 0;
+    transition: opacity 220ms ease-out;
+  }
+  .droste-window iframe.is-loaded {
+    opacity: 1;
+  }
+  /* Sits on the corner rather than inside it, which keeps it clear of the
+     copy's own theme toggle. It rides the scale and the twist with the frame,
+     since it belongs to that copy rather than to this page. */
+  .droste-close {
+    position: absolute;
+    top: -0.95rem;
+    right: -0.95rem;
+    z-index: 1;
+    width: 2.15rem;
+    height: 2.15rem;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    color: var(--h3);
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 50%;
+    box-shadow: 0 4px 14px -4px var(--drop);
+    cursor: pointer;
+  }
+  .droste-close:hover {
+    color: var(--h1);
+  }
+  .droste-close:focus-visible {
+    outline: 2px solid var(--link);
+    outline-offset: 3px;
+  }
+  .droste-close svg {
+    display: block;
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+  @keyframes droste-open {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  /* The fixed twist stays; only the wave, which is movement, is cut. */
+  @media (prefers-reduced-motion: reduce) {
+    .droste-backdrop { animation: none; }
+    .droste-window iframe { transition: none; }
+    .droste-frame { animation: none; }
+  }
+</style>
+<script>
+  // Runs before first paint, so the page never flashes the wrong theme.
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      if (t !== 'light' && t !== 'dark') {
+        t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<div class="portrait-stack" id="portrait-stack">
+  <img class="portrait" src="david-headshot.jpg" width="120" height="120" alt="David Ryan">
+</div>
+<script>
+  // Depth travels in the query string; read again at the foot of the page
+  // for the droste link itself, so it's stashed on window rather than
+  // parsed twice. Runs inline, before the rest of the body is parsed, so
+  // the stack is its full height before anything below it can lay out
+  // around it — one head at the top, one more per level down.
+  window.__drosteDepth = parseInt(new URLSearchParams(location.search).get('droste'), 10) || 0;
+  (function () {
+    var stack = document.getElementById('portrait-stack');
+    for (var i = 0; i < window.__drosteDepth; i++) {
+      var head = document.createElement('img');
+      head.className = 'portrait';
+      head.src = 'david-headshot.jpg';
+      head.width = 120;
+      head.height = 120;
+      head.alt = ''; // decorative repeat; the first head above already carries the name
+      stack.appendChild(head);
+    }
+  })();
+</script>
+<h1>David Ryan's Builder Page</h1>
+<p class="intro">
+  Hi, I'm David! I love building cool tech stuff. This page contains
+  everything I've built or published, all in one place.
+</p>
+<p class="intro">
+  I'm mainly into AI, blockchain, maths, music, computing, physics,
+  chemistry, and theology, however I love learning and stay curious about
+  most things.
+</p>
+<p class="intro">
+  I've made AI automations, apps and software, music with Just Intonation tuning,
+  self-similar fractal art and generative NFT art, Dark Forest plugins to help you
+  explore a hostile universe and shoot your enemies more effectively. I completed
+  my doctorate in fluid dynamics, my masters was mathematics, and I have a
+  stack of computing and Salesforce certifications.
+</p>
+<p class="intro">
+  Hope you enjoy looking at some of the interesting stuff I've built!
+</p>
+
+<h2>Building</h2>
+
+<h3>Apps &amp; Websites</h3>
+<ul>
+  <li>
+    <a target="_blank" rel="noopener" href="https://re-tuner.web.app/">ReTuner</a>
+    – a musical instrument with Just Intonation tuning, that retunes itself as you play.
+    Here is the <a target="_blank" rel="noopener" href="https://github.com/davidryan59/retuner">ReTuner code</a>.
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a>
+    – my public repositories, code for what I'm building
+  </li>
+  <li>
+    <a href="index.html" data-droste>David Ryan's Builder Page</a>
+    – have you checked it out yet?
+  </li>
+</ul>
+
+<h3>Ethereum &amp; NFTs</h3>
+<ul>
+  <li>
+    <strong>Ethereum Merge Fractals</strong> – a generative collection of 5,875 pieces marking
+    Ethereum's Merge to Proof of Stake in Sept 2022, with proceeds going to core protocol developers via
+    <a target="_blank" rel="noopener" href="https://protocolguild.org">Protocol Guild</a> and StatefulWorks.
+    <br>
+    <a target="_blank" rel="noopener" href="https://opensea.io/collection/mergefractals">View on OpenSea</a> ·
+    <a target="_blank" rel="noopener" href="https://etherscan.io/address/0xCeaAb19BaB4AdBc831b98A4Cf54A6A85A79218a4">Contract on Etherscan</a> ·
+    <a target="_blank" rel="noopener" href="https://github.com/davidryan59/scaffold-eth/tree/merge-fractal">Source on GitHub</a>
+  </li>
+  <li>
+    <strong>Moving Mondrian</strong> – a fully on-chain generative NFT on Optimism, built
+    for the Optimism Foundation's "We Love The Art" competition in Jan 2024. The
+    artwork and its traits are generated entirely inside the contract.
+    <br>
+    <a target="_blank" rel="noopener" href="https://opensea.io/collection/moving-mondrian">View on OpenSea</a> ·
+    <a target="_blank" rel="noopener" href="https://optimistic.etherscan.io/address/0x423021c7ab37a289e47c3f39f3978bd14fd580b4">Contract on Optimistic Etherscan</a> ·
+    <a target="_blank" rel="noopener" href="https://github.com/davidryan59/moving-mondrian">Source on GitHub</a>
+  </li>
+  <li>
+    <strong>Nifty Ink</strong> – generative fractal art, minted as NFTs.
+    <br>
+    <a target="_blank" rel="noopener" href="https://nifty.ink/artist/niftymaestro">View my artist page</a>
+  </li>
+</ul>
+<p class="section-note">
+  The Merge Fractal and Moving Mondrian NFTs are limited editions, they are currently still available to mint directly on the contract.
+</p>
+
+<h3>Dark Forest plugins</h3>
+<ul>
+  <li>
+    <a target="_blank" rel="noopener" href="https://github.com/darkforest-eth/plugins/blob/master/content/productivity/highlight-buffs/plugin.js">Highlight Buffs</a>
+    – shows the user where the good planets are, 2x buffs, artifacts, etc
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://github.com/darkforest-eth/plugins/blob/master/content/utilities/you-snooze-you-lose/plugin.js">You Snooze, You Lose!</a>
+    – works out when other players are asleep,<br>so you can destroy them as they slumber
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://github.com/darkforest-eth/plugins/blob/master/content/utilities/find-planet-by-name/plugin.js">Find Planet By Name</a>
+    – searches the galaxy for a planet by name
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://github.com/darkforest-eth/plugins/blob/master/content/utilities/active-players/plugin.js">Active Players</a>
+    – lists which players have sent the most moves recently
+  </li>
+</ul>
+<p class="section-note">These plugins were published in the official
+  <a target="_blank" rel="noopener" href="https://plugins.zkga.me/">Dark Forest plugin showcase</a>,
+  merged into <a target="_blank" rel="noopener" href="https://github.com/darkforest-eth/plugins">darkforest-eth/plugins</a>
+  between 2021 and 2022, along with fixes I made to two other community plugins.</p>
+
+<h3>npm modules</h3>
+<ul>
+  <li>
+    <a target="_blank" rel="noopener" href="https://www.npmjs.com/package/ji-rcn">ji-rcn</a>
+    – Just Intonation interval conversion to Rational Comma Notation
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://www.npmjs.com/package/peo">peo</a>
+    – Prime Exponent Object
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://www.npmjs.com/package/is-bounded-number">is-bounded-number</a>
+    – checks whether an input is numeric and within a given bound
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://www.npmjs.com/package/log-count">log-count</a>
+    – a wrapper for console.log with several log levels
+  </li>
+</ul>
+
+<h2>Music</h2>
+
+<h3>Links</h3>
+<ul>
+  <li>
+    <a target="_blank" rel="noopener" href="https://soundcloud.com/davidryan59/tracks">Music on SoundCloud</a>
+    – original compositions and classical pieces retuned, all in Just Intonation
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://github.com/davidryan59/music-sequencer-matlab-excel-audacity">Music sequencer</a>
+    – the sequencer I built between 2015 and 2017 to write much of that music:
+    notes go in as Excel, MATLAB or Octave renders one .wav per channel, and
+    Audacity mixes them down
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://en.xen.wiki/w/Rational_Comma_Notation_(RCN)">Music Theory – Rational Comma Notation</a>
+    – the notation system I built for composing in free Just Intonation, on the Xenharmonic Wiki
+  </li>
+</ul>
+
+<h3>Pre-prints</h3>
+<ul>
+  <li>
+    <a target="_blank" rel="noopener" href="https://arxiv.org/abs/1612.01860">An algorithm to assign musical prime commas to every prime number and construct a universal and compact free Just Intonation musical notation</a>
+    – arXiv preprint, 2016
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://arxiv.org/abs/1603.08904">Mathematical Harmony Analysis</a>
+    – arXiv preprint, 2016
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://arxiv.org/abs/1508.07739">Transposition of Notations in Just Intonation</a>
+    – arXiv preprint, 2015
+  </li>
+</ul>
+
+<h3>Press</h3>
+<ul>
+  <li>
+    <a target="_blank" rel="noopener" href="http://www.independent.co.uk/news/science/new-music-notation-system-could-render-modern-instruments-useless-researcher-claims-10485044.html">New music notation system could render modern instruments useless, researcher claims</a>
+    – The Independent, September 2015
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://www.techerati.com/the-stack-archive/world/2015/09/01/music-notation-system-just-intonation-david-ryan/">New digital music notation system renders current instruments obsolete</a>
+    – The Stack, September 2015
+  </li>
+</ul>
+<p class="section-note">
+  Unlike what the articles appear to imply, I don't actually think we should
+  destroy all of our existing musical instruments because they are obsolete!
+  12 tone equal temperament is clearly a very successful musical tuning system,
+  despite its audible limitations in terms of tuning accuracy. Nonetheless, I am
+  delighted to use Just Intonation to create new, unusual, and exciting music.
+  Perhaps some day we'll figure out how to encode the infinite possibilities of
+  these JI tunings to actual physical instruments... or perhaps AI is needed to
+  automate that for us 😉
+</p>
+
+<h2>Academic &amp; Qualifications</h2>
+
+<h3>Qualifications</h3>
+<ul>
+  <li>
+    <strong>EngD, Formulation Engineering</strong>, 2009–2013
+    – an Engineering Doctorate from University of Birmingham, sponsored by Unilever. My thesis,
+    <a target="_blank" rel="noopener" href="https://etheses.bham.ac.uk/id/eprint/5696/">Investigation of fluid dynamics and emulsification in Sonolator liquid whistles</a>
+    (also on <a target="_blank" rel="noopener" href="https://www.slideshare.net/DavidRyan134?tab=documents">SlideShare</a>),
+    combined lab experiments and CFD simulation to work out how an industrial mixer breaks liquids into droplets.
+  </li>
+  <li>
+    <strong>MMath, Mathematics</strong>, 1998–2002
+    – a four-year integrated Master's from Keble College, University of Oxford
+  </li>
+</ul>
+
+<h3>Journal Papers</h3>
+<ul>
+  <li>
+    <a target="_blank" rel="noopener" href="https://doi.org/10.1016/j.ces.2018.06.004">Emulsification using a "Sonolator" liquid whistle: a new correlation for droplet size from pilot-scale experiments</a>
+    – Chemical Engineering Science, 2018, with M.R. Baker, A.J. Kowalski and M.J.H. Simmons
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://doi.org/10.1016/j.ces.2017.01.035">Determination of the flow field inside a Sonolator liquid whistle using PIV and CFD</a>
+    – Chemical Engineering Science, 2017, with M.J.H. Simmons and M.R. Baker
+  </li>
+</ul>
+
+<h3>Conference Papers</h3>
+<ul>
+  <li>
+    Investigating dispersion and emulsification processes using a Sonolator liquid whistle
+    – 8th International Conference on Multiphase Flow, Jeju, Korea, 2013, with M. Simmons and M. Baker
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://doi.org/10.1115/AJK2011-03023">Modelling multiphase jet flows for high velocity emulsification</a>
+    – ASME-JSME-KSME Joint Fluids Engineering Conference, Hamamatsu, Japan, 2011, with M. Simmons and M. Baker
+  </li>
+</ul>
+
+<h3>Profiles</h3>
+<ul>
+  <li>
+    <a target="_blank" rel="noopener" href="https://orcid.org/0000-0002-4785-9766">ORCID profile</a>
+    – 0000-0002-4785-9766
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://www.scopus.com/authid/detail.uri?authorId=55818938500">Scopus profile</a>
+  </li>
+</ul>
+
+<h3>Salesforce Certifications</h3>
+<ul>
+  <li>Platform Administrator – March 2018</li>
+  <li>Platform Developer – August 2018</li>
+  <li>Agentforce Service Consultant – August 2018</li>
+  <li>Agentforce Sales Consultant – October 2018</li>
+  <li>Platform App Builder – September 2019</li>
+  <li>Platform Administrator II – September 2019</li>
+</ul>
+<p class="section-note">
+  All verifiable at Salesforce's
+  <a target="_blank" rel="noopener" href="https://trailhead.salesforce.com/credentials/verification">credential verification page</a>.
+</p>
+
+<h2>Contact Me</h2>
+<ul>
+  <li><a target="_blank" rel="noopener" href="https://www.linkedin.com/in/davidryan59/">LinkedIn</a></li>
+  <li><a target="_blank" rel="noopener" href="https://x.com/davidryan59">Twitter / X</a></li>
+</ul>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.querySelector('.theme-toggle');
+    btn.hidden = false;
+    function describe() {
+      btn.title = 'Switch to ' + (root.dataset.theme === 'dark' ? 'light' : 'dark') + ' mode';
+      btn.setAttribute('aria-label', btn.title);
+    }
+    describe();
+    btn.addEventListener('click', function () {
+      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+      describe();
+    });
+  })();
+
+  /* The Building list's third entry is this page, so clicking it opens this
+     page. Every copy runs this script, which is the whole trick: the copy can
+     open a copy, and that one can too.
+
+     Depth travels in the query string. It gives each level a URL of its own,
+     which matters because a browser refuses to load an iframe whose address
+     matches one of its ancestors, and it tells a copy when it has gone deep
+     enough to stop. The address itself is read off this document rather than
+     written down, so the copy points at wherever the page is actually served
+     from and nothing here needs editing on deployment. */
+  (function () {
+    const MAX_DEPTH = 7; // 0.7^7 is about 8% of full size, past legible already; also the number of wave periods below, one per level a frame can be opened to
+
+    const WAVE_START_DELAY_SECONDS = 2; // how long a level holds its fixed twist before it starts waving
+    // Distinct periods, one per level, so the levels' waves drift in and out
+    // of phase rather than settling into a repeating group pattern.
+    const WAVE_PERIOD_SECONDS = [11, 7, 5, 4, 3, 2, 1];
+
+    var link = document.querySelector('[data-droste]');
+    if (!link) return;
+
+    var depth = window.__drosteDepth;
+    var backdrop = null;
+    var heldOverflow = '';
+
+    function close() {
+      if (!backdrop) return;
+      backdrop.remove();
+      backdrop = null;
+      document.documentElement.style.overflow = heldOverflow;
+      link.focus();
+    }
+
+    // A deeper copy reaches out to this when it wants to be shut, since the
+    // frame holding it belongs to this document rather than to itself.
+    window.__drosteClose = close;
+
+    function open() {
+      if (backdrop) return;
+
+      backdrop = document.createElement('div');
+      backdrop.className = 'droste-backdrop';
+
+      var frame = document.createElement('div');
+      frame.className = 'droste-frame';
+      // The frame about to open is one level deeper than this copy.
+      var level = depth + 1;
+      frame.style.setProperty('--twist-period', WAVE_PERIOD_SECONDS[level - 1] + 's');
+      frame.style.setProperty('--wave-start-delay', WAVE_START_DELAY_SECONDS + 's');
+      frame.setAttribute('role', 'dialog');
+      frame.setAttribute('aria-modal', 'true');
+      frame.setAttribute('aria-label', 'This page, opened inside itself');
+
+      var pane = document.createElement('div');
+      pane.className = 'droste-window';
+
+      var copy = document.createElement('iframe');
+      copy.title = 'David Ryan’s Builder Page, again';
+      var next = new URL(location.href);
+      next.searchParams.set('droste', depth + 1);
+      copy.src = next.href;
+      copy.addEventListener('load', function () { copy.classList.add('is-loaded'); });
+
+      var shut = document.createElement('button');
+      shut.type = 'button';
+      shut.className = 'droste-close';
+      shut.title = 'Close this copy';
+      shut.setAttribute('aria-label', 'Close this copy');
+      shut.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.9" stroke-linecap="round" aria-hidden="true">' +
+        '<path d="M6.8 6.8l10.4 10.4M17.2 6.8L6.8 17.2"/></svg>';
+      shut.addEventListener('click', close);
+
+      backdrop.addEventListener('click', function (e) {
+        if (e.target === backdrop) close();
+      });
+
+      pane.appendChild(copy);
+      frame.appendChild(pane);
+      frame.appendChild(shut);
+      backdrop.appendChild(frame);
+
+      heldOverflow = document.documentElement.style.overflow;
+      document.documentElement.style.overflow = 'hidden';
+      document.body.appendChild(backdrop);
+      shut.focus();
+    }
+
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (depth >= MAX_DEPTH) {
+        // The bottom. Fold the whole stack away in one go, since closing the
+        // outermost copy takes every copy inside it with it.
+        try { window.top.__drosteClose(); } catch (err) {}
+        return;
+      }
+      open();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (backdrop) { close(); return; }
+      // Nothing open here, so the key belongs to whoever is holding this copy.
+      if (window !== window.top) {
+        try { window.parent.__drosteClose(); } catch (err) {}
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>

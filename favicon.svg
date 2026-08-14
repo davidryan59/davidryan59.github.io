@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <style>
+    /* Ink follows the browser chrome, which a PNG favicon cannot do. */
+    path { fill: #1a1a1a; }
+    @media (prefers-color-scheme: dark) { path { fill: #f5f3ec; } }
+
+    /* Depth follows the rendered size. At 16px the second-level holes are one
+       pixel across and close up, so the tab gets a clean level 1 and larger
+       renders get the full fractal. If a browser ignores this query it keeps
+       level 1, which is the safe direction to fail in. */
+    .deep { display: none; }
+    @media (min-width: 24px) {
+      .flat { display: none; }
+      .deep { display: block; }
+    }
+  </style>
+
+  <!-- Coordinates sit on the 16px grid: apex 8,1 and base 1,15 to 15,15. -->
+  <path class="flat" fill-rule="evenodd"
+        d="M8 1 15 15H1Z
+           M4.5 8H11.5L8 15Z"/>
+
+  <path class="deep" fill-rule="evenodd"
+        d="M8 1 15 15H1Z
+           M4.5 8H11.5L8 15Z
+           M6.25 4.5H9.75L8 8Z
+           M2.75 11.5H6.25L4.5 15Z
+           M9.75 11.5H13.25L11.5 15Z"/>
+</svg>
