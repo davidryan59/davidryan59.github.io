@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mint a Moving Mondrian</title>
-<meta name="description" content="Mint a Moving Mondrian, a fully on-chain generative artwork on Optimism. Connect a wallet, see what you hold, and mint straight from the contract.">
+<meta name="description" content="Mint a Moving Mondrian, a fully onchain generative artwork on Optimism. Connect a wallet, see what you hold, and mint straight from the contract.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://davidryan59.github.io/moving-mondrian/">
 <meta property="og:title" content="Mint a Moving Mondrian">
-<meta property="og:description" content="A fully on-chain generative artwork on Optimism. Mint straight from the contract.">
+<meta property="og:description" content="A fully onchain generative artwork on Optimism. Mint straight from the contract.">
 <meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:creator" content="@davidryan59">
@@ -34,19 +34,19 @@
 <a class="back" href="../index.html">← David Ryan's builder page</a>
 
 <h1>Moving Mondrian</h1>
-<p class="tagline">A fully on-chain generative artwork, on Optimism mainnet.</p>
+<p class="tagline">A fully onchain generative artwork, on Optimism mainnet.</p>
 
 <div class="art-row">
-  <img src="../moving-mondrian-563.svg" width="260" height="260" alt="Moving Mondrian #563, an animated on-chain generative artwork">
-  <img src="../moving-mondrian-133.svg" width="260" height="260" alt="Moving Mondrian #133, an animated on-chain generative artwork">
-  <img src="../moving-mondrian-951.svg" width="260" height="260" alt="Moving Mondrian #951, an animated on-chain generative artwork">
+  <img src="../moving-mondrian-563.svg" width="260" height="260" alt="Moving Mondrian #563, an animated onchain generative artwork">
+  <img src="../moving-mondrian-133.svg" width="260" height="260" alt="Moving Mondrian #133, an animated onchain generative artwork">
+  <img src="../moving-mondrian-951.svg" width="260" height="260" alt="Moving Mondrian #951, an animated onchain generative artwork">
 </div>
 
 <p>
   I built Moving Mondrian for the Optimism Foundation's "We Love The Art"
   competition in January 2024. The artwork and every one of its traits come
   out of the contract itself. Rarity, shape, frame, lines, base angle,
-  opacities and colours are all generated on-chain, so each piece lives
+  opacities and colours are all generated onchain, so each piece lives
   entirely on Optimism mainnet with no server behind it. Proceeds from this mint are
   split evenly between the artist and Protocol Guild, to support Ethereum
   core development.
@@ -307,7 +307,7 @@
         await loadStats();
         await loadHoldings();
       } else {
-        setStatus('The transaction failed on-chain. See ' + link, 'bad');
+        setStatus('The transaction failed onchain. See ' + link, 'bad');
       }
     } catch (err) {
       setStatus(Mint.describeError(err), 'bad');
@@ -363,7 +363,7 @@
     }
   }
 
-  /* Each artwork is tens of kilobytes of on-chain SVG, so they arrive a page
+  /* Each artwork is tens of kilobytes of onchain SVG, so they arrive a page
      at a time rather than all at once. */
   async function showMore() {
     var slice = state.myIds.slice(state.shown, state.shown + PAGE);
