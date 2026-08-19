@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mint an Ethereum Merge Fractal</title>
+<meta name="description" content="Mint an Ethereum Merge Fractal, a generative on-chain artwork marking the Merge, with proceeds going to Ethereum core developers. Connect a wallet and mint straight from the contract.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://davidryan59.github.io/merge-fractals/">
+<meta property="og:title" content="Mint an Ethereum Merge Fractal">
+<meta property="og:description" content="A generative on-chain artwork marking Ethereum's Merge, with proceeds going to core protocol developers.">
+<meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../mint.css">
+<script src="../mint.js"></script>
+<script>Mint.initTheme();</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../index.html">← David Ryan's builder page</a>
+
+<h1>Ethereum Merge Fractals</h1>
+<p class="tagline">A generative collection marking Ethereum's Merge, on Ethereum mainnet.</p>
+
+<div class="art-row">
+  <img src="../merge-fractal-2757.svg" width="260" height="260" alt="Ethereum Merge Fractal #2757, an animated on-chain fractal">
+  <img src="../merge-fractal-1904.svg" width="260" height="260" alt="Ethereum Merge Fractal #1904, an animated on-chain fractal">
+  <img src="../merge-fractal-1509.svg" width="260" height="260" alt="Ethereum Merge Fractal #1509, an animated on-chain fractal">
+</div>
+
+<p>
+  I made these to mark Ethereum's move to Proof of Stake in September 2022.
+  The collection runs to 5,875 pieces, each one drawn by the contract itself
+  and named after a core protocol developer. Proceeds from every mint go
+  straight to the developers who built the Merge, through
+  <a target="_blank" rel="noopener" href="https://protocolguild.org">Protocol Guild</a>
+  and StatefulWorks. The contract forwards the money on mint, so it never
+  sits with me.
+</p>
+
+<h2>Mint</h2>
+
+<div class="panel">
+  <dl class="stats">
+    <div class="stat"><dt>Minted</dt><dd id="stat-minted">…</dd></div>
+    <div class="stat"><dt>Remaining</dt><dd id="stat-remaining">…</dd></div>
+    <div class="stat"><dt>Price now</dt><dd id="stat-price">…</dd></div>
+  </dl>
+  <p class="muted" id="price-note" style="margin:var(--gap-item) 0 0;font-size:0.95rem"></p>
+</div>
+
+<div class="panel" id="wallet-panel">
+  <div id="connect-area">
+    <p style="margin-bottom:var(--gap-item)">Connect a wallet to mint.</p>
+    <ul class="wallet-list" id="wallet-list"></ul>
+    <p class="muted" id="no-wallet" hidden style="margin:var(--gap-item) 0 0;font-size:0.95rem">
+      No browser wallet found. Install
+      <a href="https://metamask.io" target="_blank" rel="noopener">MetaMask</a> or
+      <a href="https://rabby.io" target="_blank" rel="noopener">Rabby</a>, then reload this page.
+    </p>
+  </div>
+
+  <div id="account-area" hidden>
+    <div class="account">
+      <span>Connected as <code id="account-address"></code></span>
+      <button class="btn btn-quiet" type="button" id="disconnect">Disconnect</button>
+    </div>
+    <div class="mint-row" style="margin-top:var(--gap-item)">
+      <button class="btn" type="button" id="mint">Mint one</button>
+      <span class="muted" id="total-cost"></span>
+    </div>
+  </div>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+</div>
+
+<h2>Your Merge Fractals</h2>
+<p id="holdings-note" class="muted">Connect a wallet to see what you hold.</p>
+<div class="tokens" id="holdings"></div>
+<p style="margin-top:var(--gap-item)">
+  <button class="btn btn-quiet" type="button" id="show-more" hidden>Show more</button>
+</p>
+
+<h2>How the price works</h2>
+<p>
+  The mint price started at 0.001 ETH and rises by 0.0002 ETH after every 50
+  pieces. The contract asks for the exact amount, to the wei, so this page
+  reads the current price the moment you press mint rather than trusting a
+  figure that may be minutes old. If a piece sells while you are confirming,
+  and that piece happens to cross a 50 boundary, your transaction is rejected
+  and nothing is spent beyond gas. Press mint again and the new price is used.
+</p>
+
+<h2>Links</h2>
+<ul class="links">
+  <li><a target="_blank" rel="noopener" href="https://opensea.io/collection/mergefractals">OpenSea collection</a></li>
+  <li><a target="_blank" rel="noopener" href="https://etherscan.io/address/0xCeaAb19BaB4AdBc831b98A4Cf54A6A85A79218a4">Contract on Etherscan</a></li>
+  <li><a target="_blank" rel="noopener" href="https://github.com/davidryan59/scaffold-eth/tree/merge-fractal">Source code on GitHub</a></li>
+  <li><a target="_blank" rel="noopener" href="https://metaversal.banklesshq.com/p/celebrating-the-merge-with-nfts">Bankless, "Celebrating the Merge with NFTs"</a></li>
+  <li><a href="../moving-mondrian/index.html">Mint a Moving Mondrian instead</a></li>
+</ul>
+
+<script>
+(function () {
+  'use strict';
+
+  var CONTRACT = '0xCeaAb19BaB4AdBc831b98A4Cf54A6A85A79218a4';
+
+  /* Selectors, each checked against the deployed contract. */
+  var FN = {
+    mintCount:          '0x9659867e', // mintCount()
+    mintLimit:          '0x996517cf', // mintLimit()
+    getPriceNext:       '0xf32adb2a', // getPriceNext()
+    isMintingAllowed:   '0x2b481883', // isMintingAllowed()
+    balanceOf:          '0x70a08231', // balanceOf(address)
+    tokenOfOwnerByIndex:'0x2f745c59', // tokenOfOwnerByIndex(address,uint256)
+    mintItem:           '0xeb93406b'  // mintItem()
+  };
+
+  /* Mirrors the contract: price steps every 50 pieces. Used only to tell a
+     visitor how many are left at the current price. The amount actually sent
+     always comes from getPriceNext(). */
+  var STEP = 50;
+
+  var CHAIN = {
+    chainId: '0x1',
+    chainName: 'Ethereum Mainnet',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: ['https://ethereum-rpc.publicnode.com'],
+    blockExplorerUrls: ['https://etherscan.io'],
+    explorerName: 'Etherscan'
+  };
+
+  /* Each of these was checked from a browser origin for a working eth_call
+     and a permissive CORS header. Endpoints that answer from a server but
+     refuse a browser are no use here. */
+  var rpc = Mint.makeRpc([
+    'https://ethereum-rpc.publicnode.com',
+    'https://eth.merkle.io',
+    'https://rpc.mevblocker.io',
+    'https://eth.drpc.org'
+  ]);
+
+  var A = Mint.abi;
+  var $ = function (id) { return document.getElementById(id); };
+  var setStatus = Mint.status($('status'));
+  var itemUrl = function (id) {
+    return 'https://opensea.io/item/ethereum/' + CONTRACT.toLowerCase() + '/' + id;
+  };
+
+  var state = {
+    provider: null,
+    account: null,
+    priceWei: null,
+    myIds: [],
+    shown: 0
+  };
+  var PAGE = 12;
+
+  async function loadStats() {
+    try {
+      var results = await Promise.all([
+        rpc.call(CONTRACT, FN.mintCount),
+        rpc.call(CONTRACT, FN.mintLimit),
+        rpc.call(CONTRACT, FN.getPriceNext),
+        rpc.call(CONTRACT, FN.isMintingAllowed)
+      ]);
+      var count = A.toNumber(results[0]);
+      var limit = A.toNumber(results[1]);
+      state.priceWei = A.toBigInt(results[2]);
+      var allowed = A.toBool(results[3]);
+
+      $('stat-minted').textContent = Mint.formatCount(count) + ' of ' + Mint.formatCount(limit);
+      $('stat-remaining').textContent = Mint.formatCount(limit - count);
+      $('stat-price').innerHTML = Mint.formatEth(state.priceWei) + ' <span class="unit">ETH</span>';
+      $('total-cost').textContent = Mint.formatEth(state.priceWei) + ' ETH plus gas';
+
+      /* How many more go at this price before the next 50 boundary. */
+      var leftAtPrice = (Math.floor(count / STEP) + 1) * STEP - count;
+      $('price-note').textContent = allowed
+        ? leftAtPrice + (leftAtPrice === 1 ? ' piece left' : ' pieces left') +
+          ' at this price, then it rises by 0.0002 ETH.'
+        : 'Minting has finished. The whole collection has been minted.';
+
+      if (!allowed) {
+        $('mint').disabled = true;
+        $('mint').textContent = 'Sold out';
+      }
+    } catch (err) {
+      $('stat-minted').textContent = '–';
+      $('stat-remaining').textContent = '–';
+      $('stat-price').textContent = '–';
+      setStatus('Could not read the contract just now. Reload to try again.', 'bad');
+    }
+  }
+
+  /* Wallets ---------------------------------------------------------- */
+  Mint.discoverWallets(function (wallets) {
+    var list = $('wallet-list');
+    list.innerHTML = '';
+    $('no-wallet').hidden = wallets.length > 0;
+    wallets.forEach(function (w) {
+      var li = document.createElement('li');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'wallet-btn';
+      if (w.info.icon) {
+        var img = document.createElement('img');
+        img.src = w.info.icon;
+        img.alt = '';
+        btn.appendChild(img);
+      }
+      btn.appendChild(document.createTextNode(w.info.name));
+      btn.addEventListener('click', function () { connect(w.provider); });
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+  });
+
+  async function connect(provider) {
+    setStatus('Check your wallet for a prompt…', 'busy');
+    try {
+      var accounts = await provider.request({ method: 'eth_requestAccounts' });
+      if (!accounts || !accounts.length) throw new Error('No account returned.');
+      state.provider = provider;
+      state.account = accounts[0];
+
+      provider.on && provider.on('accountsChanged', function (accs) {
+        if (!accs || !accs.length) { disconnect(); return; }
+        state.account = accs[0];
+        showAccount();
+        loadHoldings();
+      });
+      provider.on && provider.on('chainChanged', function () { setStatus(''); });
+
+      showAccount();
+      setStatus('');
+      loadHoldings();
+    } catch (err) {
+      setStatus(Mint.describeError(err), 'bad');
+    }
+  }
+
+  function showAccount() {
+    $('connect-area').hidden = true;
+    $('account-area').hidden = false;
+    $('account-address').textContent = Mint.shortAddress(state.account);
+  }
+
+  function disconnect() {
+    state.provider = null;
+    state.account = null;
+    state.myIds = [];
+    state.shown = 0;
+    $('connect-area').hidden = false;
+    $('account-area').hidden = true;
+    $('holdings').innerHTML = '';
+    $('show-more').hidden = true;
+    $('holdings-note').hidden = false;
+    $('holdings-note').textContent = 'Connect a wallet to see what you hold.';
+    setStatus('');
+  }
+
+  $('disconnect').addEventListener('click', disconnect);
+
+  /* Mint -------------------------------------------------------------- */
+  /* The contract tests msg.value for exact equality against a price that
+     climbs, which is what broke the third-party mint sites. Reading the price
+     inside the click, right before sending, is the whole fix. */
+  $('mint').addEventListener('click', async function () {
+    if (!state.provider) return;
+    var btn = this;
+    btn.disabled = true;
+    try {
+      await Mint.ensureChain(state.provider, CHAIN);
+
+      var priceWei = A.toBigInt(await rpc.call(CONTRACT, FN.getPriceNext));
+      if (state.priceWei !== null && priceWei !== state.priceWei) {
+        setStatus('The price has just moved to ' + Mint.formatEth(priceWei) +
+          ' ETH. Confirm in your wallet if you are happy with that.', 'busy');
+      } else {
+        setStatus('Confirm the transaction in your wallet…', 'busy');
+      }
+      state.priceWei = priceWei;
+      $('stat-price').innerHTML = Mint.formatEth(priceWei) + ' <span class="unit">ETH</span>';
+      $('total-cost').textContent = Mint.formatEth(priceWei) + ' ETH plus gas';
+
+      var hash = await state.provider.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: state.account,
+          to: CONTRACT,
+          value: '0x' + priceWei.toString(16),
+          data: FN.mintItem
+        }]
+      });
+
+      setStatus('Minting. Waiting for Ethereum to confirm…', 'busy');
+      var receipt = await Mint.waitForReceipt(state.provider, hash);
+      var link = CHAIN.blockExplorerUrls[0] + '/tx/' + hash;
+      if (!receipt) {
+        setStatus('Still pending. Check the transaction on ' + CHAIN.explorerName + ': ' + link, 'busy');
+      } else if (A.toBigInt(receipt.status) === 1n) {
+        var minted = Mint.describeMinted(Mint.extractMintedIds(receipt, CONTRACT, state.account));
+        setStatus('Minted. ' + minted.text + ' below, and on ' + CHAIN.explorerName + ': ' + link, 'good');
+        await loadStats();
+        await loadHoldings();
+      } else {
+        setStatus('The transaction failed on-chain. See ' + link, 'bad');
+      }
+    } catch (err) {
+      setStatus(Mint.describeError(err), 'bad');
+      loadStats();
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  /* Holdings ---------------------------------------------------------- */
+  /* This contract does support enumeration, so the token ids come straight
+     from the contract. Multicall3 fetches them in one request. */
+  async function loadHoldings() {
+    if (!state.account) return;
+    var note = $('holdings-note');
+    note.hidden = false;
+    note.textContent = 'Looking up what you hold…';
+    $('holdings').innerHTML = '';
+    $('show-more').hidden = true;
+
+    try {
+      var balance = A.toNumber(await rpc.call(CONTRACT, FN.balanceOf + A.address(state.account)));
+      if (balance === 0) {
+        note.textContent = 'You do not hold a Merge Fractal yet.';
+        return;
+      }
+
+      var calls = [];
+      for (var i = 0; i < balance; i++) {
+        calls.push({
+          target: CONTRACT,
+          allowFailure: true,
+          data: FN.tokenOfOwnerByIndex + A.address(state.account) + A.uint(i)
+        });
+      }
+      var res = await Mint.multicall(rpc, calls);
+      var mine = res.filter(function (r) { return r.success; })
+                    .map(function (r) { return Number(A.toBigInt(r.data)); });
+      /* Newest first, so a piece just minted appears at the top of the list. */
+      mine.sort(function (a, b) { return b - a; });
+
+      state.myIds = mine;
+      state.shown = 0;
+      note.textContent = mine.length === 1
+        ? 'You hold 1 Merge Fractal.'
+        : 'You hold ' + Mint.formatCount(mine.length) + ' Merge Fractals.';
+      showMore();
+    } catch (err) {
+      note.textContent = 'Could not read your holdings just now.';
+    }
+  }
+
+  async function showMore() {
+    var slice = state.myIds.slice(state.shown, state.shown + PAGE);
+    if (!slice.length) return;
+    var append = state.shown > 0;
+    state.shown += slice.length;
+    $('show-more').hidden = state.shown >= state.myIds.length;
+    $('show-more').textContent = 'Show more (' + (state.myIds.length - state.shown) + ' left)';
+    await Mint.renderTokens({
+      container: $('holdings'),
+      ids: slice,
+      rpc: rpc,
+      contract: CONTRACT,
+      itemUrl: itemUrl,
+      append: append
+    });
+  }
+
+  $('show-more').addEventListener('click', showMore);
+
+  Mint.wireThemeToggle();
+  loadStats();
+})();
+</script>
+
+</body>
+</html>

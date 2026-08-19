@@ -1,0 +1,250 @@
+/* Shared styling for the two mint pages. The colour tokens and the vertical
+   rhythm match index.html exactly, so the three pages read as one site. The
+   toggle pins data-theme, which sets color-scheme and flips every pair. */
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#f6f3ec, #16161a);
+  --panel: light-dark(#fffdf8, #1e1e23);
+  --text: light-dark(#46443d, #c8c4b9);
+  --h1: light-dark(#1a1a1a, #f5f3ec);
+  --h2: light-dark(#2a2922, #e6e2d8);
+  --h3: light-dark(#38362e, #d8d4c9);
+  --link: light-dark(#1552a1, #7aa6e0);
+  --link-visited: light-dark(#6a3d9a, #b79ad6);
+  --rule: light-dark(#ddd8cc, #3a3a3a);
+  --ring: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.16));
+  --accent: light-dark(#1552a1, #7aa6e0);
+  --accent-text: light-dark(#ffffff, #16161a);
+  --good: light-dark(#1e6b3a, #6cc48c);
+  --bad: light-dark(#a12e2e, #e88b8b);
+  --muted: light-dark(#7c786d, #918c80);
+
+  --gap-tight: 0.5rem;
+  --gap-item: 1rem;
+  --gap-para: 1.5rem;
+  --gap-group: 2.5rem;
+  --gap-section: 3.5rem;
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+/* An author display rule beats the browser's own [hidden] rule, so .btn and
+   the panels would otherwise stay on screen while marked hidden. */
+[hidden] { display: none !important; }
+html { background: var(--bg); }
+body {
+  position: relative;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  line-height: 1.65;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 4rem 1.25rem 6rem;
+}
+
+a { color: var(--link); }
+a:visited { color: var(--link-visited); }
+
+h1, h2, h3 { line-height: 1.25; }
+h1 { font-size: 1.9rem; color: var(--h1); margin: 0 0 var(--gap-tight); }
+h2 {
+  font-size: 1.35rem;
+  color: var(--h2);
+  margin: var(--gap-section) 0 var(--gap-tight);
+  padding-top: var(--gap-item);
+  border-top: 1px solid var(--rule);
+}
+h3 { font-size: 1.1rem; color: var(--h3); margin: var(--gap-group) 0 var(--gap-tight); }
+p { margin: 0 0 var(--gap-para); }
+
+.tagline { color: var(--muted); margin: 0 0 var(--gap-para); }
+.back { display: inline-block; margin-bottom: var(--gap-para); font-size: 0.95rem; }
+.muted { color: var(--muted); }
+.nowrap { white-space: nowrap; }
+
+/* Same absolute placement as index.html, so the button lands in the top
+   padding without shifting the h1. Hidden until the script runs. */
+.theme-toggle {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--h3);
+  background: none;
+  border: 1px solid var(--ring);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.theme-toggle:hover { color: var(--h1); border-color: var(--rule); }
+.theme-toggle:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+.theme-toggle svg { display: block; width: 1.05rem; height: 1.05rem; }
+:root[data-theme="dark"] .theme-toggle .moon { display: none; }
+:root[data-theme="light"] .theme-toggle .sun { display: none; }
+
+/* Panels ------------------------------------------------------------- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin: 0 0 var(--gap-para);
+}
+
+/* Live contract state. auto-fit keeps it one row on a laptop and wraps to
+   two on a phone without a media query. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--gap-item);
+  margin: 0;
+}
+.stat { margin: 0; }
+.stat dt {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.15rem;
+}
+.stat dd {
+  margin: 0;
+  font-size: 1.22rem;
+  line-height: 1.3;
+  color: var(--h1);
+}
+.stat dd .unit { font-size: 0.85rem; color: var(--muted); }
+
+/* Buttons ------------------------------------------------------------ */
+button {
+  font-family: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.btn {
+  display: inline-block;
+  padding: 0.6rem 1.15rem;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  line-height: 1.4;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.12); }
+.btn:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-quiet {
+  color: var(--h2);
+  background: none;
+  border-color: var(--ring);
+}
+.btn-quiet:hover:not(:disabled) { border-color: var(--rule); filter: none; }
+
+.mint-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.mint-row label { color: var(--muted); font-size: 0.95rem; }
+.mint-row input[type="number"] {
+  font-family: inherit;
+  font-size: 1rem;
+  width: 5.2rem;
+  padding: 0.55rem 0.6rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--ring);
+  border-radius: 7px;
+}
+
+/* The wallet chooser. One row per wallet the browser announced. */
+.wallet-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wallet-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.95rem;
+  color: var(--h2);
+  background: var(--bg);
+  border: 1px solid var(--ring);
+  border-radius: 7px;
+}
+.wallet-btn:hover { border-color: var(--rule); }
+.wallet-btn img { width: 22px; height: 22px; border-radius: 5px; }
+
+.account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+}
+.account code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+  color: var(--h2);
+}
+
+/* Status line. Colour carries the state, and the wording repeats it, so the
+   meaning survives for a reader who cannot separate the two colours. */
+.status { margin: var(--gap-item) 0 0; font-size: 0.95rem; }
+.status:empty { display: none; }
+.status.is-good { color: var(--good); }
+.status.is-bad { color: var(--bad); }
+.status.is-busy { color: var(--muted); }
+
+/* Token gallery ------------------------------------------------------ */
+.tokens {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--gap-item);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.token { margin: 0; text-align: center; }
+.token img,
+.token .token-art {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 0 0 0 1px var(--ring);
+}
+.token .token-art { display: grid; place-items: center; color: var(--muted); font-size: 0.85rem; }
+.token figcaption { margin-top: 0.35rem; font-size: 0.85rem; color: var(--muted); }
+
+/* Example row, three pieces wide, sized to the column so it never overflows. */
+.art-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--gap-item);
+  margin: 0 0 var(--gap-para);
+}
+.art-row img {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--ring);
+}
+
+.links { margin: 0; padding: 0; list-style: none; }
+.links li { margin-bottom: var(--gap-tight); }

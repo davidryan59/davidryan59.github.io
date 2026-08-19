@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mint a Moving Mondrian</title>
+<meta name="description" content="Mint a Moving Mondrian, a fully on-chain generative artwork on Optimism. Connect a wallet, see what you hold, and mint straight from the contract.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://davidryan59.github.io/moving-mondrian/">
+<meta property="og:title" content="Mint a Moving Mondrian">
+<meta property="og:description" content="A fully on-chain generative artwork on Optimism. Mint straight from the contract.">
+<meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../mint.css">
+<script src="../mint.js"></script>
+<script>Mint.initTheme();</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../index.html">← David Ryan's builder page</a>
+
+<h1>Moving Mondrian</h1>
+<p class="tagline">A fully on-chain generative artwork, on Optimism mainnet.</p>
+
+<div class="art-row">
+  <img src="../moving-mondrian-563.svg" width="260" height="260" alt="Moving Mondrian #563, an animated on-chain generative artwork">
+  <img src="../moving-mondrian-133.svg" width="260" height="260" alt="Moving Mondrian #133, an animated on-chain generative artwork">
+  <img src="../moving-mondrian-951.svg" width="260" height="260" alt="Moving Mondrian #951, an animated on-chain generative artwork">
+</div>
+
+<p>
+  I built Moving Mondrian for the Optimism Foundation's "We Love The Art"
+  competition in January 2024. The artwork and every one of its traits come
+  out of the contract itself. Rarity, shape, frame, lines, base angle,
+  opacities and colours are all generated on-chain, so each piece lives
+  entirely on Optimism mainnet with no server behind it. Proceeds from this mint are
+  split evenly between the artist and Protocol Guild, to support Ethereum
+  core development.
+</p>
+
+<h2>Mint</h2>
+
+<div class="panel">
+  <dl class="stats">
+    <div class="stat"><dt>Minted</dt><dd id="stat-minted">…</dd></div>
+    <div class="stat"><dt>Remaining</dt><dd id="stat-remaining">…</dd></div>
+    <div class="stat"><dt>Price each</dt><dd id="stat-price">…</dd></div>
+  </dl>
+</div>
+
+<div class="panel" id="wallet-panel">
+  <div id="connect-area">
+    <p style="margin-bottom:var(--gap-item)">Connect a wallet to mint.</p>
+    <ul class="wallet-list" id="wallet-list"></ul>
+    <p class="muted" id="no-wallet" hidden style="margin:var(--gap-item) 0 0;font-size:0.95rem">
+      No browser wallet found. Install
+      <a href="https://metamask.io" target="_blank" rel="noopener">MetaMask</a> or
+      <a href="https://rabby.io" target="_blank" rel="noopener">Rabby</a>, then reload this page.
+    </p>
+  </div>
+
+  <div id="account-area" hidden>
+    <div class="account">
+      <span>Connected as <code id="account-address"></code></span>
+      <button class="btn btn-quiet" type="button" id="disconnect">Disconnect</button>
+    </div>
+    <div class="mint-row" style="margin-top:var(--gap-item)">
+      <label for="qty">How many</label>
+      <input type="number" id="qty" value="1" min="1" step="1">
+      <button class="btn" type="button" id="mint">Mint</button>
+      <span class="muted" id="total-cost"></span>
+    </div>
+  </div>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+</div>
+
+<h2>Your Moving Mondrians</h2>
+<p id="holdings-note" class="muted">Connect a wallet to see what you hold.</p>
+<div class="tokens" id="holdings"></div>
+<p style="margin-top:var(--gap-item)">
+  <button class="btn btn-quiet" type="button" id="show-more" hidden>Show more</button>
+</p>
+
+<h2>Links</h2>
+<ul class="links">
+  <li><a target="_blank" rel="noopener" href="https://opensea.io/collection/moving-mondrian">OpenSea collection</a></li>
+  <li><a target="_blank" rel="noopener" href="https://optimistic.etherscan.io/address/0x423021c7ab37a289e47c3f39f3978bd14fd580b4">Contract on Optimistic Etherscan</a></li>
+  <li><a target="_blank" rel="noopener" href="https://github.com/davidryan59/moving-mondrian">Source code on GitHub</a></li>
+  <li><a href="../merge-fractals/index.html">Mint an Ethereum Merge Fractal instead</a></li>
+</ul>
+
+<script>
+(function () {
+  'use strict';
+
+  var CONTRACT = '0x423021c7ab37a289e47c3f39f3978bd14fd580b4';
+
+  /* Selectors, each checked against the deployed contract. */
+  var FN = {
+    mintCost:         '0xbdb4b848', // mintCost()
+    mintsCompleted:   '0x8c9d44ed', // mintsCompleted()
+    mintsRemaining:   '0x44c66be7', // mintsRemaining()
+    mintMaxBatchSize: '0xdfc8f4e0', // mintMaxBatchSize()
+    balanceOf:        '0x70a08231', // balanceOf(address)
+    ownerOf:          '0x6352211e', // ownerOf(uint256)
+    mintBatch:        '0x20e409b4'  // mintBatch(uint256)
+  };
+
+  var CHAIN = {
+    chainId: '0xa',
+    chainName: 'OP Mainnet',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: ['https://mainnet.optimism.io'],
+    blockExplorerUrls: ['https://optimistic.etherscan.io'],
+    explorerName: 'Optimistic Etherscan'
+  };
+
+  /* Each of these was checked from a browser origin for a working eth_call
+     and a permissive CORS header. Endpoints that answer from a server but
+     refuse a browser are no use here. */
+  var rpc = Mint.makeRpc([
+    'https://mainnet.optimism.io',
+    'https://optimism-rpc.publicnode.com',
+    'https://optimism.gateway.tenderly.co',
+    'https://optimism.drpc.org'
+  ]);
+
+  var A = Mint.abi;
+  var $ = function (id) { return document.getElementById(id); };
+  var setStatus = Mint.status($('status'));
+  var itemUrl = function (id) {
+    return 'https://opensea.io/item/optimism/' + CONTRACT + '/' + id;
+  };
+
+  var state = {
+    provider: null,
+    account: null,
+    priceWei: null,
+    completed: 0,
+    maxBatch: 50,
+    myIds: [],
+    shown: 0
+  };
+  var PAGE = 12;
+
+  /* Read-only state, so the page is useful before anyone connects. --- */
+  async function loadStats() {
+    try {
+      var results = await Promise.all([
+        rpc.call(CONTRACT, FN.mintsCompleted),
+        rpc.call(CONTRACT, FN.mintsRemaining),
+        rpc.call(CONTRACT, FN.mintCost),
+        rpc.call(CONTRACT, FN.mintMaxBatchSize)
+      ]);
+      state.completed = A.toNumber(results[0]);
+      state.priceWei = A.toBigInt(results[2]);
+      state.maxBatch = A.toNumber(results[3]);
+
+      $('stat-minted').textContent = Mint.formatCount(state.completed);
+      $('stat-remaining').textContent = Mint.formatCount(A.toNumber(results[1]));
+      $('stat-price').innerHTML = Mint.formatEth(state.priceWei) +
+        ' <span class="unit">ETH</span>';
+
+      var qty = $('qty');
+      qty.max = String(state.maxBatch);
+      updateCost();
+    } catch (err) {
+      $('stat-minted').textContent = '–';
+      $('stat-remaining').textContent = '–';
+      $('stat-price').textContent = '–';
+      setStatus('Could not read the contract just now. Reload to try again.', 'bad');
+    }
+  }
+
+  function updateCost() {
+    if (state.priceWei === null) return;
+    var n = BigInt(Math.max(1, parseInt($('qty').value, 10) || 1));
+    $('total-cost').textContent = 'Total ' + Mint.formatEth(state.priceWei * n) + ' ETH plus gas';
+  }
+
+  /* Wallets ---------------------------------------------------------- */
+  Mint.discoverWallets(function (wallets) {
+    var list = $('wallet-list');
+    list.innerHTML = '';
+    $('no-wallet').hidden = wallets.length > 0;
+    wallets.forEach(function (w) {
+      var li = document.createElement('li');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'wallet-btn';
+      if (w.info.icon) {
+        var img = document.createElement('img');
+        img.src = w.info.icon;
+        img.alt = '';
+        btn.appendChild(img);
+      }
+      btn.appendChild(document.createTextNode(w.info.name));
+      btn.addEventListener('click', function () { connect(w.provider); });
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+  });
+
+  async function connect(provider) {
+    setStatus('Check your wallet for a prompt…', 'busy');
+    try {
+      var accounts = await provider.request({ method: 'eth_requestAccounts' });
+      if (!accounts || !accounts.length) throw new Error('No account returned.');
+      state.provider = provider;
+      state.account = accounts[0];
+
+      provider.on && provider.on('accountsChanged', function (accs) {
+        if (!accs || !accs.length) { disconnect(); return; }
+        state.account = accs[0];
+        showAccount();
+        loadHoldings();
+      });
+      provider.on && provider.on('chainChanged', function () { setStatus(''); });
+
+      showAccount();
+      setStatus('');
+      loadHoldings();
+    } catch (err) {
+      setStatus(Mint.describeError(err), 'bad');
+    }
+  }
+
+  function showAccount() {
+    $('connect-area').hidden = true;
+    $('account-area').hidden = false;
+    $('account-address').textContent = Mint.shortAddress(state.account);
+  }
+
+  function disconnect() {
+    state.provider = null;
+    state.account = null;
+    state.myIds = [];
+    state.shown = 0;
+    $('connect-area').hidden = false;
+    $('account-area').hidden = true;
+    $('holdings').innerHTML = '';
+    $('show-more').hidden = true;
+    $('holdings-note').hidden = false;
+    $('holdings-note').textContent = 'Connect a wallet to see what you hold.';
+    setStatus('');
+  }
+
+  $('disconnect').addEventListener('click', disconnect);
+  $('qty').addEventListener('input', updateCost);
+
+  /* Mint -------------------------------------------------------------- */
+  $('mint').addEventListener('click', async function () {
+    if (!state.provider) return;
+    var btn = this;
+    var qty = parseInt($('qty').value, 10);
+    if (!qty || qty < 1) { setStatus('Enter how many you want, at least one.', 'bad'); return; }
+    if (qty > state.maxBatch) {
+      setStatus('The contract allows at most ' + state.maxBatch + ' in one go.', 'bad');
+      return;
+    }
+
+    btn.disabled = true;
+    try {
+      await Mint.ensureChain(state.provider, CHAIN);
+
+      /* Read the price again rather than trusting the figure on screen, which
+         may be minutes old. The contract requires an exact match. */
+      var priceWei = A.toBigInt(await rpc.call(CONTRACT, FN.mintCost));
+      state.priceWei = priceWei;
+      updateCost();
+      var value = priceWei * BigInt(qty);
+
+      setStatus('Confirm the transaction in your wallet…', 'busy');
+      var hash = await state.provider.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: state.account,
+          to: CONTRACT,
+          value: '0x' + value.toString(16),
+          data: FN.mintBatch + A.uint(qty)
+        }]
+      });
+
+      setStatus('Minting. Waiting for Optimism to confirm…', 'busy');
+      var receipt = await Mint.waitForReceipt(state.provider, hash);
+      var link = CHAIN.blockExplorerUrls[0] + '/tx/' + hash;
+      if (!receipt) {
+        setStatus('Still pending. Check the transaction on ' + CHAIN.explorerName + ': ' + link, 'busy');
+      } else if (A.toBigInt(receipt.status) === 1n) {
+        var minted = Mint.describeMinted(Mint.extractMintedIds(receipt, CONTRACT, state.account));
+        setStatus('Minted. ' + minted.text + ' below, and on ' + CHAIN.explorerName + ': ' + link, 'good');
+        await loadStats();
+        await loadHoldings();
+      } else {
+        setStatus('The transaction failed on-chain. See ' + link, 'bad');
+      }
+    } catch (err) {
+      setStatus(Mint.describeError(err), 'bad');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  /* Holdings ---------------------------------------------------------- */
+  /* This contract has no enumeration, so there is no direct "tokens of owner"
+     call. balanceOf answers the common case of owning none without any
+     sweeping, and only a holder pays for the ownerOf sweep, which Multicall3
+     collapses into a handful of requests. */
+  async function loadHoldings() {
+    if (!state.account) return;
+    var note = $('holdings-note');
+    note.hidden = false;
+    note.textContent = 'Looking up what you hold…';
+    $('holdings').innerHTML = '';
+    $('show-more').hidden = true;
+
+    try {
+      var balance = A.toNumber(await rpc.call(CONTRACT, FN.balanceOf + A.address(state.account)));
+      if (balance === 0) {
+        note.textContent = 'You do not hold a Moving Mondrian yet.';
+        return;
+      }
+
+      var completed = A.toNumber(await rpc.call(CONTRACT, FN.mintsCompleted));
+      var calls = [];
+      for (var id = 1; id <= completed; id++) {
+        calls.push({ target: CONTRACT, allowFailure: true, data: FN.ownerOf + A.uint(id) });
+      }
+      var owners = await Mint.multicall(rpc, calls);
+      var mine = [];
+      var me = state.account.toLowerCase();
+      for (var i = 0; i < owners.length; i++) {
+        if (owners[i].success && A.toAddress(owners[i].data).toLowerCase() === me) {
+          mine.push(i + 1);
+        }
+      }
+      /* Newest first, so a piece just minted appears at the top of the list. */
+      mine.sort(function (a, b) { return b - a; });
+
+      state.myIds = mine;
+      state.shown = 0;
+      note.textContent = mine.length === 1
+        ? 'You hold 1 Moving Mondrian.'
+        : 'You hold ' + Mint.formatCount(mine.length) + ' Moving Mondrians.';
+      showMore();
+    } catch (err) {
+      note.textContent = 'Could not read your holdings just now.';
+    }
+  }
+
+  /* Each artwork is tens of kilobytes of on-chain SVG, so they arrive a page
+     at a time rather than all at once. */
+  async function showMore() {
+    var slice = state.myIds.slice(state.shown, state.shown + PAGE);
+    if (!slice.length) return;
+    var append = state.shown > 0;
+    state.shown += slice.length;
+    $('show-more').hidden = state.shown >= state.myIds.length;
+    $('show-more').textContent = 'Show more (' + (state.myIds.length - state.shown) + ' left)';
+    await Mint.renderTokens({
+      container: $('holdings'),
+      ids: slice,
+      rpc: rpc,
+      contract: CONTRACT,
+      itemUrl: itemUrl,
+      append: append
+    });
+  }
+
+  $('show-more').addEventListener('click', showMore);
+
+  Mint.wireThemeToggle();
+  loadStats();
+})();
+</script>
+
+</body>
+</html>
