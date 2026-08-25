@@ -167,6 +167,21 @@
   p.intro {
     margin: 0 0 var(--gap-para);
   }
+  /* Sits between the h1 and the intro, so it reads before anything else.
+     inline-block keeps the border tight around the words rather than
+     stretching across the column, and the portrait floats clear of it. */
+  p.open-to-offers {
+    display: inline-block;
+    margin: 0 0 var(--gap-para);
+    padding: 0.35rem 0.9rem;
+    color: var(--h1);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    font-size: 0.95rem;
+  }
+  p.open-to-offers a {
+    color: inherit;
+  }
   h2 {
     font-size: 1.4rem;
     color: var(--h2);
@@ -382,6 +397,7 @@
   })();
 </script>
 <h1>David Ryan's Builder Page</h1>
+<p class="open-to-offers"><strong>Open to Offers</strong> – freelance or salaried. <a target="_blank" rel="noopener" href="https://www.linkedin.com/in/davidryan59/">Get in touch</a>.</p>
 <p class="intro">
   Hi, I'm David! I love building cool tech stuff. This page contains
   everything I've built or published, all in one place.
