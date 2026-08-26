@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WETH9 security audit – Ethereum mainnet</title>
+<meta name="description" content="A security audit of WETH9 on Ethereum mainnet, from the deployed runtime bytecode. No exploitable vulnerability, two medium integration hazards, and an integration checklist.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://davidryan59.github.io/audits/weth9/">
+<meta property="og:title" content="WETH9 security audit – Ethereum mainnet">
+<meta property="og:description" content="Read from the deployed runtime bytecode, not from the repository source. No exploitable vulnerability, two medium integration hazards.">
+<meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../../audit.css">
+<script src="../../audit.js"></script>
+<script>Audit.initTheme();</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../../index.html">← David Ryan's builder page</a>
+
+<h1>WETH9 security audit</h1>
+<p class="tagline">Ethereum mainnet · <code>0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2</code> · reviewed 2026&#8209;08&#8209;19 against block 25,787,146</p>
+
+<div class="panel provenance">
+  <h2>How this audit was made</h2>
+  <p>
+    I commissioned this audit from myself, to find out how far an AI can take a
+    smart contract review. Claude (Opus 5) read the bytecode, ran the analysis
+    and wrote most of what you see below. I set the scope and the method,
+    checked every finding against the chain myself, and decided what was worth
+    publishing.
+  </p>
+  <p class="muted">
+    So read it as AI work with a human check on it, not as a firm's audit. The
+    findings are reproducible: every figure is pinned to one block, and the
+    method section says exactly how each claim was reached.
+  </p>
+</div>
+
+<h2>Summary</h2>
+<p>
+  WETH9 holds no exploitable vulnerability. The contract is 57 lines of
+  Solidity with no owner, no upgrade path and no way to destroy it. All nine
+  findings sit at the boundary where other contracts call WETH, and every one
+  is a documented behaviour rather than a flaw in the wrapper.
+</p>
+<p>
+  Two findings rated Medium have caused real losses in downstream protocols.
+  Neither can be fixed, because the contract is immutable. Integrators have to
+  handle them, so the <a href="#integration-checklist">integration
+  checklist</a> is the part of this document most worth acting on.
+</p>
+
+<h2>Findings at a glance</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>ID</th><th>Severity</th><th>Finding</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="id"><a href="#m-1">M-1</a></td><td><span class="sev sev-medium">Medium</span></td><td><code>withdraw()</code> forwards only 2300 gas</td></tr>
+    <tr><td class="id"><a href="#m-2">M-2</a></td><td><span class="sev sev-medium">Medium</span></td><td>No <code>Transfer</code> event on deposit or withdraw</td></tr>
+    <tr><td class="id"><a href="#l-1">L-1</a></td><td><span class="sev sev-low">Low</span></td><td>Unknown function selectors succeed silently</td></tr>
+    <tr><td class="id"><a href="#l-2">L-2</a></td><td><span class="sev sev-low">Low</span></td><td>No zero-address guard; ~2,134 WETH already stranded</td></tr>
+    <tr><td class="id"><a href="#l-3">L-3</a></td><td><span class="sev sev-low">Low</span></td><td><code>totalSupply()</code> reports the ETH balance, not the sum of balances</td></tr>
+    <tr><td class="id"><a href="#l-4">L-4</a></td><td><span class="sev sev-low">Low</span></td><td>Maximum allowance is never decremented</td></tr>
+    <tr><td class="id"><a href="#l-5">L-5</a></td><td><span class="sev sev-low">Low</span></td><td><code>approve()</code> carries the classic ERC-20 race</td></tr>
+    <tr><td class="id"><a href="#i-1">I-1</a></td><td><span class="sev sev-info">Info</span></td><td>ETH cannot be sent to WETH with <code>transfer()</code> or <code>send()</code></td></tr>
+    <tr><td class="id"><a href="#i-2">I-2</a></td><td><span class="sev sev-info">Info</span></td><td>No EIP-2612 <code>permit</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>Counts: 0 critical, 0 high, 2 medium, 5 low, 2 informational.</p>
+
+<h2>Verified onchain facts</h2>
+<div class="table-wrap">
+<table class="facts">
+  <tbody>
+    <tr><th>Address</th><td><code>0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2</code></td></tr>
+    <tr><th>Deployed</th><td>Block 4,719,568, 2017-12-12 11:17:35 UTC, 8.67 years ago</td></tr>
+    <tr><th>Deployer</th><td><code>0x4F26FfBe5F04ED43630fdC30A87638d53D0b0876</code>, an externally owned account</td></tr>
+    <tr><th>Creation tx</th><td><code>0xb95343413e459a0f97461812111254163ae53467855c0d73e0f1e7c5b8442fa3</code></td></tr>
+    <tr><th>Compiler</th><td>solc 0.4.19+commit.c4cbbb05, optimiser disabled</td></tr>
+    <tr><th>Runtime code</th><td>3,124 bytes: 3,081 executable plus a 43-byte bzzr0 metadata trailer</td></tr>
+    <tr><th>Instructions</th><td>1,555 decoded, zero unknown opcodes</td></tr>
+    <tr><th>Dispatch table</th><td>11 selectors, matching the ERC-20 surface exactly</td></tr>
+    <tr><th>ETH held</th><td>2,209,291.3665 ETH at block 25,787,146</td></tr>
+    <tr><th>Storage slots</th><td>0 <code>name</code>, 1 <code>symbol</code>, 2 <code>decimals</code>, 3 <code>balanceOf</code>, 4 <code>allowance</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Method</h2>
+<p>
+  I read the runtime bytecode from mainnet over JSON-RPC and disassembled it
+  with an opcode walker that skips <code>PUSH</code> immediates. Findings about
+  what the contract cannot do rest on that disassembly, not on reading the
+  source.
+</p>
+<p>Two method notes are worth recording, because both changed the result.</p>
+<p>
+  <strong>A naive byte search gives false positives.</strong> Searching the raw
+  runtime code for dangerous opcodes reports one <code>DELEGATECALL</code>, two
+  <code>STATICCALL</code>s and one <code>EXTCODECOPY</code>. None of them
+  exists. Those bytes sit inside the 32-byte Swarm hash that Solidity appends
+  after the executable region, where they are data. Stripping the 43-byte
+  trailer removed all four and left a clean sweep with nothing unrecognised. A
+  <code>DELEGATECALL</code> would have meant a proxy, so trusting the first
+  pass would have inverted the most important claim in this audit.
+</p>
+<p>
+  <strong>The published source is not the deployed source.</strong> The
+  canonical GitHub repository carries <code>pragma solidity &gt;=0.4.22
+  &lt;0.6</code> and uses <code>emit</code>. The bytecode at this address was
+  compiled from the earlier <code>^0.4.18</code> revision. All analysis below
+  uses the deployed version, confirmed through Blockscout.
+</p>
+<p>
+  Every RPC read for the figures quoted here was pinned to a single block. An
+  earlier pass mixed results across nodes and picked up a reader that lagged
+  the tip by four days.
+</p>
+
+<h2>Findings</h2>
+
+<h3 id="m-1">M-1 · <code>withdraw()</code> forwards only 2300 gas <span class="sev sev-medium">Medium</span></h3>
+<p>
+  <code>withdraw()</code> pays out through <code>msg.sender.transfer(wad)</code>.
+  At program counter 2700 the bytecode pushes <code>0x08fc</code>, which is
+  2300, and the surrounding <code>ISZERO MUL</code> pattern is the Solidity
+  idiom that pins the callee to exactly that stipend.
+</p>
+<p>
+  A contract whose receive path costs more than 2300 gas cannot unwrap its own
+  WETH. The tokens survive, since they still move as ERC-20, but that account
+  can never convert them back to ETH by itself.
+</p>
+<p>
+  The risk grows over time. EIP-1884 raised <code>SLOAD</code> from 200 to 800
+  gas in the Istanbul fork, which broke contracts that were well inside budget
+  when they were written. A future repricing can break more. Smart contract
+  wallets and account-abstraction accounts are the usual casualties.
+</p>
+<p>
+  <strong>Mitigation.</strong> Never let a contract you control depend on WETH
+  <code>withdraw()</code> paying into an expensive fallback. Withdraw to a thin
+  receiver, or hold the position in WETH and let a user-facing router unwrap.
+</p>
+
+<h3 id="m-2">M-2 · No <code>Transfer</code> event on deposit or withdraw <span class="sev sev-medium">Medium</span></h3>
+<p>
+  <code>deposit()</code> emits only <code>Deposit</code>.
+  <code>withdraw()</code> emits only <code>Withdrawal</code>. Neither emits the
+  <code>Transfer</code> event that ERC-20 indexers expect for a mint or a burn.
+</p>
+<p>
+  The bytecode settles this. Four <code>LOG</code> sites exist in the whole
+  contract, and only one is the <code>LOG3</code> that emits
+  <code>Transfer</code>, at program counter 2510 inside
+  <code>transferFrom</code>. Supply enters and leaves without a single
+  <code>Transfer</code> log.
+</p>
+<p>
+  Any balance tracker built by replaying <code>Transfer</code> logs will
+  therefore compute wrong WETH balances. Subgraphs, accounting pipelines and
+  portfolio trackers all hit this, and the error grows the more an account
+  wraps and unwraps.
+</p>
+<p>
+  <strong>Mitigation.</strong> Index <code>Deposit</code> and
+  <code>Withdrawal</code> alongside <code>Transfer</code>, and treat them as
+  mint and burn against the zero address. Reconcile against
+  <code>balanceOf</code> rather than trusting a replayed log stream.
+</p>
+
+<h3 id="l-1">L-1 · Unknown function selectors succeed silently <span class="sev sev-low">Low</span></h3>
+<p>
+  The dispatcher falls through to the fallback when no selector matches, and
+  the fallback calls <code>deposit()</code>. A call to a function that does not
+  exist returns success with empty data instead of reverting. Confirmed live:
+</p>
+<pre><code>eth_call  mint(address,uint256)  0x40c10f19  -&gt;  SUCCESS, returndata = "0x"
+eth_call  owner()                0x8da5cb5b  -&gt;  SUCCESS, returndata = "0x"
+eth_call  paused()               0x5c975abb  -&gt;  SUCCESS, returndata = "0x"
+eth_call  garbage                0xdeadbeef  -&gt;  SUCCESS, returndata = "0x"</code></pre>
+<p>
+  Two consequences follow. Code that probes for an interface by testing whether
+  a call reverts will wrongly conclude that WETH has an <code>owner()</code> or
+  a <code>mint()</code>. A mistyped call carrying ETH silently converts that
+  ETH to WETH instead of rejecting it.
+</p>
+<p>
+  <strong>Mitigation.</strong> Never infer WETH capabilities from call success.
+  Check the length of returned data, and decode strictly.
+</p>
+
+<h3 id="l-2">L-2 · No zero-address guard, and ~2,134 WETH is already stranded <span class="sev sev-low">Low</span></h3>
+<p>
+  <code>transfer</code> and <code>transferFrom</code> accept any destination.
+  Tokens sent to the zero address, to the burn address, or to the WETH contract
+  itself are unrecoverable, because the contract has no rescue function.
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Address</th><th class="num">Balance</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Zero address</td><td class="num">1,088.8792 WETH</td></tr>
+    <tr><td>WETH contract itself</td><td class="num">764.7711 WETH</td></tr>
+    <tr><td>Burn address <code>0x…dEaD</code></td><td class="num">280.4562 WETH</td></tr>
+    <tr><td><strong>Total stranded</strong></td><td class="num"><strong>2,134.1064 WETH</strong></td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  That is 0.0966% of supply. The matching ETH stays locked in the contract
+  permanently. Solvency is unaffected, since the wrapper is left
+  over-collateralised, but nobody can ever redeem that ETH.
+</p>
+
+<h3 id="l-3">L-3 · <code>totalSupply()</code> reports the ETH balance <span class="sev sev-low">Low</span></h3>
+<p>
+  <code>totalSupply()</code> returns <code>this.balance</code>, which appears in
+  the bytecode as <code>ADDRESS</code> followed by <code>BALANCE</code>. ETH can
+  reach the contract without minting any WETH, through a
+  <code>SELFDESTRUCT</code> beneficiary or by naming the address as a block fee
+  recipient.
+</p>
+<p>
+  When that happens, <code>totalSupply()</code> exceeds the sum of all balances
+  and the wrapper becomes over-collateralised. The direction is safe. The
+  number is still wrong for anyone reading it as circulating supply.
+</p>
+
+<h3 id="l-4">L-4 · Maximum allowance is never decremented <span class="sev sev-low">Low</span></h3>
+<p>
+  <code>transferFrom</code> skips the allowance write when the allowance equals
+  <code>uint(-1)</code>. An approval set to the maximum uint256 value behaves as
+  infinite and holds that value forever.
+</p>
+<p>
+  The behaviour is deliberate, saves gas, and most of the ecosystem relies on
+  it. It does break the assumption that <code>allowance()</code> falls after a
+  spend, so accounting that infers spend volume from allowance movement reads
+  zero.
+</p>
+
+<h3 id="l-5">L-5 · <code>approve()</code> carries the classic ERC-20 race <span class="sev sev-low">Low</span></h3>
+<p>
+  <code>approve</code> overwrites the allowance with no guard, and the contract
+  offers no <code>increaseAllowance</code> or <code>decreaseAllowance</code>. A
+  spender watching the mempool can spend the old allowance and then the new one.
+</p>
+<p>
+  This affects the whole ERC-20 generation rather than WETH specifically.
+  Setting the allowance to zero before setting a new value avoids it.
+</p>
+
+<h3 id="i-1">I-1 · ETH cannot be sent to WETH with <code>transfer()</code> or <code>send()</code> <span class="sev sev-info">Info</span></h3>
+<p>
+  The fallback runs <code>deposit()</code>, which writes a storage slot and
+  emits a log. A plain ETH send to the contract measures 27,977 gas, far above
+  the 2300 stipend that <code>.transfer()</code> and <code>.send()</code>
+  provide.
+</p>
+<p>
+  A contract must use <code>call{value: v}("")</code>, or call
+  <code>deposit()</code> directly with enough gas. This is the mirror of
+  <a href="#m-1">M-1</a>, and the two together catch integrators from both
+  directions.
+</p>
+
+<h3 id="i-2">I-2 · No EIP-2612 <code>permit</code> <span class="sev sev-info">Info</span></h3>
+<p>
+  WETH9 predates signed approvals, so every allowance change costs a
+  transaction. That gap is why Permit2 and similar routers exist. Adding
+  <code>permit</code> is impossible, because the contract cannot be upgraded.
+</p>
+
+<h2>What the contract cannot do</h2>
+<p>Each item below is confirmed against the disassembled runtime code.</p>
+<ul>
+  <li>No <code>DELEGATECALL</code> anywhere, so the contract is not a proxy and
+    has no upgrade path. Blockscout independently reports no implementation and
+    no proxy type.</li>
+  <li>No <code>SELFDESTRUCT</code>, so it cannot be destroyed and the ETH cannot
+    be swept.</li>
+  <li>No <code>CREATE</code> or <code>CREATE2</code>, and the account nonce is
+    1, so it has never deployed anything.</li>
+  <li>Eleven selectors only, all ERC-20. No owner, no pause, no mint, no
+    blacklist, no fee switch.</li>
+  <li>Exactly one <code>CALL</code>, the payout in <code>withdraw()</code>. No
+    other external call exists.</li>
+  <li>No <code>TIMESTAMP</code>, <code>NUMBER</code> or <code>ORIGIN</code>, so
+    no time dependence and no <code>tx.origin</code> authentication.</li>
+  <li><code>withdraw()</code> writes the balance at pc 2675 before the call at
+    pc 2724, so checks-effects-interactions holds. Reentrancy fails on ordering
+    as well as on gas.</li>
+</ul>
+
+<h2>Why 2017 arithmetic is safe here</h2>
+<p>
+  Solidity 0.4.19 has no checked arithmetic, and the contract uses no SafeMath.
+  That combination usually earns a high-severity finding. It does not here, and
+  the reasoning needs stating precisely.
+</p>
+<p>
+  Both subtractions are guarded. <code>withdraw</code> and
+  <code>transferFrom</code> each run a <code>require</code> before decrementing,
+  so neither wraps below zero. The allowance decrement sits behind its own
+  <code>require</code>.
+</p>
+<p>
+  Both additions are bounded by economics. <code>balanceOf[dst] += wad</code>
+  can only overflow if a balance approaches 2<sup>256</sup>, about
+  1.16 × 10<sup>77</sup>. Every WETH is backed one to one by real ETH, and the
+  entire ETH supply is around 1.2 × 10<sup>26</sup> wei. Fifty orders of
+  magnitude separate the two, and no attacker can close that gap.
+</p>
+<p>
+  The contract is safe because it is small enough to enumerate by hand. The
+  argument does not transfer to any larger contract on the same compiler.
+</p>
+
+<h2>Compiler risk</h2>
+<p>
+  The Solidity project lists 19 known bugs affecting 0.4.19. I checked each
+  against this contract. None applies.
+</p>
+<p>
+  Most require language features WETH9 never uses. It has no arrays, which
+  clears <code>LostStorageArrayWriteOnSlotOverflow</code>,
+  <code>SignedArrayStorageCopy</code>, <code>DynamicArrayCleanup</code>,
+  <code>MemoryArrayCreationOverflow</code> and
+  <code>NestedArrayFunctionCallDecoder</code>. It has no structs in events, no
+  libraries, no inheritance, no function pointers and no tuple assignment,
+  clearing five more. ABIEncoderV2 is not enabled, clearing the three bugs
+  specific to it. It has no exponentiation, so <code>ExpExponentCleanup</code>
+  is irrelevant.
+</p>
+<p>
+  Two need a specific answer. <code>ImplicitConstructorCallvalueCheck</code>
+  concerns contracts with no explicit constructor, which WETH9 is, but
+  construction happened once in 2017 and cannot repeat.
+  <code>DirtyBytesArrayToStorage</code> touches string storage, so I read slots
+  0 and 1 from the chain to confirm both are clean: <code>"Wrapped Ether"</code>
+  with length 26 and <code>"WETH"</code> with length 8, exactly as the
+  short-string encoding requires.
+</p>
+<p>
+  The optimiser was disabled at compile time, which removes the whole class of
+  optimiser miscompilation bugs at once.
+</p>
+
+<h2 id="integration-checklist">Integration checklist</h2>
+<ol>
+  <li>Send ETH in with <code>call{value: v}("")</code> or <code>deposit()</code>.
+    <code>transfer()</code> and <code>send()</code> revert.</li>
+  <li>Do not call <code>withdraw()</code> into a receive path costing more than
+    2300 gas.</li>
+  <li>Index <code>Deposit</code> and <code>Withdrawal</code> as mint and burn,
+    or balances will be wrong.</li>
+  <li>Set an allowance to zero before changing it to a new non-zero value.</li>
+  <li>Do not read <code>totalSupply()</code> as circulating supply.</li>
+  <li>Do not detect features by whether a call reverts. WETH answers every
+    selector.</li>
+  <li>Guard destination addresses yourself. WETH will burn tokens to the zero
+    address without complaint.</li>
+</ol>
+
+<h2>Limits of this review</h2>
+<p>State these alongside the findings whenever the audit is quoted.</p>
+<ul>
+  <li><strong>Solvency is not proven.</strong> Comparing
+    <code>totalSupply()</code> against the contract balance is circular, because
+    <code>totalSupply()</code> returns that balance. A real proof needs the sum
+    of every holder balance from a full state dump, which needs archive-node
+    indexing.</li>
+  <li><strong>No formal verification, symbolic execution or fuzzing.</strong>
+    This is a source and bytecode review.</li>
+  <li><strong>Scope is this contract only.</strong> The protocols that hold WETH
+    were not reviewed, and they are where the ecosystem risk actually
+    concentrates.</li>
+  <li><strong>Balance figures move with every block.</strong> They are pinned to
+    block 25,787,146.</li>
+</ul>
+
+<h2>Links</h2>
+<ul class="links">
+  <li><a target="_blank" rel="noopener" href="https://etherscan.io/token/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2">WETH9 on Etherscan</a></li>
+  <li><a target="_blank" rel="noopener" href="https://github.com/ethereum/solidity/blob/develop/docs/bugs_by_version.json">Solidity bug list by version</a></li>
+  <li><a href="../../index.html">David Ryan's builder page</a></li>
+</ul>
+
+<script>Audit.wireThemeToggle();</script>
+
+</body>
+</html>

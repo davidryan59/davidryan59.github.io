@@ -514,6 +514,23 @@
   merged into <a target="_blank" rel="noopener" href="https://github.com/darkforest-eth/plugins">darkforest-eth/plugins</a>
   between 2021 and 2022, along with fixes I made to two other community plugins.</p>
 
+<h3>Security Audits</h3>
+<p class="section-note">
+  I've been using the latest AI models to audit smart contracts,
+  specifically common DeFi protocols and my own NFT smart contracts.
+  This is mainly for my own curiosity, but I hope you find it useful too!
+</p>
+<ul>
+  <li>
+    <a href="audits/weth9/index.html">WETH</a>
+    – Wrapped ETH is central and critical in Ethereum DeFi.
+    This contract was deployed in Dec 2017 and contains around 2,000,000 ETH.
+    I did this independent audit using Claude Opus 5 in Aug 2026.
+    Summary: no exploitable vulnerability,
+    two medium integration hazards, and a checklist for anyone building on top of it.
+  </li>
+</ul>
+
 <h3>npm modules</h3>
 <ul>
   <li>

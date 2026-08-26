@@ -1,0 +1,191 @@
+/* Shared styling for the audit pages. The colour tokens, the typography and
+   the vertical rhythm match index.html and mint.css exactly, so every page on
+   the site reads as one site. The toggle pins data-theme, which sets
+   color-scheme and flips every pair. */
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#f6f3ec, #16161a);
+  --panel: light-dark(#fffdf8, #1e1e23);
+  --text: light-dark(#46443d, #c8c4b9);
+  --h1: light-dark(#1a1a1a, #f5f3ec);
+  --h2: light-dark(#2a2922, #e6e2d8);
+  --h3: light-dark(#38362e, #d8d4c9);
+  --link: light-dark(#1552a1, #7aa6e0);
+  --link-visited: light-dark(#6a3d9a, #b79ad6);
+  --rule: light-dark(#ddd8cc, #3a3a3a);
+  --ring: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.16));
+  --muted: light-dark(#7c786d, #918c80);
+
+  /* Severity colours. Each one also carries its word in the badge text, so
+     the rating survives for a reader who cannot separate the colours. */
+  --sev-med: light-dark(#8a5200, #e0a860);
+  --sev-low: light-dark(#1552a1, #7aa6e0);
+  --sev-info: light-dark(#7c786d, #918c80);
+
+  --gap-tight: 0.5rem;
+  --gap-item: 1rem;
+  --gap-para: 1.5rem;
+  --gap-group: 2.5rem;
+  --gap-section: 3.5rem;
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { background: var(--bg); }
+body {
+  position: relative;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  line-height: 1.65;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 4rem 1.25rem 6rem;
+}
+
+a { color: var(--link); }
+a:visited { color: var(--link-visited); }
+
+h1, h2, h3 { line-height: 1.25; }
+h1 { font-size: 1.9rem; color: var(--h1); margin: 0 0 var(--gap-tight); }
+h2 {
+  font-size: 1.35rem;
+  color: var(--h2);
+  margin: var(--gap-section) 0 var(--gap-tight);
+  padding-top: var(--gap-item);
+  border-top: 1px solid var(--rule);
+}
+h3 {
+  font-size: 1.05rem;
+  color: var(--h3);
+  margin: var(--gap-group) 0 var(--gap-tight);
+}
+p { margin: 0 0 var(--gap-para); }
+ul, ol { margin: var(--gap-item) 0 var(--gap-para); padding-left: 1.4rem; }
+li { margin-bottom: var(--gap-tight); }
+li:last-child { margin-bottom: 0; }
+
+.tagline { color: var(--muted); margin: 0 0 var(--gap-para); }
+/* A 42-character address has no break opportunity of its own, so on a narrow
+   screen it sets the page's minimum width and pushes every paragraph past the
+   viewport. break-all lets it wrap mid-address instead. */
+.tagline code { word-break: break-all; }
+.back { display: inline-block; margin-bottom: var(--gap-para); font-size: 0.95rem; }
+.muted { color: var(--muted); }
+.nowrap { white-space: nowrap; }
+
+/* Theme toggle. Same absolute placement as index.html, so the button lands in
+   the top padding without shifting the h1. Hidden until the script runs. */
+.theme-toggle {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--h3);
+  background: none;
+  border: 1px solid var(--ring);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.theme-toggle:hover { color: var(--h1); border-color: var(--rule); }
+.theme-toggle:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+.theme-toggle svg { display: block; width: 1.05rem; height: 1.05rem; }
+:root[data-theme="dark"] .theme-toggle .moon { display: none; }
+:root[data-theme="light"] .theme-toggle .sun { display: none; }
+
+/* Panels ------------------------------------------------------------- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 1.25rem 1.25rem 0.1rem;
+  margin: 0 0 var(--gap-para);
+}
+.panel h2,
+.panel h3 {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.panel > :last-child { margin-bottom: 1.15rem; }
+
+/* The provenance panel. Every audit page carries one, because a reader has to
+   know who wrote the report before they weigh a single finding. */
+.provenance { font-size: 0.95rem; }
+.provenance h2 { font-size: 1.05rem; color: var(--h3); }
+
+/* Code ---------------------------------------------------------------- */
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.87em;
+  overflow-wrap: anywhere;
+}
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  margin: 0 0 var(--gap-para);
+  overflow-x: auto;
+}
+pre code { font-size: inherit; overflow-wrap: normal; }
+
+/* Tables -------------------------------------------------------------- */
+/* Wide tables scroll inside their own box, so a phone never scrolls the page
+   sideways. */
+.table-wrap { overflow-x: auto; margin: 0 0 var(--gap-para); }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.93rem;
+}
+th, td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+th { color: var(--h3); font-weight: normal; }
+thead th { border-bottom: 1px solid var(--h3); }
+tbody tr:last-child td { border-bottom: none; }
+td.num { text-align: right; padding-right: 0; font-variant-numeric: tabular-nums; }
+/* The finding ID is two characters and a hyphen, which a narrow column
+   otherwise breaks across two lines. */
+td.id { white-space: nowrap; }
+
+/* The two-column fact table has no header row, so its first column carries
+   the label. */
+.facts th { white-space: nowrap; color: var(--muted); }
+
+/* Severity ------------------------------------------------------------ */
+.sev {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.sev-medium { color: var(--sev-med); }
+.sev-low { color: var(--sev-low); }
+.sev-info { color: var(--sev-info); }
+
+/* Finding headings carry their own id, so any single finding can be linked
+   and quoted on its own. */
+h3 .sev { margin-left: 0.45rem; vertical-align: 0.12em; }
+
+.links { margin: var(--gap-item) 0 0; padding: 0; list-style: none; }
+.links li { margin-bottom: var(--gap-tight); }
