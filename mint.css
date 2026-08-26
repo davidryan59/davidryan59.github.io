@@ -248,3 +248,16 @@ button {
 
 .links { margin: 0; padding: 0; list-style: none; }
 .links li { margin-bottom: var(--gap-tight); }
+
+/* Single token view, reached through ?token=N, which is where every token's
+   onchain external_url points. */
+.token-panel { display: grid; gap: var(--gap-item); }
+.token-single { display: grid; place-items: center; min-height: 240px; color: var(--muted); font-size: 0.9rem; }
+.token-single img {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface, transparent);
+}

@@ -36,11 +36,28 @@
 <h1>Moving Mondrian</h1>
 <p class="tagline">A fully onchain generative artwork, on Optimism mainnet.</p>
 
-<div class="art-row">
+<div class="art-row" id="art-row">
   <img src="../moving-mondrian-563.svg" width="260" height="260" alt="Moving Mondrian #563, an animated onchain generative artwork">
   <img src="../moving-mondrian-133.svg" width="260" height="260" alt="Moving Mondrian #133, an animated onchain generative artwork">
   <img src="../moving-mondrian-951.svg" width="260" height="260" alt="Moving Mondrian #951, an animated onchain generative artwork">
 </div>
+
+<!-- Shown only for ?token=N, which is where every token's onchain
+     external_url points. Everything below it stays in place. -->
+<section id="token-view" hidden>
+  <h2 id="token-heading">Moving Mondrian</h2>
+  <div class="panel token-panel">
+    <div class="token-single" id="token-art">Loading the artwork from Optimism…</div>
+    <dl class="stats" id="token-traits"></dl>
+    <p class="muted" id="token-note" hidden></p>
+    <ul class="links" id="token-links" hidden>
+      <li><a target="_blank" rel="noopener" id="token-opensea">View on OpenSea</a></li>
+      <li><a target="_blank" rel="noopener" id="token-explorer">View on Optimistic Etherscan</a></li>
+    </ul>
+  </div>
+  <p class="muted">Every part of this piece, artwork and traits alike, is read
+    straight out of the contract on Optimism. Nothing is stored on a server.</p>
+</section>
 
 <p>
   I built Moving Mondrian for the Optimism Foundation's "We Love The Art"
@@ -384,8 +401,70 @@
 
   $('show-more').addEventListener('click', showMore);
 
+  /* Single token view ------------------------------------------------- */
+  /* The contract's external_url is this page plus "?token=", with the id
+     appended, so a deep link is a real file path with a query string. That
+     needs no SPA fallback and no rewrite rule, which is what makes it
+     survive whatever the host does next. */
+  function requestedToken() {
+    var m = /[?&]token=(\d{1,7})(?:&|$)/.exec(window.location.search);
+    if (!m) return null;
+    var id = parseInt(m[1], 10);
+    return id >= 1 ? id : null;
+  }
+
+  async function showToken(id) {
+    var view = $('token-view');
+    view.hidden = false;
+    $('art-row').hidden = true;
+    $('token-heading').textContent = 'Moving Mondrian #' + id;
+    document.title = 'Moving Mondrian #' + id;
+
+    $('token-opensea').href = itemUrl(id);
+    $('token-explorer').href = CHAIN.blockExplorerUrls[0] + '/nft/' + CONTRACT + '/' + id;
+
+    try {
+      var meta = Mint.parseTokenUri(A.toString(await rpc.call(CONTRACT, Mint.tokenUriCall(id))));
+      if (!meta || !meta.image) throw new Error('no image');
+
+      var img = document.createElement('img');
+      img.src = meta.image;
+      img.alt = meta.name || ('Moving Mondrian #' + id);
+      var art = $('token-art');
+      art.textContent = '';
+      art.appendChild(img);
+
+      if (meta.name) $('token-heading').textContent = meta.name;
+
+      var traits = $('token-traits');
+      (meta.attributes || []).forEach(function (a) {
+        var wrap = document.createElement('div');
+        wrap.className = 'stat';
+        var dt = document.createElement('dt');
+        dt.textContent = a.trait_type;
+        var dd = document.createElement('dd');
+        dd.textContent = String(a.value);
+        wrap.appendChild(dt);
+        wrap.appendChild(dd);
+        traits.appendChild(wrap);
+      });
+      $('token-links').hidden = false;
+    } catch (err) {
+      /* tokenURI reverts for an id that was never minted, so an unknown id
+         and a dead RPC look the same from here. Say both. */
+      $('token-art').textContent = '';
+      var note = $('token-note');
+      note.hidden = false;
+      note.textContent = 'Could not load #' + id +
+        '. Either it has not been minted yet, or the contract could not be reached just now.';
+      $('token-links').hidden = false;
+    }
+  }
+
   Mint.wireThemeToggle();
   loadStats();
+  var wanted = requestedToken();
+  if (wanted !== null) showToken(wanted);
 })();
 </script>
 
