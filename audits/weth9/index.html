@@ -34,7 +34,46 @@
 <a class="back" href="../../index.html">← David Ryan's builder page</a>
 
 <h1>WETH9 security audit</h1>
-<p class="tagline">Ethereum mainnet · <code>0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2</code> · reviewed 2026&#8209;08&#8209;19 against block 25,787,146</p>
+<p class="tagline">Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/token/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"><code>0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2</code></a><br>Reviewed 2026&#8209;08&#8209;19 against block 25,787,146</p>
+
+<p>
+  Ether is the native currency of Ethereum, and ETH transfers are controlled by the chain itself.
+  Tokens are not controlled by the chain directly, but are issued and controlled from a token contract, which follows the ERC-20 standard.
+  DeFi contracts are written to accept any ERC-20 tokens, but they cannot handle raw ether.
+</p>
+<p>
+  WETH9 (usually called just "WETH") was made to tokenise raw ether for use in DeFi.
+  Send ether
+  to WETH contract and it credits you the same number of WETH tokens; send the tokens back
+  and it returns your ether. Every WETH in circulation is backed one for one by
+  ether sitting in the contract.
+</p>
+<p>
+  The wrapper was written in 2017, before ERC-20 practice had settled, so it
+  keeps to the standard only loosely. Supply enters and leaves without the
+  <code>Transfer</code> event that indexers expect. A call to a function that
+  does not exist returns success instead of reverting. There is no
+  <code>permit</code>, so every approval costs a transaction.
+</p>
+<p>
+  At the reviewed block the WETH contract held 2,209,291 ETH, roughly 1.8% of the
+  total ether supply. Almost every Uniswap pool quotes its pair against WETH
+  rather than against ether, and lending markets take WETH as collateral. Routers
+  settle through it and bridges wrap before they move. That makes these 57
+  lines of Solidity for the WETH contract one of the most heavily depended-on pieces of code on any
+  blockchain.
+</p>
+<p>
+  The contract is immutable. It has no owner and no upgrade path, so nobody can
+  patch it, whatever the author or a governance vote might want. A serious flaw
+  in it would have no fix, and every protocol holding WETH would have to
+  evacuate by hand. So a clean result here is critical to the ongoing operation of DeFi.
+</p>
+<p>
+  This review found no exploitable
+  vulnerability. The hazards it did find sit at the boundary where other
+  contracts call WETH, which is where an integrator can act on them.
+</p>
 
 <div class="panel provenance">
   <h2>How this audit was made</h2>
@@ -52,7 +91,7 @@
   </p>
 </div>
 
-<h2>Summary</h2>
+<h2>Audit summary</h2>
 <p>
   WETH9 holds no exploitable vulnerability. The contract is 57 lines of
   Solidity with no owner, no upgrade path and no way to destroy it. All nine
