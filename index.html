@@ -529,6 +529,14 @@
     Summary: no exploitable vulnerability,
     two medium integration hazards, and a checklist for anyone building on top of it.
   </li>
+  <li>
+    <a href="audits/uniswap-v2/index.html">Uniswap V2</a>
+    – the pair, factory and router contracts sitting behind 519,134 trading pairs, deployed in 2020.
+    Uniswap governance switched on the protocol fee in Dec 2025, after 5.6 years of that code lying dormant.
+    I did this independent audit using Claude Opus 5 in Aug 2026.
+    Summary: no exploitable vulnerability, the newly live fee arithmetic proven overflow-free,
+    and three medium findings, the largest being a fee that charges staking yield as though it were trading revenue.
+  </li>
 </ul>
 
 <h3>npm modules</h3>

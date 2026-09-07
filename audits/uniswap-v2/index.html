@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uniswap V2 security audit – Ethereum mainnet</title>
+<meta name="description" content="A security audit of UniswapV2Pair, UniswapV2Factory and UniswapV2Router02 on Ethereum mainnet, from the deployed runtime bytecode. No exploitable vulnerability, with the newly live protocol fee path proven overflow-free.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://davidryan59.github.io/audits/uniswap-v2/">
+<meta property="og:title" content="Uniswap V2 security audit – Ethereum mainnet">
+<meta property="og:description" content="Read from the deployed runtime bytecode across 519,134 pairs. No exploitable vulnerability. The protocol fee, live since December 2025, charges token rebases as trading revenue.">
+<meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../../audit.css">
+<script src="../../audit.js"></script>
+<script>Audit.initTheme();</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../../index.html">← David Ryan's builder page</a>
+
+<h1>Uniswap V2 security audit</h1>
+<p class="tagline">Ethereum mainnet: <code>UniswapV2Pair</code>, <code>UniswapV2Factory</code> and <code>UniswapV2Router02</code><br>Reviewed 2026&#8209;08&#8209;20 against block 25,794,522</p>
+
+<p>
+  Uniswap V2 is an automated market maker. Each pair contract holds a reserve of
+  two tokens and quotes a price from the ratio between them. A trader swaps
+  against that reserve directly, and the price moves as the reserves change. The
+  product of the two reserves stays constant across a swap, which is where the
+  pricing curve comes from.
+</p>
+<p>
+  The reserve comes from liquidity providers. They deposit both tokens and
+  receive LP tokens that record their share of the pool. Traders pay 0.3% on
+  every swap which remains in the pair after the swap, so the value behind each LP token
+  rises. A provider redeems their share whenever they choose.
+</p>
+<p>
+  There are three main contracts. A pair template holds the reserves and prices
+  the swaps. A factory stamps out one copy of that template per token pair, and
+  has produced 519,134 of them since May 2020 on the Ethereum mainnet deployment alone.
+  A router sits in front of both and
+  handles the transactions most users actually send. Every deployed pair runs
+  byte-identical code, which this review proves by reproducing the
+  <code>CREATE2</code> derivation.
+</p>
+<p>
+  One function inside every pair sat dormant for 5.6 years. <code>_mintFee</code>
+  collects a protocol fee for Uniswap governance, and it returns on its first
+  line while no recipient is set. Governance had never named a recipient from protocol launch
+  until 2025-12-28 under the UNIfication proposal. Code written in 2020 and never
+  before executed in production began running on every deposit and every withdrawal
+  across half a million pairs. This audit therefore focuses on that code.
+</p>
+<p>
+  All three contracts are immutable. No owner can patch them, and no governance
+  vote can replace their code. Governance controls a single variable in the
+  whole system, the address that receives the protocol fee. A flaw in
+  any of the three contracts would have no fix, and the liquidity sitting in the pairs
+  would have to be manually withdrawn.
+</p>
+<p>
+  This review found no exploitable vulnerability. The arithmetic on the newly
+  live fee path is sound, and the report proves the intermediate products cannot
+  overflow. The findings that matter are economic. The largest is that the fee
+  cannot tell trading revenue apart from a token rebase, so it now takes one
+  sixth of the staking yield in pools holding a yield-bearing asset.
+</p>
+
+<div class="panel provenance">
+  <h2>How this audit was made</h2>
+  <p>
+    I commissioned this audit from myself, to find out how far an AI can take a
+    smart contract review. Claude (Opus 5) read the bytecode, ran the analysis
+    and wrote most of what you see below. I set the scope and the method,
+    checked every finding against the chain myself, and decided what was worth
+    publishing.
+  </p>
+  <p class="muted">
+    So read it as AI work with a human check on it, not as a firm's audit. The
+    findings are reproducible: every figure is pinned to one block, and the
+    method section says exactly how each claim was reached.
+  </p>
+</div>
+
+<h2>Audit summary</h2>
+<p>
+  This review found no exploitable vulnerability in the three Uniswap V2
+  contracts in scope. All three are immutable. None holds an upgrade slot, a
+  <code>DELEGATECALL</code> to a replaceable target, or a
+  <code>SELFDESTRUCT</code>. Governance controls one variable across the whole
+  system, which is the address that receives the protocol fee.
+</p>
+<p>
+  The review concentrated on <code>UniswapV2Pair._mintFee</code>, the protocol
+  fee path. Uniswap governance set the fee recipient on 2025-12-28. Before that
+  date the function returned early on every call, so code written in 2020 began
+  executing in production after 5.6 years. The arithmetic on that path is sound.
+  This report proves that the intermediate products cannot overflow, and
+  confirms that the rounding runs in favour of liquidity providers.
+</p>
+<p>
+  The material findings are economic rather than arithmetic.
+  <code>_mintFee</code> charges one sixth of the growth in the square root of
+  the reserve product, whatever caused that growth. In a pool holding a rebasing
+  token, the staking yield is growth of exactly this kind, so the protocol now
+  takes one sixth of it. Finding <a href="#m-1">M-1</a> quantifies this against
+  the live stETH/WETH pair.
+</p>
+<p>
+  Three contracts, one template, 519,134 deployed pairs. Section
+  <a href="#template-identity">Template identity</a> proves by
+  <code>CREATE2</code> derivation that every pair runs byte-identical code, so
+  the pair findings apply to all of them.
+</p>
+
+<h2>Findings at a glance</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>ID</th><th>Severity</th><th>Finding</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="id"><a href="#m-1">M-1</a></td><td><span class="sev sev-medium">Medium</span></td><td>The protocol fee charges token rebases as though they were trading revenue</td></tr>
+    <tr><td class="id"><a href="#m-2">M-2</a></td><td><span class="sev sev-medium">Medium</span></td><td>A deposit that is not atomic with <code>mint</code> can be claimed by any caller</td></tr>
+    <tr><td class="id"><a href="#m-3">M-3</a></td><td><span class="sev sev-medium">Medium</span></td><td>Oracle consumers must use wrapping arithmetic, or the price feed reverts</td></tr>
+    <tr><td class="id"><a href="#l-1">L-1</a></td><td><span class="sev sev-low">Low</span></td><td><code>mint</code> and <code>burn</code> became more expensive when the protocol fee activated</td></tr>
+    <tr><td class="id"><a href="#l-2">L-2</a></td><td><span class="sev sev-low">Low</span></td><td>ERC-20 tokens left in the router are claimable by the next caller</td></tr>
+    <tr><td class="id"><a href="#l-3">L-3</a></td><td><span class="sev sev-low">Low</span></td><td>ETH left in the router is unrecoverable; 0.025 ETH is stranded now</td></tr>
+    <tr><td class="id"><a href="#l-4">L-4</a></td><td><span class="sev sev-low">Low</span></td><td>LP token transfers have no zero-address guard</td></tr>
+    <tr><td class="id"><a href="#l-5">L-5</a></td><td><span class="sev sev-low">Low</span></td><td>The reserve ceiling of 2<sup>112</sup> − 1 excludes very large token supplies</td></tr>
+    <tr><td class="id"><a href="#i-1">I-1</a></td><td><span class="sev sev-info">Info</span></td><td>The one sixth fee share is fixed in immutable code</td></tr>
+    <tr><td class="id"><a href="#i-2">I-2</a></td><td><span class="sev sev-info">Info</span></td><td>Fee rounding favours liquidity providers, bounded at one wei per call</td></tr>
+    <tr><td class="id"><a href="#i-3">I-3</a></td><td><span class="sev sev-info">Info</span></td><td>Fee-on-transfer tokens require the dedicated router entry points</td></tr>
+    <tr><td class="id"><a href="#i-4">I-4</a></td><td><span class="sev sev-info">Info</span></td><td>The EIP-712 domain separator is fixed at deployment</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Counts: 0 critical, 0 high, 3 medium, 5 low, 4 informational.</p>
+
+<h2>Verified onchain facts</h2>
+<p>
+  Every figure below was read from Ethereum mainnet at block 25,794,522,
+  2026-08-20 06:25:11 UTC.
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th></th><th>UniswapV2Pair</th><th>UniswapV2Factory</th><th>UniswapV2Router02</th></tr>
+  </thead>
+  <tbody>
+    <tr><th>Address</th><td><a target="_blank" rel="noopener" href="https://etherscan.io/address/0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc"><code>0xB4e1…8C9Dc</code></a></td><td><a target="_blank" rel="noopener" href="https://etherscan.io/address/0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"><code>0x5C69…5aA6f</code></a></td><td><a target="_blank" rel="noopener" href="https://etherscan.io/address/0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"><code>0x7a25…2488D</code></a></td></tr>
+    <tr><th>Deployed</th><td>Block 10,008,355, 2020-05-05</td><td>Block 10,000,835, 2020-05-04</td><td>Block 10,207,858, 2020-06-05</td></tr>
+    <tr><th>Age</th><td>6.29 years</td><td>6.29 years</td><td>6.20 years</td></tr>
+    <tr><th>Runtime code</th><td>11,293 B (11,241 + 52 metadata)</td><td>13,859 B (13,807 + 52)</td><td>21,943 B (21,890 + 53)</td></tr>
+    <tr><th>Compiler</th><td>solc 0.5.16+commit.9c3226ce</td><td>solc 0.5.16+commit.9c3226ce</td><td>solc 0.6.6+commit.6c089d02</td></tr>
+    <tr><th>Optimiser</th><td>enabled, 999,999 runs</td><td>enabled, 999,999 runs</td><td>enabled, 999,999 runs</td></tr>
+    <tr><th>Instructions</th><td>5,361</td><td>6,452</td><td>11,012</td></tr>
+    <tr><th>Selectors</th><td>27</td><td>35</td><td>24</td></tr>
+    <tr><th>Proxy slots</th><td>all three zero</td><td>all three zero</td><td>all three zero</td></tr>
+    <tr><th>Upgrade opcodes</th><td>none</td><td>one <code>CREATE2</code></td><td>none</td></tr>
+    <tr><th>Admin getters</th><td>none respond</td><td><code>feeTo</code>, <code>feeToSetter</code></td><td>none respond</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The pair address above is the USDC/WETH instance, used as the read target for
+  the template.
+</p>
+<p>
+  <strong>Governance.</strong> <code>feeToSetter</code> is
+  <code>0x1a9c8182c09f50c8318d769245bea52c32be35bc</code>, a timelock with a
+  172,800 second delay, which is 2 days. Its admin is
+  <code>0x408ed6354d4973f66138c91495f2f2fcbd8724c3</code>. <code>feeTo</code> is
+  <code>0xf38521f130fccf29db1961597bc5d2b60f995f85</code>, a 1,990 byte contract
+  owned by the same timelock. <code>allPairsLength()</code> returns 519,134.
+</p>
+<p><strong>Pair storage layout,</strong> confirmed by direct slot reads:</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Slot</th><th>Contents</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>0</td><td><code>totalSupply</code></td></tr>
+    <tr><td>1</td><td><code>balanceOf</code> mapping root</td></tr>
+    <tr><td>2</td><td><code>allowance</code> mapping root</td></tr>
+    <tr><td>3</td><td><code>DOMAIN_SEPARATOR</code></td></tr>
+    <tr><td>4</td><td><code>nonces</code> mapping root</td></tr>
+    <tr><td>5</td><td><code>factory</code></td></tr>
+    <tr><td>6</td><td><code>token0</code></td></tr>
+    <tr><td>7</td><td><code>token1</code></td></tr>
+    <tr><td>8</td><td><code>reserve0</code>, <code>reserve1</code>, <code>blockTimestampLast</code>, packed into one slot</td></tr>
+    <tr><td>9</td><td><code>price0CumulativeLast</code></td></tr>
+    <tr><td>10</td><td><code>price1CumulativeLast</code></td></tr>
+    <tr><td>11</td><td><code>kLast</code></td></tr>
+    <tr><td>12</td><td><code>unlocked</code>, the reentrancy guard</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Method</h2>
+<p>
+  I read the runtime bytecode of all three contracts over JSON-RPC and
+  disassembled it with an opcode walker that skips <code>PUSH</code> immediates.
+  Claims about what these contracts cannot do rest on that disassembly. I then
+  read the verified source published for each deployed address and reconciled it
+  against the bytecode. Every state figure comes from a single batch of 66 reads
+  pinned to one block, so the numbers in this report reconcile with each other.
+</p>
+<p>Four checks are worth naming, because each one produced a result used below.</p>
+<p>
+  <strong>Template identity.</strong> See the section below. This is what allows
+  a single review to speak for 519,134 contracts.
+</p>
+<p>
+  <strong>Selector reconciliation.</strong> The pair's dispatcher carries 27
+  selectors. Its documented interface has 27 entries. The two sets match
+  exactly, with no undocumented entry point and no missing one. The factory's
+  dispatcher carries 35 selectors. That is its own 8 plus the pair template's
+  27, because the factory holds the pair's creation code inside its runtime.
+</p>
+<p>
+  <strong>Independent hash recomputation.</strong> I recomputed the pair's
+  EIP-712 domain separator and permit type hash from their preimages and
+  compared them against the values the contract returns. Both match:
+</p>
+<pre><code>DOMAIN_SEPARATOR  0xe8d93546d488d196c53f3e93ad73ba237e3fb527bddca6a240f54d03552dc70f
+PERMIT_TYPEHASH   0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9</code></pre>
+<p>
+  This matters for the compiler sweep below. The one known solc defect whose
+  trigger conditions this build meets is a bytecode optimiser fault in
+  Keccak-256 constant folding. Matching hashes, plus the matching
+  <code>CREATE2</code> derivation, give positive evidence that the hash sites in
+  this bytecode compute correctly.
+</p>
+<p>
+  <strong>Compiler defect sweep.</strong> solc 0.5.16 carries 13 recorded
+  defects and solc 0.6.6 carries 13. I assessed each against the language
+  features these contracts actually use. None is reachable. The table records
+  the reason for each class:
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Defect class</th><th>Reason it cannot fire here</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>AbiReencodingHeadOverflow…</code>, <code>MissingEscapingInFormatting</code></td><td>Require ABIEncoderV2. All three contracts use the default encoder.</td></tr>
+    <tr><td><code>EmptyByteArrayCopy</code>, <code>DirtyBytesArrayToStorage</code></td><td>Require a <code>bytes</code> array copied into storage. No such copy exists.</td></tr>
+    <tr><td><code>DynamicArrayCleanup</code></td><td>Requires a packed dynamic storage array that shrinks. The factory's <code>address[] allPairs</code> packs one element per slot and only grows.</td></tr>
+    <tr><td><code>MemoryArrayCreationOverflow</code></td><td>Requires an array length above 2<sup>251</sup>. Router path lengths are bounded by calldata size.</td></tr>
+    <tr><td><code>privateCanBeOverridden</code></td><td>Requires a derived contract redeclaring a base contract's private function. The pair declares no function matching a private member of its ERC-20 base.</td></tr>
+    <tr><td><code>SignedImmutables</code></td><td>Requires a signed immutable narrower than 256 bits. The router's two immutables are <code>address</code>.</td></tr>
+    <tr><td><code>MissingSideEffectsOnSelectorAccess</code></td><td>Requires <code>.selector</code> on a side-effecting expression. Selectors here are literals.</td></tr>
+    <tr><td><code>ArraySliceDynamicallyEncodedBaseType</code>, <code>NestedCalldataArray…</code>, <code>ABIDecodeTwoDimensionalArrayMemory</code></td><td>Require array slices, nested calldata arrays or two-dimensional ABI decoding. None appears.</td></tr>
+    <tr><td><code>LostStorageArrayWriteOnSlotOverflow</code></td><td>Requires a storage array based near slot 2<sup>256</sup>. Slots in use run 0 to 12.</td></tr>
+    <tr><td><code>ImplicitConstructorCallvalueCheck</code></td><td>Concerns value sent during construction. The factory creates each pair with a value of zero.</td></tr>
+    <tr><td><code>KeccakCaching</code></td><td>Trigger conditions are met. Addressed by the independent hash recomputation above.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="template-identity">Template identity</h2>
+<p>
+  <code>UniswapV2Factory.createPair</code> deploys each pair with
+  <code>CREATE2</code>, using the concatenated sorted token addresses as the
+  salt. That makes every pair address a pure function of the factory address,
+  the two tokens and the creation code. The derivation reproduces exactly:
+</p>
+<pre><code>init code                11,636 bytes
+keccak256(init code)     0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f
+salt(USDC, WETH)         0x85053f65cd1ece2bb37b70c13d66eadebf2779df5ddd68cf12f3ccfdc6bfe760
+derived address          0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc
+deployed address         0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc</code></pre>
+<p>Three further facts complete the chain:</p>
+<ol>
+  <li>That 11,636 byte init code appears verbatim inside the factory's runtime
+    code at offset 2,171. The factory carries the template it stamps out.</li>
+  <li>The pair's 11,293 byte runtime code sits inside that init code at offset
+    261.</li>
+  <li>The same init code hash is hardcoded inside Router02's runtime at offset
+    16,742, which is how the router computes pair addresses without an external
+    call.</li>
+</ol>
+<p>
+  Spot-checked across four live pairs, each one returns runtime code identical
+  to the template and an address the derivation reproduces:
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Pair</th><th>Runtime identical</th><th><code>CREATE2</code> derives its address</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>USDC/WETH</td><td>yes</td><td>yes</td></tr>
+    <tr><td>WETH/USDT</td><td>yes</td><td>yes</td></tr>
+    <tr><td>DAI/WETH</td><td>yes</td><td>yes</td></tr>
+    <tr><td>stETH/WETH</td><td>yes</td><td>yes</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The pair findings in this report therefore apply to all 519,134 deployed
+  pairs.
+</p>
+
+<h2>The protocol fee path</h2>
+<p>
+  <code>_mintFee</code> runs at the start of <code>mint</code> and at the start
+  of <code>burn</code>. It reads the recipient from the factory. It then
+  compares the current reserve product against the stored <code>kLast</code>,
+  and mints new LP tokens when the product has grown:
+</p>
+<pre><code>uint rootK = Math.sqrt(uint(_reserve0).mul(_reserve1));
+uint rootKLast = Math.sqrt(_kLast);
+if (rootK &gt; rootKLast) {
+    uint numerator = totalSupply.mul(rootK.sub(rootKLast));
+    uint denominator = rootK.mul(5).add(rootKLast);
+    uint liquidity = numerator / denominator;
+    if (liquidity &gt; 0) _mint(feeTo, liquidity);
+}</code></pre>
+<p>
+  <strong>The formula is correct.</strong> Solving for the minted amount
+  <code>L</code> that gives the recipient one sixth of the growth in
+  <code>rootK</code>:
+</p>
+<pre><code>L / (totalSupply + L) = (1/6) · (rootK − rootKLast) / rootK
+L = totalSupply · (rootK − rootKLast) / (5 · rootK + rootKLast)</code></pre>
+<p>
+  That is the expression in the code. The live USDC/WETH pair confirms it. An
+  observed growth of 1.2991e-06 in <code>rootK</code> produces a pending charge
+  of 0.00002165 percent of the pool. That is one sixth of the growth, to five
+  significant figures.
+</p>
+<p>
+  <strong>The intermediate products cannot overflow.</strong>
+  <code>totalSupply</code> never exceeds <code>rootK</code>. The two are equal
+  when a pair is first seeded, since the first deposit mints
+  <code>sqrt(amount0 · amount1)</code>. Afterwards <code>mint</code> and
+  <code>burn</code> scale both quantities by the same factor, and every other
+  path raises the reserve product without raising the supply. So the ratio only
+  falls. Both reserves are <code>uint112</code>, so <code>rootK</code> is at
+  most 2<sup>112</sup>, and the largest product the function forms is:
+</p>
+<pre><code>totalSupply · (rootK − rootKLast)  ≤  rootK · rootK  ≤  2^224</code></pre>
+<p>
+  That leaves 32 bits of headroom below the 2<sup>256</sup> limit. The
+  <code>SafeMath</code> guards on this path cannot trigger, which means
+  <code>_mintFee</code> cannot revert and cannot brick <code>mint</code> or
+  <code>burn</code>. The reserve product itself,
+  <code>uint(_reserve0).mul(_reserve1)</code>, is bounded by the same
+  2<sup>224</sup>.
+</p>
+<p>
+  <strong>Accrued growth is charged once and never retroactively.</strong>
+  <code>kLast</code> is written at the end of <code>mint</code> and
+  <code>burn</code>, and only while a recipient is set. When governance
+  activated the fee on 2025-12-28, <code>kLast</code> held zero for every pair,
+  and <code>_mintFee</code> skips the charge entirely when <code>kLast</code> is
+  zero. Growth accumulated over the preceding 5.6 years therefore went
+  uncharged.
+</p>
+
+<h2>Findings</h2>
+
+<h3 id="m-1">M-1 · The protocol fee charges token rebases as though they were trading revenue <span class="sev sev-medium">Medium</span></h3>
+<p class="muted">Affects liquidity providers in pools holding a rebasing or yield-bearing token.</p>
+<p>
+  <code>_mintFee</code> measures growth in the square root of the reserve
+  product. It does not distinguish where that growth came from. Trading fees
+  raise the reserve product, and so does any other increase in the pair's token
+  balances, including a positive rebase.
+</p>
+<p>
+  Take a token that rebases by a factor <code>r</code> on one side of a pool.
+  The reserve product grows by <code>(1 + r)</code>, so its square root grows by
+  <code>sqrt(1 + r)</code>. The recipient's resulting share of the pool is:
+</p>
+<pre><code>(1/6) · (1 − 1 / sqrt(1 + r))  ≈  r / 12</code></pre>
+<p>
+  The rebase itself is worth about <code>r / 2</code> of the pool, because the
+  rebasing token is one of two sides. The protocol therefore captures one sixth
+  of the staking yield, and the liquidity providers keep five sixths.
+</p>
+<p>
+  <strong>Evidence from the live stETH/WETH pair,</strong>
+  <code>0x4028daac072e492d34a3afdbef0ba7e35d8b55c4</code>:
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Measure</th><th>Value</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Growth in <code>rootK</code> since <code>kLast</code> was set</td><td>6.8408e-05</td></tr>
+    <tr><td>Pending charge on the next <code>mint</code> or <code>burn</code></td><td>1,030,017,104,789,895 LP, being 0.00114005% of the pool</td></tr>
+    <tr><td>Recipient's current holding</td><td>14,381,889,933,930,848 LP, being 0.015918% of supply</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The pending charge is exactly one sixth of the growth. The implied one-sided
+  growth of 1.368e-04 corresponds to about 1.7 days of rebase at a 3 percent
+  annual staking yield, which matches the mechanism.
+</p>
+<p>
+  The comparison across pools shows the effect. The recipient holds 0.015918
+  percent of the stETH/WETH pool against 0.000906 percent of the USDC/WETH pool.
+  That is a factor of 18, on a pool with far less trading volume. Yield drives
+  the difference.
+</p>
+<p>
+  <strong>Impact.</strong> A liquidity provider in a rebasing-token pool now
+  surrenders one sixth of the yield component of their return, on top of one
+  sixth of trading fees. Before 2025-12-28 the whole rebase accrued to them. The
+  same reasoning covers any pool where value reaches the pair by a route other
+  than a swap. Airdrops paid to holders and direct donations both qualify.
+</p>
+<p>
+  <strong>Mitigation.</strong> Price the yield drag into the decision to provide
+  liquidity in a rebasing-token pool. A wrapped form of the same asset avoids
+  the charge. Its balance stays constant while the redemption rate moves, so the
+  reserve product stays flat and the yield stays with the holder.
+</p>
+
+<h3 id="m-2">M-2 · A deposit that is not atomic with <code>mint</code> can be claimed by any caller <span class="sev sev-medium">Medium</span></h3>
+<p class="muted">Affects any contract or script that deposits without the router.</p>
+<p>
+  <code>mint</code> credits the caller with the difference between the pair's
+  current token balances and its stored reserves:
+</p>
+<pre><code>uint amount0 = balance0.sub(_reserve0);
+uint amount1 = balance1.sub(_reserve1);</code></pre>
+<p>
+  The function attributes that difference to whoever calls it, and mints the LP
+  tokens to whatever address that caller names. Tokens transferred to a pair in
+  one transaction, with <code>mint</code> called in a later transaction, belong
+  to the first caller of <code>mint</code> that follows.
+</p>
+<p>
+  <strong>Impact.</strong> An integrator who sends tokens to a pair and calls
+  <code>mint</code> separately loses the deposit to a watcher. The window is one
+  block.
+</p>
+<p>
+  <strong>Mitigation.</strong> Transfer and mint in a single transaction, which
+  is what <code>UniswapV2Router02.addLiquidity</code> does. Treat direct pair
+  calls as available only to contracts that control the whole sequence
+  atomically.
+</p>
+
+<h3 id="m-3">M-3 · Oracle consumers must use wrapping arithmetic, or the price feed reverts <span class="sev sev-medium">Medium</span></h3>
+<p class="muted">Affects protocols reading the pair's time-weighted price.</p>
+<p>
+  <code>_update</code> maintains two cumulative price accumulators and the
+  timestamp they were last written at:
+</p>
+<pre><code>uint32 blockTimestamp = uint32(block.timestamp % 2**32);
+uint32 timeElapsed = blockTimestamp - blockTimestampLast; // overflow is desired
+price0CumulativeLast += uint(UQ112x112.encode(_reserve1).uqdiv(_reserve0)) * timeElapsed;</code></pre>
+<p>
+  Both the accumulators and the timestamp are designed to wrap. The contract's
+  own arithmetic handles this correctly, because solc 0.5.16 wraps silently and
+  the modular subtraction gives the right elapsed time across a wrap.
+  <code>blockTimestampLast</code> is a <code>uint32</code>, so it wraps in
+  February 2106.
+</p>
+<p>
+  The hazard sits in the consumer. A consumer compiled with solc 0.8.0 or later
+  gets checked arithmetic by default. Subtracting a stored accumulator from a
+  later reading then reverts on the wrap instead of returning the correct
+  difference. The same applies to a consumer that stores its own
+  <code>uint256</code> timestamp and subtracts the pair's <code>uint32</code>
+  value.
+</p>
+<p>
+  At current values this is remote. <code>price0CumulativeLast</code> on
+  USDC/WETH stands at about 2<sup>169</sup> against a 2<sup>256</sup> ceiling.
+  The exposure scales with the price ratio. A pair whose accumulator advances at
+  the maximum rate reaches the ceiling in about 136 years. A pair with extreme
+  reserve asymmetry advances far faster than USDC/WETH does.
+</p>
+<p>
+  <strong>Impact.</strong> An oracle read that reverts at an arbitrary future
+  point. For a lending protocol that treats a reverting oracle as a halt, that
+  is a liveness failure. A protocol that falls back to a stale price instead
+  faces a pricing error.
+</p>
+<p>
+  <strong>Mitigation.</strong> Wrap every accumulator and timestamp subtraction
+  in <code>unchecked</code>, and store the counterpart timestamp as a
+  <code>uint32</code>. Test the consumer against accumulator values near
+  2<sup>256</sup> and against a <code>blockTimestampLast</code> that has just
+  wrapped.
+</p>
+
+<h3 id="l-1">L-1 · <code>mint</code> and <code>burn</code> became more expensive when the protocol fee activated <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects integrators with fixed gas budgets.</p>
+<p>
+  While no recipient was set, <code>_mintFee</code> returned after one external
+  call and <code>kLast</code> stayed at zero. Both functions now perform
+  additional storage work:
+</p>
+<ul>
+  <li><code>kLast = uint(reserve0).mul(reserve1)</code> on every
+    <code>mint</code> and <code>burn</code>.</li>
+  <li>When a charge is due, a write to <code>totalSupply</code>, a write to the
+    recipient's balance, and a <code>Transfer</code> log.</li>
+</ul>
+<p>
+  The current gas schedule gives the range. Rewriting <code>kLast</code> alone
+  adds about 5,000 gas. The first charging call for a pair adds roughly 49,000,
+  because <code>kLast</code> and the recipient's balance are both cold and both
+  move away from zero.
+</p>
+<p>
+  <strong>Impact.</strong> Some calls that succeeded before 2025-12-28 now fail.
+  The exposed cases are a contract that calls <code>mint</code> or
+  <code>burn</code> through a fixed gas stipend, and a batched operation sitting
+  near the block gas limit.
+</p>
+<p>
+  <strong>Mitigation.</strong> Re-measure gas for every path that reaches
+  <code>mint</code> or <code>burn</code>, and size limits against the
+  first-charge case rather than the steady state.
+</p>
+
+<h3 id="l-2">L-2 · ERC-20 tokens left in the router are claimable by the next caller <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects anyone who transfers tokens to the router by mistake.</p>
+<p>
+  Two router functions pay out the router's whole balance of a token rather than
+  the amount the current call produced:
+</p>
+<pre><code>// removeLiquidityETHSupportingFeeOnTransferTokens
+TransferHelper.safeTransfer(token, to, IERC20(token).balanceOf(address(this)));
+
+// swapExactTokensForETHSupportingFeeOnTransferTokens
+uint amountOut = IERC20(WETH).balanceOf(address(this));</code></pre>
+<p>
+  The router is designed to end every transaction holding nothing, so in normal
+  operation the balance equals the amount just produced. Any token sent to the
+  router directly, or left there by a failed integration, is swept to the next
+  caller of the matching function.
+</p>
+<p>
+  <strong>Impact.</strong> Permanent loss of misdirected tokens to an unrelated
+  party. Sums are whatever users have misdirected. All six major tokens checked
+  held a zero balance at the review block.
+</p>
+<p>
+  <strong>Mitigation.</strong> Never transfer tokens to the router address.
+  Integrators should treat a non-zero router balance as recoverable only by the
+  party who acts first.
+</p>
+
+<h3 id="l-3">L-3 · ETH left in the router is unrecoverable <span class="sev sev-low">Low</span></h3>
+<p class="muted">0.025 ETH is stranded at the review block.</p>
+<p>The router's <code>receive</code> function accepts ETH from the WETH contract:</p>
+<pre><code>receive() external payable {
+    assert(msg.sender == WETH);
+}</code></pre>
+<p>
+  Every ETH payment the router makes sends an amount computed by the current
+  call. No function reads <code>address(this).balance</code>. ETH that arrives
+  outside the normal unwrap flow, by a coinbase payment or a forced transfer,
+  has no exit.
+</p>
+<p>
+  At block 25,794,522 the router holds 25,000,000,000,000,000 wei, being 0.025
+  ETH. That balance is permanently locked.
+</p>
+<p>
+  <strong>Impact.</strong> Small and bounded. It matters as a statement about
+  the contract rather than as a loss.
+</p>
+<p>
+  <strong>Mitigation.</strong> Send ETH to the router only through its payable
+  entry points.
+</p>
+
+<h3 id="l-4">L-4 · LP token transfers have no zero-address guard <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects holders who mistype a destination.</p>
+<p>
+  The pair's ERC-20 implementation moves balances without checking the
+  destination. A transfer to the zero address succeeds and removes the tokens
+  from circulation, since no key exists to move them again.
+</p>
+<p>
+  The USDC/WETH pair holds 98,419,474,949 LP tokens at the zero address. Of
+  that, 1,000 is the <code>MINIMUM_LIQUIDITY</code> the first deposit locks by
+  design. The rest represents value sent there by holders, worth about 1.4 parts
+  per million of the pool.
+</p>
+<p><strong>Impact.</strong> Silent, permanent loss on a mistyped transfer.</p>
+<p>
+  <strong>Mitigation.</strong> Validate the destination before calling
+  <code>transfer</code> on an LP token. Reconcile the zero-address balance when
+  computing circulating supply.
+</p>
+
+<h3 id="l-5">L-5 · The reserve ceiling of 2<sup>112</sup> − 1 excludes very large token supplies <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects tokens with very large supplies or high decimals.</p>
+<p><code>_update</code> rejects any balance above the <code>uint112</code> ceiling:</p>
+<pre><code>require(balance0 &lt;= uint112(-1) &amp;&amp; balance1 &lt;= uint112(-1), 'UniswapV2: OVERFLOW');</code></pre>
+<p>
+  The ceiling is 2<sup>112</sup> − 1, which is about 5.19e33. For a token with
+  18 decimals that caps a pair at roughly 5.19e15 whole tokens.
+</p>
+<p>
+  <strong>Impact.</strong> A pair holding a token near that ceiling reverts on
+  <code>swap</code>, <code>mint</code>, <code>burn</code> and <code>sync</code>
+  once a deposit would cross it. Liquidity already in the pair stays
+  withdrawable, since <code>burn</code> lowers balances. A token whose whole
+  supply exceeds the ceiling cannot be fully pooled.
+</p>
+<p>
+  <strong>Mitigation.</strong> Check the token's maximum supply against
+  2<sup>112</sup> − 1 in its own decimals before launching a pair.
+</p>
+
+<h3 id="i-1">I-1 · The one sixth fee share is fixed in immutable code <span class="sev sev-info">Info</span></h3>
+<p class="muted">Recorded because it bounds the governance risk.</p>
+<p>
+  The divisors in <code>_mintFee</code> are compile-time constants inside
+  immutable pair bytecode. <code>UniswapV2Factory</code> exposes exactly two
+  authority functions, <code>setFeeTo</code> and <code>setFeeToSetter</code>,
+  and both are gated on <code>feeToSetter</code>. Governance can change who
+  receives the protocol fee, and can switch it off by setting the zero address.
+</p>
+<p>
+  Governance cannot raise the share above one sixth, reach liquidity provider
+  principal, pause a pair, or replace pair code. The two-day timelock delay
+  gives notice of any change to the recipient.
+</p>
+
+<h3 id="i-2">I-2 · Fee rounding favours liquidity providers, bounded at one wei per call <span class="sev sev-info">Info</span></h3>
+<p>
+  <code>liquidity = numerator / denominator</code> truncates.
+  <code>Math.sqrt</code> truncates as well. The minted amount is therefore at
+  most one LP token wei below the exact share, and the shortfall falls on the
+  fee recipient.
+</p>
+<p>
+  A related case is a charge that truncates to zero, where <code>kLast</code>
+  still advances and the growth goes uncharged. The threshold is tight. On
+  USDC/WETH the growth in <code>rootK</code> would have to fall below 17.05
+  units against an actual value of 263,496,737,283. Reaching it needs two calls
+  in close succession. Each such call forgives under one LP token wei, worth
+  about 3e-10 US dollars at current pool size. The transaction costs many orders
+  of magnitude more than it forgives.
+</p>
+
+<h3 id="i-3">I-3 · Fee-on-transfer tokens require the dedicated router entry points <span class="sev sev-info">Info</span></h3>
+<p>
+  The pair measures deposits and swap inputs from balance differences, so it
+  handles a token that takes a cut on transfer without difficulty. The router's
+  standard entry points compute expected amounts in advance and revert when the
+  amount received falls short.
+</p>
+<p>
+  Router02 provides five functions ending in
+  <code>SupportingFeeOnTransferTokens</code> for this case. They read the
+  balance actually received and price the swap from it. The output check
+  compares the recipient's balance before and after:
+</p>
+<pre><code>uint balanceBefore = IERC20(path[path.length - 1]).balanceOf(to);
+_swapSupportingFeeOnTransferTokens(path, to);
+require(IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) &gt;= amountOutMin, ...);</code></pre>
+<p>
+  A recipient that receives the same token from another source inside the same
+  transaction inflates that difference and weakens the slippage check. Route
+  output to an address that receives nothing else during the call.
+</p>
+
+<h3 id="i-4">I-4 · The EIP-712 domain separator is fixed at deployment <span class="sev sev-info">Info</span></h3>
+<p>
+  The pair computes <code>DOMAIN_SEPARATOR</code> in its constructor and stores
+  it in slot 3. The chain id is read once, at deployment.
+</p>
+<p>
+  Should the chain split, both sides keep the same domain separator. A
+  <code>permit</code> signature valid on one side would then be valid on the
+  other. Two things bound the exposure: the per-holder <code>nonces</code>
+  counter, and the signature <code>deadline</code>.
+</p>
+
+<h2>What these contracts cannot do</h2>
+<p>
+  Each item below is confirmed against the disassembled runtime code, or against
+  the state reads pinned to block 25,794,522.
+</p>
+<ul>
+  <li>All three proxy slots read zero on each of the three contracts, and none
+    holds a <code>DELEGATECALL</code> to a replaceable target. There is no
+    upgrade path.</li>
+  <li>No <code>SELFDESTRUCT</code> in any of the three, so none can be removed
+    and no balance can be swept that way.</li>
+  <li>The only upgrade-class opcode anywhere in scope is the single
+    <code>CREATE2</code> in the factory, which is <code>createPair</code>. It
+    stamps out the fixed template whose init code hash is
+    <code>0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f</code>,
+    and it cannot deploy anything else.</li>
+  <li>The pair's dispatcher carries 27 selectors and its documented interface
+    has 27 entries. The two sets match exactly, so there is no undocumented
+    entry point and none missing.</li>
+  <li>Governance holds two functions, <code>setFeeTo</code> and
+    <code>setFeeToSetter</code>, both gated on <code>feeToSetter</code> behind a
+    two-day timelock. It cannot raise the fee share above one sixth, reach
+    liquidity provider principal, pause a pair, or replace pair code.</li>
+  <li><code>_mintFee</code> cannot revert. Its <code>SafeMath</code> guards sit
+    32 bits below the point where they could trigger, so activating the protocol
+    fee could not brick <code>mint</code> or <code>burn</code> on any pair.</li>
+  <li>No admin getter responds on the pair or on the router. The router's only
+    two immutables are the factory address and the WETH address, both fixed at
+    deployment.</li>
+  <li>The pair carries a reentrancy guard in storage slot 12,
+    <code>unlocked</code>.</li>
+  <li>The router holds no privileged state and no owner. Its inability to move a
+    stray balance is the same property from the other side
+    (<a href="#l-2">L-2</a>, <a href="#l-3">L-3</a>).</li>
+</ul>
+
+<h2 id="integration-checklist">Integration checklist</h2>
+<p>
+  These contracts are immutable, so this section is the actionable part of the
+  report.
+</p>
+
+<h3>Providing liquidity</h3>
+<ul>
+  <li>Price in the protocol fee. One sixth of the growth in the square root of
+    the reserve product goes to the fee recipient on every <code>mint</code> and
+    <code>burn</code>.</li>
+  <li>For a pool holding a rebasing or yield-bearing token, subtract one sixth
+    of the yield as well as one sixth of trading fees
+    (<a href="#m-1">M-1</a>).</li>
+  <li>Deposit and mint in one transaction, always (<a href="#m-2">M-2</a>).</li>
+  <li>Re-measure the gas cost of every <code>mint</code> and <code>burn</code>
+    path against the first-charge case (<a href="#l-1">L-1</a>).</li>
+  <li>Validate the destination on every LP token transfer
+    (<a href="#l-4">L-4</a>).</li>
+</ul>
+
+<h3>Reading prices</h3>
+<ul>
+  <li>Wrap accumulator and timestamp subtraction in <code>unchecked</code>
+    (<a href="#m-3">M-3</a>).</li>
+  <li>Store the counterpart timestamp as a <code>uint32</code>, matching
+    <code>blockTimestampLast</code>.</li>
+  <li>Read <code>getReserves</code> for a spot price only where manipulation
+    within one block is acceptable. Use the accumulators for anything that
+    governs value.</li>
+</ul>
+
+<h3>Swapping and routing</h3>
+<ul>
+  <li>Use the <code>SupportingFeeOnTransferTokens</code> entry points for any
+    token that takes a cut on transfer (<a href="#i-3">I-3</a>).</li>
+  <li>Send swap output to an address that receives nothing else in the same
+    transaction (<a href="#i-3">I-3</a>).</li>
+  <li>Never leave tokens or ETH at the router address (<a href="#l-2">L-2</a>,
+    <a href="#l-3">L-3</a>).</li>
+  <li>Set a real <code>deadline</code>. The router enforces
+    <code>deadline &gt;= block.timestamp</code> and nothing more.</li>
+</ul>
+
+<h3>Deriving pair addresses</h3>
+<ul>
+  <li>Compute pair addresses with <code>CREATE2</code> from the factory address,
+    the sorted token pair and init code hash
+    <code>0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f</code>.</li>
+  <li>Confirm code exists at the derived address before sending tokens to
+    it.</li>
+  <li>Sort the two token addresses ascending before hashing the salt.</li>
+</ul>
+
+<h3>Launching a pair</h3>
+<ul>
+  <li>Check the token's maximum supply against 2<sup>112</sup> − 1 in its own
+    decimals (<a href="#l-5">L-5</a>).</li>
+  <li>Seed the pair at a sensible price in the same transaction that creates it.
+    The first deposit sets the price and locks 1,000 LP tokens
+    permanently.</li>
+</ul>
+
+<h2>Limits of this review</h2>
+<p>State these alongside the findings whenever this audit is quoted.</p>
+<ul>
+  <li><strong>Scope is three contracts.</strong> The tokens inside a pair were
+    not reviewed, and that is where most pair-level risk actually sits. A pair
+    is only as sound as the two tokens it holds.</li>
+  <li><strong>Template identity is proven by derivation and spot-checked four
+    times.</strong> The <code>CREATE2</code> derivation and the init code hash
+    cover all 519,134 pairs by construction. Runtime code was read and compared
+    for four of them, not for every one.</li>
+  <li><strong>Governance was read, not audited.</strong> The timelock at
+    <code>0x1a9c8182c09f50c8318d769245bea52c32be35bc</code> and its admin were
+    read for their parameters. Neither contract was reviewed, and nor was the
+    1,990 byte <code>feeTo</code> recipient. Where the protocol fee goes after
+    it arrives is out of scope.</li>
+  <li><strong>No formal verification, symbolic execution or fuzzing.</strong>
+    This is a source and bytecode review.</li>
+  <li><strong>Economic design is not treated as defect.</strong> Sandwich
+    attacks, just-in-time liquidity and impermanent loss follow from how a
+    constant product market maker works. They are not findings here.</li>
+  <li><strong>No historical state was read.</strong> Every state figure comes
+    from one block. The claim that pairs accrued no protocol fee before
+    2025-12-28 rests on the <code>kLast</code> semantics in the code, not on an
+    archive read.</li>
+  <li><strong>Figures move every block.</strong> They are pinned to block
+    25,794,522, 2026-08-20 06:25:11 UTC.</li>
+</ul>
+
+<h2>Links</h2>
+<ul class="links">
+  <li><a target="_blank" rel="noopener" href="https://etherscan.io/address/0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc#code">UniswapV2Pair, verified source</a></li>
+  <li><a target="_blank" rel="noopener" href="https://etherscan.io/address/0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f#code">UniswapV2Factory, verified source</a></li>
+  <li><a target="_blank" rel="noopener" href="https://etherscan.io/address/0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D#code">UniswapV2Router02, verified source</a></li>
+  <li><a target="_blank" rel="noopener" href="https://docs.uniswap.org/contracts/v2/overview">Uniswap V2 protocol documentation</a></li>
+  <li><a target="_blank" rel="noopener" href="https://github.com/ethereum/solidity/blob/develop/docs/bugs_by_version.json">Solidity bug list by version</a></li>
+  <li><a target="_blank" rel="noopener" href="https://www.dlnews.com/articles/defi/uniswap-dao-to-activate-fee-switch-and-burn-100m-uni-tokens/">Protocol fee activation on 2025-12-28 under the UNIfication proposal</a></li>
+  <li><a target="_blank" rel="noopener" href="https://rareskills.io/post/uniswap-v2-mintfee"><code>_mintFee</code> arithmetic explained</a></li>
+  <li><a href="../../index.html">David Ryan's builder page</a></li>
+</ul>
+
+<script>Audit.wireThemeToggle();</script>
+
+</body>
+</html>
