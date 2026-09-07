@@ -59,12 +59,13 @@
   <code>CREATE2</code> derivation.
 </p>
 <p>
-  The design is also the most copied in decentralised finance. DefiLlama lists
-  767 protocols that name Uniswap V2 as their source, which is more than a third
-  of every fork it tracks. Some deploy the code unchanged and some modify it, so
-  this report carries across to them in full or in part. The
-  <a href="#forks">Forks</a> section sets out which findings travel and how to
-  check.
+  That mainnet factory is one deployment of four kinds that exist. Uniswap runs
+  its own V2 deployments on 15 other networks. Other organisations have copied
+  the design more than any other in decentralised finance, on Ethereum and
+  elsewhere, and DefiLlama counts 767 of them. This review reads the Ethereum
+  mainnet deployment alone. The
+  <a href="#other-deployments">Other deployments and forks</a> section sets out
+  what carries across to the other three, and how to check.
 </p>
 <p>
   One function inside every pair sat dormant for 5.6 years. <code>_mintFee</code>
@@ -130,10 +131,12 @@
   the live stETH/WETH pair.
 </p>
 <p>
-  Three contracts, one template, 519,134 deployed pairs. Section
+  Three contracts, one template, 519,134 pairs on Ethereum mainnet. Section
   <a href="#template-identity">Template identity</a> proves by
-  <code>CREATE2</code> derivation that every pair runs byte-identical code, so
-  the pair findings apply to all of them.
+  <code>CREATE2</code> derivation that every one of those pairs runs
+  byte-identical code, so the pair findings apply to all of them. Uniswap's
+  deployments on other chains, and the 767 forks other organisations run, sit
+  outside this scope.
 </p>
 
 <h2>Findings at a glance</h2>
@@ -323,51 +326,81 @@ deployed address         0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc</code></pre>
 </table>
 </div>
 <p>
-  The pair findings in this report therefore apply to all 519,134 deployed
-  pairs.
+  The pair findings in this report therefore apply to all 519,134 pairs the
+  mainnet factory has deployed.
 </p>
 
-<h3 id="forks">Forks</h3>
+<h3 id="other-deployments">Other deployments and forks</h3>
 <p>
-  Uniswap V2 is the most forked protocol DefiLlama tracks. It lists 767
-  protocols naming it as their source, against 238 for the next most copied
-  design. Those forks hold 2.62 billion US dollars between them across 236
-  chains, where Uniswap V2 itself holds 0.97 billion. PancakeSwap AMM alone
-  holds 1.94 billion, so the largest fork carries about twice the value of the
-  original.
+  The contracts audited here are one deployment of four kinds. Only the first is
+  in scope.
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th></th><th>Deployment</th><th>Read for this review</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Uniswap's own, on Ethereum mainnet</td><td>Yes. This is the audit.</td></tr>
+    <tr><td>2</td><td>Uniswap's own, on 15 other networks</td><td>No</td></tr>
+    <tr><td>3</td><td>Another organisation's fork, on Ethereum mainnet</td><td>No</td></tr>
+    <tr><td>4</td><td>Another organisation's fork, on another chain</td><td>No</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  <strong>Category 2.</strong> Uniswap documents official V2 deployments on 16
+  networks, being 15 mainnets and the Sepolia testnet. Each carries its own
+  factory address, so its pair addresses and its salts differ from mainnet's.
+  DefiLlama attributes Uniswap V2 liquidity across 15 chains. None of those
+  deployments was read here, and this report makes no claim about any of them.
+</p>
+<p>
+  <strong>Categories 3 and 4.</strong> Uniswap V2 is the most forked protocol
+  DefiLlama tracks. It lists 767 protocols naming it as their source, against
+  238 for the next most copied design. Those forks hold 2.62 billion US dollars
+  between them across 236 chains, where Uniswap V2 itself holds 0.97 billion.
+  PancakeSwap AMM alone holds 1.94 billion, so the largest fork carries about
+  twice the value of the original.
 </p>
 <p class="muted">
-  Fork figures come from the DefiLlama API, read on 2026-09-07. They move
-  daily, and they are the one set of numbers in this report that was not read
-  from a chain directly.
+  Deployment and fork figures come from the Uniswap developer documentation and
+  the DefiLlama API, both read on 2026-09-07. They move, and they are the one
+  set of numbers in this report that was not read from a chain directly.
 </p>
 <p>
-  A fork inherits this report to the extent that it inherits the code. Two
-  cases separate cleanly.
+  A deployment outside category 1 inherits this report to the extent that it
+  inherits the code. Two cases separate cleanly, and they apply to categories 2,
+  3 and 4 alike.
 </p>
 <p>
-  <strong>An exact fork inherits every finding.</strong> The init code hash is
-  the cheap test. Derive it from the fork's own factory and compare it against
+  <strong>Identical code inherits every finding.</strong> The init code hash is
+  the cheap test. Derive it from that deployment's own factory and compare it
+  against
   <code>0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f</code>.
-  A match means the pair template is byte-identical, and every pair finding
-  here holds as written, including the overflow proof on
-  <code>_mintFee</code>.
+  A match means the pair template is byte-identical, and every pair finding here
+  holds as written, including the overflow proof on <code>_mintFee</code>.
 </p>
 <p>
-  <strong>A modified fork inherits the findings only where its code still
-  matches.</strong> The swap fee and the protocol fee share are compile-time
-  constants, so a fork is free to set them differently. Any figure here that
-  rests on the 0.3% swap fee or the one sixth protocol share needs recomputing
-  against that fork's own source. Changes to the ERC-20 base or to the wrapped
-  native token each need their own reading.
+  <strong>Modified code inherits the findings only where it still matches.</strong>
+  The swap fee and the protocol fee share are compile-time constants, so a fork
+  is free to set them differently. Any figure here that rests on the 0.3% swap
+  fee or the one sixth protocol share needs recomputing against that
+  deployment's own source. Changes to the ERC-20 base or to the wrapped native
+  token each need their own reading.
 </p>
 <p>
   The findings that follow from the design travel furthest.
   <a href="#m-2">M-2</a>, <a href="#m-3">M-3</a>, <a href="#l-4">L-4</a> and
   <a href="#l-5">L-5</a> describe how a constant product pair works at all, so
-  they apply to a fork unless that fork addressed them on purpose. The findings
-  in <a href="#l-2">L-2</a> and <a href="#l-3">L-3</a> sit in the router, which
+  they apply unless that deployment addressed them on purpose. The findings in
+  <a href="#l-2">L-2</a> and <a href="#l-3">L-3</a> sit in the router, which
   forks rewrite more often than they rewrite the pair.
+</p>
+<p>
+  Governance and value figures do not travel at all.
+  <a href="#i-1">I-1</a> rests on Uniswap's own timelock, and every balance in
+  this report was read from mainnet.
 </p>
 
 <h2>The protocol fee path</h2>
@@ -859,9 +892,11 @@ require(IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) &gt;= amo
     times.</strong> The <code>CREATE2</code> derivation and the init code hash
     cover all 519,134 pairs by construction. Runtime code was read and compared
     for four of them, not for every one.</li>
-  <li><strong>No fork was reviewed.</strong> The fork counts and values come
-    from DefiLlama, and no fork's bytecode was read. Confirm the init code hash
-    before treating any finding here as one that covers a fork.</li>
+  <li><strong>Only the Ethereum mainnet deployment was read.</strong> Uniswap's
+    own V2 deployments on 15 other networks were not, and neither was any fork.
+    Deployment and fork counts come from Uniswap's documentation and from
+    DefiLlama. Confirm the init code hash before treating any finding here as
+    one that covers a deployment other than mainnet's.</li>
   <li><strong>Governance was read, not audited.</strong> The timelock at
     <code>0x1a9c8182c09f50c8318d769245bea52c32be35bc</code> and its admin were
     read for their parameters. Neither contract was reviewed, and nor was the
@@ -886,6 +921,7 @@ require(IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) &gt;= amo
   <li><a target="_blank" rel="noopener" href="https://etherscan.io/address/0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f#code">UniswapV2Factory, verified source</a></li>
   <li><a target="_blank" rel="noopener" href="https://etherscan.io/address/0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D#code">UniswapV2Router02, verified source</a></li>
   <li><a target="_blank" rel="noopener" href="https://docs.uniswap.org/contracts/v2/overview">Uniswap V2 protocol documentation</a></li>
+  <li><a target="_blank" rel="noopener" href="https://developers.uniswap.org/docs/protocols/v2/deployments">Uniswap V2 official deployment addresses, by network</a></li>
   <li><a target="_blank" rel="noopener" href="https://defillama.com/forks/uniswap-v2">Uniswap V2 forks, tracked by DefiLlama</a></li>
   <li><a target="_blank" rel="noopener" href="https://github.com/ethereum/solidity/blob/develop/docs/bugs_by_version.json">Solidity bug list by version</a></li>
   <li><a target="_blank" rel="noopener" href="https://www.dlnews.com/articles/defi/uniswap-dao-to-activate-fee-switch-and-burn-100m-uni-tokens/">Protocol fee activation on 2025-12-28 under the UNIfication proposal</a></li>
