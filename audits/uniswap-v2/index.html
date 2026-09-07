@@ -59,6 +59,14 @@
   <code>CREATE2</code> derivation.
 </p>
 <p>
+  The design is also the most copied in decentralised finance. DefiLlama lists
+  767 protocols that name Uniswap V2 as their source, which is more than a third
+  of every fork it tracks. Some deploy the code unchanged and some modify it, so
+  this report carries across to them in full or in part. The
+  <a href="#forks">Forks</a> section sets out which findings travel and how to
+  check.
+</p>
+<p>
   One function inside every pair sat dormant for 5.6 years. <code>_mintFee</code>
   collects a protocol fee for Uniswap governance, and it returns on its first
   line while no recipient is set. Governance had never named a recipient from protocol launch
@@ -317,6 +325,49 @@ deployed address         0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc</code></pre>
 <p>
   The pair findings in this report therefore apply to all 519,134 deployed
   pairs.
+</p>
+
+<h3 id="forks">Forks</h3>
+<p>
+  Uniswap V2 is the most forked protocol DefiLlama tracks. It lists 767
+  protocols naming it as their source, against 238 for the next most copied
+  design. Those forks hold 2.62 billion US dollars between them across 236
+  chains, where Uniswap V2 itself holds 0.97 billion. PancakeSwap AMM alone
+  holds 1.94 billion, so the largest fork carries about twice the value of the
+  original.
+</p>
+<p class="muted">
+  Fork figures come from the DefiLlama API, read on 2026-09-07. They move
+  daily, and they are the one set of numbers in this report that was not read
+  from a chain directly.
+</p>
+<p>
+  A fork inherits this report to the extent that it inherits the code. Two
+  cases separate cleanly.
+</p>
+<p>
+  <strong>An exact fork inherits every finding.</strong> The init code hash is
+  the cheap test. Derive it from the fork's own factory and compare it against
+  <code>0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f</code>.
+  A match means the pair template is byte-identical, and every pair finding
+  here holds as written, including the overflow proof on
+  <code>_mintFee</code>.
+</p>
+<p>
+  <strong>A modified fork inherits the findings only where its code still
+  matches.</strong> The swap fee and the protocol fee share are compile-time
+  constants, so a fork is free to set them differently. Any figure here that
+  rests on the 0.3% swap fee or the one sixth protocol share needs recomputing
+  against that fork's own source. Changes to the ERC-20 base or to the wrapped
+  native token each need their own reading.
+</p>
+<p>
+  The findings that follow from the design travel furthest.
+  <a href="#m-2">M-2</a>, <a href="#m-3">M-3</a>, <a href="#l-4">L-4</a> and
+  <a href="#l-5">L-5</a> describe how a constant product pair works at all, so
+  they apply to a fork unless that fork addressed them on purpose. The findings
+  in <a href="#l-2">L-2</a> and <a href="#l-3">L-3</a> sit in the router, which
+  forks rewrite more often than they rewrite the pair.
 </p>
 
 <h2>The protocol fee path</h2>
@@ -808,6 +859,9 @@ require(IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) &gt;= amo
     times.</strong> The <code>CREATE2</code> derivation and the init code hash
     cover all 519,134 pairs by construction. Runtime code was read and compared
     for four of them, not for every one.</li>
+  <li><strong>No fork was reviewed.</strong> The fork counts and values come
+    from DefiLlama, and no fork's bytecode was read. Confirm the init code hash
+    before treating any finding here as one that covers a fork.</li>
   <li><strong>Governance was read, not audited.</strong> The timelock at
     <code>0x1a9c8182c09f50c8318d769245bea52c32be35bc</code> and its admin were
     read for their parameters. Neither contract was reviewed, and nor was the
@@ -832,6 +886,7 @@ require(IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) &gt;= amo
   <li><a target="_blank" rel="noopener" href="https://etherscan.io/address/0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f#code">UniswapV2Factory, verified source</a></li>
   <li><a target="_blank" rel="noopener" href="https://etherscan.io/address/0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D#code">UniswapV2Router02, verified source</a></li>
   <li><a target="_blank" rel="noopener" href="https://docs.uniswap.org/contracts/v2/overview">Uniswap V2 protocol documentation</a></li>
+  <li><a target="_blank" rel="noopener" href="https://defillama.com/forks/uniswap-v2">Uniswap V2 forks, tracked by DefiLlama</a></li>
   <li><a target="_blank" rel="noopener" href="https://github.com/ethereum/solidity/blob/develop/docs/bugs_by_version.json">Solidity bug list by version</a></li>
   <li><a target="_blank" rel="noopener" href="https://www.dlnews.com/articles/defi/uniswap-dao-to-activate-fee-switch-and-burn-100m-uni-tokens/">Protocol fee activation on 2025-12-28 under the UNIfication proposal</a></li>
   <li><a target="_blank" rel="noopener" href="https://rareskills.io/post/uniswap-v2-mintfee"><code>_mintFee</code> arithmetic explained</a></li>
