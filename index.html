@@ -531,12 +531,8 @@
   </li>
   <li>
     <a href="audits/uniswap-v2/index.html">Uniswap V2</a>
-    – the pair, factory and router contracts sitting behind 519,134 trading pairs on Ethereum mainnet, deployed in 2020.
-    That is one deployment of four kinds. Uniswap runs
-    <a target="_blank" rel="noopener" href="https://developers.uniswap.org/docs/protocols/v2/deployments">official V2 deployments on 15 other networks</a>,
-    and other organisations have copied the design more than any other in DeFi, on Ethereum and elsewhere:
-    DefiLlama counts <a target="_blank" rel="noopener" href="https://defillama.com/forks/uniswap-v2">767 forks</a> holding $2.6bn.
-    I audited the Ethereum mainnet original only, and the report says what carries across to the rest.
+    – the pair, factory and router contracts deployed by Uniswap in 2020 to Ethereum mainnet and other chains.
+    These contracts are critical in DeFi, since together with over 700 forks they control over $2 billion of assets.
     Uniswap governance switched on the protocol fee in Dec 2025, after 5.6 years of that code lying dormant.
     I did this independent audit using Claude Opus 5 in Aug 2026.
     Summary: no exploitable vulnerability, the newly live fee arithmetic proven overflow-free,
