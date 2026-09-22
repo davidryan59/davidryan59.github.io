@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DAI security audit – Ethereum mainnet</title>
+<meta name="description" content="A security audit of DAI on Ethereum mainnet, from the deployed runtime bytecode. No exploitable vulnerability. The mint authority is proven closed since 2019, and two medium findings sit in a permit function that predates EIP-2612.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://davidryan59.github.io/audits/dai/">
+<meta property="og:title" content="DAI security audit – Ethereum mainnet">
+<meta property="og:description" content="Read from the deployed runtime bytecode. No exploitable vulnerability. The one address that can mint DAI has held that power alone since 2019, and the set can never change again.">
+<meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../../audit.css">
+<script src="../../audit.js"></script>
+<script>Audit.initTheme();</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../../index.html">← David Ryan's builder page</a>
+
+<h1>DAI security audit</h1>
+<p class="tagline">Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/token/0x6b175474e89094c44da98b954eedeac495271d0f"><code>0x6B175474E89094C44Da98b954EedeAC495271d0F</code></a><br>Reviewed 2026&#8209;08&#8209;26 against block 25,837,079</p>
+
+<p>
+  DAI is a decentralised stablecoin, targeted at one US dollar. Unlike USDC or
+  USDT, no company mints it. A user locks collateral, such as ETH, into a
+  vault contract, and draws DAI against it. Repaying the loan burns the DAI.
+  The system that runs those vaults was called MakerDAO and now calls
+  itself Sky, but the DAI token contract audited here has not changed since it
+  was deployed.
+</p>
+<p>
+  The contract itself is small: 122 lines of Solidity, plus a 29-line base
+  contract it inherits from. The main question about DAI is "who is allowed to call
+  <code>mint</code>?". A permissioned function that can create dollars from
+  nothing is only as safe as the address holding the permission, so this audit
+  spends most of its effort tracing that authority through the chain rather
+  than reading the token logic itself.
+</p>
+<p>
+  DAI is immutable. It has no owner in the conventional sense, no upgrade
+  slot, and no <code>SELFDESTRUCT</code>. Whatever the mint authority turns
+  out to be, it cannot be patched later, and it applies to a contract holding
+  4.57 billion DAI in circulation as of the review block.
+</p>
+<p>
+  This review found no exploitable vulnerability. The mint authority is proven
+  closed: one address has held it alone since 2019, and the chain shows that
+  set can never change again. The findings that remain sit in
+  <code>permit</code>, DAI's signed-approval function, which predates the
+  EIP-2612 standard most integrators now assume.
+</p>
+
+<h2>Audit summary</h2>
+<p>
+  DAI holds no exploitable vulnerability. The contract is 122 lines of
+  Solidity on a 29-line base, with no proxy, no upgrade path and no way to
+  destroy it. Its 22 functions match its verified source exactly, and its
+  arithmetic is guarded throughout.
+</p>
+<p>
+  The authority question dominates any review of a token that can be minted
+  from nothing. This audit settles it from the chain rather than from
+  documentation. DAI has exactly one address that can mint, it has had only
+  that one since 2019-11-13, and the set can never change again. The section
+  <a href="#the-mint-authority">The mint authority</a> gives the proof.
+</p>
+<p>
+  Both findings rated Medium sit in <code>permit</code>. DAI's signed
+  approvals predate EIP-2612 and differ from it in ways that punish an
+  integrator who assumes the later standard. A signature grants an unlimited
+  allowance rather than the amount signed, and a signature with
+  <code>expiry</code> set to zero never expires. Neither can be fixed, because
+  the contract is immutable, so the
+  <a href="#integration-checklist">integration checklist</a> is the part of
+  this document most worth acting on.
+</p>
+
+<h2>Findings at a glance</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>ID</th><th>Severity</th><th>Finding</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="id"><a href="#m-1">M-1</a></td><td><span class="sev sev-medium">Medium</span></td><td><code>permit</code> grants an unlimited allowance, never the amount signed</td></tr>
+    <tr><td class="id"><a href="#m-2">M-2</a></td><td><span class="sev sev-medium">Medium</span></td><td>A <code>permit</code> signature with <code>expiry == 0</code> never expires</td></tr>
+    <tr><td class="id"><a href="#l-1">L-1</a></td><td><span class="sev sev-low">Low</span></td><td><code>rely</code> and <code>deny</code> emit only an anonymous event</td></tr>
+    <tr><td class="id"><a href="#l-2">L-2</a></td><td><span class="sev sev-low">Low</span></td><td>No zero-address guard; 4,456,207.90 DAI is already stranded</td></tr>
+    <tr><td class="id"><a href="#l-3">L-3</a></td><td><span class="sev sev-low">Low</span></td><td>An approved spender can burn the owner's tokens</td></tr>
+    <tr><td class="id"><a href="#l-4">L-4</a></td><td><span class="sev sev-low">Low</span></td><td>The EIP-712 domain separator is fixed at deployment</td></tr>
+    <tr><td class="id"><a href="#l-5">L-5</a></td><td><span class="sev sev-low">Low</span></td><td><code>approve()</code> carries the classic ERC-20 race</td></tr>
+    <tr><td class="id"><a href="#l-6">L-6</a></td><td><span class="sev sev-low">Low</span></td><td>Permit nonces run in strict sequence, and a signature is costly to cancel</td></tr>
+    <tr><td class="id"><a href="#i-1">I-1</a></td><td><span class="sev sev-info">Info</span></td><td>The mint authority is frozen at one address and cannot change</td></tr>
+    <tr><td class="id"><a href="#i-2">I-2</a></td><td><span class="sev sev-info">Info</span></td><td><code>permit</code> is not EIP-2612 and answers a different selector</td></tr>
+    <tr><td class="id"><a href="#i-3">I-3</a></td><td><span class="sev sev-info">Info</span></td><td>Unknown selectors revert</td></tr>
+    <tr><td class="id"><a href="#i-4">I-4</a></td><td><span class="sev sev-info">Info</span></td><td>Three non-standard transfer aliases sit alongside the ERC-20 surface</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Counts: 0 critical, 0 high, 2 medium, 6 low, 4 informational.</p>
+
+<h2>Verified onchain facts</h2>
+<div class="table-wrap">
+<table class="facts">
+  <tbody>
+    <tr><th>Address</th><td><code>0x6B175474E89094C44Da98b954EedeAC495271d0F</code></td></tr>
+    <tr><th>Deployed</th><td>Block 8,928,158, 2019-11-13 19:17:57 UTC, 6.78 years ago</td></tr>
+    <tr><th>Creation tx</th><td><code>0x495402df7d45fe36329b0bd94487f49baee62026d50f654600f6771bd2a596ab</code></td></tr>
+    <tr><th>Transaction sender</th><td><code>0xdDb108893104dE4E1C6d0E47c42237dB4E617ACc</code>, an externally owned account</td></tr>
+    <tr><th>Actual deployer</th><td><code>0xB5B06a16621616875a6C2637948bF98eA57c58fA</code>, the <code>DaiFab</code> factory</td></tr>
+    <tr><th>Compiler</th><td>solc 0.5.12+commit.7709ece9, optimiser disabled, EVM target petersburg</td></tr>
+    <tr><th>Constructor argument</th><td><code>chainId_ = 1</code></td></tr>
+    <tr><th>Runtime code</th><td>7,904 bytes: 7,852 executable plus a 52-byte metadata trailer</td></tr>
+    <tr><th>Instructions</th><td>3,488 decoded, zero unknown opcodes</td></tr>
+    <tr><th>Dispatch table</th><td>22 selectors, matching the verified source exactly</td></tr>
+    <tr><th>Mint authority</th><td>one address, <a target="_blank" rel="noopener" href="https://etherscan.io/address/0x9759A6Ac90977b93B58547b4A71c78317f391A28"><code>0x9759A6Ac90977b93B58547b4A71c78317f391A28</code></a></td></tr>
+    <tr><th>Total supply</th><td>4,574,232,786.108553 DAI</td></tr>
+    <tr><th>Stranded at dead addresses</th><td>4,456,207.900636 DAI, 0.0974% of supply</td></tr>
+    <tr><th>ETH held</th><td>0. No function is payable</td></tr>
+    <tr><th>Account nonce</th><td>1. The contract has never deployed anything</td></tr>
+    <tr><th>Storage slots</th><td>0 <code>wards</code>, 1 <code>totalSupply</code>, 2 <code>balanceOf</code>, 3 <code>allowance</code>, 4 <code>nonces</code>, 5 <code>DOMAIN_SEPARATOR</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  <code>name</code>, <code>symbol</code>, <code>version</code>,
+  <code>decimals</code> and <code>PERMIT_TYPEHASH</code> are declared
+  <code>constant</code>, so they occupy no storage and live in the code.
+</p>
+
+<h2>Method</h2>
+<p>
+  I read the runtime bytecode from mainnet over JSON-RPC and disassembled it
+  with an opcode walker that skips <code>PUSH</code> immediates. Claims about
+  what the contract cannot do rest on that disassembly rather than on reading
+  the source. Every figure quoted above was read in a single batched request
+  pinned to block 25,837,079, so the numbers reconcile with each other.
+</p>
+<p>Three method notes changed the result and are worth recording.</p>
+<p>
+  <strong>The authority history is enumerable, and that was not obvious.</strong>
+  DAI has no <code>Rely</code> or <code>Deny</code> event. Both functions carry
+  a <code>note</code> modifier that emits an <em>anonymous</em> event through
+  <code>log4</code>, and its first topic is <code>msg.sig</code> shifted into
+  the high four bytes. An anonymous event has no signature topic, so ordinary
+  decoders skip it. Filtering the logs on topic0
+  <code>0x65fae35e00000000000000000000000000000000000000000000000000000000</code>
+  recovers every successful <code>rely</code> call regardless. That turned a
+  question a candidate sweep can only guess at into a complete history.
+</p>
+<p>
+  <strong>The log endpoint truncates in silence.</strong> The explorer API used
+  for log history returns at most 1,000 entries per query and ignores paging
+  parameters, so a query that returns exactly 1,000 has dropped an unknown
+  number more. The tooling now halves any window that fills the cap and
+  recurses. Without that, a completeness claim about the ward set would have
+  rested on a truncated reply.
+</p>
+<p>
+  <strong>A linear selector scan drifts into embedded creation code.</strong>
+  Scanning the runtime of <code>DaiJoinFab</code> for <code>PUSH4</code>
+  immediates reports ten selectors, including <code>cage()</code>,
+  <code>rely(address)</code> and <code>wards(address)</code>. The contract has
+  one function. The other selectors are bytes inside the child contract's
+  creation code, which the factory embeds as data. Reading them as a
+  dispatcher would have inverted the conclusion in
+  <a href="#i-1">I-1</a>. Direct <code>eth_call</code> against each supposed
+  function confirmed that only <code>newDaiJoin(address,address)</code>
+  exists.
+</p>
+
+<h2 id="the-mint-authority">The mint authority</h2>
+<p>
+  <code>mint</code> adds to any balance and to <code>totalSupply</code> with no
+  cap, and it is guarded by a single check:
+</p>
+<pre><code>mapping (address => uint) public wards;
+modifier auth { require(wards[msg.sender] == 1, "Dai/not-authorized"); _; }
+function mint(address usr, uint wad) external auth { … }</code></pre>
+<p>
+  Who holds that permission is therefore the whole risk story for supply. Four
+  questions settle it, and each is answered from chain state below.
+</p>
+
+<h3>Who can mint today</h3>
+<p>
+  One address. A sweep of <code>wards(address)</code> over all 503 addresses in
+  the Maker chainlog, plus the deployer, the deployment factories, the
+  governance pause, the pause proxy and the emergency shutdown module, returns
+  a single holder at block 25,837,079:
+</p>
+<pre><code>0x9759A6Ac90977b93B58547b4A71c78317f391A28   wards = 1   MCD_JOIN_DAI</code></pre>
+<p>
+  Every other candidate returns 0. Notably the governance pause proxy,
+  <a target="_blank" rel="noopener" href="https://etherscan.io/address/0xBE8E3e3618f7474F8cB1d074A26afFef007E98FB"><code>0xBE8E3e3618f7474F8cB1d074A26afFef007E98FB</code></a>,
+  returns 0. MakerDAO governance cannot mint DAI directly.
+</p>
+
+<h3>Whether that set is complete</h3>
+<p>
+  Yes, and this rests on the full event history rather than on the sweep.
+  Every successful <code>rely</code> and <code>deny</code> since deployment
+  appears below, recovered by filtering on the anonymous <code>LogNote</code>
+  topic described in the method:
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Block</th><th>Caller</th><th>Action</th><th>Target</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>8,928,158</td><td><code>DaiFab</code> <code>0xb5b0…c58fa</code></td><td><code>rely</code></td><td><code>DssDeploy</code> <code>0xbaa6…d3f4</code></td></tr>
+    <tr><td>8,928,158</td><td><code>DaiFab</code> <code>0xb5b0…c58fa</code></td><td><code>deny</code></td><td>itself</td></tr>
+    <tr><td>8,928,158</td><td><code>DssDeploy</code> <code>0xbaa6…d3f4</code></td><td><code>rely</code></td><td><code>MCD_JOIN_DAI</code> <code>0x9759…1A28</code></td></tr>
+    <tr><td>8,928,244</td><td><code>DssDeploy</code> <code>0xbaa6…d3f4</code></td><td><code>deny</code></td><td>itself</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  Four events, and no others in 16.9 million blocks. The constructor set
+  <code>wards[DaiFab] = 1</code>; the deployment then handed the permission to
+  <code>DssDeploy</code>, passed it to the DAI adapter, and revoked both
+  deployment contracts. Since block 8,928,244 the ward set has been exactly
+  <code>{MCD_JOIN_DAI}</code>. Only <code>rely</code>, <code>deny</code> and
+  the constructor ever write <code>wards</code>, so the four events plus the
+  constructor are the complete history.
+</p>
+
+<h3>Whether the set can change again</h3>
+<p>
+  No. <code>rely</code> is itself gated by <code>auth</code>, so only a
+  current ward can grant the permission, and the only ward is
+  <code>MCD_JOIN_DAI</code>. That contract holds three outbound call selectors
+  in its entire runtime:
+</p>
+<pre><code>pc  816   0xbb35783b   vat.move(address,address,uint256)
+pc 1082   0x9dc29fac   dai.burn(address,uint256)
+pc 2591   0x40c10f19   dai.mint(address,uint256)</code></pre>
+<p>
+  One caveat belongs here, because it looks at first like a contradiction. The
+  selector <code>0x65fae35e</code> does appear in the adapter's runtime, at
+  program counter 126. That is its own dispatcher, which ends at 137:
+  <code>MCD_JOIN_DAI</code> runs a <code>wards</code> mapping of its own and
+  answers <code>rely</code> on itself. It is not an outbound call, and it
+  grants nothing on DAI. Past the dispatcher the only selectors the adapter
+  ever puts on the stack for a call are the three above.
+</p>
+<p>
+  <code>MCD_JOIN_DAI</code> therefore has no path to call <code>rely</code> or
+  <code>deny</code> on DAI, and no general call forwarding. The DAI ward set is
+  closed permanently. No governance action, and no compromise of governance,
+  can add a DAI minter or remove the existing one.
+</p>
+
+<h3>Whether minting can be switched off</h3>
+<p>
+  No, and this cuts the other way. <code>MCD_JOIN_DAI</code> mints inside
+  <code>exit</code>, which is gated on its own <code>live</code> flag, and
+  <code>cage()</code> clears that flag irreversibly. Caging it would freeze DAI
+  supply forever. That cannot happen either. <code>MCD_JOIN_DAI</code> has
+  emitted no <code>rely</code>, <code>deny</code> or <code>cage</code> event
+  since deployment, so its ward set is still whatever its constructor wrote.
+  That is its creator, <code>DaiJoinFab</code> at
+  <a target="_blank" rel="noopener" href="https://etherscan.io/address/0x64a84e558192dd025f3a96775fee8fb530f27177"><code>0x64a84e558192dd025f3a96775fee8fb530f27177</code></a>,
+  confirmed by direct read:
+</p>
+<pre><code>MCD_JOIN_DAI.wards(0x64a84e55…f27177) = 1     every other candidate = 0
+MCD_JOIN_DAI.live()                    = 1</code></pre>
+<p>
+  <code>DaiJoinFab</code> exposes exactly one function,
+  <code>newDaiJoin(address,address)</code>, which deploys a fresh adapter.
+  Calls to <code>cage()</code>, <code>rely(address)</code>,
+  <code>wards(address)</code> and <code>live()</code> against it all revert. A
+  newly deployed adapter is not a DAI ward, so it cannot mint. The factory has
+  no way to act on the live adapter.
+</p>
+
+<h3>What this means</h3>
+<p>
+  DAI's own permission layer is inert. Minting authority passed to one
+  contract during deployment in 2019 and was sealed there. The residual risk
+  sits one level up, in the <code>Vat</code> at
+  <a target="_blank" rel="noopener" href="https://etherscan.io/address/0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B"><code>0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B</code></a>,
+  which decides who holds the internal balance that <code>exit</code> converts
+  into DAI. The Vat had 129 wards at block 25,837,079, among them the
+  governance pause proxy and the collateral adapters. Anyone assessing how
+  much DAI can be created is looking at the wrong contract if they are looking
+  at this one. That analysis belongs to the Vat and is outside the scope of
+  this review.
+</p>
+
+<h2>Findings</h2>
+
+<h3 id="m-1">M-1 · <code>permit</code> grants an unlimited allowance, never the amount signed <span class="sev sev-medium">Medium</span></h3>
+<p class="muted">Affects any integrator who ports EIP-2612 permit code onto DAI.</p>
+<p>
+  DAI's signed approvals predate EIP-2612 and carry a boolean where the
+  standard carries a value:
+</p>
+<pre><code>uint wad = allowed ? uint(-1) : 0;
+allowance[holder][spender] = wad;</code></pre>
+<p>
+  A holder signing a DAI permit is signing an unlimited approval. There is no
+  way to sign for 100 DAI. An integrator porting code from an EIP-2612 token
+  will pass a <code>value</code> that DAI has no field for, and the resulting
+  approval is unbounded rather than capped.
+</p>
+<p>
+  The consequence is that the blast radius of a leaked or misdirected permit
+  is the holder's whole balance, now and in future, rather than the amount
+  they believed they were authorising. Combined with <a href="#m-2">M-2</a>, a
+  single careless signature can expose a balance permanently.
+</p>
+<p>
+  <strong>Mitigation.</strong> Treat every DAI permit as an unlimited approval
+  to that spender. Send <code>allowed = false</code> in a follow-up permit
+  once the spender has finished, or set the allowance to zero with
+  <code>approve</code>. Never present a DAI permit to a user as a bounded,
+  single-use authorisation, because it is neither.
+</p>
+
+<h3 id="m-2">M-2 · A <code>permit</code> signature with <code>expiry == 0</code> never expires <span class="sev sev-medium">Medium</span></h3>
+<p class="muted">Affects any wallet or relayer that passes a default or missing expiry through unchanged.</p>
+<p>The expiry check carries an explicit carve-out:</p>
+<pre><code>require(expiry == 0 || now <= expiry, "Dai/permit-expired");</code></pre>
+<p>
+  The bytecode shows the short circuit plainly. <code>TIMESTAMP</code> appears
+  exactly once in the whole contract, and a zero <code>expiry</code> jumps
+  past it:
+</p>
+<pre><code> 5524  PUSH1 0x00
+ 5526  DUP7                 &lt;- expiry
+ 5527  EQ
+ 5528  DUP1
+ 5529  PUSH2 0x15a2         &lt;- 5538, past the timestamp comparison
+ 5532  JUMPI
+ 5533  POP
+ 5534  DUP6
+ 5535  TIMESTAMP            &lt;- the only TIMESTAMP in the contract
+ 5536  GT
+ 5537  ISZERO
+ 5538  JUMPDEST
+ 5539  PUSH2 0x1614         &lt;- 5652, continue
+ 5542  JUMPI
+ 5543  …                    &lt;- revert, "Dai/permit-expired"</code></pre>
+<p>
+  EIP-2612 reads the same field in the opposite direction. Its check is
+  <code>require(block.timestamp &lt;= deadline)</code>, under which a deadline
+  of zero always fails and the signature is dead on arrival. DAI inverts that:
+  zero means the signature is valid forever.
+</p>
+<p>
+  This matters because zero is what a caller ends up with by accident. An
+  uninitialised struct field, a missing form value, a default in a serialiser
+  and a truncated JSON number all produce zero. On an EIP-2612 token every one
+  of those fails safely. On DAI each one mints a permanent bearer
+  authorisation over the holder's entire balance, valid to any party who later
+  obtains the signature.
+</p>
+<p>
+  <strong>Mitigation.</strong> Reject <code>expiry == 0</code> in your own code
+  before signing or relaying, and require a real deadline. If you operate a
+  relayer or a wallet, treat an inbound DAI permit with zero expiry as
+  malformed rather than passing it through. A holder who has already signed
+  one can invalidate it only by consuming that nonce, described in
+  <a href="#l-6">L-6</a>.
+</p>
+
+<h3 id="l-1">L-1 · <code>rely</code> and <code>deny</code> emit only an anonymous event <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects anyone monitoring DAI's mint authority through decoded event streams.</p>
+<p>
+  Neither function emits a named event. Both carry a <code>note</code>
+  modifier that logs through <code>log4</code> with the event declared
+  <code>anonymous</code>, so the first topic is the function selector rather
+  than an event signature hash. Two <code>LOG4</code> sites exist in the
+  contract, at program counters 4747 and 6493, one for each function.
+</p>
+<p>
+  An anonymous event has no signature topic to match, so ABI-driven indexers,
+  subgraphs and wallet activity feeds pass over it. A change to who can mint
+  DAI would produce no entry in any conventional log pipeline. The
+  information is on chain, but only a reader who already knows the encoding
+  will find it.
+</p>
+<p>
+  Recovering the history means filtering on the padded selector directly, for
+  example topic0 <code>0x65fae35e000…000</code> for <code>rely</code>. The log
+  data field is a fixed 224 bytes of calldata regardless of the real calldata
+  length, zero-filled past the end, which is why the payload looks larger than
+  the 36-byte call.
+</p>
+<p>
+  <strong>Mitigation.</strong> If you monitor DAI, add explicit topic0 filters
+  for <code>rely(address)</code> and <code>deny(address)</code> rather than
+  relying on decoded event streams. An alert on either is warranted, because
+  either would be the first change to DAI's mint authority since 2019.
+</p>
+
+<h3 id="l-2">L-2 · No zero-address guard, and 4,456,207.90 DAI is already stranded <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects holders who mistype a destination or paste the token's own address.</p>
+<p>
+  <code>transfer</code> and <code>transferFrom</code> accept any destination.
+  The contract has no rescue function, so tokens sent to an address that
+  cannot spend them are gone. Balances at block 25,837,079:
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Address</th><th class="num">Balance</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Zero address</td><td class="num">12,947.2114 DAI</td></tr>
+    <tr><td>The DAI contract itself</td><td class="num">4,429,774.2499 DAI</td></tr>
+    <tr><td>The <code>ecrecover</code> precompile, <code>0x…0001</code></td><td class="num">5,778.8169 DAI</td></tr>
+    <tr><td>Burn address <code>0x…dEaD</code></td><td class="num">7,707.6226 DAI</td></tr>
+    <tr><td><strong>Total</strong></td><td class="num"><strong>4,456,207.9006 DAI</strong></td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  That is 0.0974% of supply. The bulk of it sits at the token's own address,
+  which is the destination a user reaches by pasting the contract address into
+  a wallet.
+</p>
+<p>
+  This is not equivalent to burning. <code>burn</code> reduces
+  <code>totalSupply</code>; a transfer to a dead address does not. Every one
+  of the tokens above is still counted as outstanding supply while being
+  permanently unspendable, so <code>totalSupply</code> overstates circulating
+  DAI by that amount.
+</p>
+<p>
+  The balance at the <code>ecrecover</code> precompile is worth separating
+  out. A precompile has no code to spend a token balance, so those 5,778.82
+  DAI are as lost as the rest. The audit did not establish how they arrived
+  there.
+</p>
+
+<h3 id="l-3">L-3 · An approved spender can burn the owner's tokens <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects holders who approve a contract under ordinary ERC-20 expectations.</p>
+<p>
+  <code>burn</code> is not part of ERC-20, and it is reachable by a spender
+  rather than only by the owner:
+</p>
+<pre><code>function burn(address usr, uint wad) external {
+    require(balanceOf[usr] >= wad, "Dai/insufficient-balance");
+    if (usr != msg.sender && allowance[usr][msg.sender] != uint(-1)) {
+        require(allowance[usr][msg.sender] >= wad, "Dai/insufficient-allowance");
+        allowance[usr][msg.sender] = sub(allowance[usr][msg.sender], wad);
+    }
+    …
+}</code></pre>
+<p>
+  Granting a DAI allowance therefore authorises destruction as well as
+  transfer. The economic loss to the holder is the same either way, which
+  keeps this at Low, but the accounting differs and the assumption differs. A
+  holder who approves a contract under ordinary ERC-20 expectations does not
+  expect their tokens to be removed from supply.
+</p>
+<p>
+  <strong>Mitigation.</strong> Size DAI allowances to what the spender needs,
+  and revoke them when it is done. Accounting systems should treat a
+  <code>Transfer</code> to the zero address from a spender-initiated
+  <code>burn</code> as a supply reduction, not a transfer.
+</p>
+
+<h3 id="l-4">L-4 · The EIP-712 domain separator is fixed at deployment <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects holders with an outstanding permit signature if Ethereum ever splits.</p>
+<p>
+  <code>DOMAIN_SEPARATOR</code> is computed once in the constructor from a
+  chain id supplied as an argument, and stored in slot 5. The value read at
+  block 25,837,079 is
+  <code>0xdbb8cf42e1ecb028be3f3dbc922e1d878b963f411dc388ced501601c60f7c6f7</code>,
+  which matches a recomputation for chain id 1 exactly.
+</p>
+<p>
+  The contract never recomputes it. The <code>CHAINID</code> opcode does not
+  appear in the runtime at all, which is expected: DAI targets the petersburg
+  EVM, and EIP-1344 introduced <code>CHAINID</code> in the later Istanbul
+  fork.
+</p>
+<p>
+  After a contentious chain split, both chains carry the same stored separator
+  while having different chain ids. Every unused DAI permit signature would
+  then be valid on both. The condition is a hard fork rather than anything an
+  attacker can arrange, which is why this is Low, but holders with outstanding
+  permits are exposed on the forked chain and cannot revoke there.
+</p>
+
+<h3 id="l-5">L-5 · <code>approve()</code> carries the classic ERC-20 race <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects the whole ERC-20 generation, not DAI specifically.</p>
+<p>
+  <code>approve</code> overwrites the allowance with no guard, and the
+  contract offers neither <code>increaseAllowance</code> nor
+  <code>decreaseAllowance</code>. A spender watching the mempool can spend the
+  old allowance and then the new one.
+</p>
+<p>
+  This affects the whole ERC-20 generation rather than DAI specifically.
+  Setting the allowance to zero before setting a new non-zero value avoids it.
+</p>
+
+<h3 id="l-6">L-6 · Permit nonces run in strict sequence, and a signature is costly to cancel <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects anyone signing more than one DAI permit before the first is used.</p>
+<p>DAI takes the nonce as a call argument and checks it against storage:</p>
+<pre><code>require(nonce == nonces[holder]++, "Dai/invalid-nonce");</code></pre>
+<p>
+  Two consequences follow. Signatures must be redeemed in the order they were
+  signed, so a holder who signs nonces 5 and 6 and never submits 5 has
+  silently invalidated 6 as well. And a signature already in the wild can be
+  cancelled only by landing some other permit at that same nonce, which costs
+  a transaction, a fresh signature and gas.
+</p>
+<p>
+  Because a DAI permit is unlimited and, with a zero expiry, permanent, the
+  absence of a cheap revocation is what turns <a href="#m-2">M-2</a> from an
+  inconvenience into a standing exposure.
+</p>
+<p>
+  <strong>Mitigation.</strong> Read <code>nonces(holder)</code> immediately
+  before signing, and issue one permit at a time. To retire a signature you
+  regret, submit a permit at that nonce with <code>allowed = false</code> and
+  a spender you control.
+</p>
+
+<h3 id="i-1">I-1 · The mint authority is frozen at one address and cannot change <span class="sev sev-info">Info</span></h3>
+<p>
+  Recorded as a finding because it is the answer to the question a reader of
+  this audit most wants answered, and because it is not visible from the ABI,
+  from any decoded event stream, or from the source alone. The evidence is in
+  <a href="#the-mint-authority">The mint authority</a>.
+</p>
+<p>
+  The property is favourable. A token whose minter set was fixed by its
+  deployment transaction and is provably closed carries less governance risk
+  than one whose minter list a DAO can edit. It is also permanent in the
+  unfavourable direction: no mistake in that arrangement can ever be
+  corrected.
+</p>
+
+<h3 id="i-2">I-2 · <code>permit</code> is not EIP-2612 and answers a different selector <span class="sev sev-info">Info</span></h3>
+<p>DAI's signed approval differs from the standard in four ways.</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th></th><th>DAI</th><th>EIP-2612</th></tr>
+  </thead>
+  <tbody>
+    <tr><th>Selector</th><td><code>0x8fcbaf0c</code></td><td><code>0xd505accf</code></td></tr>
+    <tr><th>Amount</th><td><code>bool allowed</code>, giving 0 or unlimited</td><td><code>uint256 value</code></td></tr>
+    <tr><th>Nonce</th><td>passed as an argument</td><td>read from storage</td></tr>
+    <tr><th>Deadline of zero</th><td>never expires</td><td>always rejected</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The type hash is
+  <code>0xea2aa0a1be11a07ed86d755c93467f4f82362b452371d1ba94d1715123511acb</code>,
+  over
+  <code>Permit(address holder,address spender,uint256 nonce,uint256 expiry,bool allowed)</code>,
+  confirmed against the value returned by <code>PERMIT_TYPEHASH()</code> at
+  block 25,837,079.
+</p>
+<p>
+  The failure mode is safe. A router calling the EIP-2612 selector against DAI
+  reverts, verified live at the pinned block, so a mismatch surfaces
+  immediately rather than silently doing nothing. This is why routers carry a
+  DAI-specific permit path.
+</p>
+
+<h3 id="i-3">I-3 · Unknown selectors revert <span class="sev sev-info">Info</span></h3>
+<p>
+  DAI declares no fallback function, so the dispatcher reverts when no
+  selector matches. Confirmed at block 25,837,079:
+</p>
+<pre><code>eth_call  permit (EIP-2612)  0xd505accf  ->  REVERT
+eth_call  owner()            0x8da5cb5b  ->  REVERT
+eth_call  garbage            0xdeadbeef  ->  REVERT
+eth_call  empty calldata     0x          ->  REVERT
+eth_call  mint(addr,1)       0x40c10f19  ->  REVERT, "Dai/not-authorized"</code></pre>
+<p>
+  Feature detection by call success therefore works correctly against DAI,
+  which is not true of every token of this era. The contract is also not
+  payable, holds no ETH, and reverts on a plain ETH send.
+</p>
+
+<h3 id="i-4">I-4 · Three non-standard transfer aliases sit alongside the ERC-20 surface <span class="sev sev-info">Info</span></h3>
+<p>
+  <code>push(usr, wad)</code>, <code>pull(usr, wad)</code> and
+  <code>move(src, dst, wad)</code> each forward to <code>transferFrom</code>,
+  and each returns nothing where <code>transfer</code> and
+  <code>transferFrom</code> return <code>bool</code>. They are safe, since
+  <code>transferFrom</code> reverts rather than returning false, so a failure
+  cannot be swallowed. They matter only for tools that enumerate the ABI and
+  assume every transfer-shaped function reports a result.
+</p>
+
+<h2>What the contract does correctly</h2>
+<p>
+  Each item below was checked and produced no finding. They are recorded
+  because an audit that lists only problems does not tell a reader what was
+  examined.
+</p>
+<ul>
+  <li><strong>Arithmetic is guarded, with one deliberate exception.</strong>
+    solc 0.5.12 has no checked arithmetic, and DAI uses no SafeMath library.
+    It does not need one. Every balance and supply change runs through
+    <code>add</code>, which requires <code>(z = x + y) &gt;= x</code>, or
+    through <code>sub</code>, which requires <code>(z = x - y) &lt;= x</code>.
+    <code>mint</code>, <code>burn</code>, <code>transferFrom</code> and the
+    allowance decrement all use them. The runtime holds no <code>MUL</code>,
+    <code>DIV</code> or <code>MOD</code> instruction at all, so no token
+    amount is ever scaled. The single unchecked operation is
+    <code>nonces[holder]++</code> in <code>permit</code>, and wrapping it
+    would take 2^256 permits from one holder, so it cannot be reached.</li>
+  <li><strong><code>permit</code> rejects the zero address before
+    comparing.</strong> <code>ecrecover</code> returns the zero address on a
+    malformed signature. <code>require(holder != address(0))</code> runs
+    first, so a signature that fails to recover cannot be made to match a
+    holder of zero.</li>
+  <li><strong>Signature malleability gains nothing.</strong> A malleated
+    <code>(v, s)</code> pair recovers the same address and therefore passes
+    the same check. The nonce is consumed either way, so the permit applies
+    once. Offchain systems that deduplicate by signature hash rather than by
+    nonce should still normalise, since two distinct signature bytes
+    authorise the same permit.</li>
+  <li><strong>Checks-effects-interactions is not at issue.</strong> The
+    contract makes exactly one external call in its whole runtime, the
+    <code>STATICCALL</code> to the <code>ecrecover</code> precompile at
+    program counter 5336. There is no reentrancy surface, because there is no
+    callback into untrusted code anywhere.</li>
+  <li><strong>Events cover every balance change.</strong> Five
+    <code>LOG3</code> sites match the five places the source emits, one
+    <code>Transfer</code> each in <code>transferFrom</code>, <code>mint</code>
+    and <code>burn</code>, and one <code>Approval</code> each in
+    <code>approve</code> and <code>permit</code>. Mints and burns emit
+    <code>Transfer</code> against the zero address as ERC-20 indexers expect,
+    so a balance tracker built by replaying <code>Transfer</code> logs is
+    correct.</li>
+  <li><strong>The dispatcher matches the source.</strong> All 22 selectors in
+    the runtime appear in the verified source, and all 22 functions in the
+    source appear in the runtime. There is no hidden function and no
+    documented function missing.</li>
+</ul>
+
+<h2>What the contract cannot do</h2>
+<p>Each item below is confirmed against the disassembled runtime code.</p>
+<ul>
+  <li>No <code>DELEGATECALL</code> and no <code>CALLCODE</code>, so the
+    contract is not a proxy and has no upgrade path. All three standard proxy
+    storage slots read zero, and the block explorer independently reports no
+    implementation and no proxy type.</li>
+  <li>No <code>SELFDESTRUCT</code>, so it cannot be destroyed.</li>
+  <li>No <code>CREATE</code> or <code>CREATE2</code>, and the account nonce is
+    1, so it has never deployed anything.</li>
+  <li>No <code>CALL</code>, so it can never move ETH or invoke another
+    contract's state changing code. The single <code>STATICCALL</code>
+    reaches a precompile.</li>
+  <li>No <code>ORIGIN</code>, so there is no <code>tx.origin</code>
+    authentication.</li>
+  <li>No <code>NUMBER</code> and one <code>TIMESTAMP</code>, used only for the
+    permit expiry.</li>
+  <li>No pause, no freeze, no blacklist, no fee switch, no rescue function and
+    no owner. The <code>wards</code> mapping is the entire authority surface,
+    and <a href="#i-1">I-1</a> shows it is closed.</li>
+</ul>
+
+<h2>Compiler risk</h2>
+<p>
+  The Solidity project lists 13 known bugs affecting 0.5.12. I checked each
+  against this contract. None applies.
+</p>
+<p>
+  The optimiser was disabled at compile time, which clears
+  <code>KeccakCaching</code> and
+  <code>YulOptimizerRedundantAssignmentBreakContinue0.5</code> outright, since
+  both are optimiser defects.
+</p>
+<p>
+  Seven more need language features DAI never uses. It declares no arrays of
+  any kind, which clears <code>LostStorageArrayWriteOnSlotOverflow</code>,
+  <code>DynamicArrayCleanup</code>, <code>MemoryArrayCreationOverflow</code>,
+  <code>AbiReencodingHeadOverflowWithStaticArrayCleanup</code>,
+  <code>NestedCalldataArrayAbiReencodingSizeValidation</code> and
+  <code>ABIDecodeTwoDimensionalArrayMemory</code>. It performs no tuple
+  assignment, which clears
+  <code>TupleAssignmentMultiStackSlotComponents</code>.
+</p>
+<p>
+  Two concern copying byte arrays into storage.
+  <code>DirtyBytesArrayToStorage</code> and <code>EmptyByteArrayCopy</code>
+  both require a <code>bytes</code> or <code>string</code> state variable. DAI
+  has none: <code>name</code>, <code>symbol</code> and <code>version</code>
+  are <code>constant</code> and live in the code. Slots 0 through 4 hold
+  mapping bases and <code>totalSupply</code>, and slot 5 holds the domain
+  separator, so no string storage exists to corrupt.
+</p>
+<p>
+  Two need a specific answer.
+  <code>ImplicitConstructorCallvalueCheck</code> applies to contracts with no
+  explicit constructor; DAI declares
+  <code>constructor(uint256 chainId_) public</code>, which is non-payable, so
+  the callvalue check is emitted. <code>privateCanBeOverridden</code> needs a
+  private function in a base contract; the only base is <code>LibNote</code>,
+  which declares an event and a modifier and no functions at all.
+</p>
+
+<h2 id="integration-checklist">Integration checklist</h2>
+<ol>
+  <li>Treat a DAI permit as an unlimited approval. It cannot be scoped to an
+    amount.</li>
+  <li>Never send <code>expiry = 0</code>. Reject it in your own code before
+    signing or relaying, because DAI reads zero as "never expires" where
+    EIP-2612 reads it as "already expired".</li>
+  <li>Call DAI's own permit selector <code>0x8fcbaf0c</code> with the
+    <code>(holder, spender, nonce, expiry, allowed, v, r, s)</code> argument
+    list. The EIP-2612 selector reverts.</li>
+  <li>Read <code>nonces(holder)</code> immediately before signing, and keep
+    one permit outstanding at a time. Nonces must be redeemed in order.</li>
+  <li>Set an allowance to zero before changing it to a new non-zero value.</li>
+  <li>Size allowances deliberately. A DAI spender with an allowance can burn
+    the tokens, not only move them.</li>
+  <li>Guard destination addresses yourself. DAI will send tokens to the zero
+    address, and to its own address, without complaint, and 4.46 million DAI
+    is already stranded that way.</li>
+  <li>Do not read <code>totalSupply()</code> as circulating supply. It counts
+    the stranded balances above.</li>
+  <li>Monitor authority by filtering logs on topic0
+    <code>0x65fae35e000…</code> and <code>0x9c52a7f1000…</code>. Decoded event
+    streams will not show a change of minter.</li>
+  <li>Do not assume a DAI permit signed for one chain is confined to it. The
+    domain separator is fixed at deployment and does not track a chain
+    split.</li>
+</ol>
+
+<h2>Limits of this review</h2>
+<p>State these alongside the findings whenever this audit is quoted.</p>
+<ul>
+  <li><strong>Scope is the DAI token contract only.</strong> The
+    <code>Vat</code>, the collateral adapters, the governance pause and the
+    wider Maker system were read only far enough to answer the authority
+    question, and are not reviewed here. The capacity to create DAI is
+    decided in the <code>Vat</code>, and that is where an assessment of supply
+    risk belongs.</li>
+  <li><strong>Backing is not assessed.</strong> This review says nothing about
+    whether outstanding DAI is collateralised. That question is answered in
+    the <code>Vat</code> and in the collateral held against it, not in this
+    contract.</li>
+  <li><strong>No formal verification, symbolic execution or fuzzing.</strong>
+    This is a source and bytecode review.</li>
+  <li><strong>Log history depends on one explorer.</strong> The ward
+    enumeration was read from a public explorer API, because the node
+    endpoint used refuses <code>eth_getLogs</code>. Windows that filled the
+    result cap were bisected until none did, so the set is complete with
+    respect to what that explorer holds.</li>
+  <li><strong>Balance figures move every block.</strong> They are pinned to
+    block 25,837,079, 2026-08-26 04:44:59 UTC.</li>
+  <li><strong>Scope is one contract, not the family it spawned.</strong> Sky,
+    the protocol that issues DAI, also issues USDS, a separate ERC-20
+    contract. USDS was not read for this review and inherits none of these
+    findings; it does not share DAI's code, its immutability, or its permit
+    format.</li>
+</ul>
+
+<h2>Links</h2>
+<ul class="links">
+  <li><a target="_blank" rel="noopener" href="https://etherscan.io/token/0x6b175474e89094c44da98b954eedeac495271d0f">DAI on Etherscan</a></li>
+  <li><a target="_blank" rel="noopener" href="https://eips.ethereum.org/EIPS/eip-2612">EIP-2612, the signed-approval standard DAI predates</a></li>
+  <li><a target="_blank" rel="noopener" href="https://eips.ethereum.org/EIPS/eip-1344">EIP-1344, which introduced the <code>CHAINID</code> opcode after DAI was compiled</a></li>
+  <li><a target="_blank" rel="noopener" href="https://github.com/ethereum/solidity/blob/develop/docs/bugs_by_version.json">Solidity bug list by version</a></li>
+  <li><a href="../../index.html">David Ryan's builder page</a></li>
+</ul>
+
+<script>Audit.wireThemeToggle();</script>
+
+</body>
+</html>

@@ -381,7 +381,7 @@
   // for the droste link itself, so it's stashed on window rather than
   // parsed twice. Runs inline, before the rest of the body is parsed, so
   // the stack is its full height before anything below it can lay out
-  // around it — one head at the top, one more per level down.
+  // around it – one head at the top, one more per level down.
   window.__drosteDepth = parseInt(new URLSearchParams(location.search).get('droste'), 10) || 0;
   (function () {
     var stack = document.getElementById('portrait-stack');
@@ -549,7 +549,7 @@
     – Wrapped ETH is central and critical in Ethereum DeFi.
     This contract was deployed in Dec 2017 and contains around 2,000,000 ETH.
     I did this independent audit using Claude Opus 5 in Aug 2026.
-    Summary: no exploitable vulnerability,
+    <br><b>Summary</b>: no exploitable vulnerability,
     two medium integration hazards, and a checklist for anyone building on top of it.
   </li>
   <li>
@@ -557,9 +557,16 @@
     – the pair, factory and router contracts deployed by Uniswap in 2020 to Ethereum mainnet and other chains.
     These contracts are critical in DeFi, since together with over 700 forks they control over $2 billion of assets.
     Uniswap governance switched on the protocol fee in Dec 2025, after 5.6 years of that code lying dormant.
-    I did this independent audit using Claude Opus 5 in Aug 2026.
-    Summary: no exploitable vulnerability, the newly live fee arithmetic proven overflow-free,
+    <br><b>Summary</b>: no exploitable vulnerability, the newly live fee arithmetic proven overflow-free,
     and three medium findings, the largest being a fee that charges staking yield as though it were trading revenue.
+  </li>
+  <li>
+    <a href="audits/dai/index.html">DAI</a>
+    – the decentralised stablecoin deployed by MakerDAO (now Sky) in Nov 2019, backed by onchain collateral,
+    and with over $4 billion worth of DAI currently minted.
+    The main risk is that the wrong person calls `mint`, so this audit traces it through 16.9 million blocks of chain history.
+    <br><b>Summary</b>: no exploitable vulnerability, the mint authority proven closed to a single address since 2019,
+    and two medium findings in a signed-approval function that predates the EIP-2612 standard.
   </li>
 </ul>
 
