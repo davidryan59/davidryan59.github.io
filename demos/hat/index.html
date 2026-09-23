@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hat tiling – a family of aperiodic monotiles</title>
+<meta name="description" content="Pan, zoom and reshape the Hat tiling, the first aperiodic monotile, found in 2023. Slide from chevron to comet and watch every tile change shape.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://davidryan59.github.io/demos/hat/">
+<meta property="og:title" content="Hat tiling – a family of aperiodic monotiles">
+<meta property="og:description" content="Pan, zoom and reshape the Hat tiling, from chevron to comet.">
+<meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:creator" content="@davidryan59">
+<script src="../../audit.js"></script>
+<script>Audit.initTheme();</script>
+<link rel="stylesheet" href="../engine/map.css">
+</head>
+<body>
+
+<canvas id="map" tabindex="0" aria-label="Hat tiling map. Drag to move, scroll or pinch to zoom, arrow keys to move, plus and minus to zoom, shift and the arrow keys to turn."></canvas>
+
+<div class="top">
+<div class="card title">
+  <a class="back" href="../../index.html">← David Ryan's builder page</a>
+  <h1>Hat tiling</h1>
+  <p class="hint">One tile and its mirror image, a pattern that never repeats. Slide to reshape every tile.</p>
+  <div class="row">
+    <nav class="switch" aria-label="Tiling">
+      <a href="../spectre/index.html">Spectre</a><a href="index.html" aria-current="page">Hat</a>
+    </nav>
+    <button type="button" id="about-open">About</button>
+  </div>
+</div>
+
+<div class="card options">
+  <div class="head">
+    <select id="scheme" aria-label="Colours"></select>
+    <button class="theme-toggle" type="button" hidden>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.1"/>
+        <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+      </svg>
+    </button>
+    <button type="button" class="fold" id="options-fold" aria-expanded="false">Options</button>
+  </div>
+  <div class="body">
+    <label><input type="checkbox" id="outlines"> Supertile outlines</label>
+    <label><input type="checkbox" id="grid"> Grid</label>
+    <div class="sub" id="grid-sub" hidden>
+      <div class="inline">
+        <label><input type="checkbox" id="grid0"> 0° grid</label>
+        <label><input type="checkbox" id="grid30"> 30° grid</label>
+      </div>
+      <p class="hint" id="grid-hint"></p>
+      <div><button type="button" class="linkish" id="grid-clear">Start again</button></div>
+    </div>
+    <div class="section">
+      <span class="section-title">Tile shape</span>
+      <div class="slider">
+        <span id="shape-name">Hat</span><output id="shape-out"></output>
+        <input type="range" id="shape" min="0" max="90" step="0.25" aria-label="Tile shape, from chevron to comet">
+        <div class="ticks" id="ticks">
+          <button type="button" data-deg="0">Chevron</button>
+          <button type="button" data-deg="30">Hat</button>
+          <button type="button" data-deg="45">1:1</button>
+          <button type="button" data-deg="60">Turtle</button>
+          <button type="button" data-deg="90">Comet</button>
+        </div>
+      </div>
+      <p class="hint">The same pattern at every shape. Only the edge lengths a and b change.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card zoom" role="group" aria-label="Zoom and turn">
+  <button type="button" id="compass" class="compass" title="Turn back to north" aria-label="Turn back to north" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3 8.5 12h7z" fill="#d11a35"/><path d="M12 21 8.5 12h7z" fill="currentColor" opacity="0.55"/>
+    </svg>
+  </button>
+  <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+  <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+  <button type="button" id="home" title="Back to the start" aria-label="Back to the start">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>
+    </svg>
+  </button>
+</div>
+
+<div class="card legend" id="legend" aria-live="polite"></div>
+
+<div class="card status" id="status" hidden>Building tiles…</div>
+
+<div class="card about" id="about" role="dialog" aria-modal="false" aria-labelledby="about-title" hidden>
+  <button type="button" class="close" id="about-close" aria-label="Close">×</button>
+  <h2 id="about-title">The Hat</h2>
+  <p>
+    The Hat was the first "einstein": a single tile that covers the plane
+    only in patterns that never repeat. David Smith, Joseph Samuel Myers,
+    Craig S. Kaplan and Chaim Goodman-Strauss announced it in March 2023. The
+    Hat needs its mirror image: about one tile in eight is flipped. The
+    Spectre, found a few months later, needs no mirror images at all.
+  </p>
+  <p>
+    The Hat belongs to a family, Tile(a, b), with edges of two lengths a and
+    b. The slider moves through the family, from the chevron, Tile(0, 1), to
+    the comet, Tile(1, 0). The hat is Tile(1, √3) and the turtle is
+    Tile(√3, 1). Every member with a ≠ b makes the same pattern, only
+    reshaped, so the slider reshapes all the tiles at once. The chevron and
+    the comet also tile in repeating patterns, and so does Tile(1, 1) once
+    mirror images are allowed. Here they all show the same non-repeating
+    pattern.
+  </p>
+  <p>
+    At 1:1 the tile is the same Tile(1, 1) as on the Spectre page, but laid
+    out in the hat pattern, with mirror images. The two pages show two
+    different tilings made from one tile.
+  </p>
+  <p>
+    Hats turn in 60° steps and come in two hands, so the colours group them
+    by turn, by hand, or both. Click a group in the key to give it your own
+    colour. <em>Supertile outlines</em> show the hierarchy that forces the
+    pattern: hats group into the metatiles H, T, P and F, which group into
+    larger ones, level after level. <em>Grid</em> lays a triangular grid
+    through a corner. At the hat's own shape the 0° grid passes through every
+    corner, since the hat is built from the kites of a regular grid. Move the
+    slider and the fit breaks.
+  </p>
+  <p>
+    Drag to move. Scroll, pinch or double-click to zoom. Turn with a
+    two-finger twist, or with Ctrl and drag, or with Shift and the arrow
+    keys. A trackpad twist works in Safari. The address bar keeps your
+    place, colours and shape, so you can share a view.
+  </p>
+  <ul>
+    <li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2303.10798">An aperiodic monotile</a> – the paper, on arXiv</li>
+    <li><a target="_blank" rel="noopener" href="https://cs.uwaterloo.ca/~csk/hat/">Craig Kaplan's Hat page</a> – the metatile construction here follows his hatviz code</li>
+    <li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Einstein_problem">Einstein problem</a> – on Wikipedia</li>
+    <li><a target="_blank" rel="noopener" href="https://github.com/davidryan59/davidryan59.github.io/tree/main/demos">Code on GitHub</a> – WebGL, no libraries</li>
+  </ul>
+</div>
+
+<div class="card fail" id="fail" hidden>
+  <p>This demo needs WebGL 2, which this browser does not offer.</p>
+</div>
+
+<script src="../engine/tiling-core.js"></script>
+<script src="tiling.js"></script>
+<script src="../engine/map.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var TM = TilingMap, oklch = TM.oklch, hex = TM.hex;
+  var H3 = Math.sqrt(3) / 2;
+  var NAMED = [[0, 'Chevron', 'Tile(0, 1)'], [30, 'Hat', 'Tile(1, √3)'], [45, 'Tile(1, 1)', 'mirrors allowed'],
+               [60, 'Turtle', 'Tile(√3, 1)'], [90, 'Comet', 'Tile(1, 0)']];
+
+  /* ------------------------------------------------------------- shape */
+
+  // Corners of the hat outline as two-part points, from the worker once it
+  // is ready. Until then the shape is empty.
+  var outlineTP = null;
+  var deg = 30;
+  try { var sd = parseFloat(localStorage.getItem('hat-shape')); if (sd >= 0 && sd <= 90) deg = sd; } catch (e) {}
+
+  function cornersAt(a, b) {
+    return outlineTP.map(function (v) {
+      return [a * v.P[0] + b * (H3 * v.R[0] - 0.5 * v.R[1]), a * v.P[1] + b * (0.5 * v.R[0] + H3 * v.R[1])];
+    });
+  }
+  function areaAt(a, b) { return TM.area(cornersAt(a, b)); }
+  // Edge lengths for the slider angle, scaled so every tile keeps the hat's
+  // area and the tiling neither grows nor shrinks as the slider moves.
+  function abAt(d) {
+    var t = d * Math.PI / 180, a = Math.sin(t), b = Math.cos(t);
+    var k = Math.sqrt(areaAt(1, Math.sqrt(3)) / areaAt(a, b));
+    return [a * k, b * k];
+  }
+  var corners = null;
+  var shape = {
+    signature: function () { return 'hat' + deg; },
+    lodKey: function () { return 'hat'; },
+    lod: function () { return 0; },
+    corners: function () { return corners; },
+    outline: function () { return corners; },
+    profile: function () { return null; }
+  };
+
+  /* ----------------------------------------------------------- colours */
+
+  // Twelve classes: six turns in 60-degree steps, then the same six turns
+  // mirrored. The worker reports turns in 30-degree steps, always even here.
+  var classes = [];
+  for (var c = 0; c < 12; c++) {
+    classes.push({ turn: 2 * (c % 6), flip: c >= 6 ? 1 : 0, caption: (c % 6) * 60 + '°' + (c >= 6 ? ' m' : '') });
+  }
+  var groupings = [
+    { id: 'turnhand', name: '12 colours, turn and hand', n: 12, of: function (k) { return k; }, cols: 6 },
+    { id: 'turn', name: '6 colours, turn', n: 6, of: function (k) { return k % 6; }, cols: 3 },
+    { id: 'hand', name: '2 colours, hand', n: 2, of: function (k) { return k >= 6 ? 1 : 0; }, cols: 1 },
+    { id: 'one', name: '1 colour', n: 1, of: function () { return 0; }, cols: 1 }
+  ];
+  var presets = [
+    { id: 'pastel', name: 'Pastel, mirrored deeper', grouping: 'turnhand', colours: function (dark) {
+      return classes.map(function (cl, k) {
+        var m = k >= 6, hue = (k % 6) * 60 + 25;
+        return dark ? oklch(m ? 0.66 : 0.40, m ? 0.13 : 0.065, hue) : oklch(m ? 0.60 : 0.88, m ? 0.15 : 0.075, hue);
+      });
+    } },
+    { id: 'rainbow', name: 'Rainbow', grouping: 'turnhand', colours: function (dark) {
+      return classes.map(function (cl, k) {
+        return oklch(dark ? 0.55 : 0.8, 0.12, 25 + (k % 6) * 60 + (k >= 6 ? 30 : 0));
+      });
+    } },
+    { id: 'turns', name: 'Six turns', grouping: 'turn', colours: function (dark) {
+      var out = [];
+      for (var i = 0; i < 6; i++) out.push(oklch(dark ? 0.45 : 0.82, 0.1, 25 + i * 60));
+      return out;
+    } },
+    { id: 'hands', name: 'Mirrored hats', grouping: 'hand', colours: function (dark) {
+      return dark ? [hex('#3a3935'), hex('#6fa0e8')] : [hex('#eee7d6'), hex('#2d5fa8')];
+    } },
+    { id: 'plain', name: 'Plain', grouping: 'one', colours: function (dark) { return [dark ? hex('#2a2a30') : hex('#fdfcf8')]; } }
+  ];
+
+  /* ------------------------------------------------------------ engine */
+
+  var map = TM.start({
+    name: 'hat',
+    worker: 'tiling.js',
+    build: HatTiling.build,
+    ab: [1, Math.sqrt(3)],
+    refB: Math.sqrt(3),
+    classMode: 1,
+    classes: classes,
+    groupings: groupings,
+    presets: presets,
+    shape: shape,
+    gridSpacing: function (ab) { return [ab[0], ab[1]]; },
+    tileRadius: function () {
+      var r = 0;
+      (corners || []).forEach(function (p) { r = Math.max(r, Math.hypot(p[0], p[1])); });
+      return r + 0.5;
+    },
+    keyNote: function (g) { return g.n === 12 ? 'Top: six turns. Below: the same turns mirrored (m).' : ''; },
+    hashGet: function () { return { t: String(+deg.toFixed(2)) }; },
+    hashSet: function (q) {
+      if (q.t !== undefined && !isNaN(parseFloat(q.t))) deg = Math.max(0, Math.min(90, parseFloat(q.t)));
+      if (outlineTP) applyShape();
+    },
+    onReady: function (info) {
+      outlineTP = info.outline;
+      applyShape();
+    }
+  });
+  if (!map) return;
+
+  /* ---------------------------------------------------------- controls */
+
+  var shapeEl = document.getElementById('shape'), nameEl = document.getElementById('shape-name');
+  var outEl = document.getElementById('shape-out'), ticks = document.querySelectorAll('#ticks button');
+
+  function applyShape() {
+    if (!outlineTP) return;
+    var ab = abAt(deg);
+    corners = cornersAt(ab[0], ab[1]);
+    shapeEl.value = String(deg);
+    var named = NAMED.filter(function (n) { return Math.abs(n[0] - deg) < 1e-9; })[0];
+    if (named) { nameEl.textContent = named[1]; outEl.textContent = named[2]; }
+    else {
+      var t = deg * Math.PI / 180;
+      nameEl.textContent = 'Tile(a, b)';
+      outEl.textContent = deg <= 45 ? 'a : b = ' + Math.tan(t).toFixed(2) + ' : 1' : 'a : b = 1 : ' + (1 / Math.tan(t)).toFixed(2);
+    }
+    Array.prototype.forEach.call(ticks, function (b) { b.classList.toggle('on', +b.dataset.deg === deg); });
+    map.setAB(ab[0], ab[1]);
+  }
+
+  shapeEl.addEventListener('input', function () {
+    var v = parseFloat(shapeEl.value);
+    // Sticky stops at the named shapes.
+    NAMED.forEach(function (n) { if (Math.abs(v - n[0]) < 1.25) v = n[0]; });
+    deg = v;
+    applyShape();
+  });
+  shapeEl.addEventListener('change', function () {
+    try { localStorage.setItem('hat-shape', String(deg)); } catch (e) {}
+    map.changed();
+  });
+  Array.prototype.forEach.call(ticks, function (b) {
+    b.addEventListener('click', function () {
+      deg = +b.dataset.deg;
+      applyShape();
+      try { localStorage.setItem('hat-shape', String(deg)); } catch (e) {}
+      map.changed();
+    });
+  });
+})();
+</script>
+</body>
+</html>

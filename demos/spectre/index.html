@@ -4,240 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Spectre tiling – an aperiodic monotile</title>
-<meta name="description" content="Pan and zoom across the Spectre tiling, the aperiodic monotile found in 2023. One tile shape covers the plane in a pattern that never repeats.">
+<meta name="description" content="Pan, zoom and turn the Spectre tiling, the aperiodic monotile found in 2023. One tile shape covers the plane in a pattern that never repeats.">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../../favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://davidryan59.github.io/demos/spectre/">
 <meta property="og:title" content="Spectre tiling – an aperiodic monotile">
-<meta property="og:description" content="Pan and zoom across the Spectre tiling. One tile shape, a pattern that never repeats.">
+<meta property="og:description" content="Pan, zoom and turn the Spectre tiling. One tile shape, a pattern that never repeats.">
 <meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:creator" content="@davidryan59">
 <script src="../../audit.js"></script>
 <script>Audit.initTheme();</script>
-<style>
-/* Colour tokens match index.html and audit.css, so the cards read as part of
-   the site. The map itself takes its colours from the script. */
-:root {
-  color-scheme: light dark;
-  --bg: light-dark(#f6f3ec, #16161a);
-  --panel: light-dark(rgba(255, 253, 248, 0.94), rgba(30, 30, 35, 0.94));
-  --text: light-dark(#46443d, #c8c4b9);
-  --h1: light-dark(#1a1a1a, #f5f3ec);
-  --h3: light-dark(#38362e, #d8d4c9);
-  --link: light-dark(#1552a1, #7aa6e0);
-  --rule: light-dark(#ddd8cc, #3a3a3a);
-  --ring: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.16));
-  --muted: light-dark(#7c786d, #918c80);
-  --shadow: light-dark(0 2px 10px rgba(40, 30, 10, 0.14), 0 2px 12px rgba(0, 0, 0, 0.5));
-}
-:root[data-theme="light"] { color-scheme: light; }
-:root[data-theme="dark"]  { color-scheme: dark; }
-
-* { box-sizing: border-box; }
-[hidden] { display: none !important; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
-body {
-  color: var(--text);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 16px;
-  line-height: 1.5;
-  -webkit-text-size-adjust: 100%;
-}
-a { color: var(--link); }
-
-#map {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  touch-action: none;
-  cursor: grab;
-  outline: none;
-}
-#map.dragging { cursor: grabbing; }
-
-.card {
-  position: fixed;
-  background: var(--panel);
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  box-shadow: var(--shadow);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-}
-
-/* The title and options cards share a top bar. They sit at either end on a
-   wide screen and wrap onto two rows on a phone. The bar itself lets drags
-   through to the map. */
-.top {
-  position: fixed;
-  top: max(12px, env(safe-area-inset-top));
-  left: max(12px, env(safe-area-inset-left));
-  right: max(12px, env(safe-area-inset-right));
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
-  pointer-events: none;
-}
-.top .card { position: static; pointer-events: auto; }
-
-/* Title card, top left. */
-.title {
-  max-width: 340px;
-  padding: 0.7rem 0.9rem 0.75rem;
-}
-.title .back { font-size: 0.85rem; text-decoration: none; }
-.title .back:hover { text-decoration: underline; }
-.title h1 { font-size: 1.3rem; line-height: 1.2; color: var(--h1); margin: 0.2rem 0 0.25rem; font-weight: normal; }
-.title p { margin: 0; font-size: 0.9rem; color: var(--muted); }
-.title .row { display: flex; gap: 0.5rem; margin-top: 0.55rem; flex-wrap: wrap; }
-
-button, select {
-  font: inherit;
-  font-size: 0.88rem;
-  color: var(--h3);
-  background: transparent;
-  border: 1px solid var(--ring);
-  border-radius: 7px;
-  padding: 0.28rem 0.6rem;
-  cursor: pointer;
-}
-button:hover, select:hover { border-color: var(--muted); color: var(--h1); }
-button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible {
-  outline: 2px solid var(--link);
-  outline-offset: 2px;
-}
-select { background: var(--panel); }
-
-/* Options card, top right. */
-.options {
-  margin-left: auto;
-  padding: 0.55rem 0.65rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  align-items: stretch;
-}
-.options .line { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
-.options label { font-size: 0.88rem; color: var(--h3); display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
-.options input[type="checkbox"] { accent-color: var(--link); width: 1rem; height: 1rem; margin: 0; }
-.options .bend { padding-left: 1.4rem; }
-.options input[type="range"] { accent-color: var(--link); width: 7.5rem; margin: 0; }
-
-.theme-toggle {
-  width: 2rem;
-  height: 2rem;
-  flex: none;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border-radius: 50%;
-}
-.theme-toggle svg { display: block; width: 1.05rem; height: 1.05rem; }
-:root[data-theme="dark"] .theme-toggle .moon { display: none; }
-:root[data-theme="light"] .theme-toggle .sun { display: none; }
-
-/* Zoom buttons, bottom right, stacked as on a map. */
-.zoom {
-  right: max(12px, env(safe-area-inset-right));
-  bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px));
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.zoom button {
-  width: 2.5rem;
-  height: 2.5rem;
-  border: none;
-  border-radius: 0;
-  font-size: 1.35rem;
-  line-height: 1;
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-.zoom button + button { border-top: 1px solid var(--rule); }
-.zoom button:hover { background: var(--ring); }
-.zoom svg { width: 1.1rem; height: 1.1rem; display: block; }
-
-/* Colour key, bottom left. */
-.legend {
-  left: max(12px, env(safe-area-inset-left));
-  bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px));
-  padding: 0.5rem 0.7rem 0.55rem;
-  max-width: calc(100vw - 90px);
-}
-.legend h2 {
-  font-size: 0.8rem;
-  font-weight: normal;
-  color: var(--muted);
-  margin: 0 0 0.3rem;
-  display: flex;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-.legend h2 button { border: none; padding: 0; font-size: 0.8rem; color: var(--link); }
-.legend .grid { display: grid; grid-template-columns: repeat(6, auto); gap: 0.15rem 0.35rem; justify-content: start; }
-.legend .grid.two { grid-template-columns: auto auto; }
-.legend .grid.labels { grid-template-columns: repeat(5, auto); }
-.legend figure { margin: 0; display: flex; flex-direction: column; align-items: center; min-width: 2.2rem; }
-.legend figure.wide { flex-direction: row; gap: 0.4rem; min-width: 0; }
-.legend svg { width: 2.1rem; height: 2.1rem; display: block; overflow: visible; }
-.legend figcaption { font-size: 0.72rem; color: var(--text); line-height: 1.1; white-space: nowrap; }
-.legend .note { font-size: 0.72rem; color: var(--muted); margin: 0.2rem 0 0; }
-
-/* About sheet. */
-.about {
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(560px, calc(100vw - 24px));
-  max-height: calc(100dvh - 24px);
-  overflow-y: auto;
-  padding: 1.1rem 1.25rem 0.4rem;
-  font-size: 0.95rem;
-  z-index: 5;
-}
-.about h2 { font-size: 1.15rem; font-weight: normal; color: var(--h1); margin: 0 2rem 0.6rem 0; }
-.about p { margin: 0 0 0.8rem; }
-.about ul { margin: 0 0 0.9rem; padding-left: 1.2rem; }
-.about li { margin-bottom: 0.25rem; }
-.about .close { position: absolute; top: 0.7rem; right: 0.7rem; width: 2rem; height: 2rem; padding: 0; border-radius: 50%; font-size: 1.1rem; }
-
-.status {
-  top: max(12px, env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.25rem 0.75rem;
-  font-size: 0.82rem;
-  color: var(--muted);
-  pointer-events: none;
-}
-.fail { top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 1rem 1.25rem; max-width: calc(100vw - 24px); }
-
-/* On a phone the title card drops its description and the status pill
-   moves down, clear of the two top cards. */
-@media (max-width: 640px) {
-  .title { padding: 0.5rem 0.75rem 0.6rem; }
-  .title p.hint { display: none; }
-  .title h1 { font-size: 1.1rem; }
-  .title .row { margin-top: 0.35rem; }
-  .status { top: auto; bottom: 7rem; }
-  .legend .grid { grid-template-columns: repeat(6, auto); }
-  .legend svg { width: 1.7rem; height: 1.7rem; }
-  .legend figure { min-width: 1.8rem; }
-}
-</style>
+<link rel="stylesheet" href="../engine/map.css">
 </head>
 <body>
 
-<canvas id="map" tabindex="0" aria-label="Spectre tiling map. Drag to move, scroll or pinch to zoom, arrow keys to move, plus and minus to zoom."></canvas>
+<canvas id="map" tabindex="0" aria-label="Spectre tiling map. Drag to move, scroll or pinch to zoom, arrow keys to move, plus and minus to zoom, shift and the arrow keys to turn."></canvas>
 
 <div class="top">
 <div class="card title">
@@ -245,18 +29,16 @@ select { background: var(--panel); }
   <h1>Spectre tiling</h1>
   <p class="hint">One tile shape, a pattern that never repeats. Drag to move, scroll or pinch to zoom.</p>
   <div class="row">
-    <button type="button" id="about-open">About the Spectre</button>
+    <nav class="switch" aria-label="Tiling">
+      <a href="index.html" aria-current="page">Spectre</a><a href="../hat/index.html">Hat</a>
+    </nav>
+    <button type="button" id="about-open">About</button>
   </div>
 </div>
 
 <div class="card options">
-  <div class="line">
-    <select id="scheme" aria-label="Colour scheme">
-      <option value="0">Colour by orientation</option>
-      <option value="1">Common and rare</option>
-      <option value="2">Colour by tile type</option>
-      <option value="3">Plain</option>
-    </select>
+  <div class="head">
+    <select id="scheme" aria-label="Colours"></select>
     <button class="theme-toggle" type="button" hidden>
       <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
         <circle cx="12" cy="12" r="4.1"/>
@@ -266,14 +48,63 @@ select { background: var(--panel); }
         <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
       </svg>
     </button>
+    <button type="button" class="fold" id="options-fold" aria-expanded="false">Options</button>
   </div>
-  <label><input type="checkbox" id="outlines"> Supertile outlines</label>
-  <label><input type="checkbox" id="curved"> Curved edges</label>
-  <label class="bend" id="bend-row" hidden>Bend <input type="range" id="bend" min="0.03" max="0.4" step="0.01" value="0.15"></label>
+  <div class="body">
+    <label><input type="checkbox" id="outlines"> Supertile outlines</label>
+    <label><input type="checkbox" id="grid"> Grid</label>
+    <div class="sub" id="grid-sub" hidden>
+      <div class="inline">
+        <label><input type="checkbox" id="grid0"> 0° grid</label>
+        <label><input type="checkbox" id="grid30"> 30° grid</label>
+      </div>
+      <p class="hint" id="grid-hint"></p>
+      <div><button type="button" class="linkish" id="grid-clear">Start again</button></div>
+    </div>
+    <div class="section">
+      <label class="section-title" for="shape">Edge shape</label>
+      <select id="shape"></select>
+      <div class="slider" id="bend-box">
+        <span>Bend</span><output id="bend-out"></output>
+        <input type="range" id="bend" min="-0.75" max="0.75" step="0.005" aria-label="Bend">
+        <div class="limits" id="limits"></div>
+        <div class="limit-note" id="limit-note"></div>
+      </div>
+      <div class="slider" data-param="waves">
+        <span>Waves</span><output></output>
+        <input type="range" min="1" max="3" step="1" aria-label="Waves">
+      </div>
+      <div class="slider" data-param="peak">
+        <span>Peak position</span><output></output>
+        <input type="range" min="0" max="1" step="0.01" aria-label="Peak position">
+      </div>
+      <div class="slider" data-param="rise">
+        <span>Rising side</span><output></output>
+        <input type="range" min="0" max="1" step="0.01" aria-label="Rising side">
+      </div>
+      <div class="slider" data-param="fall">
+        <span>Falling side</span><output></output>
+        <input type="range" min="0" max="1" step="0.01" aria-label="Falling side">
+      </div>
+      <div class="slider" data-param="neck">
+        <span>Neck width</span><output></output>
+        <input type="range" min="0.25" max="0.9" step="0.01" aria-label="Neck width">
+      </div>
+      <div class="inline" id="arrangement" role="radiogroup" aria-label="Arrangement">
+        <label><input type="radio" name="arrangement" value="S"> S on every edge</label>
+        <label><input type="radio" name="arrangement" value="alt"> Alternating</label>
+      </div>
+    </div>
+  </div>
 </div>
 </div>
 
-<div class="card zoom" role="group" aria-label="Zoom">
+<div class="card zoom" role="group" aria-label="Zoom and turn">
+  <button type="button" id="compass" class="compass" title="Turn back to north" aria-label="Turn back to north" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3 8.5 12h7z" fill="#d11a35"/><path d="M12 21 8.5 12h7z" fill="currentColor" opacity="0.55"/>
+    </svg>
+  </button>
   <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
   <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
   <button type="button" id="home" title="Back to the start" aria-label="Back to the start">
@@ -301,36 +132,42 @@ select { background: var(--panel); }
   <p>
     The tile appears in 12 orientations. Six are common and sit 60° apart.
     The other six are rare. Each rare tile is turned a further 30°, and it
-    pairs with one neighbour to make a two-tile cluster called a Mystic. In
-    the default colours, the hue turns with the tile, so each colour marks
-    one orientation.
+    pairs with one neighbour to make a two-tile cluster called a Mystic. The
+    colour menu groups the orientations by their angle modulo 30°, 60°, 90°,
+    120°, 180° or 360°. Click a group in the key to give it your own colour.
   </p>
   <p>
-    With straight edges the tile is called Tile(1,1). It makes this pattern
-    only if mirror images are banned, because with mirror images it can also
-    tile periodically. Swap every edge for the same S-shaped curve and the
-    mirror image no longer fits, so the ban is no longer needed. Any smooth
-    S-curve works, which makes the Spectre a family of tiles rather than one
-    shape. Turn on <em>Curved edges</em> and move the <em>Bend</em> slider to
-    travel through part of that family.
+    With straight edges the tile is Tile(1,1). It makes this pattern only if
+    mirror images are banned, because with mirror images it can also tile
+    periodically. Replace every edge with the same curve and the mirror
+    image stops fitting. <em>Edge shape</em> offers several curves and
+    <em>Bend</em> sets how far they swing. "S on every edge" puts one
+    S-shaped curve on each edge. "Alternating" puts a single bump on each
+    edge and flips its direction from edge to edge, which also fits, because
+    every shared edge joins an odd-numbered edge to an even-numbered one.
+    Push the bend past the marked limit and the tiles collide: the red
+    stripes show where they overlap.
   </p>
   <p>
     Tiles group into supertiles, and those group into larger supertiles,
     level after level. Turn on <em>Supertile outlines</em> to see five levels
-    of that hierarchy, drawn thicker as the level rises. This page builds
-    each patch of tiles from the hierarchy as you move, so you never reach
-    an edge.
+    of that hierarchy, drawn thicker as the level rises. <em>Grid</em> lays a
+    triangular grid through a corner of the tiling and marks the other
+    corners it passes through. It fits a few corners, then drifts off,
+    because no grid holds the whole tiling. Click two or three corners to fit
+    a grid through them.
   </p>
   <p>
-    Drag to move, and scroll, pinch or double-click to zoom. The arrow keys
-    move, and <kbd>+</kbd> and <kbd>−</kbd> zoom. The address bar keeps your
-    place, so you can share a view.
+    Drag to move. Scroll, pinch or double-click to zoom. Turn with a
+    two-finger twist, or with Ctrl and drag, or with Shift and the arrow
+    keys. A trackpad twist works in Safari. The address bar keeps your
+    place, colours and edges, so you can share a view.
   </p>
   <ul>
     <li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2305.17743">A chiral aperiodic monotile</a> – the paper, on arXiv</li>
     <li><a target="_blank" rel="noopener" href="https://cs.uwaterloo.ca/~csk/spectre/">Craig Kaplan's Spectre page</a> – the substitution rules here follow his reference code</li>
     <li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Einstein_problem">Einstein problem</a> – on Wikipedia</li>
-    <li><a target="_blank" rel="noopener" href="https://github.com/davidryan59/davidryan59.github.io/tree/main/demos/spectre">Code on GitHub</a> – WebGL, no libraries</li>
+    <li><a target="_blank" rel="noopener" href="https://github.com/davidryan59/davidryan59.github.io/tree/main/demos">Code on GitHub</a> – WebGL, no libraries</li>
   </ul>
 </div>
 
@@ -338,869 +175,240 @@ select { background: var(--panel); }
   <p>This demo needs WebGL 2, which this browser does not offer.</p>
 </div>
 
+<script src="../engine/tiling-core.js"></script>
 <script src="tiling.js"></script>
+<script src="shapes.js"></script>
+<script src="../engine/map.js"></script>
 <script>
 (function () {
   'use strict';
 
-  var SPECTRE = SpectreTiling.SPECTRE;
-  var CHUNK = 128;            // world units per chunk side
-  var MIN_S = 1, MAX_S = 400; // CSS pixels per world unit
-  var START_S = 8;
-  var MAX_CHUNKS = 900;
-  var MARGIN = 3;             // a tile reaches up to 3 units past its centre
+  var TM = TilingMap, SS = SpectreShapes, SPECTRE = SpectreTiling.SPECTRE;
+  var oklch = TM.oklch, hex = TM.hex;
 
-  var canvas = document.getElementById('map');
-  var gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
-  if (!gl) { document.getElementById('fail').hidden = false; return; }
+  /* ------------------------------------------------------------- state */
 
-  // View state. The centre is in world units, as doubles; the tiling's
-  // coordinates run to about 10^8, so float32 is used only for offsets.
-  var view = { x: 0, y: 0, s: START_S };
-  var start = null;
-  var W = 0, H = 0, dpr = 1;
-
-  /* ---------------------------------------------------------------- colour */
-
-  function oklch(L, C, hue) {
-    var h = hue * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
-    var l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3);
-    var m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3);
-    var s = Math.pow(L - 0.0894841775 * a - 1.2914855480 * b, 3);
-    function enc(x) {
-      x = Math.min(1, Math.max(0, x));
-      return x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
-    }
-    return [
-      enc(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
-      enc(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
-      enc(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)
-    ];
-  }
-  function hex(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16) / 255; }); }
-  function css(c) { return 'rgb(' + c.map(function (v) { return Math.round(v * 255); }).join(',') + ')'; }
-
-  var LABEL_NAMES = ['Γ₁', 'Γ₂', 'Δ', 'Θ', 'Λ', 'Ξ', 'Π', 'Σ', 'Φ', 'Ψ'];
-
-  function palette(dark) {
-    var p = {};
-    // Twelve orientations, hue following the angle. The six common ones are
-    // pale; the six rare ones, turned a further 30 degrees, are deeper.
-    p.orient = [];
-    for (var k = 0; k < 12; k++) {
-      var rare = k % 2 === 1;
-      p.orient.push(dark
-        ? oklch(rare ? 0.66 : 0.40, rare ? 0.13 : 0.065, k * 30 + 25)
-        : oklch(rare ? 0.64 : 0.88, rare ? 0.15 : 0.075, k * 30 + 25));
-    }
-    p.base = dark ? hex('#2a2a30') : hex('#fdfcf8');
-    p.accent = dark ? hex('#67704c') : hex('#c1c5a0');
-    // Gamma1 and Gamma2 share a hue: together they make one Mystic.
-    p.labels = [];
-    var hues = [20, 20, 70, 110, 150, 190, 230, 270, 310, 350];
-    for (k = 0; k < 10; k++) {
-      p.labels.push(dark ? oklch(k === 1 ? 0.5 : 0.42, 0.07, hues[k]) : oklch(k === 1 ? 0.76 : 0.85, 0.08, hues[k]));
-    }
-    p.edge = dark ? hex('#b4afa3') : hex('#34332e');
-    p.line = dark ? hex('#d9d4c7') : hex('#16150f');
-    p.bg = dark ? hex('#16161a') : hex('#f6f3ec');
-    return p;
-  }
-
-  /* ---------------------------------------------------------------- WebGL */
-
-  var VS = '#version 300 es\n' +
-    'layout(location=0) in vec2 a_local;\n' +
-    'layout(location=1) in vec2 a_pos;\n' +
-    'layout(location=2) in uvec3 a_bits;\n' +
-    'uniform vec2 u_chunk;\n' +
-    'uniform float u_scale;\n' +
-    'uniform vec2 u_half;\n' +
-    'out vec2 v_local;\n' +
-    'flat out uvec3 v_bits;\n' +
-    'void main() {\n' +
-    '  float t = float(a_bits.x & 15u) * 0.52359877559829887;\n' +
-    '  float c = cos(t), s = sin(t);\n' +
-    '  vec2 w = u_chunk + a_pos + vec2(c * a_local.x - s * a_local.y, s * a_local.x + c * a_local.y);\n' +
-    '  gl_Position = vec4(w * u_scale / u_half, 0.0, 1.0);\n' +
-    '  v_local = a_local;\n' +
-    '  v_bits = a_bits;\n' +
-    '}\n';
-
-  // Each tile strokes the inner half of its own edges, and its neighbour
-  // strokes the other half, so every line is whole and antialiased. A tile
-  // also draws a disc at any vertex that a thicker line passes through, which
-  // fills the corner where it meets only at that vertex.
-  var FS = '#version 300 es\n' +
-    'precision highp float;\n' +
-    'precision highp int;\n' +
-    'in vec2 v_local;\n' +
-    'flat in uvec3 v_bits;\n' +
-    'uniform vec2 u_v[14];\n' +
-    'uniform float u_scale;\n' +
-    'uniform int u_mode;\n' +
-    'uniform bool u_levels;\n' +
-    'uniform vec3 u_orient[12];\n' +
-    'uniform vec3 u_labels[10];\n' +
-    'uniform vec3 u_base;\n' +
-    'uniform vec3 u_accent;\n' +
-    'uniform vec3 u_edge;\n' +
-    'uniform vec3 u_line;\n' +
-    'uniform float u_width[6];\n' +
-    'uniform float u_edgeAlpha;\n' +
-    'uniform float u_amp;\n' +
-    'uniform float u_reach;\n' +
-    'out vec4 outColor;\n' +
-    // Distance to one S-curve edge: the chord from a to b, pushed sideways by
-    // amp * sin(2 pi u). A few Newton steps find the nearest point.
-    'float curveDist(vec2 p, vec2 a, vec2 b) {\n' +
-    '  vec2 e = b - a, n = vec2(-e.y, e.x), q = p - a;\n' +
-    '  float pu = dot(q, e), pv = dot(q, n), u = clamp(pu, 0.0, 1.0);\n' +
-    '  for (int k = 0; k < 4; k++) {\n' +
-    '    float s = sin(6.2831853 * u), c = cos(6.2831853 * u);\n' +
-    '    float g = u_amp * s, g1 = 6.2831853 * u_amp * c, g2 = -39.478418 * u_amp * s;\n' +
-    '    float f = (u - pu) + (g - pv) * g1;\n' +
-    '    float fp = 1.0 + g1 * g1 + (g - pv) * g2;\n' +
-    '    u = clamp(u - f / max(fp, 0.25), 0.0, 1.0);\n' +
-    '  }\n' +
-    '  return length(vec2(u - pu, u_amp * sin(6.2831853 * u) - pv));\n' +
-    '}\n' +
-    'uint edgeLevel(int i) {\n' +
-    '  return i < 8 ? (v_bits.x >> uint(8 + 3 * i)) & 7u : (v_bits.y >> uint(3 * (i - 8))) & 7u;\n' +
-    '}\n' +
-    'uint vertLevel(int i) {\n' +
-    '  return i < 4 ? (v_bits.y >> uint(18 + 3 * i)) & 7u : (v_bits.z >> uint(3 * (i - 4))) & 7u;\n' +
-    '}\n' +
-    'void main() {\n' +
-    '  uint ang = v_bits.x & 15u;\n' +
-    '  uint lab = (v_bits.x >> 4u) & 15u;\n' +
-    '  vec3 fill = u_base;\n' +
-    '  if (u_mode == 0) fill = u_orient[ang];\n' +
-    '  else if (u_mode == 1) fill = (ang & 1u) == 1u ? u_accent : u_base;\n' +
-    '  else if (u_mode == 2) fill = u_labels[lab];\n' +
-    '  float cov[6];\n' +
-    '  for (int k = 0; k < 6; k++) cov[k] = 0.0;\n' +
-    '  for (int i = 0; i < 14; i++) {\n' +
-    '    vec2 a = u_v[i];\n' +
-    '    vec2 b = u_v[i == 13 ? 0 : i + 1];\n' +
-    '    vec2 pa = v_local - a, ba = b - a;\n' +
-    '    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);\n' +
-    '    float d = length(pa - ba * h);\n' +
-    // Only edges whose curve could reach this pixel get the exact distance.
-    '    if (u_amp > 0.0) d = d > u_amp + u_reach ? d - u_amp : curveDist(v_local, a, b);\n' +
-    '    d *= u_scale;\n' +
-    '    int lv = u_levels ? int(min(edgeLevel(i), 5u)) : 0;\n' +
-    '    cov[lv] = max(cov[lv], clamp(u_width[lv] + 0.5 - d, 0.0, 1.0));\n' +
-    '    if (u_levels) {\n' +
-    '      int vl = int(min(vertLevel(i), 5u));\n' +
-    '      if (vl > 0) {\n' +
-    '        float dv = length(v_local - a) * u_scale;\n' +
-    '        cov[vl] = max(cov[vl], clamp(u_width[vl] + 0.5 - dv, 0.0, 1.0));\n' +
-    '      }\n' +
-    '    }\n' +
-    '  }\n' +
-    '  vec3 col = mix(fill, u_edge, cov[0] * u_edgeAlpha);\n' +
-    '  for (int k = 1; k < 6; k++) col = mix(col, u_line, cov[k]);\n' +
-    '  outColor = vec4(col, 1.0);\n' +
-    '}\n';
-
-  function compile(type, src) {
-    var sh = gl.createShader(type);
-    gl.shaderSource(sh, src);
-    gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
-    return sh;
-  }
-  var prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
-  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-  gl.useProgram(prog);
-  var U = {};
-  ['u_chunk', 'u_scale', 'u_half', 'u_v', 'u_mode', 'u_levels', 'u_orient', 'u_labels', 'u_base',
-   'u_accent', 'u_edge', 'u_line', 'u_edgeAlpha', 'u_amp', 'u_reach'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
-  U.u_width = gl.getUniformLocation(prog, 'u_width');
-
-  // Ear clipping on a linked ring. A curved outline runs to several hundred
-  // points, so each search resumes beside the last ear it cut.
-  function triangulate(pts) {
-    var n = pts.length, prev = new Int32Array(n), next = new Int32Array(n), tris = [];
-    for (var i = 0; i < n; i++) { prev[i] = (i + n - 1) % n; next[i] = (i + 1) % n; }
-    function cross(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
-    function isEar(i) {
-      var a = pts[prev[i]], b = pts[i], c = pts[next[i]];
-      if (cross(a, b, c) <= 1e-12) return false;
-      for (var j = next[next[i]]; j !== prev[i]; j = next[j]) {
-        var p = pts[j];
-        if (cross(a, b, p) > 1e-12 && cross(b, c, p) > 1e-12 && cross(c, a, p) > 1e-12) return false;
-      }
-      return true;
-    }
-    var left = n, k = 0, misses = 0;
-    while (left > 3 && misses < left) {
-      if (isEar(k)) {
-        tris.push(pts[prev[k]], pts[k], pts[next[k]]);
-        next[prev[k]] = next[k];
-        prev[next[k]] = prev[k];
-        k = prev[k];
-        left--;
-        misses = 0;
-      } else {
-        k = next[k];
-        misses++;
-      }
-    }
-    tris.push(pts[prev[k]], pts[k], pts[next[k]]);
-    return tris;
-  }
-
-  /* Curved edges replace each straight edge by the same S-curve, the chord
-     pushed sideways by amp * sin(2 pi u). The curve has a half-turn symmetry
-     about the edge midpoint, so two neighbours, which run along a shared
-     edge in opposite directions, draw exactly the same curve. amp is in edge
-     lengths; 0 means straight. */
-  var amp = 0;
-  function outline(a, perEdge) {
-    var pts = [];
-    for (var i = 0; i < 14; i++) {
-      var p = SPECTRE[i], q = SPECTRE[(i + 1) % 14], ex = q[0] - p[0], ey = q[1] - p[1];
-      for (var k = 0; k < perEdge; k++) {
-        var u = k / perEdge, g = a * Math.sin(2 * Math.PI * u);
-        pts.push([p[0] + ex * u - ey * g, p[1] + ey * u + ex * g]);
-      }
-    }
-    return pts;
-  }
-
-  // One buffer holds every mesh: the straight tile, then the curved tile at
-  // 4, 8, 16 and 32 points per edge. A draw call picks its range by zoom.
-  var MESH_STEPS = [4, 8, 16, 32];
-  var meshes = {};
-  var baseBuf = gl.createBuffer();
-  function buildMeshes() {
-    var data = [], first = 0;
-    function add(key, pts) {
-      var t = triangulate(pts);
-      meshes[key] = { first: first, count: t.length };
-      t.forEach(function (p) { data.push(p[0], p[1]); });
-      first += t.length;
-    }
-    add(0, SPECTRE);
-    if (amp > 0) MESH_STEPS.forEach(function (n) { add(n, outline(amp, n)); });
-    gl.bindBuffer(gl.ARRAY_BUFFER, baseBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
-  }
-  // The fewest points per edge that keep the fill within a quarter of a
-  // device pixel of the true curve. Below a third of a pixel of bend the
-  // straight tile is drawn instead.
-  function pickMesh(s) {
-    if (!(amp > 0) || amp * s < 0.3) return 0;
-    var kappa = 4 * Math.PI * Math.PI * amp;
-    for (var k = 0; k < MESH_STEPS.length; k++) {
-      var n = MESH_STEPS[k];
-      if (kappa * s * dpr / (8 * n * n) <= 0.25) return n;
-    }
-    return MESH_STEPS[MESH_STEPS.length - 1];
-  }
-  buildMeshes();
-
-  gl.uniform2fv(U.u_v, new Float32Array([].concat.apply([], SPECTRE)));
-
-  /* --------------------------------------------------------------- chunks */
-
-  var cache = new Map();   // "i,j" -> { vao, buf, count, i, j, used }
-  var inFlight = new Map();
-  var frame = 0;
-
-  function makeChunk(i, j, buffer, count) {
-    var vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, baseBuf);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    var buf = null;
-    if (count > 0) {
-      buf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-      gl.bufferData(gl.ARRAY_BUFFER, buffer, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(1);
-      gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 0);
-      gl.vertexAttribDivisor(1, 1);
-      gl.enableVertexAttribArray(2);
-      gl.vertexAttribIPointer(2, 3, gl.UNSIGNED_INT, 20, 8);
-      gl.vertexAttribDivisor(2, 1);
-    }
-    gl.bindVertexArray(null);
-    return { vao: vao, buf: buf, count: count, i: i, j: j, used: frame };
-  }
-
-  function evict() {
-    if (cache.size <= MAX_CHUNKS) return;
-    var list = Array.from(cache.values()).filter(function (c) { return c.used < frame; });
-    list.sort(function (a, b) { return a.used - b.used; });
-    for (var k = 0; k < list.length && cache.size > MAX_CHUNKS * 0.8; k++) {
-      var c = list[k];
-      gl.deleteVertexArray(c.vao);
-      if (c.buf) gl.deleteBuffer(c.buf);
-      cache.delete(c.i + ',' + c.j);
-    }
-  }
-
-  /* -------------------------------------------------------------- workers */
-
-  // Workers build chunks off the main thread. Opened from disk, a browser may
-  // refuse to start a worker, so the page falls back to building chunks
-  // itself in short slices between frames.
-  var workers = [];
-  var readyCount = 0;
-
-  function onMessage(ev) {
-    var m = ev.data, w = this;
-    if (m.type === 'ready') {
-      w.ready = true;
-      readyCount++;
-      if (!start) begin(m.start);
-    } else if (m.type === 'chunk') {
-      w.busy--;
-      var k = m.i + ',' + m.j;
-      inFlight.delete(k);
-      if (!cache.has(k)) cache.set(k, makeChunk(m.i, m.j, m.buffer, m.count));
-      requestDraw();
-    }
-  }
-
-  function localWorker() {
-    var w = { busy: 0, ready: false, queue: [] };
-    var root = null;
-    w.postMessage = function (m) {
-      w.queue.push(m);
-      setTimeout(step, 0);
-    };
-    function step() {
-      if (!w.queue.length) return;
-      var m = w.queue.shift();
-      var res = SpectreTiling.chunk(root, m.i * m.size, m.j * m.size, m.size);
-      onMessage.call(w, { data: { type: 'chunk', i: m.i, j: m.j, count: res.count, buffer: res.buffer } });
-    }
-    setTimeout(function () {
-      root = SpectreTiling.buildAll();
-      onMessage.call(w, { data: { type: 'ready', start: SpectreTiling.findStart(root) } });
-    }, 0);
-    return w;
-  }
-
-  function startWorkers() {
-    var n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
-    var failed = false;
-    function fallback() {
-      if (failed || readyCount > 0) return;
-      failed = true;
-      workers.forEach(function (w) { if (w.terminate) w.terminate(); });
-      workers = [localWorker()];
-    }
-    try {
-      for (var i = 0; i < n; i++) {
-        var w = new Worker('tiling.js');
-        w.busy = 0;
-        w.ready = false;
-        w.onmessage = onMessage;
-        w.onerror = fallback;
-        workers.push(w);
-      }
-    } catch (e) {
-      fallback();
-    }
-  }
-
-  // Each worker holds at most two requests, so a new view can jump the queue.
-  function requestChunks(needed) {
-    needed.sort(function (a, b) { return a.d - b.d; });
-    for (var k = 0; k < needed.length; k++) {
-      var n = needed[k];
-      if (inFlight.has(n.key)) continue;
-      var w = null;
-      workers.forEach(function (x) { if (x.ready && x.busy < 2 && (!w || x.busy < w.busy)) w = x; });
-      if (!w) return;
-      w.busy++;
-      inFlight.set(n.key, true);
-      w.postMessage({ type: 'chunk', i: n.i, j: n.j, size: CHUNK });
-    }
-  }
-
-  /* --------------------------------------------------------------- render */
-
-  var pal = null, scheme = 0, outlines = false;
-  var drawPending = false;
-  var statusEl = document.getElementById('status');
-
-  function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth;
-    H = window.innerHeight;
-    canvas.width = Math.round(W * dpr);
-    canvas.height = Math.round(H * dpr);
-    requestDraw();
-  }
-
-  function applyPalette() {
-    pal = palette(document.documentElement.dataset.theme === 'dark');
-    gl.uniform3fv(U.u_orient, new Float32Array([].concat.apply([], pal.orient)));
-    gl.uniform3fv(U.u_labels, new Float32Array([].concat.apply([], pal.labels)));
-    gl.uniform3fv(U.u_base, pal.base);
-    gl.uniform3fv(U.u_accent, pal.accent);
-    gl.uniform3fv(U.u_edge, pal.edge);
-    gl.uniform3fv(U.u_line, pal.line);
-    renderLegend();
-    requestDraw();
-  }
-
-  function requestDraw() {
-    if (drawPending) return;
-    drawPending = true;
-    requestAnimationFrame(tick);
-  }
-
-  function draw() {
-    frame++;
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(pal.bg[0], pal.bg[1], pal.bg[2], 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    if (!start) return;
-
-    var s = view.s;
-    gl.uniform1f(U.u_scale, s * dpr);
-    gl.uniform2f(U.u_half, canvas.width / 2, canvas.height / 2);
-    gl.uniform1i(U.u_mode, scheme);
-    gl.uniform1i(U.u_levels, outlines ? 1 : 0);
-    // Full line widths in CSS pixels, by supertile level, halved for the
-    // shader since each side of a line is drawn by its own tile. A supertile
-    // line thickens with the supertile's size on screen, which grows about
-    // 2.8 times per level, so small supertiles never bury their tiles.
-    var widths = [1.0];
-    for (var k = 1; k <= 5; k++) {
-      var w = Math.min(6, Math.max(0, 0.45 * Math.log2(s * Math.pow(2.8, k) / 4)));
-      if (widths[k - 1] > 0 && k > 1) w = Math.max(w, widths[k - 1] + 0.4);
-      widths.push(Math.min(6, w));
-    }
-    gl.uniform1fv(U.u_width, new Float32Array(widths.map(function (w) { return w * dpr / 2; })));
-    // Tile edges fade as the tiles shrink, so the colours still read.
-    var t = Math.min(1, Math.max(0, (s - 1.2) / 5));
-    gl.uniform1f(U.u_edgeAlpha, 0.22 + 0.63 * t * t * (3 - 2 * t));
-    var meshKey = pickMesh(s), mesh = meshes[meshKey];
-    gl.uniform1f(U.u_amp, meshKey ? amp : 0);
-    gl.uniform1f(U.u_reach, (Math.max.apply(null, widths) * dpr / 2 + 1.5) / (s * dpr));
-
-    var hw = W / 2 / s + MARGIN, hh = H / 2 / s + MARGIN;
-    var i0 = Math.floor((view.x - hw) / CHUNK), i1 = Math.floor((view.x + hw) / CHUNK);
-    var j0 = Math.floor((view.y - hh) / CHUNK), j1 = Math.floor((view.y + hh) / CHUNK);
-    var needed = [];
-    for (var i = i0 - 1; i <= i1 + 1; i++) {
-      for (var j = j0 - 1; j <= j1 + 1; j++) {
-        var key = i + ',' + j;
-        var c = cache.get(key);
-        var visible = i >= i0 && i <= i1 && j >= j0 && j <= j1;
-        if (!c) {
-          var dx = (i + 0.5) * CHUNK - view.x, dy = (j + 0.5) * CHUNK - view.y;
-          // Visible chunks first, then the ring just outside the view.
-          needed.push({ key: key, i: i, j: j, d: dx * dx + dy * dy + (visible ? 0 : 1e12) });
-          continue;
-        }
-        c.used = frame;
-        if (!visible || !c.count) continue;
-        gl.uniform2f(U.u_chunk, i * CHUNK - view.x, j * CHUNK - view.y);
-        gl.bindVertexArray(c.vao);
-        gl.drawArraysInstanced(gl.TRIANGLES, mesh.first, mesh.count, c.count);
-      }
-    }
-    gl.bindVertexArray(null);
-    var missing = needed.filter(function (n) { return n.d < 1e12; }).length;
-    statusEl.hidden = missing === 0;
-    requestChunks(needed);
-    evict();
-  }
-
-  /* ----------------------------------------------------------- navigation */
-
-  var anim = { zoomTo: null, ax: 0, ay: 0, panX: 0, panY: 0, vx: 0, vy: 0 };
-  var reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var lastTick = 0;
-
-  function clampS(s) { return Math.min(MAX_S, Math.max(MIN_S, s)); }
-
-  function panBy(dx, dy) {
-    view.x -= dx / view.s;
-    view.y += dy / view.s;
-    changed();
-  }
-
-  // Zoom about a point on screen, which stays under the pointer.
-  function zoomAbout(factor, px, py) {
-    var ns = clampS(view.s * factor);
-    var ox = px - W / 2, oy = py - H / 2;
-    view.x += ox / view.s - ox / ns;
-    view.y -= oy / view.s - oy / ns;
-    view.s = ns;
-    changed();
-  }
-
-  function zoomTowards(factor, px, py) {
-    var target = clampS((anim.zoomTo || view.s) * factor);
-    if (reduceMotion) { zoomAbout(target / view.s, px, py); return; }
-    anim.zoomTo = target;
-    anim.ax = px;
-    anim.ay = py;
-    requestDraw();
-  }
-
-  function tick(now) {
-    drawPending = false;
-    var dt = lastTick ? Math.min(64, now - lastTick) : 16;
-    lastTick = now;
-    var moving = false;
-    if (anim.zoomTo) {
-      var f = 1 - Math.exp(-dt / 55);
-      var ratio = Math.pow(anim.zoomTo / view.s, f);
-      zoomAbout(ratio, anim.ax, anim.ay);
-      if (Math.abs(Math.log(anim.zoomTo / view.s)) < 0.002) { zoomAbout(anim.zoomTo / view.s, anim.ax, anim.ay); anim.zoomTo = null; }
-      else moving = true;
-    }
-    if (anim.panX || anim.panY) {
-      var g = 1 - Math.exp(-dt / 70);
-      var mx = anim.panX * g, my = anim.panY * g;
-      if (Math.abs(anim.panX) < 0.5 && Math.abs(anim.panY) < 0.5) { mx = anim.panX; my = anim.panY; }
-      anim.panX -= mx; anim.panY -= my;
-      panBy(mx, my);
-      moving = anim.panX !== 0 || anim.panY !== 0 || moving;
-    }
-    if (anim.vx || anim.vy) {
-      panBy(anim.vx * dt, anim.vy * dt);
-      var decay = Math.exp(-dt / 320);
-      anim.vx *= decay; anim.vy *= decay;
-      if (Math.hypot(anim.vx, anim.vy) < 0.015) { anim.vx = 0; anim.vy = 0; }
-      else moving = true;
-    }
-    draw();
-    if (moving || inFlight.size) requestDraw();
-    else lastTick = 0;
-  }
-
-  var hashTimer = 0;
-  function changed() {
-    requestDraw();
-    clearTimeout(hashTimer);
-    hashTimer = setTimeout(writeHash, 300);
-  }
-
-  // The address keeps the view relative to the start tile, so the numbers
-  // stay short: #x,y,zoom
-  function writeHash() {
-    if (!start) return;
-    var h = '#' + (view.x - start[0]).toFixed(1) + ',' + (view.y - start[1]).toFixed(1) + ',' + view.s.toFixed(2);
-    try { history.replaceState(null, '', h); } catch (e) {}
-  }
-  function readHash() {
-    var m = /^#(-?[\d.]+),(-?[\d.]+),([\d.]+)$/.exec(location.hash);
-    if (!m) return false;
-    view.x = start[0] + parseFloat(m[1]);
-    view.y = start[1] + parseFloat(m[2]);
-    view.s = clampS(parseFloat(m[3]));
-    return true;
-  }
-
-  function begin(st) {
-    start = st;
-    if (!readHash()) { view.x = start[0]; view.y = start[1]; view.s = START_S; }
-    requestDraw();
-  }
-
-  function goHome() {
-    anim.vx = anim.vy = anim.panX = anim.panY = 0;
-    // panBy moves the view the opposite way to the drag, as a map does.
-    var dx = (view.x - start[0]) * view.s, dy = (start[1] - view.y) * view.s;
-    if (Math.hypot(dx, dy) < 4 * Math.max(W, H) && !reduceMotion) {
-      anim.panX = dx; anim.panY = dy;
-    } else {
-      view.x = start[0]; view.y = start[1];
-    }
-    anim.zoomTo = START_S / view.s === 1 ? null : START_S;
-    anim.ax = W / 2; anim.ay = H / 2;
-    changed();
-  }
-
-  // Pointers: one drags, two pinch. Recent moves set the fling speed.
-  var pointers = new Map();
-  var pinch = null;
-  var trail = [];
-  var lastTap = { t: 0, x: 0, y: 0 };
-
-  canvas.addEventListener('pointerdown', function (e) {
-    if (e.button !== undefined && e.button > 0) return;
-    canvas.setPointerCapture(e.pointerId);
-    canvas.focus({ preventScroll: true });
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    anim.vx = anim.vy = 0;
-    anim.panX = anim.panY = 0;
-    trail = [{ t: e.timeStamp, x: e.clientX, y: e.clientY }];
-    canvas.classList.add('dragging');
-    if (pointers.size === 2) pinch = pinchState();
-  });
-
-  function pinchState() {
-    var p = Array.from(pointers.values());
-    return { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 };
-  }
-
-  canvas.addEventListener('pointermove', function (e) {
-    var p = pointers.get(e.pointerId);
-    if (!p) return;
-    var dx = e.clientX - p.x, dy = e.clientY - p.y;
-    p.x = e.clientX; p.y = e.clientY;
-    if (pointers.size === 1) {
-      panBy(dx, dy);
-      trail.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
-      if (trail.length > 8) trail.shift();
-    } else if (pointers.size === 2 && pinch) {
-      var n = pinchState();
-      panBy(n.x - pinch.x, n.y - pinch.y);
-      if (pinch.d > 0 && n.d > 0) zoomAbout(n.d / pinch.d, n.x, n.y);
-      pinch = n;
-      trail = [];
-    }
-  });
-
-  function pointerEnd(e) {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinch = null;
-    if (pointers.size === 1) {
-      var q = pointers.values().next().value;
-      trail = [{ t: e.timeStamp, x: q.x, y: q.y }];
-      return;
-    }
-    if (pointers.size) return;
-    canvas.classList.remove('dragging');
-    if (e.type === 'pointercancel' || reduceMotion) return;
-    // Fling: the speed over the last 80 ms of the drag.
-    var last = trail[trail.length - 1], first = null;
-    for (var k = trail.length - 1; k >= 0; k--) {
-      if (last && last.t - trail[k].t <= 80) first = trail[k];
-    }
-    if (last && first && last !== first && e.timeStamp - last.t < 60) {
-      var ms = Math.max(8, last.t - first.t);
-      anim.vx = (last.x - first.x) / ms;
-      anim.vy = (last.y - first.y) / ms;
-      if (Math.hypot(anim.vx, anim.vy) < 0.1) anim.vx = anim.vy = 0;
-      else requestDraw();
-    }
-    // Double tap on a touch screen zooms in, as a double-click does.
-    if (e.pointerType === 'touch') {
-      var tap = trail.length <= 2;
-      if (tap && e.timeStamp - lastTap.t < 300 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
-        zoomTowards(2, e.clientX, e.clientY);
-        lastTap.t = 0;
-      } else if (tap) {
-        lastTap = { t: e.timeStamp, x: e.clientX, y: e.clientY };
-      }
-    }
-  }
-  canvas.addEventListener('pointerup', pointerEnd);
-  canvas.addEventListener('pointercancel', pointerEnd);
-
-  canvas.addEventListener('dblclick', function (e) {
-    e.preventDefault();
-    zoomTowards(e.shiftKey ? 0.5 : 2, e.clientX, e.clientY);
-  });
-
-  // Mouse wheels send big steps, animated. Trackpads send small ones, and a
-  // pinch arrives as a wheel event with ctrlKey set; both apply at once.
-  canvas.addEventListener('wheel', function (e) {
-    e.preventDefault();
-    var dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 800 : 1);
-    if (e.ctrlKey) {
-      zoomAbout(Math.exp(-dy * 0.01), e.clientX, e.clientY);
-    } else if (Math.abs(dy) >= 50 && e.deltaX === 0) {
-      zoomTowards(Math.exp(-dy * 0.003), e.clientX, e.clientY);
-    } else {
-      zoomAbout(Math.exp(-dy * 0.004), e.clientX, e.clientY);
-    }
-  }, { passive: false });
-
-  // Safari on a Mac reports a trackpad pinch as gesture events instead.
-  var gestureScale = 1;
-  canvas.addEventListener('gesturestart', function (e) { e.preventDefault(); gestureScale = 1; });
-  canvas.addEventListener('gesturechange', function (e) {
-    e.preventDefault();
-    zoomAbout(e.scale / gestureScale, e.clientX, e.clientY);
-    gestureScale = e.scale;
-  });
-  canvas.addEventListener('gestureend', function (e) { e.preventDefault(); });
-
-  document.addEventListener('keydown', function (e) {
-    var tag = (e.target && e.target.tagName) || '';
-    if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
-    var step = Math.min(W, H) * 0.25;
-    var handled = true;
-    switch (e.key) {
-      case 'ArrowLeft': anim.panX += step; break;
-      case 'ArrowRight': anim.panX -= step; break;
-      case 'ArrowUp': anim.panY += step; break;
-      case 'ArrowDown': anim.panY -= step; break;
-      case '+': case '=': zoomTowards(1.6, W / 2, H / 2); break;
-      case '-': case '_': zoomTowards(1 / 1.6, W / 2, H / 2); break;
-      case '0': goHome(); break;
-      case 'Escape': closeAbout(); break;
-      default: handled = false;
-    }
-    if (handled) { e.preventDefault(); requestDraw(); }
-  });
-
-  document.getElementById('zoom-in').addEventListener('click', function () { zoomTowards(2, W / 2, H / 2); });
-  document.getElementById('zoom-out').addEventListener('click', function () { zoomTowards(0.5, W / 2, H / 2); });
-  document.getElementById('home').addEventListener('click', goHome);
-
-  /* ------------------------------------------------------------- controls */
-
-  var schemeEl = document.getElementById('scheme');
-  var curvedEl = document.getElementById('curved');
-  var bendEl = document.getElementById('bend');
-  var bendRow = document.getElementById('bend-row');
-  var curved = false, bend = 0.15;
-  var outlinesEl = document.getElementById('outlines');
+  var st = { shape: 'line', bend: 0.15, params: Object.assign({}, SS.DEFAULTS), arrangement: 'S' };
   try {
-    var saved = JSON.parse(localStorage.getItem('spectre-options') || '{}');
-    if (saved.scheme >= 0 && saved.scheme <= 3) scheme = saved.scheme;
-    outlines = !!saved.outlines;
-    curved = !!saved.curved;
-    if (saved.bend >= 0.03 && saved.bend <= 0.4) bend = saved.bend;
+    var saved = JSON.parse(localStorage.getItem('spectre-edges') || '{}');
+    if (SS.BY_ID[saved.shape]) st.shape = saved.shape;
+    if (typeof saved.bend === 'number') st.bend = Math.max(-0.75, Math.min(0.75, saved.bend));
+    if (saved.params) Object.keys(SS.DEFAULTS).forEach(function (k) { if (typeof saved.params[k] === 'number') st.params[k] = saved.params[k]; });
+    if (saved.arrangement === 'alt') st.arrangement = 'alt';
   } catch (e) {}
-  schemeEl.value = String(scheme);
-  outlinesEl.checked = outlines;
-  function saveOptions() {
-    try {
-      localStorage.setItem('spectre-options', JSON.stringify({ scheme: scheme, outlines: outlines, curved: curved, bend: bend }));
-    } catch (e) {}
+  function saveEdges() { try { localStorage.setItem('spectre-edges', JSON.stringify(st)); } catch (e) {} }
+
+  function straight() { return st.shape === 'line' || Math.abs(st.bend) < 1e-9; }
+
+  /* The tile shape, as the engine asks for it. Level of detail -1 is the
+     plain polygon, used whenever the bend is under a third of a pixel. */
+  var shape = {
+    signature: function () { return straight() ? 'line' : JSON.stringify(st); },
+    lodKey: function (res) {
+      var smooth = st.shape === 'sine' || st.shape === 'parabola' || st.shape === 'jigsaw';
+      return res < 0 ? 'straight' : smooth ? 'r' + res : 'poly';
+    },
+    lod: function (k) {
+      if (straight() || Math.abs(st.bend) * k < 0.3) return -1;
+      return k < 6 ? 0 : k < 20 ? 1 : k < 60 ? 2 : 3;
+    },
+    corners: function () { return SPECTRE; },
+    outline: function (res) { return SS.outline(SPECTRE, st, res); },
+    profile: function (res) {
+      if (res < 0) return null;
+      var p = SS.fitted(st, res);
+      if (!p) return null;
+      var m = 0;
+      p.forEach(function (q) { m = Math.max(m, Math.abs(q[1])); });
+      return { pts: p, alt: st.arrangement === 'alt', maxAbs: m };
+    }
+  };
+
+  /* ----------------------------------------------------------- colours */
+
+  // Twelve orientations, as turns in 30-degree steps. Even turns are the
+  // six common orientations, odd turns the six rare ones.
+  var classes = [];
+  for (var c = 0; c < 12; c++) classes.push({ turn: c, flip: 0, caption: c * 30 + '°' });
+
+  function ring(n, dark, L, C) {
+    var out = [];
+    for (var i = 0; i < n; i++) out.push(oklch(L, C, 25 + i * 360 / n));
+    return out;
   }
-  schemeEl.addEventListener('change', function () {
-    scheme = parseInt(schemeEl.value, 10);
-    saveOptions();
-    renderLegend();
-    requestDraw();
+  // Each grouping says which group a class falls in, the order the key
+  // shows the groups in, and how many groups fit on one row of the key.
+  var COMMON_FIRST = [0, 2, 4, 6, 8, 10, 1, 3, 5, 7, 9, 11];
+  var groupings = [
+    { id: 'all12', name: '12 colours', n: 12, of: function (k) { return k; }, order: COMMON_FIRST, cols: 6 },
+    { id: 'mod180', name: '6 colours, turn mod 180°', n: 6, of: function (k) { return k % 6; }, order: [0, 2, 4, 1, 3, 5], cols: 3 },
+    { id: 'mod120', name: '4 colours, turn mod 120°', n: 4, of: function (k) { return k % 4; }, order: [0, 2, 1, 3], cols: 2 },
+    { id: 'mod90', name: '3 colours, turn mod 90°', n: 3, of: function (k) { return k % 3; }, cols: 1 },
+    { id: 'mod60', name: '2 colours, turn mod 60°', n: 2, of: function (k) { return k % 2; }, cols: 1 },
+    { id: 'one', name: '1 colour', n: 1, of: function () { return 0; }, cols: 1 }
+  ];
+  var presets = [
+    { id: 'pastel', name: 'Pastel, rare deeper', grouping: 'all12', colours: function (dark) {
+      return classes.map(function (cl, k) {
+        var rare = k % 2 === 1;
+        return dark ? oklch(rare ? 0.66 : 0.40, rare ? 0.13 : 0.065, k * 30 + 25)
+                    : oklch(rare ? 0.64 : 0.88, rare ? 0.15 : 0.075, k * 30 + 25);
+      });
+    } },
+    { id: 'rainbow', name: 'Rainbow', grouping: 'all12', colours: function (dark) {
+      return ring(12, dark, dark ? 0.55 : 0.8, 0.12);
+    } },
+    { id: 'rainbow2', name: 'Rainbow, common first', grouping: 'all12', colours: function (dark) {
+      var hues = ring(12, dark, dark ? 0.55 : 0.8, 0.12);
+      return classes.map(function (cl, k) { return hues[COMMON_FIRST.indexOf(k)]; });
+    } },
+    { id: 'six', name: 'Six pairs', grouping: 'mod180', colours: function (dark) { return ring(6, dark, dark ? 0.45 : 0.82, 0.1); } },
+    { id: 'four', name: 'Four sets', grouping: 'mod120', colours: function (dark) { return ring(4, dark, dark ? 0.45 : 0.82, 0.1); } },
+    { id: 'three', name: 'Three sets', grouping: 'mod90', colours: function (dark) { return ring(3, dark, dark ? 0.45 : 0.82, 0.1); } },
+    { id: 'wiki', name: 'Common and rare', grouping: 'mod60', colours: function (dark) {
+      return dark ? [hex('#2a2a30'), hex('#67704c')] : [hex('#fdfcf8'), hex('#c1c5a0')];
+    } },
+    { id: 'plain', name: 'Plain', grouping: 'one', colours: function (dark) { return [dark ? hex('#2a2a30') : hex('#fdfcf8')]; } }
+  ];
+
+  /* ------------------------------------------------------------ engine */
+
+  var map = TM.start({
+    name: 'spectre',
+    worker: 'tiling.js',
+    build: SpectreTiling.build,
+    ab: [1, 0],
+    refB: 0,
+    classMode: 0,
+    classes: classes,
+    groupings: groupings,
+    presets: presets,
+    shape: shape,
+    gridSpacing: function () { return [1, 1]; },
+    tileRadius: function () { return 6 + Math.abs(st.bend); },
+    keyNote: function (g) {
+      return g.n === 12 ? 'Six common orientations, then six rare ones turned a further 30°.' : '';
+    },
+    hashGet: function () {
+      var h = { e: st.shape };
+      if (!straight() || st.shape !== 'line') h.b = st.bend.toFixed(3).replace(/\.?0+$/, '');
+      if (st.arrangement === 'alt') h.a = 'alt';
+      var extra = (SS.BY_ID[st.shape].params || []).map(function (k) { return k + ':' + (+st.params[k].toFixed(3)); });
+      if (extra.length) h.p = extra.join(';');
+      return h;
+    },
+    hashSet: function (q) {
+      if (q.e && SS.BY_ID[q.e]) st.shape = q.e;
+      if (q.b !== undefined && !isNaN(parseFloat(q.b))) st.bend = Math.max(-0.75, Math.min(0.75, parseFloat(q.b)));
+      st.arrangement = q.a === 'alt' ? 'alt' : 'S';
+      if (q.p) q.p.split(';').forEach(function (kv) {
+        var p = kv.split(':');
+        if (SS.DEFAULTS[p[0]] !== undefined && !isNaN(parseFloat(p[1]))) st.params[p[0]] = parseFloat(p[1]);
+      });
+      syncControls();
+    }
   });
-  function applyCurve() {
-    amp = curved ? bend : 0;
-    bendRow.hidden = !curved;
-    buildMeshes();
-    renderLegend();
-    requestDraw();
+  if (!map) return;
+
+  /* ---------------------------------------------------------- controls */
+
+  var shapeEl = document.getElementById('shape');
+  shapeEl.innerHTML = SS.SHAPES.map(function (s) { return '<option value="' + s.id + '">' + s.name + '</option>'; }).join('');
+  var bendEl = document.getElementById('bend'), bendOut = document.getElementById('bend-out');
+  var bendBox = document.getElementById('bend-box');
+  var limitsEl = document.getElementById('limits'), limitNote = document.getElementById('limit-note');
+  var sliders = {};
+  Array.prototype.forEach.call(document.querySelectorAll('[data-param]'), function (el) {
+    sliders[el.dataset.param] = { box: el, input: el.querySelector('input'), out: el.querySelector('output') };
+  });
+  var arrEls = document.querySelectorAll('input[name="arrangement"]');
+
+  function signed(x) { return (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(2); }
+  function describe(k) {
+    var v = st.params[k];
+    if (k === 'waves') return String(v);
+    if (k === 'peak') return (st.arrangement === 'alt' ? v : v / 2).toFixed(2) + ' of the edge';
+    if (k === 'rise' || k === 'fall') return v.toFixed(2) + ' of the hump';
+    return v.toFixed(2);
   }
-  curvedEl.checked = curved;
-  bendEl.value = String(bend);
-  bendRow.hidden = !curved;
-  amp = curved ? bend : 0;
-  buildMeshes();
-  curvedEl.addEventListener('change', function () {
-    curved = curvedEl.checked;
-    saveOptions();
-    applyCurve();
+
+  function syncControls() {
+    var def = SS.BY_ID[st.shape];
+    shapeEl.value = st.shape;
+    bendBox.hidden = st.shape === 'line';
+    bendEl.value = String(st.bend);
+    bendOut.textContent = signed(st.bend);
+    Object.keys(sliders).forEach(function (k) {
+      var on = def.params.indexOf(k) >= 0;
+      sliders[k].box.hidden = !on;
+      if (on) { sliders[k].input.value = String(st.params[k]); sliders[k].out.textContent = describe(k); }
+    });
+    document.getElementById('arrangement').hidden = st.shape === 'line';
+    Array.prototype.forEach.call(arrEls, function (r) { r.checked = r.value === st.arrangement; });
+    scheduleLimits();
+  }
+
+  // Where tiles start to overlap, shown under the bend slider. Worked out
+  // shortly after the shape or its settings change, not on every bend.
+  var limitTimer = 0, limitSig = '';
+  function scheduleLimits() {
+    if (st.shape === 'line') return;
+    var sig = st.shape + st.arrangement + JSON.stringify(st.params);
+    if (sig === limitSig) return;
+    clearTimeout(limitTimer);
+    limitTimer = setTimeout(function () {
+      limitSig = sig;
+      var L = SS.limits(SPECTRE, st, function (poly) { return TM.crossings(poly, true).length > 0; });
+      var pct = function (x) { return ((x + 0.75) / 1.5 * 100).toFixed(1) + '%'; };
+      var red = 'var(--danger)', ok = 'var(--ring)';
+      var lo = L[1] === null ? -0.75 : L[1], hi = L[0] === null ? 0.75 : L[0];
+      limitsEl.style.background = 'linear-gradient(to right, ' + red + ' 0, ' + red + ' ' + pct(lo) + ', ' + ok + ' ' +
+        pct(lo) + ', ' + ok + ' ' + pct(hi) + ', ' + red + ' ' + pct(hi) + ', ' + red + ' 100%)';
+      limitNote.textContent = L[0] === null && L[1] === null ? 'No collisions between −0.75 and +0.75.'
+        : 'Tiles collide beyond ' + (L[0] !== null ? signed(L[0]) : 'none') + ' and ' + (L[1] !== null ? signed(L[1]) : 'none') + '.';
+    }, 150);
+  }
+
+  var zoomedForCurves = false;
+  function edgesChanged() {
+    saveEdges();
+    syncControls();
+    map.shapeChanged();
+  }
+
+  shapeEl.addEventListener('change', function () {
+    var def = SS.BY_ID[shapeEl.value];
+    st.shape = def.id;
+    if (def.set) Object.keys(def.set).forEach(function (k) { st.params[k] = def.set[k]; });
+    if (st.shape !== 'line' && Math.abs(st.bend) < 0.02) st.bend = 0.15;
     // At the opening zoom a bend of 0.15 moves an edge about one pixel, so
-    // zoom in far enough to see the curves.
-    if (curved && view.s < 14) zoomTowards(20 / view.s, W / 2, H / 2);
+    // the first curved shape zooms in far enough to see it.
+    if (st.shape !== 'line' && !zoomedForCurves && map.scale() < 14) { zoomedForCurves = true; map.zoomTo(20); }
+    edgesChanged();
   });
   bendEl.addEventListener('input', function () {
-    bend = parseFloat(bendEl.value);
-    applyCurve();
+    var v = parseFloat(bendEl.value);
+    // A sticky zero: close to it, the bend snaps to straight.
+    if (Math.abs(v) < 0.02) v = 0;
+    st.bend = v;
+    bendOut.textContent = signed(v);
+    map.shapeChanged();
   });
-  bendEl.addEventListener('change', saveOptions);
-  outlinesEl.addEventListener('change', function () {
-    outlines = outlinesEl.checked;
-    saveOptions();
-    renderLegend();
-    requestDraw();
-  });
-
-  var aboutEl = document.getElementById('about');
-  var aboutOpen = document.getElementById('about-open');
-  function closeAbout() {
-    if (aboutEl.hidden) return;
-    aboutEl.hidden = true;
-    aboutOpen.focus();
-  }
-  aboutOpen.addEventListener('click', function () {
-    aboutEl.hidden = !aboutEl.hidden;
-    if (!aboutEl.hidden) document.getElementById('about-close').focus();
-  });
-  document.getElementById('about-close').addEventListener('click', closeAbout);
-
-  /* --------------------------------------------------------------- legend */
-
-  var legendEl = document.getElementById('legend');
-  // The key starts closed on a phone, where it would cover a fifth of the map.
-  var legendOpen = window.innerWidth > 640;
-  try {
-    var ls = localStorage.getItem('spectre-legend');
-    if (ls) legendOpen = ls === 'open';
-  } catch (e) {}
-
-  // A small Spectre, turned as the tiles on the map are. SVG runs y down
-  // and the map runs y up, so the path is mirrored in y to match.
-  function tileSvg(angleIndex, colour) {
-    var t = angleIndex * Math.PI / 6, c = Math.cos(t), s = Math.sin(t);
-    var cx = 1.5, cy = 0.95;
-    var pts = (amp > 0 ? outline(amp, 12) : SPECTRE).map(function (p) {
-      var x = p[0] - cx, y = p[1] - cy;
-      return (c * x - s * y).toFixed(3) + ',' + (-(s * x + c * y)).toFixed(3);
-    }).join(' ');
-    return '<svg viewBox="-2.6 -2.6 5.2 5.2" aria-hidden="true"><polygon points="' + pts +
-      '" fill="' + css(colour) + '" stroke="' + css(pal.edge) + '" stroke-width="0.16" stroke-linejoin="round"/></svg>';
-  }
-
-  function renderLegend() {
-    if (!pal) return;
-    var head = { 0: '12 orientations', 1: 'Orientation mod 60°', 2: '9 tile types', 3: 'Plain' }[scheme];
-    var html = '<h2><span>' + head + '</span><button type="button" id="legend-toggle" aria-expanded="' + legendOpen + '">' +
-      (legendOpen ? 'Hide' : 'Key') + '</button></h2>';
-    if (legendOpen) {
-      if (scheme === 0) {
-        html += '<div class="grid">';
-        for (var k = 0; k < 12; k += 2) html += '<figure>' + tileSvg(k, pal.orient[k]) + '<figcaption>' + (k * 30) + '°</figcaption></figure>';
-        for (k = 1; k < 12; k += 2) html += '<figure>' + tileSvg(k, pal.orient[k]) + '<figcaption>' + (k * 30) + '°</figcaption></figure>';
-        html += '</div><p class="note">Top row common. Bottom row rare, turned a further 30°.</p>';
-      } else if (scheme === 1) {
-        html += '<div class="grid two">' +
-          '<figure class="wide">' + tileSvg(0, pal.base) + '<figcaption>Common<br>0°, 60° … 300°</figcaption></figure>' +
-          '<figure class="wide">' + tileSvg(1, pal.accent) + '<figcaption>Rare<br>30°, 90° … 330°</figcaption></figure>' +
-          '</div>';
-      } else if (scheme === 2) {
-        html += '<div class="grid labels">';
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(function (k) {
-          html += '<figure>' + tileSvg(k === 1 ? 1 : 0, pal.labels[k]) + '<figcaption>' + LABEL_NAMES[k] + '</figcaption></figure>';
-        });
-        html += '</div><p class="note">The substitution rules give each tile one of nine types.<br>' +
-          'Each type grows into a different cluster of tiles.<br>Γ₁ and Γ₂ together make one Mystic.</p>';
-      } else {
-        html += '<p class="note">Every tile the same colour.</p>';
-      }
-      if (curved) html += '<p class="note">Curved edges: the same S-curve on all 14 edges.</p>';
-      if (outlines) html += '<p class="note">Outlines: thicker for higher supertile levels, 1 to 5.</p>';
-    }
-    legendEl.innerHTML = html;
-    document.getElementById('legend-toggle').addEventListener('click', function () {
-      legendOpen = !legendOpen;
-      try { localStorage.setItem('spectre-legend', legendOpen ? 'open' : 'closed'); } catch (e) {}
-      renderLegend();
+  bendEl.addEventListener('change', function () { if (st.bend === 0) bendEl.value = '0'; saveEdges(); map.changed(); });
+  Object.keys(sliders).forEach(function (k) {
+    sliders[k].input.addEventListener('input', function () {
+      st.params[k] = parseFloat(sliders[k].input.value);
+      // The trapezium's two sloping sides must fit inside one hump.
+      if (k === 'rise' && st.params.rise + st.params.fall > 1) st.params.fall = +(1 - st.params.rise).toFixed(2);
+      if (k === 'fall' && st.params.rise + st.params.fall > 1) st.params.rise = +(1 - st.params.fall).toFixed(2);
+      edgesChanged();
     });
-  }
+  });
+  Array.prototype.forEach.call(arrEls, function (r) {
+    r.addEventListener('change', function () { if (r.checked) { st.arrangement = r.value; edgesChanged(); } });
+  });
 
-  /* ----------------------------------------------------------------- boot */
-
-  Audit.wireThemeToggle();
-  new MutationObserver(applyPalette).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  window.addEventListener('resize', resize);
-  window.addEventListener('hashchange', function () { if (start && readHash()) requestDraw(); });
-  resize();
-  applyPalette();
-  startWorkers();
+  syncControls();
 })();
 </script>
 </body>
