@@ -101,7 +101,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 }
 select { background: var(--panel); max-width: 100%; }
 
-/* Options card, top right. On a phone its body folds away behind a button. */
+/* Options card, top right: shape, supertiles and grid. On a phone its body
+   folds away behind a button, the card's only head. */
 .options {
   margin-left: auto;
   padding: 0.55rem 0.65rem;
@@ -110,19 +111,17 @@ select { background: var(--panel); max-width: 100%; }
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
 }
-.options .head-title { display: block; margin-bottom: 0.2rem; }
-.options .head { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
-.options .head select { flex: 1; min-width: 0; }
-.options .fold { display: none; }
-.options .body { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.45rem; }
+.options .head { display: none; }
+.options .body { display: flex; flex-direction: column; gap: 0.4rem; }
 .options .section { border-top: 1px solid var(--rule); padding-top: 0.45rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.options .section:first-child { border-top: none; padding-top: 0; }
 .options .section-title { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.02em; }
 .options label { font-size: 0.88rem; color: var(--h3); display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
 .options input[type="checkbox"], .options input[type="radio"] { accent-color: var(--link); width: 1rem; height: 1rem; margin: 0; flex: none; }
 .options .sub { padding-left: 1.4rem; display: flex; flex-direction: column; gap: 0.3rem; }
 .options .inline { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; }
 .options .hint { font-size: 0.75rem; color: var(--muted); margin: 0; line-height: 1.35; }
-.options .linkish { border: none; padding: 0; font-size: 0.8rem; color: var(--link); background: none; }
+.options .linkish, .legend .linkish { border: none; padding: 0; font-size: 0.8rem; color: var(--link); background: none; }
 
 /* A labelled slider with its value alongside. */
 .slider { display: grid; grid-template-columns: 1fr auto; gap: 0.1rem 0.5rem; align-items: center; font-size: 0.85rem; color: var(--h3); }
@@ -182,8 +181,9 @@ select { background: var(--panel); max-width: 100%; }
 .zoom svg { width: 1.15rem; height: 1.15rem; display: block; }
 .zoom .compass svg { transition: transform 0.05s linear; }
 
-/* Colour key, bottom left. Each group of orientations sits in one box, and
-   clicking a tile in it picks a new colour for the whole group. */
+/* Colour panel, bottom left: the scheme menu, the dice, the theme toggle
+   and the key. Each group of orientations sits in one box, and clicking a
+   tile in it picks a new colour for the whole group. */
 .legend {
   left: max(12px, env(safe-area-inset-left));
   bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px));
@@ -192,21 +192,17 @@ select { background: var(--panel); max-width: 100%; }
   max-height: 45vh;
   overflow-y: auto;
 }
-.legend h2 {
-  font-size: 0.8rem;
-  font-weight: normal;
-  color: var(--muted);
-  margin: 0 0 0.3rem;
-  display: flex;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-.legend h2 button { border: none; padding: 0; font-size: 0.8rem; color: var(--link); }
+.legend-head { display: flex; align-items: center; gap: 0.4rem; }
+.legend-head select { flex: 1; min-width: 7.5rem; }
+.legend-head .linkish { margin-left: 0.2rem; }
+.legend .dice { width: 2.3rem; height: 2.3rem; }
+.legend .dice svg { width: 1.35rem; height: 1.35rem; }
+#legend-body { margin-top: 0.45rem; display: flex; flex-direction: column; gap: 0.3rem; }
+#legend-body[hidden] { display: none; }
 .legend .groups { display: grid; gap: 0.3rem; justify-content: start; }
-.legend .group { max-width: 13rem; }
 .legend .group {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  justify-content: start;
   gap: 0 0.15rem;
   border: 1px solid var(--rule);
   border-radius: 7px;
@@ -220,7 +216,7 @@ select { background: var(--panel); max-width: 100%; }
 .legend figure { margin: 0; display: flex; flex-direction: column; align-items: center; min-width: 1.9rem; }
 .legend svg { width: 1.8rem; height: 1.8rem; display: block; overflow: visible; }
 .legend figcaption { font-size: 0.66rem; color: var(--text); line-height: 1.1; white-space: nowrap; }
-.legend .note { font-size: 0.72rem; color: var(--muted); margin: 0.3rem 0 0; }
+.legend .note { font-size: 0.72rem; color: var(--muted); margin: 0; }
 .legend input[type="color"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
 /* About sheet. */
@@ -260,9 +256,9 @@ select { background: var(--panel); max-width: 100%; }
   .title h1 { font-size: 1.1rem; }
   .title .row { margin-top: 0.35rem; }
   .options { width: auto; }
-  .options .fold { display: inline-block; }
+  .options .head { display: block; }
+  .options:not(.folded) .body { margin-top: 0.45rem; }
   .options.folded .body { display: none; }
-  .options.folded .head select, .options.folded .head .dice, .options.folded .head-title { display: none; }
   .status { bottom: 5.5rem; }
   .legend svg { width: 1.55rem; height: 1.55rem; }
   .legend figure { min-width: 1.6rem; }

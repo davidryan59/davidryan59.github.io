@@ -37,24 +37,7 @@
 </div>
 
 <div class="card options">
-  <label class="section-title head-title" for="scheme">Colour</label>
   <div class="head">
-    <select id="scheme"></select>
-    <button type="button" class="dice" id="random-colours" title="Random colours" aria-label="Random colours">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
-        <rect x="4" y="4" width="16" height="16" rx="3.5"/>
-        <circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/>
-      </svg>
-    </button>
-    <button class="theme-toggle" type="button" hidden>
-      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="4.1"/>
-        <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
-      </svg>
-      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
-        <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
-      </svg>
-    </button>
     <button type="button" class="fold" id="options-fold" aria-expanded="false">Options</button>
   </div>
   <div class="body">
@@ -62,12 +45,12 @@
       <label class="section-title" for="shape">Edge shape</label>
       <select id="shape"></select>
       <div class="inline" id="arrangement" role="radiogroup" aria-label="Arrangement">
-        <label><input type="radio" name="arrangement" value="S"> Double</label>
         <label><input type="radio" name="arrangement" value="alt"> Single</label>
+        <label><input type="radio" name="arrangement" value="S"> Double</label>
       </div>
       <div class="slider" id="bend-box">
         <span>Height</span><output id="bend-out"></output>
-        <input type="range" id="bend" min="-0.75" max="0.75" step="0.005" aria-label="Height">
+        <input type="range" id="bend" min="-0.75" max="0.75" step="0.005" data-stops="0" aria-label="Height">
         <div class="limits" id="limits"></div>
         <div class="ticks zero"><button type="button" id="bend-zero" title="Straight edges">0</button></div>
         <div class="limit-note" id="limit-note"></div>
@@ -78,23 +61,23 @@
       </div>
       <div class="slider" data-param="peak">
         <span>Peak position</span><output></output>
-        <input type="range" min="0" max="1" step="0.01" aria-label="Peak position">
+        <input type="range" min="0" max="1" step="0.01" data-stops="0,0.5,1" aria-label="Peak position">
       </div>
       <div class="slider" data-param="rise">
         <span>Rising side</span><output></output>
-        <input type="range" min="0" max="1" step="0.01" aria-label="Rising side">
+        <input type="range" min="0" max="1" step="0.01" data-stops="0,0.5" aria-label="Rising side">
       </div>
       <div class="slider" data-param="fall">
         <span>Falling side</span><output></output>
-        <input type="range" min="0" max="1" step="0.01" aria-label="Falling side">
+        <input type="range" min="0" max="1" step="0.01" data-stops="0,0.5" aria-label="Falling side">
       </div>
       <div class="slider" data-param="neck">
         <span>Neck width</span><output></output>
-        <input type="range" min="0.25" max="0.9" step="0.01" aria-label="Neck width">
+        <input type="range" min="0" max="1" step="0.01" aria-label="Neck width">
       </div>
     </div>
     <div class="section">
-      <label><input type="checkbox" id="outlines"> Supertile outlines</label>
+      <label><input type="checkbox" id="outlines"> Supertiles</label>
       <label><input type="checkbox" id="grid"> Grid</label>
       <div class="sub" id="grid-sub" hidden>
         <div class="inline">
@@ -106,7 +89,7 @@
       </div>
     </div>
     <div class="section">
-      <div><button type="button" class="linkish" id="reset-options" title="Colours, shape, outlines and grid back to how the page opens">Reset options</button></div>
+      <div><button type="button" class="linkish" id="reset-options" title="Shape, supertiles and grid back to how the page opens">Reset options</button></div>
     </div>
   </div>
 </div>
@@ -120,6 +103,16 @@
   </button>
   <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
   <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+  <button type="button" id="turn-left" title="Turn left 5°" aria-label="Turn left 5 degrees">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M5.5 12a6.5 6.5 0 1 0 2-4.7"/><path d="M7.5 3.5v4h4"/>
+    </svg>
+  </button>
+  <button type="button" id="turn-right" title="Turn right 5°" aria-label="Turn right 5 degrees">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M18.5 12a6.5 6.5 0 1 1-2-4.7"/><path d="M16.5 3.5v4h-4"/>
+    </svg>
+  </button>
   <button type="button" id="home" title="Back to the start" aria-label="Back to the start">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
       <circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/>
@@ -128,7 +121,28 @@
   </button>
 </div>
 
-<div class="card legend" id="legend" aria-live="polite"></div>
+<div class="card legend" id="legend">
+  <div class="legend-head">
+    <select id="scheme" aria-label="Colours"></select>
+    <button type="button" class="dice" id="random-colours" title="Random colours" aria-label="Random colours">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/>
+        <g fill="currentColor" stroke="none"><circle cx="8.2" cy="8.2" r="1.35"/><circle cx="15.8" cy="8.2" r="1.35"/><circle cx="12" cy="12" r="1.35"/><circle cx="8.2" cy="15.8" r="1.35"/><circle cx="15.8" cy="15.8" r="1.35"/></g>
+      </svg>
+    </button>
+    <button class="theme-toggle" type="button" hidden>
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4.1"/>
+      <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+    </svg>
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+    </svg>
+  </button>
+    <button type="button" class="linkish" id="legend-toggle" aria-expanded="true">Hide</button>
+  </div>
+  <div id="legend-body" aria-live="polite"></div>
+</div>
 
 <div class="card status" id="status" hidden>Building tiles…</div>
 
@@ -147,34 +161,35 @@
     The other six are rare. Each rare tile is turned a further 30°, and it
     pairs with one neighbour to make a two-tile cluster called a Mystic. The
     colour menu groups the orientations by their angle modulo 30°, 60°, 90°,
-    120°, 180° or 360°. Click a group in the key to give it your own colour.
+    120°, 180° or 360°. Click a group in the key to give it your own colour,
+    or roll the dice for random colours.
   </p>
   <p>
     With straight edges the tile is Tile(1,1). It makes this pattern only if
     mirror images are banned, because with mirror images it can also tile
     periodically. Replace every edge with the same curve and the mirror
-    image stops fitting. <em>Height</em> sets how far each edge swings, and
-    zero gives straight edges. <em>Double</em> puts an S-shaped pair of bumps
-    on each edge. <em>Single</em> puts one bump on each edge and flips its
-    direction from edge to edge, which also fits, because every shared edge
-    joins an odd-numbered edge to an even-numbered one. The menu sets the
-    shape of a bump. Push the height past the marked limit and the tiles
+    image stops fitting. The menu sets the shape of a bump on each edge.
+    <em>Single</em> puts one bump on each edge and flips its direction from
+    edge to edge. That fits because every shared edge joins an odd-numbered
+    edge to an even-numbered one. <em>Double</em> puts an S-shaped pair of
+    bumps on each edge. <em>Height</em> sets how far each edge swings, and
+    zero gives straight edges. Push the height past the marked limit and the tiles
     collide: the red stripes show where they overlap.
   </p>
   <p>
     Tiles group into supertiles, and those group into larger supertiles,
-    level after level. Turn on <em>Supertile outlines</em> to see five levels
-    of that hierarchy, drawn thicker as the level rises. <em>Grid</em> lays a
+    level after level. Turn on <em>Supertiles</em> to see five levels of
+    that hierarchy, drawn thicker as the level rises. <em>Grid</em> lays a
     triangular grid through a corner of the tiling and marks the other
     corners it passes through. It fits a few corners, then drifts off,
     because no grid holds the whole tiling. Click two or three corners to fit
     a grid through them.
   </p>
   <p>
-    Drag to move. Scroll, pinch or double-click to zoom. Turn with a
-    two-finger twist, or with Ctrl and drag, or with Shift and the arrow
-    keys. A trackpad twist works in Safari. The address bar keeps your
-    place, colours and edges, so you can share a view.
+    Drag to move. Scroll, pinch or double-click to zoom. Turn with the turn
+    buttons, a two-finger twist, a right-drag, Ctrl and drag, or Shift and
+    the arrow keys. A trackpad twist works in Safari. The address bar keeps
+    your place, colours and edges, so you can share a view.
   </p>
   <ul>
     <li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2305.17743">A chiral aperiodic monotile</a> – the paper, on arXiv</li>
@@ -201,7 +216,8 @@
 
   /* ------------------------------------------------------------- state */
 
-  var st = { shape: 'line', bend: 0.15, params: Object.assign({}, SS.DEFAULTS), arrangement: 'S' };
+  function defaults() { return { shape: 'line', bend: 0.15, params: Object.assign({}, SS.DEFAULTS), arrangement: 'alt' }; }
+  var st = defaults();
   function clampBend(b) { return Math.max(-0.75, Math.min(0.75, b)); }
   // Sets the shape from a current or old id, and returns whether it knew it.
   function setShape(id) {
@@ -219,9 +235,10 @@
     if (saved.params) Object.keys(SS.DEFAULTS).forEach(function (k) { if (typeof saved.params[k] === 'number') st.params[k] = saved.params[k]; });
     if (typeof saved.bend === 'number') st.bend = clampBend(saved.bend);
     setShape(saved.shape);
-    if (saved.arrangement === 'alt') st.arrangement = 'alt';
+    // Before version 2 the default was Double, saved whether chosen or not.
+    if (saved.ver === 2 && saved.arrangement === 'S') st.arrangement = 'S';
   } catch (e) {}
-  function saveEdges() { try { localStorage.setItem('spectre-edges', JSON.stringify(st)); } catch (e) {} }
+  function saveEdges() { try { localStorage.setItem('spectre-edges', JSON.stringify(Object.assign({ ver: 2 }, st))); } catch (e) {} }
 
   function straight() { return st.shape === 'line' || Math.abs(st.bend) < 1e-9; }
 
@@ -325,7 +342,7 @@
       return g.n === 12 ? 'Six common orientations, then six rare ones turned a further 30°.' : '';
     },
     onReset: function () {
-      st = { shape: 'line', bend: 0.15, params: Object.assign({}, SS.DEFAULTS), arrangement: 'S' };
+      st = defaults();
       saveEdges();
       syncControls();
       map.shapeChanged();
@@ -333,7 +350,7 @@
     hashGet: function () {
       var h = { e: st.shape };
       if (st.shape !== 'line') h.b = st.bend.toFixed(3).replace(/\.?0+$/, '');
-      if (st.arrangement === 'alt') h.a = 'alt';
+      if (st.shape !== 'line') h.a = st.arrangement;
       var extra = (SS.BY_ID[st.shape].params || []).map(function (k) { return k + ':' + (+st.params[k].toFixed(3)); });
       if (extra.length) h.p = extra.join(';');
       return h;
@@ -345,7 +362,9 @@
       });
       if (q.e) setShape(q.e);
       if (q.b !== undefined && !isNaN(parseFloat(q.b))) st.bend = clampBend(parseFloat(q.b));
-      st.arrangement = q.a === 'alt' ? 'alt' : 'S';
+      // Links from before Single became the default carry no a= for Double.
+      if (q.a === 'alt' || q.a === 'S') st.arrangement = q.a;
+      else if (q.e && q.e !== 'line') st.arrangement = 'S';
       syncControls();
     }
   });
@@ -364,6 +383,14 @@
   });
   var arrEls = document.querySelectorAll('input[name="arrangement"]');
 
+  // Sticky stops: a slider near one of its data-stops snaps to it. The
+  // pull reaches 4% of the slider's range either side.
+  function snap(input, v) {
+    var stops = (input.dataset.stops || '').split(',').filter(Boolean).map(parseFloat);
+    var reach = 0.04 * (parseFloat(input.max) - parseFloat(input.min));
+    stops.forEach(function (x) { if (Math.abs(v - x) < reach) v = x; });
+    return v;
+  }
   function signed(x) { return (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(2); }
   function describe(k) {
     var v = st.params[k];
@@ -442,9 +469,7 @@
     edgesChanged();
   });
   bendEl.addEventListener('input', function () {
-    var v = parseFloat(bendEl.value);
-    // A sticky zero: close to it, the height snaps to straight.
-    if (Math.abs(v) < 0.035) v = 0;
+    var v = snap(bendEl, parseFloat(bendEl.value));
     if (v !== 0) zoomForCurves();
     setBend(v, false);
   });
@@ -455,7 +480,7 @@
   bendEl.addEventListener('dblclick', function () { setBend(0, true); });
   Object.keys(sliders).forEach(function (k) {
     sliders[k].input.addEventListener('input', function () {
-      st.params[k] = parseFloat(sliders[k].input.value);
+      st.params[k] = snap(sliders[k].input, parseFloat(sliders[k].input.value));
       // The trapezium's two sloping sides must fit inside one hump.
       if (k === 'rise' && st.params.rise + st.params.fall > 1) st.params.fall = +(1 - st.params.rise).toFixed(2);
       if (k === 'fall' && st.params.rise + st.params.fall > 1) st.params.rise = +(1 - st.params.fall).toFixed(2);

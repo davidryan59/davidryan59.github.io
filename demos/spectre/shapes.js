@@ -55,9 +55,14 @@
         // A round head on a neck, like a puzzle piece. The head scales with
         // the bend, so a small bend gives a small tab.
         var sg = H < 0 ? -1 : 1, A = Math.abs(H);
-        var r = Math.min(0.42 * A, 0.3 * L), nw = prm.neck * r, c = A - r, m = L / 2;
+        // A neck of zero would hang the head from a single point, which
+        // the fill cannot cut into triangles, so the neck keeps 2% of it.
+        var r = Math.min(0.42 * A, 0.3 * L), nw = Math.max(0.02, prm.neck) * r, c = A - r, m = L / 2;
         var yj = c - Math.sqrt(Math.max(0, r * r - nw * nw));
-        var a0 = Math.atan2(yj - c, -nw), a1 = Math.atan2(yj - c, nw) - 2 * Math.PI;
+        // The arc runs over the top of the head, from the left end of the
+        // neck to the right. phi is how far below level each end sits, so a
+        // neck as wide as the head (phi 0) still gives a half circle.
+        var phi = Math.atan2(c - yj, nw), a0 = -Math.PI + phi, a1 = -2 * Math.PI - phi;
         var arc = Math.max(8, 2 * n);
         out.push([0, 0], [m - nw, 0], [m - nw, yj]);
         for (i = 1; i < arc; i++) {

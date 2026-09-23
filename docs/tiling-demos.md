@@ -42,8 +42,8 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
   for higher levels, and draws discs at corners so thick lines meet cleanly.
 - **Strokes.** Each tile strokes the inner half of its own edges and its
   neighbour strokes the other half. Curved edges use the distance to the edge
-  profile, uploaded as up to 65 points. On a very dark or very light tile the
-  ink flips to a contrasting colour, so outlines survive a greyscale key.
+  profile, uploaded as up to 65 points. Each tile takes whichever of two inks
+  contrasts with it more, so outlines survive any key.
 - **Fill.** Each tile shape is cut into triangles once per shape. The outline
   is tidied first: repeated corners, where edges have zero length at the
   chevron and the comet, and straight corners are removed. A corner lying on
@@ -62,21 +62,39 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
 
 ## Options
 
+- **Panels.** Colour lives in the bottom-left panel: the scheme menu, the
+  dice, the theme toggle, the key and Reset colours. Everything else lives
+  top right, with its own Reset options. Neither reset touches the theme,
+  which the whole site shares, or the view, which the home button resets.
 - **Colours.** Each page lists presets under its groupings. The Spectre
   groups its 12 orientations by turn modulo 30°, 60°, 90°, 120°, 180° or
   360°. The Hat has 12 colours, 2 (by hand) or 1. It has no grouping by turn
   alone, since that would pair each hat with a mirrored hat through an
-  arbitrary choice of mirror line. The dice button fills the current
-  grouping with colours drawn evenly from sRGB, kept as custom colours so a
-  link shares them. Tile edges use dark ink in light mode and light ink in
-  dark mode, and flip to the other on a tile too close to the ink.
+  arbitrary choice of mirror line. Custom colours show as "Custom N", where
+  N is the number of groups.
+- **Dice.** Fills the current grouping with random colours from one of
+  five palettes, each with equal chance: any colour; the 8 corners of the
+  RGB cube; black and white; 8 greys; the 27 colours with each channel at
+  00, 80 or ff. A palette is dealt like a shuffled deck, so each colour
+  appears once before any repeats.
+- **Ink.** Tile edges and supertile lines use dark ink in light mode and
+  light ink in dark mode. Each tile takes the other ink when that gives the
+  higher contrast ratio (WCAG) against the tile's colour.
 - **Spectre edges.** The bump shape first: Line (the default), Curve,
-  Triangle, Trapezium or Jigsaw. Then Double or Single, then Height. Line
+  Triangle, Trapezium or Jigsaw. Then Single (the default) or Double, then
+  Height. Line
   hides those two, and they sit below the menu so the menu never moves. Height 0 is also a straight edge. Sine, Parabola,
   Sawtooth and Square were folded in on 2026-09-23, and `OLD` in
   `shapes.js` maps their ids so old links and saved settings load.
-- **Reset options.** Puts colours, edges or tile shape, outlines and grid
-  back to how the page opens. The view stays put; the home button resets it.
+- **Sticky stops.** A slider near a stop snaps to it, within 4% of its
+  range: Height at 0, Peak position at 0, 0.5 and 1, Rising and Falling side
+  at 0 and 0.5. The Hat slider snaps within 3° at Hat, Spectre and Turtle,
+  and within 1.25° at the two ends. The Jigsaw neck runs from 0 to 1, but
+  the shape keeps at least 2% of it, since a zero neck hangs the head from a
+  single point and the fill cannot cut that into triangles.
+- **Turning.** The turn buttons turn the view 5° a press, for a mouse with
+  no twist gesture. Right-drag, Ctrl-drag, Shift and the arrow keys, and a
+  two-finger touch twist also turn it.
 
 ## The Hat construction
 

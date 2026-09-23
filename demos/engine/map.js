@@ -271,7 +271,6 @@
     'uniform vec3 u_line;',
     'uniform vec3 u_edgeAlt;',
     'uniform vec3 u_lineAlt;',
-    'uniform bool u_dark;',
     'uniform vec2 u_prof[65];',
     'uniform int u_profN;',
     'uniform float u_profMax;',
@@ -341,10 +340,11 @@
     '      }',
     '    }',
     '  }',
-    // On a tile too close to the ink colour, the ink flips to its partner,
-    // so outlines stay visible on a black or white tile.
-    '  float lum = dot(fill, vec3(0.2126, 0.7152, 0.0722));',
-    '  bool alt = u_dark ? lum > 0.72 : lum < 0.2;',
+    // Each tile takes whichever ink contrasts with it more. See inkAlt.
+    '  vec3 wt = vec3(0.2126, 0.7152, 0.0722);',
+    '  float lf = dot(pow(fill, vec3(2.2)), wt);',
+    '  float le = dot(pow(u_edge, vec3(2.2)), wt), la = dot(pow(u_edgeAlt, vec3(2.2)), wt);',
+    '  bool alt = (max(lf, la) + 0.05) / (min(lf, la) + 0.05) > (max(lf, le) + 0.05) / (min(lf, le) + 0.05);',
     '  vec3 col = mix(fill, alt ? u_edgeAlt : u_edge, cov[0] * u_edgeAlpha);',
     '  for (int k = 1; k < 6; k++) col = mix(col, alt ? u_lineAlt : u_line, cov[k]);',
     // Grid dots: a disc on each corner of this tile that sits on a grid.
@@ -490,7 +490,7 @@
     }
     var tileProg = program(TILE_VS, TILE_FS, ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_corners',
       'u_scale', 'u_class', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line', 'u_edgeAlt',
-      'u_lineAlt', 'u_dark', 'u_prof',
+      'u_lineAlt', 'u_prof',
       'u_profN', 'u_profMax', 'u_profAlt', 'u_reach', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat',
       'u_dotCol', 'u_dotRange', 'u_dotR']);
     var overProg = program(OVERLAY_VS, OVERLAY_FS, ['u_half', 'u_inv', 'u_anchor', 'u_on', 'u_lat', 'u_gap',
@@ -705,7 +705,7 @@
         var items = cfg.presets.filter(function (p) { return p.grouping === g.id; });
         html += '<optgroup label="' + g.name + '">';
         items.forEach(function (p) { html += '<option value="' + p.id + '">' + p.name + '</option>'; });
-        if (customs[g.id]) html += '<option value="custom:' + g.id + '">Custom colours</option>';
+        if (customs[g.id]) html += '<option value="custom:' + g.id + '">Custom ' + g.n + '</option>';
         html += '</optgroup>';
       });
       schemeEl.innerHTML = html;
@@ -718,13 +718,38 @@
       changed();
     });
 
-    // Random colours for every group of the current grouping, drawn evenly
-    // from all of sRGB, kept as a custom set so a link can share them.
+    /* Random colours for every group of the current grouping, kept as a
+       custom set so a link can share them. Each roll picks one of five
+       palettes with equal chance. A small palette is dealt like a shuffled
+       deck, so every colour appears once before any appears twice, and two
+       or more groups never all get the same colour. */
+    function hex2(v) { return ('0' + Math.round(v).toString(16)).slice(-2); }
+    var PALETTES = [
+      null,                                                                   // any colour
+      ['#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#00ffff', '#ff00ff', '#ffff00'],
+      ['#ffffff', '#000000'],
+      Array.from({ length: 8 }, function (x, i) { var h = hex2(255 * i / 7); return '#' + h + h + h; }),
+      Array.from({ length: 27 }, function (x, i) {                            // 00, 80, ff per channel
+        return '#' + [Math.floor(i / 9), Math.floor(i / 3) % 3, i % 3].map(function (d) { return ['00', '80', 'ff'][d]; }).join('');
+      })
+    ];
+    function shuffled(a) {
+      a = a.slice();
+      for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; }
+      return a;
+    }
+    function randomColours(n) {
+      var pal = PALETTES[Math.floor(Math.random() * PALETTES.length)], out = [];
+      if (!pal) {
+        for (var i = 0; i < n; i++) out.push('#' + hex2(Math.random() * 255) + hex2(Math.random() * 255) + hex2(Math.random() * 255));
+        return out;
+      }
+      while (out.length < n) out = out.concat(shuffled(pal));
+      return shuffled(out.slice(0, n));
+    }
     document.getElementById('random-colours').addEventListener('click', function () {
       var g = currentGrouping();
-      customs[g.id] = Array.from({ length: g.n }, function () {
-        return '#' + ('00000' + Math.floor(Math.random() * 0x1000000).toString(16)).slice(-6);
-      });
+      customs[g.id] = randomColours(g.n);
       sel = 'custom:' + g.id;
       renderSchemeSelect();
       saveOptions();
@@ -751,17 +776,23 @@
       } else {
         Array.prototype.forEach.call(legendEl.querySelectorAll('.group[data-group="' + group + '"] polygon'),
           function (p) { p.setAttribute('fill', value); });
-        var head = legendEl.querySelector('h2 span');
-        if (head) head.textContent = 'Custom colours';
         requestDraw();
       }
     }
 
     /* ------------------------------------------------------- legend */
 
-    var legendEl = document.getElementById('legend');
+    // The colour panel: a fixed head with the scheme menu, dice, theme
+    // toggle and the key toggle, and a body holding the key, redrawn here.
+    var legendEl = document.getElementById('legend-body');
+    var legendToggle = document.getElementById('legend-toggle');
     var legendOpen = window.innerWidth > 640;
     try { var ls = localStorage.getItem(store + '-legend'); if (ls) legendOpen = ls === 'open'; } catch (e) {}
+    legendToggle.addEventListener('click', function () {
+      legendOpen = !legendOpen;
+      try { localStorage.setItem(store + '-legend', legendOpen ? 'open' : 'closed'); } catch (e) {}
+      renderLegend();
+    });
 
     // One small tile, turned and flipped as it appears on the map, and turned
     // with the view so it matches the screen. SVG runs y down, so y flips.
@@ -783,22 +814,34 @@
         '" fill="' + css(colour) + '" stroke="' + css(inkFor(colour)) + '" stroke-width="0.14" stroke-linejoin="round"/></svg>';
     }
 
-    function inkFor(c) {
-      var lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-      return (dark ? lum > 0.72 : lum < 0.2) ? theme.edgeAlt : theme.edge;
+    /* Whether a tile takes the other ink: light ink in light mode, dark ink
+       in dark mode. Each tile takes whichever ink contrasts with it more,
+       measured as the contrast ratio of the two luminances, as in WCAG.
+       Luminance is the share of white light a colour gives off, from 0 for
+       black to 1 for white. The shader applies the same rule. */
+    function lum(c) { return 0.2126 * Math.pow(c[0], 2.2) + 0.7152 * Math.pow(c[1], 2.2) + 0.0722 * Math.pow(c[2], 2.2); }
+    function contrast(a, b) { return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); }
+    function inkAlt(c) {
+      var l = lum(c);
+      return contrast(l, lum(theme.edgeAlt)) > contrast(l, lum(theme.edge));
     }
+    function inkFor(c) { return inkAlt(c) ? theme.edgeAlt : theme.edge; }
 
     function renderLegend() {
       if (!theme || !info) return;
       var g = currentGrouping(), cols = groupColours();
-      var name = sel.indexOf('custom:') === 0 ? 'Custom colours' : presets[sel].name;
-      var html = '<h2><span>' + name + '</span><button type="button" id="legend-toggle" aria-expanded="' + legendOpen + '">' +
-        (legendOpen ? 'Hide' : 'Key') + '</button></h2>';
+      var html = '';
+      legendToggle.textContent = legendOpen ? 'Hide' : 'Key';
+      legendToggle.setAttribute('aria-expanded', legendOpen);
+      legendEl.hidden = !legendOpen;
       if (legendOpen) {
         var order = g.order || Array.from({ length: g.n }, function (x, i) { return i; });
         html += '<div class="groups" style="grid-template-columns: repeat(' + (g.cols || 1) + ', auto)">';
         order.forEach(function (q) {
-          html += '<button type="button" class="group" data-group="' + q + '" title="Pick a colour for these tiles">';
+          // Six tiles to a row at most, so a big group wraps evenly.
+          var count = cfg.classes.filter(function (c, k) { return g.of(k) === q; }).length;
+          html += '<button type="button" class="group" data-group="' + q + '" title="Pick a colour for these tiles"' +
+            ' style="grid-template-columns: repeat(' + Math.min(count, 6) + ', auto)">';
           cfg.classes.forEach(function (c, k) {
             if (g.of(k) !== q) return;
             html += '<figure>' + tileSvg(k, cols[q]) + '<figcaption>' + c.caption + '</figcaption></figure>';
@@ -807,14 +850,12 @@
         });
         html += '</div><p class="note">' + (cfg.keyNote ? cfg.keyNote(g) + ' ' : '') + 'Click a group to change its colour.</p>';
         if (cfg.extraNotes) html += cfg.extraNotes();
+        html += '<div><button type="button" class="linkish" id="reset-colours">Reset colours</button></div>';
         html += '<input type="color" id="legend-colour" tabindex="-1" aria-hidden="true">';
       }
       legendEl.innerHTML = html;
-      document.getElementById('legend-toggle').addEventListener('click', function () {
-        legendOpen = !legendOpen;
-        try { localStorage.setItem(store + '-legend', legendOpen ? 'open' : 'closed'); } catch (e) {}
-        renderLegend();
-      });
+      var resetEl = document.getElementById('reset-colours');
+      if (resetEl) resetEl.addEventListener('click', resetColours);
       var picker = document.getElementById('legend-colour');
       if (!picker) return;
       var active = -1;
@@ -964,7 +1005,6 @@
       gl.uniform3fv(U.u_line, theme.line);
       gl.uniform3fv(U.u_edgeAlt, theme.edgeAlt);
       gl.uniform3fv(U.u_lineAlt, theme.lineAlt);
-      gl.uniform1i(U.u_dark, dark ? 1 : 0);
       gl.uniform3fv(U.u_hot, theme.hot);
       gl.uniform3fv(U.u_hot2, theme.hot2);
       var corners = cfg.shape.corners();
@@ -1155,7 +1195,7 @@
       }
       if (anim.rotTo !== null) {
         var g = 1 - Math.exp(-dt / 70), dr = wrapAngle(anim.rotTo - view.rot);
-        if (Math.abs(dr) < 0.002) { rotateAbout(dr, W / 2, Hh / 2); anim.rotTo = null; renderLegend(); }
+        if (Math.abs(dr) < 0.002) { rotateAbout(dr, W / 2, Hh / 2); anim.rotTo = null; renderLegend(); changed(); }
         else { rotateAbout(dr * g, W / 2, Hh / 2); moving = true; }
       }
       if (anim.panX || anim.panY) {
@@ -1415,6 +1455,13 @@
     document.getElementById('zoom-in').addEventListener('click', function () { zoomTowards(2, W / 2, Hh / 2); });
     document.getElementById('zoom-out').addEventListener('click', function () { zoomTowards(0.5, W / 2, Hh / 2); });
     document.getElementById('home').addEventListener('click', goHome);
+    // Turn buttons, for a mouse with no twist gesture: 5° a press.
+    function turnBy(a) {
+      anim.rotTo = (anim.rotTo === null ? view.rot : anim.rotTo) + a;
+      requestDraw();
+    }
+    document.getElementById('turn-left').addEventListener('click', function () { turnBy(Math.PI / 36); });
+    document.getElementById('turn-right').addEventListener('click', function () { turnBy(-Math.PI / 36); });
     var compassEl = document.getElementById('compass');
     compassEl.addEventListener('click', function () {
       anim.rotTo = 0;
@@ -1448,6 +1495,12 @@
       if (!aboutEl.hidden) document.getElementById('about-close').focus();
     });
     document.getElementById('about-close').addEventListener('click', closeAbout);
+    // A press anywhere outside the About sheet closes it. The press still
+    // does its usual job, so a drag on the map starts moving it too.
+    document.addEventListener('pointerdown', function (e) {
+      if (aboutEl.hidden || aboutEl.contains(e.target) || aboutOpen.contains(e.target)) return;
+      aboutEl.hidden = true;
+    }, true);
     var optionsEl = document.querySelector('.options'), foldEl = document.getElementById('options-fold');
     if (window.innerWidth <= 640) optionsEl.classList.add('folded');
     foldEl.addEventListener('click', function () {
@@ -1457,19 +1510,26 @@
 
     /* ------------------------------------------------------- reset */
 
-    // Every option back to how the page first opens: the first preset, no
-    // custom colours, no outlines, no grid, and the page's own default shape.
-    // The view stays put, since the home button already resets it.
-    document.getElementById('reset-options').addEventListener('click', function () {
+    // Each panel resets its own options to how the page first opens. The
+    // colour panel: the first preset and no custom colours. The theme is
+    // left alone, since it is shared with the rest of the site.
+    function resetColours() {
       sel = cfg.presets[0].id;
       customs = {};
+      renderSchemeSelect();
+      saveOptions();
+      renderLegend();
+      changed();
+    }
+    // The options panel: the page's own default shape, no supertiles and no
+    // grid. The view stays put, since the home button already resets it.
+    document.getElementById('reset-options').addEventListener('click', function () {
       outlines = outlinesEl.checked = false;
       grid.on = gridEl.checked = false;
       grid.on0 = grid0El.checked = true;
       grid.on30 = grid30El.checked = true;
       grid.picks = [];
       if (cfg.onReset) cfg.onReset();
-      renderSchemeSelect();
       gridChanged();
       renderLegend();
       changed();
