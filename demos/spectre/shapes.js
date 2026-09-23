@@ -2,13 +2,18 @@
    from (0, 0) to (L, 0) that rises to height H on one side. Two
    arrangements turn humps into edges:
 
-   - S on every edge: a hump, then the same hump turned half a turn about
-     the middle of the edge. Two neighbouring tiles run along a shared edge
+   - Double: a hump, then the same hump turned half a turn about the middle
+     of the edge, making an S. Two neighbouring tiles run along a shared edge
      in opposite directions, and this curve looks the same from both ends,
      so every edge matches.
-   - Alternating: one hump along the whole edge, placed forwards on even
-     edges and backwards on odd ones. Every shared edge joins an even edge to
-     an odd one, so here too the two tiles draw the same curve.
+   - Single: one hump along the whole edge, placed forwards on even edges
+     and backwards on odd ones. Every shared edge joins an even edge to an
+     odd one, so here too the two tiles draw the same curve.
+
+   Line keeps every edge straight, as does a height of zero. Shapes that
+   are special cases of another were folded into it: Parabola
+   into Curve, Sawtooth into Triangle, Square into Trapezium. OLD maps their
+   ids for saved settings and old links.
 
    Points are in edge units: u runs along the edge from 0 to 1, and v runs
    sideways, towards the tile's inside when positive. */
@@ -17,36 +22,35 @@
 
   var SHAPES = [
     { id: 'line', name: 'Line', params: [] },
-    { id: 'sine', name: 'Sine', params: ['waves'] },
-    { id: 'parabola', name: 'Parabola', params: [] },
+    { id: 'curve', name: 'Curve', params: ['waves'] },
     { id: 'triangle', name: 'Triangle', params: ['peak'], set: { peak: 0.5 } },
-    { id: 'sawtooth', name: 'Sawtooth', params: [], set: { peak: 1 } },
     { id: 'trapezium', name: 'Trapezium', params: ['rise', 'fall'], set: { rise: 0.2, fall: 0.2 } },
-    { id: 'square', name: 'Square', params: [] },
     { id: 'jigsaw', name: 'Jigsaw', params: ['neck'] }
   ];
   var BY_ID = {};
   SHAPES.forEach(function (s) { BY_ID[s.id] = s; });
+  // Old shape ids: the shape each became and the settings that reproduce it.
+  var OLD = {
+    sine: { shape: 'curve' },
+    parabola: { shape: 'curve', params: { waves: 1 } },
+    skew: { shape: 'triangle' },
+    sawtooth: { shape: 'triangle', params: { peak: 1 } },
+    square: { shape: 'trapezium', params: { rise: 0, fall: 0 } }
+  };
   var DEFAULTS = { waves: 1, peak: 0.5, rise: 0.2, fall: 0.2, neck: 0.55 };
 
   // One hump of length L and height H. n sets how finely curves are sampled.
   function hump(kind, prm, L, H, n) {
     var out = [], i, t;
     switch (kind) {
-      case 'sine':
+      // Half a sine wave. Humps join with no kink and no jump in curvature.
+      case 'curve':
         for (i = 0; i <= n; i++) { t = i / n; out.push([t * L, H * Math.sin(Math.PI * t)]); }
-        return out;
-      case 'parabola':
-        for (i = 0; i <= n; i++) { t = i / n; out.push([t * L, H * 4 * t * (1 - t)]); }
         return out;
       case 'triangle':
         return [[0, 0], [prm.peak * L, H], [L, 0]];
-      case 'sawtooth':
-        return [[0, 0], [L, H], [L, 0]];
       case 'trapezium':
         return [[0, 0], [prm.rise * L, H], [(1 - prm.fall) * L, H], [L, 0]];
-      case 'square':
-        return [[0, 0], [0, H], [L, H], [L, 0]];
       case 'jigsaw': {
         // A round head on a neck, like a puzzle piece. The head scales with
         // the bend, so a small bend gives a small tab.
@@ -81,7 +85,7 @@
   function profile(st, n) {
     if (st.shape === 'line' || Math.abs(st.bend) < 1e-9) return null;
     var prm = params(st), pts = [], i;
-    var waves = st.shape === 'sine' ? prm.waves : 1;
+    var waves = st.shape === 'curve' ? prm.waves : 1;
     if (st.arrangement === 'alt') {
       var w = 1 / waves;
       for (i = 0; i < waves; i++) {
@@ -106,8 +110,6 @@
   function params(st) {
     var p = {};
     Object.keys(DEFAULTS).forEach(function (k) { p[k] = st.params && st.params[k] !== undefined ? st.params[k] : DEFAULTS[k]; });
-    var fixed = BY_ID[st.shape] && BY_ID[st.shape].id === 'sawtooth' ? { peak: 1 } : null;
-    if (fixed) p.peak = 1;
     return p;
   }
 
@@ -162,6 +164,6 @@
     });
   }
 
-  global.SpectreShapes = { SHAPES: SHAPES, BY_ID: BY_ID, DEFAULTS: DEFAULTS, profile: profile, fitted: fitted,
+  global.SpectreShapes = { SHAPES: SHAPES, BY_ID: BY_ID, OLD: OLD, DEFAULTS: DEFAULTS, profile: profile, fitted: fitted,
                            outline: outline, limits: limits, params: params };
 })(this);

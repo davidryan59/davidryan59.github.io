@@ -40,6 +40,12 @@
   <label class="section-title head-title" for="scheme">Colour</label>
   <div class="head">
     <select id="scheme"></select>
+    <button type="button" class="dice" id="random-colours" title="Random colours" aria-label="Random colours">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="4" width="16" height="16" rx="3.5"/>
+        <circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/>
+      </svg>
+    </button>
     <button class="theme-toggle" type="button" hidden>
       <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
         <circle cx="12" cy="12" r="4.1"/>
@@ -55,10 +61,15 @@
     <div class="section">
       <label class="section-title" for="shape">Edge shape</label>
       <select id="shape"></select>
+      <div class="inline" id="arrangement" role="radiogroup" aria-label="Arrangement">
+        <label><input type="radio" name="arrangement" value="S"> Double</label>
+        <label><input type="radio" name="arrangement" value="alt"> Single</label>
+      </div>
       <div class="slider" id="bend-box">
-        <span>Bend</span><output id="bend-out"></output>
-        <input type="range" id="bend" min="-0.75" max="0.75" step="0.005" aria-label="Bend">
+        <span>Height</span><output id="bend-out"></output>
+        <input type="range" id="bend" min="-0.75" max="0.75" step="0.005" aria-label="Height">
         <div class="limits" id="limits"></div>
+        <div class="ticks zero"><button type="button" id="bend-zero" title="Straight edges">0</button></div>
         <div class="limit-note" id="limit-note"></div>
       </div>
       <div class="slider" data-param="waves">
@@ -81,10 +92,6 @@
         <span>Neck width</span><output></output>
         <input type="range" min="0.25" max="0.9" step="0.01" aria-label="Neck width">
       </div>
-      <div class="inline" id="arrangement" role="radiogroup" aria-label="Arrangement">
-        <label><input type="radio" name="arrangement" value="S"> S on every edge</label>
-        <label><input type="radio" name="arrangement" value="alt"> Alternating</label>
-      </div>
     </div>
     <div class="section">
       <label><input type="checkbox" id="outlines"> Supertile outlines</label>
@@ -97,6 +104,9 @@
         <p class="hint" id="grid-hint"></p>
         <div><button type="button" class="linkish" id="grid-clear">Start again</button></div>
       </div>
+    </div>
+    <div class="section">
+      <div><button type="button" class="linkish" id="reset-options" title="Colours, shape, outlines and grid back to how the page opens">Reset options</button></div>
     </div>
   </div>
 </div>
@@ -143,13 +153,13 @@
     With straight edges the tile is Tile(1,1). It makes this pattern only if
     mirror images are banned, because with mirror images it can also tile
     periodically. Replace every edge with the same curve and the mirror
-    image stops fitting. <em>Edge shape</em> offers several curves and
-    <em>Bend</em> sets how far they swing. "S on every edge" puts one
-    S-shaped curve on each edge. "Alternating" puts a single bump on each
-    edge and flips its direction from edge to edge, which also fits, because
-    every shared edge joins an odd-numbered edge to an even-numbered one.
-    Push the bend past the marked limit and the tiles collide: the red
-    stripes show where they overlap.
+    image stops fitting. <em>Height</em> sets how far each edge swings, and
+    zero gives straight edges. <em>Double</em> puts an S-shaped pair of bumps
+    on each edge. <em>Single</em> puts one bump on each edge and flips its
+    direction from edge to edge, which also fits, because every shared edge
+    joins an odd-numbered edge to an even-numbered one. The menu sets the
+    shape of a bump. Push the height past the marked limit and the tiles
+    collide: the red stripes show where they overlap.
   </p>
   <p>
     Tiles group into supertiles, and those group into larger supertiles,
@@ -192,13 +202,23 @@
   /* ------------------------------------------------------------- state */
 
   var st = { shape: 'line', bend: 0.15, params: Object.assign({}, SS.DEFAULTS), arrangement: 'S' };
+  function clampBend(b) { return Math.max(-0.75, Math.min(0.75, b)); }
+  // Sets the shape from a current or old id, and returns whether it knew it.
+  function setShape(id) {
+    var old = SS.OLD[id];
+    if (old) {
+      st.shape = old.shape;
+      if (old.params) Object.assign(st.params, old.params);
+      return true;
+    }
+    if (SS.BY_ID[id]) { st.shape = id; return true; }
+    return false;
+  }
   try {
     var saved = JSON.parse(localStorage.getItem('spectre-edges') || '{}');
-    // Skew triangle was folded into Triangle, which has the same peak slider.
-    if (saved.shape === 'skew') saved.shape = 'triangle';
-    if (SS.BY_ID[saved.shape]) st.shape = saved.shape;
-    if (typeof saved.bend === 'number') st.bend = Math.max(-0.75, Math.min(0.75, saved.bend));
     if (saved.params) Object.keys(SS.DEFAULTS).forEach(function (k) { if (typeof saved.params[k] === 'number') st.params[k] = saved.params[k]; });
+    if (typeof saved.bend === 'number') st.bend = clampBend(saved.bend);
+    setShape(saved.shape);
     if (saved.arrangement === 'alt') st.arrangement = 'alt';
   } catch (e) {}
   function saveEdges() { try { localStorage.setItem('spectre-edges', JSON.stringify(st)); } catch (e) {} }
@@ -210,7 +230,7 @@
   var shape = {
     signature: function () { return straight() ? 'line' : JSON.stringify(st); },
     lodKey: function (res) {
-      var smooth = st.shape === 'sine' || st.shape === 'parabola' || st.shape === 'jigsaw';
+      var smooth = st.shape === 'curve' || st.shape === 'jigsaw';
       return res < 0 ? 'straight' : smooth ? 'r' + res : 'poly';
     },
     lod: function (k) {
@@ -253,24 +273,29 @@
     { id: 'one', name: '1 colour', n: 1, of: function () { return 0; }, cols: 1 }
   ];
   var presets = [
-    { id: 'pastel', name: 'Pastel, rare deeper', grouping: 'all12', colours: function (dark) {
+    { id: 'pastel', name: 'Pastel', grouping: 'all12', colours: function (dark) {
       return classes.map(function (cl, k) {
         var rare = k % 2 === 1;
         return dark ? oklch(rare ? 0.66 : 0.40, rare ? 0.13 : 0.065, k * 30 + 25)
                     : oklch(rare ? 0.64 : 0.88, rare ? 0.15 : 0.075, k * 30 + 25);
       });
     } },
-    { id: 'rainbow2', name: 'Rainbow, common first', grouping: 'all12', colours: function (dark) {
+    // Ids stay as first published, so old links keep their colours.
+    { id: 'rainbow2', name: 'Rainbow 1', grouping: 'all12', colours: function (dark) {
       var hues = ring(12, dark, dark ? 0.55 : 0.8, 0.12);
       return classes.map(function (cl, k) { return hues[COMMON_FIRST.indexOf(k)]; });
     } },
-    { id: 'rainbow', name: 'Rainbow', grouping: 'all12', colours: function (dark) {
+    { id: 'rainbow', name: 'Rainbow 2', grouping: 'all12', colours: function (dark) {
       return ring(12, dark, dark ? 0.55 : 0.8, 0.12);
     } },
-    // Black to white in twelve even steps of lightness, the six common
-    // orientations first: 0° is black and 330° is white.
-    { id: 'grey', name: 'Greyscale, common first', grouping: 'all12', colours: function () {
+    // Black to white in twelve even steps of lightness. Greyscale 1 takes
+    // the six common orientations first, so 0° is black and 330° is white.
+    // Greyscale 2 goes round in turn order, so lightness rises with the turn.
+    { id: 'grey', name: 'Greyscale 1', grouping: 'all12', colours: function () {
       return classes.map(function (cl, k) { return oklch(COMMON_FIRST.indexOf(k) / 11, 0, 0); });
+    } },
+    { id: 'grey2', name: 'Greyscale 2', grouping: 'all12', colours: function () {
+      return classes.map(function (cl, k) { return oklch(k / 11, 0, 0); });
     } },
     { id: 'six', name: 'Six pairs', grouping: 'mod180', colours: function (dark) { return ring(6, dark, dark ? 0.45 : 0.82, 0.1); } },
     { id: 'four', name: 'Four sets', grouping: 'mod120', colours: function (dark) { return ring(4, dark, dark ? 0.45 : 0.82, 0.1); } },
@@ -299,23 +324,28 @@
     keyNote: function (g) {
       return g.n === 12 ? 'Six common orientations, then six rare ones turned a further 30°.' : '';
     },
+    onReset: function () {
+      st = { shape: 'line', bend: 0.15, params: Object.assign({}, SS.DEFAULTS), arrangement: 'S' };
+      saveEdges();
+      syncControls();
+      map.shapeChanged();
+    },
     hashGet: function () {
       var h = { e: st.shape };
-      if (!straight() || st.shape !== 'line') h.b = st.bend.toFixed(3).replace(/\.?0+$/, '');
+      if (st.shape !== 'line') h.b = st.bend.toFixed(3).replace(/\.?0+$/, '');
       if (st.arrangement === 'alt') h.a = 'alt';
       var extra = (SS.BY_ID[st.shape].params || []).map(function (k) { return k + ':' + (+st.params[k].toFixed(3)); });
       if (extra.length) h.p = extra.join(';');
       return h;
     },
     hashSet: function (q) {
-      if (q.e === 'skew') q.e = 'triangle';
-      if (q.e && SS.BY_ID[q.e]) st.shape = q.e;
-      if (q.b !== undefined && !isNaN(parseFloat(q.b))) st.bend = Math.max(-0.75, Math.min(0.75, parseFloat(q.b)));
-      st.arrangement = q.a === 'alt' ? 'alt' : 'S';
       if (q.p) q.p.split(';').forEach(function (kv) {
         var p = kv.split(':');
         if (SS.DEFAULTS[p[0]] !== undefined && !isNaN(parseFloat(p[1]))) st.params[p[0]] = parseFloat(p[1]);
       });
+      if (q.e) setShape(q.e);
+      if (q.b !== undefined && !isNaN(parseFloat(q.b))) st.bend = clampBend(parseFloat(q.b));
+      st.arrangement = q.a === 'alt' ? 'alt' : 'S';
       syncControls();
     }
   });
@@ -326,7 +356,7 @@
   var shapeEl = document.getElementById('shape');
   shapeEl.innerHTML = SS.SHAPES.map(function (s) { return '<option value="' + s.id + '">' + s.name + '</option>'; }).join('');
   var bendEl = document.getElementById('bend'), bendOut = document.getElementById('bend-out');
-  var bendBox = document.getElementById('bend-box');
+  var zeroEl = document.getElementById('bend-zero'), bendBox = document.getElementById('bend-box');
   var limitsEl = document.getElementById('limits'), limitNote = document.getElementById('limit-note');
   var sliders = {};
   Array.prototype.forEach.call(document.querySelectorAll('[data-param]'), function (el) {
@@ -346,15 +376,16 @@
   function syncControls() {
     var def = SS.BY_ID[st.shape];
     shapeEl.value = st.shape;
-    bendBox.hidden = st.shape === 'line';
+    // Line has no height and no arrangement to set.
+    bendBox.hidden = document.getElementById('arrangement').hidden = st.shape === 'line';
     bendEl.value = String(st.bend);
     bendOut.textContent = signed(st.bend);
+    zeroEl.classList.toggle('on', straight());
     Object.keys(sliders).forEach(function (k) {
       var on = def.params.indexOf(k) >= 0;
       sliders[k].box.hidden = !on;
       if (on) { sliders[k].input.value = String(st.params[k]); sliders[k].out.textContent = describe(k); }
     });
-    document.getElementById('arrangement').hidden = st.shape === 'line';
     Array.prototype.forEach.call(arrEls, function (r) { r.checked = r.value === st.arrangement; });
     scheduleLimits();
   }
@@ -380,32 +411,48 @@
     }, 150);
   }
 
-  var zoomedForCurves = false;
   function edgesChanged() {
     saveEdges();
     syncControls();
     map.shapeChanged();
+  }
+  // At the opening zoom a height of 0.15 moves an edge about one pixel, so
+  // the first curved edge zooms in far enough to see it.
+  var zoomedForCurves = false;
+  function zoomForCurves() {
+    if (!zoomedForCurves && map.scale() < 14) { zoomedForCurves = true; map.zoomTo(20); }
+  }
+  function setBend(v, final) {
+    st.bend = v;
+    bendOut.textContent = signed(v);
+    zeroEl.classList.toggle('on', straight());
+    map.shapeChanged();
+    if (final) { bendEl.value = String(v); saveEdges(); map.changed(); }
   }
 
   shapeEl.addEventListener('change', function () {
     var def = SS.BY_ID[shapeEl.value];
     st.shape = def.id;
     if (def.set) Object.keys(def.set).forEach(function (k) { st.params[k] = def.set[k]; });
-    if (st.shape !== 'line' && Math.abs(st.bend) < 0.02) st.bend = 0.15;
-    // At the opening zoom a bend of 0.15 moves an edge about one pixel, so
-    // the first curved shape zooms in far enough to see it.
-    if (st.shape !== 'line' && !zoomedForCurves && map.scale() < 14) { zoomedForCurves = true; map.zoomTo(20); }
+    if (st.shape !== 'line') {
+      // A new shape at zero height would look the same, so it gets a height.
+      if (straight()) st.bend = 0.15;
+      zoomForCurves();
+    }
     edgesChanged();
   });
   bendEl.addEventListener('input', function () {
     var v = parseFloat(bendEl.value);
-    // A sticky zero: close to it, the bend snaps to straight.
-    if (Math.abs(v) < 0.02) v = 0;
-    st.bend = v;
-    bendOut.textContent = signed(v);
-    map.shapeChanged();
+    // A sticky zero: close to it, the height snaps to straight.
+    if (Math.abs(v) < 0.035) v = 0;
+    if (v !== 0) zoomForCurves();
+    setBend(v, false);
   });
-  bendEl.addEventListener('change', function () { if (st.bend === 0) bendEl.value = '0'; saveEdges(); map.changed(); });
+  bendEl.addEventListener('change', function () { setBend(st.bend, true); });
+  // Two ways back to straight edges: the 0 under the slider, or a double
+  // click on the slider.
+  zeroEl.addEventListener('click', function () { setBend(0, true); });
+  bendEl.addEventListener('dblclick', function () { setBend(0, true); });
   Object.keys(sliders).forEach(function (k) {
     sliders[k].input.addEventListener('input', function () {
       st.params[k] = parseFloat(sliders[k].input.value);

@@ -718,6 +718,20 @@
       changed();
     });
 
+    // Random colours for every group of the current grouping, drawn evenly
+    // from all of sRGB, kept as a custom set so a link can share them.
+    document.getElementById('random-colours').addEventListener('click', function () {
+      var g = currentGrouping();
+      customs[g.id] = Array.from({ length: g.n }, function () {
+        return '#' + ('00000' + Math.floor(Math.random() * 0x1000000).toString(16)).slice(-6);
+      });
+      sel = 'custom:' + g.id;
+      renderSchemeSelect();
+      saveOptions();
+      renderLegend();
+      changed();
+    });
+
     // A new colour for one group turns the current colours into a custom set
     // for the current grouping, starting from whatever was showing. While the
     // picker is open only the map and that group's swatches update, since
@@ -1439,6 +1453,26 @@
     foldEl.addEventListener('click', function () {
       optionsEl.classList.toggle('folded');
       foldEl.setAttribute('aria-expanded', !optionsEl.classList.contains('folded'));
+    });
+
+    /* ------------------------------------------------------- reset */
+
+    // Every option back to how the page first opens: the first preset, no
+    // custom colours, no outlines, no grid, and the page's own default shape.
+    // The view stays put, since the home button already resets it.
+    document.getElementById('reset-options').addEventListener('click', function () {
+      sel = cfg.presets[0].id;
+      customs = {};
+      outlines = outlinesEl.checked = false;
+      grid.on = gridEl.checked = false;
+      grid.on0 = grid0El.checked = true;
+      grid.on30 = grid30El.checked = true;
+      grid.picks = [];
+      if (cfg.onReset) cfg.onReset();
+      renderSchemeSelect();
+      gridChanged();
+      renderLegend();
+      changed();
     });
 
     /* ------------------------------------------------------- boot */

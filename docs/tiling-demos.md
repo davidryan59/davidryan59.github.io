@@ -60,6 +60,24 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
   corners: a triangular grid with them as neighbours. Three: a slanted grid.
   The tile shader puts a dot on every corner that lies on a shown grid.
 
+## Options
+
+- **Colours.** Each page lists presets under its groupings. The Spectre
+  groups its 12 orientations by turn modulo 30°, 60°, 90°, 120°, 180° or
+  360°. The Hat has 12 colours, 2 (by hand) or 1. It has no grouping by turn
+  alone, since that would pair each hat with a mirrored hat through an
+  arbitrary choice of mirror line. The dice button fills the current
+  grouping with colours drawn evenly from sRGB, kept as custom colours so a
+  link shares them. Tile edges use dark ink in light mode and light ink in
+  dark mode, and flip to the other on a tile too close to the ink.
+- **Spectre edges.** The bump shape first: Line (the default), Curve,
+  Triangle, Trapezium or Jigsaw. Then Double or Single, then Height. Line
+  hides those two, and they sit below the menu so the menu never moves. Height 0 is also a straight edge. Sine, Parabola,
+  Sawtooth and Square were folded in on 2026-09-23, and `OLD` in
+  `shapes.js` maps their ids so old links and saved settings load.
+- **Reset options.** Puts colours, edges or tile shape, outlines and grid
+  back to how the page opens. The view stays put; the home button resets it.
+
 ## The Hat construction
 
 `hat/tiling.js` follows Kaplan's hatviz metatiles H, T, P and F. One patch

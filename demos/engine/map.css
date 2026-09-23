@@ -134,8 +134,18 @@ select { background: var(--panel); max-width: 100%; }
 .ticks { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--muted); margin-top: -0.15rem; }
 .ticks button { border: none; padding: 0; font-size: 0.68rem; color: var(--muted); background: none; }
 .ticks button:hover, .ticks button.on { color: var(--link); }
+/* Ticks placed under their slider values, the end ones kept inside. */
+.ticks.placed { display: block; position: relative; height: 1.1em; }
+.ticks.placed button { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.ticks.placed button:first-child { transform: none; }
+.ticks.placed button:last-child { transform: translateX(-100%); }
+/* The zero of a signed slider: a mark across the strip and a 0 to click. */
+.limits { position: relative; }
+.limits::after { content: ""; position: absolute; left: calc(50% - 1px); top: -3px; width: 2px; height: 10px; border-radius: 1px; background: var(--h3); }
+.ticks.zero { justify-content: center; }
+.ticks.zero button { font-size: 0.8rem; font-weight: 600; padding: 0 0.4rem; }
 
-.theme-toggle {
+.theme-toggle, .dice {
   width: 2rem;
   height: 2rem;
   flex: none;
@@ -144,7 +154,7 @@ select { background: var(--panel); max-width: 100%; }
   padding: 0;
   border-radius: 50%;
 }
-.theme-toggle svg { display: block; width: 1.05rem; height: 1.05rem; }
+.theme-toggle svg, .dice svg { display: block; width: 1.05rem; height: 1.05rem; }
 :root[data-theme="dark"] .theme-toggle .moon { display: none; }
 :root[data-theme="light"] .theme-toggle .sun { display: none; }
 
@@ -252,7 +262,7 @@ select { background: var(--panel); max-width: 100%; }
   .options { width: auto; }
   .options .fold { display: inline-block; }
   .options.folded .body { display: none; }
-  .options.folded .head select, .options.folded .head-title { display: none; }
+  .options.folded .head select, .options.folded .head .dice, .options.folded .head-title { display: none; }
   .status { bottom: 5.5rem; }
   .legend svg { width: 1.55rem; height: 1.55rem; }
   .legend figure { min-width: 1.6rem; }
