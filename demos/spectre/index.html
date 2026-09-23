@@ -127,6 +127,8 @@ select { background: var(--panel); }
 .options .line { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
 .options label { font-size: 0.88rem; color: var(--h3); display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
 .options input[type="checkbox"] { accent-color: var(--link); width: 1rem; height: 1rem; margin: 0; }
+.options .bend { padding-left: 1.4rem; }
+.options input[type="range"] { accent-color: var(--link); width: 7.5rem; margin: 0; }
 
 .theme-toggle {
   width: 2rem;
@@ -252,7 +254,7 @@ select { background: var(--panel); }
     <select id="scheme" aria-label="Colour scheme">
       <option value="0">Colour by orientation</option>
       <option value="1">Common and rare</option>
-      <option value="2">Colour by label</option>
+      <option value="2">Colour by tile type</option>
       <option value="3">Plain</option>
     </select>
     <button class="theme-toggle" type="button" hidden>
@@ -266,6 +268,8 @@ select { background: var(--panel); }
     </button>
   </div>
   <label><input type="checkbox" id="outlines"> Supertile outlines</label>
+  <label><input type="checkbox" id="curved"> Curved edges</label>
+  <label class="bend" id="bend-row" hidden>Bend <input type="range" id="bend" min="0.03" max="0.4" step="0.01" value="0.15"></label>
 </div>
 </div>
 
@@ -291,8 +295,8 @@ select { background: var(--panel); }
     The Spectre is a single tile that covers the whole plane with no gaps
     and no overlaps. The pattern it makes never repeats. David Smith, Joseph
     Samuel Myers, Craig S. Kaplan and Chaim Goodman-Strauss announced it in
-    2023. It settles the "einstein" problem in its strictest form, because
-    the tiling never needs a mirror image of the tile.
+    2023. It settles the "einstein" problem in its strictest form: with
+    curved edges, not even the tile's mirror image can join in.
   </p>
   <p>
     The tile appears in 12 orientations. Six are common and sit 60° apart.
@@ -300,6 +304,15 @@ select { background: var(--panel); }
     pairs with one neighbour to make a two-tile cluster called a Mystic. In
     the default colours, the hue turns with the tile, so each colour marks
     one orientation.
+  </p>
+  <p>
+    With straight edges the tile is called Tile(1,1). It makes this pattern
+    only if mirror images are banned, because with mirror images it can also
+    tile periodically. Swap every edge for the same S-shaped curve and the
+    mirror image no longer fits, so the ban is no longer needed. Any smooth
+    S-curve works, which makes the Spectre a family of tiles rather than one
+    shape. Turn on <em>Curved edges</em> and move the <em>Bend</em> slider to
+    travel through part of that family.
   </p>
   <p>
     Tiles group into supertiles, and those group into larger supertiles,
@@ -435,7 +448,23 @@ select { background: var(--panel); }
     'uniform vec3 u_line;\n' +
     'uniform float u_width[6];\n' +
     'uniform float u_edgeAlpha;\n' +
+    'uniform float u_amp;\n' +
+    'uniform float u_reach;\n' +
     'out vec4 outColor;\n' +
+    // Distance to one S-curve edge: the chord from a to b, pushed sideways by
+    // amp * sin(2 pi u). A few Newton steps find the nearest point.
+    'float curveDist(vec2 p, vec2 a, vec2 b) {\n' +
+    '  vec2 e = b - a, n = vec2(-e.y, e.x), q = p - a;\n' +
+    '  float pu = dot(q, e), pv = dot(q, n), u = clamp(pu, 0.0, 1.0);\n' +
+    '  for (int k = 0; k < 4; k++) {\n' +
+    '    float s = sin(6.2831853 * u), c = cos(6.2831853 * u);\n' +
+    '    float g = u_amp * s, g1 = 6.2831853 * u_amp * c, g2 = -39.478418 * u_amp * s;\n' +
+    '    float f = (u - pu) + (g - pv) * g1;\n' +
+    '    float fp = 1.0 + g1 * g1 + (g - pv) * g2;\n' +
+    '    u = clamp(u - f / max(fp, 0.25), 0.0, 1.0);\n' +
+    '  }\n' +
+    '  return length(vec2(u - pu, u_amp * sin(6.2831853 * u) - pv));\n' +
+    '}\n' +
     'uint edgeLevel(int i) {\n' +
     '  return i < 8 ? (v_bits.x >> uint(8 + 3 * i)) & 7u : (v_bits.y >> uint(3 * (i - 8))) & 7u;\n' +
     '}\n' +
@@ -456,7 +485,10 @@ select { background: var(--panel); }
     '    vec2 b = u_v[i == 13 ? 0 : i + 1];\n' +
     '    vec2 pa = v_local - a, ba = b - a;\n' +
     '    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);\n' +
-    '    float d = length(pa - ba * h) * u_scale;\n' +
+    '    float d = length(pa - ba * h);\n' +
+    // Only edges whose curve could reach this pixel get the exact distance.
+    '    if (u_amp > 0.0) d = d > u_amp + u_reach ? d - u_amp : curveDist(v_local, a, b);\n' +
+    '    d *= u_scale;\n' +
     '    int lv = u_levels ? int(min(edgeLevel(i), 5u)) : 0;\n' +
     '    cov[lv] = max(cov[lv], clamp(u_width[lv] + 0.5 - d, 0.0, 1.0));\n' +
     '    if (u_levels) {\n' +
@@ -487,33 +519,91 @@ select { background: var(--panel); }
   gl.useProgram(prog);
   var U = {};
   ['u_chunk', 'u_scale', 'u_half', 'u_v', 'u_mode', 'u_levels', 'u_orient', 'u_labels', 'u_base',
-   'u_accent', 'u_edge', 'u_line', 'u_edgeAlpha'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+   'u_accent', 'u_edge', 'u_line', 'u_edgeAlpha', 'u_amp', 'u_reach'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
   U.u_width = gl.getUniformLocation(prog, 'u_width');
 
-  // Ear-clip the Spectre once. It is a simple polygon, counter-clockwise.
+  // Ear clipping on a linked ring. A curved outline runs to several hundred
+  // points, so each search resumes beside the last ear it cut.
   function triangulate(pts) {
-    var idx = pts.map(function (p, i) { return i; }), tris = [];
+    var n = pts.length, prev = new Int32Array(n), next = new Int32Array(n), tris = [];
+    for (var i = 0; i < n; i++) { prev[i] = (i + n - 1) % n; next[i] = (i + 1) % n; }
     function cross(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
-    function inTri(p, a, b, c) { return cross(a, b, p) > 1e-12 && cross(b, c, p) > 1e-12 && cross(c, a, p) > 1e-12; }
-    while (idx.length > 3) {
-      for (var i = 0; i < idx.length; i++) {
-        var a = pts[idx[(i + idx.length - 1) % idx.length]], b = pts[idx[i]], c = pts[idx[(i + 1) % idx.length]];
-        if (cross(a, b, c) <= 1e-12) continue;
-        var ear = idx.every(function (j) { var p = pts[j]; return p === a || p === b || p === c || !inTri(p, a, b, c); });
-        if (!ear) continue;
-        tris.push(a, b, c);
-        idx.splice(i, 1);
-        break;
+    function isEar(i) {
+      var a = pts[prev[i]], b = pts[i], c = pts[next[i]];
+      if (cross(a, b, c) <= 1e-12) return false;
+      for (var j = next[next[i]]; j !== prev[i]; j = next[j]) {
+        var p = pts[j];
+        if (cross(a, b, p) > 1e-12 && cross(b, c, p) > 1e-12 && cross(c, a, p) > 1e-12) return false;
+      }
+      return true;
+    }
+    var left = n, k = 0, misses = 0;
+    while (left > 3 && misses < left) {
+      if (isEar(k)) {
+        tris.push(pts[prev[k]], pts[k], pts[next[k]]);
+        next[prev[k]] = next[k];
+        prev[next[k]] = prev[k];
+        k = prev[k];
+        left--;
+        misses = 0;
+      } else {
+        k = next[k];
+        misses++;
       }
     }
-    tris.push(pts[idx[0]], pts[idx[1]], pts[idx[2]]);
+    tris.push(pts[prev[k]], pts[k], pts[next[k]]);
     return tris;
   }
-  var tris = triangulate(SPECTRE);
+
+  /* Curved edges replace each straight edge by the same S-curve, the chord
+     pushed sideways by amp * sin(2 pi u). The curve has a half-turn symmetry
+     about the edge midpoint, so two neighbours, which run along a shared
+     edge in opposite directions, draw exactly the same curve. amp is in edge
+     lengths; 0 means straight. */
+  var amp = 0;
+  function outline(a, perEdge) {
+    var pts = [];
+    for (var i = 0; i < 14; i++) {
+      var p = SPECTRE[i], q = SPECTRE[(i + 1) % 14], ex = q[0] - p[0], ey = q[1] - p[1];
+      for (var k = 0; k < perEdge; k++) {
+        var u = k / perEdge, g = a * Math.sin(2 * Math.PI * u);
+        pts.push([p[0] + ex * u - ey * g, p[1] + ey * u + ex * g]);
+      }
+    }
+    return pts;
+  }
+
+  // One buffer holds every mesh: the straight tile, then the curved tile at
+  // 4, 8, 16 and 32 points per edge. A draw call picks its range by zoom.
+  var MESH_STEPS = [4, 8, 16, 32];
+  var meshes = {};
   var baseBuf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, baseBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([].concat.apply([], tris)), gl.STATIC_DRAW);
-  var BASE_COUNT = tris.length;
+  function buildMeshes() {
+    var data = [], first = 0;
+    function add(key, pts) {
+      var t = triangulate(pts);
+      meshes[key] = { first: first, count: t.length };
+      t.forEach(function (p) { data.push(p[0], p[1]); });
+      first += t.length;
+    }
+    add(0, SPECTRE);
+    if (amp > 0) MESH_STEPS.forEach(function (n) { add(n, outline(amp, n)); });
+    gl.bindBuffer(gl.ARRAY_BUFFER, baseBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+  }
+  // The fewest points per edge that keep the fill within a quarter of a
+  // device pixel of the true curve. Below a third of a pixel of bend the
+  // straight tile is drawn instead.
+  function pickMesh(s) {
+    if (!(amp > 0) || amp * s < 0.3) return 0;
+    var kappa = 4 * Math.PI * Math.PI * amp;
+    for (var k = 0; k < MESH_STEPS.length; k++) {
+      var n = MESH_STEPS[k];
+      if (kappa * s * dpr / (8 * n * n) <= 0.25) return n;
+    }
+    return MESH_STEPS[MESH_STEPS.length - 1];
+  }
+  buildMeshes();
 
   gl.uniform2fv(U.u_v, new Float32Array([].concat.apply([], SPECTRE)));
 
@@ -689,7 +779,7 @@ select { background: var(--panel); }
     // 2.8 times per level, so small supertiles never bury their tiles.
     var widths = [1.0];
     for (var k = 1; k <= 5; k++) {
-      var w = Math.min(6, Math.max(0, 0.55 * Math.log2(s * Math.pow(2.8, k) / 4)));
+      var w = Math.min(6, Math.max(0, 0.45 * Math.log2(s * Math.pow(2.8, k) / 4)));
       if (widths[k - 1] > 0 && k > 1) w = Math.max(w, widths[k - 1] + 0.4);
       widths.push(Math.min(6, w));
     }
@@ -697,6 +787,9 @@ select { background: var(--panel); }
     // Tile edges fade as the tiles shrink, so the colours still read.
     var t = Math.min(1, Math.max(0, (s - 1.2) / 5));
     gl.uniform1f(U.u_edgeAlpha, 0.22 + 0.63 * t * t * (3 - 2 * t));
+    var meshKey = pickMesh(s), mesh = meshes[meshKey];
+    gl.uniform1f(U.u_amp, meshKey ? amp : 0);
+    gl.uniform1f(U.u_reach, (Math.max.apply(null, widths) * dpr / 2 + 1.5) / (s * dpr));
 
     var hw = W / 2 / s + MARGIN, hh = H / 2 / s + MARGIN;
     var i0 = Math.floor((view.x - hw) / CHUNK), i1 = Math.floor((view.x + hw) / CHUNK);
@@ -717,7 +810,7 @@ select { background: var(--panel); }
         if (!visible || !c.count) continue;
         gl.uniform2f(U.u_chunk, i * CHUNK - view.x, j * CHUNK - view.y);
         gl.bindVertexArray(c.vao);
-        gl.drawArraysInstanced(gl.TRIANGLES, 0, BASE_COUNT, c.count);
+        gl.drawArraysInstanced(gl.TRIANGLES, mesh.first, mesh.count, c.count);
       }
     }
     gl.bindVertexArray(null);
@@ -969,16 +1062,24 @@ select { background: var(--panel); }
   /* ------------------------------------------------------------- controls */
 
   var schemeEl = document.getElementById('scheme');
+  var curvedEl = document.getElementById('curved');
+  var bendEl = document.getElementById('bend');
+  var bendRow = document.getElementById('bend-row');
+  var curved = false, bend = 0.15;
   var outlinesEl = document.getElementById('outlines');
   try {
     var saved = JSON.parse(localStorage.getItem('spectre-options') || '{}');
     if (saved.scheme >= 0 && saved.scheme <= 3) scheme = saved.scheme;
     outlines = !!saved.outlines;
+    curved = !!saved.curved;
+    if (saved.bend >= 0.03 && saved.bend <= 0.4) bend = saved.bend;
   } catch (e) {}
   schemeEl.value = String(scheme);
   outlinesEl.checked = outlines;
   function saveOptions() {
-    try { localStorage.setItem('spectre-options', JSON.stringify({ scheme: scheme, outlines: outlines })); } catch (e) {}
+    try {
+      localStorage.setItem('spectre-options', JSON.stringify({ scheme: scheme, outlines: outlines, curved: curved, bend: bend }));
+    } catch (e) {}
   }
   schemeEl.addEventListener('change', function () {
     scheme = parseInt(schemeEl.value, 10);
@@ -986,6 +1087,31 @@ select { background: var(--panel); }
     renderLegend();
     requestDraw();
   });
+  function applyCurve() {
+    amp = curved ? bend : 0;
+    bendRow.hidden = !curved;
+    buildMeshes();
+    renderLegend();
+    requestDraw();
+  }
+  curvedEl.checked = curved;
+  bendEl.value = String(bend);
+  bendRow.hidden = !curved;
+  amp = curved ? bend : 0;
+  buildMeshes();
+  curvedEl.addEventListener('change', function () {
+    curved = curvedEl.checked;
+    saveOptions();
+    applyCurve();
+    // At the opening zoom a bend of 0.15 moves an edge about one pixel, so
+    // zoom in far enough to see the curves.
+    if (curved && view.s < 14) zoomTowards(20 / view.s, W / 2, H / 2);
+  });
+  bendEl.addEventListener('input', function () {
+    bend = parseFloat(bendEl.value);
+    applyCurve();
+  });
+  bendEl.addEventListener('change', saveOptions);
   outlinesEl.addEventListener('change', function () {
     outlines = outlinesEl.checked;
     saveOptions();
@@ -1021,7 +1147,7 @@ select { background: var(--panel); }
   function tileSvg(angleIndex, colour) {
     var t = angleIndex * Math.PI / 6, c = Math.cos(t), s = Math.sin(t);
     var cx = 1.5, cy = 0.95;
-    var pts = SPECTRE.map(function (p) {
+    var pts = (amp > 0 ? outline(amp, 12) : SPECTRE).map(function (p) {
       var x = p[0] - cx, y = p[1] - cy;
       return (c * x - s * y).toFixed(3) + ',' + (-(s * x + c * y)).toFixed(3);
     }).join(' ');
@@ -1031,7 +1157,7 @@ select { background: var(--panel); }
 
   function renderLegend() {
     if (!pal) return;
-    var head = { 0: '12 orientations', 1: 'Orientation mod 60°', 2: 'Supertile labels', 3: 'Plain' }[scheme];
+    var head = { 0: '12 orientations', 1: 'Orientation mod 60°', 2: '9 tile types', 3: 'Plain' }[scheme];
     var html = '<h2><span>' + head + '</span><button type="button" id="legend-toggle" aria-expanded="' + legendOpen + '">' +
       (legendOpen ? 'Hide' : 'Key') + '</button></h2>';
     if (legendOpen) {
@@ -1050,10 +1176,12 @@ select { background: var(--panel); }
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(function (k) {
           html += '<figure>' + tileSvg(k === 1 ? 1 : 0, pal.labels[k]) + '<figcaption>' + LABEL_NAMES[k] + '</figcaption></figure>';
         });
-        html += '</div><p class="note">Γ₁ and Γ₂ together make one Mystic.</p>';
+        html += '</div><p class="note">The substitution rules give each tile one of nine types.<br>' +
+          'Each type grows into a different cluster of tiles.<br>Γ₁ and Γ₂ together make one Mystic.</p>';
       } else {
         html += '<p class="note">Every tile the same colour.</p>';
       }
+      if (curved) html += '<p class="note">Curved edges: the same S-curve on all 14 edges.</p>';
       if (outlines) html += '<p class="note">Outlines: thicker for higher supertile levels, 1 to 5.</p>';
     }
     legendEl.innerHTML = html;
