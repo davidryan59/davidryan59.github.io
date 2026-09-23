@@ -8,8 +8,9 @@ David Ryan's GitHub Pages site, served at <https://davidryan59.github.io/>.
   collections, both still mintable onchain. See
   [docs/mint-pages.md](docs/mint-pages.md).
 - `mint.css`, `mint.js` — shared styling and mint logic for those pages.
-- `demos/hat/`, `demos/spectre/` — map-style viewers for the Hat and Spectre
-  tilings, sharing the engine in `demos/engine/`. WebGL 2, no libraries. See
+- `demos/hat/`, `demos/spectre/`, `demos/hat-extended/` — map-style viewers
+  for the Hat and Spectre tilings, and the Hat with curved edges, sharing the
+  engine in `demos/engine/`. WebGL 2, no libraries. See
   [docs/tiling-demos.md](docs/tiling-demos.md).
 
 There is no build step. Edit the files here and push; GitHub Pages serves the
@@ -24,6 +25,7 @@ there first, then render it into `index.html`.
 ## Docs
 
 - [docs/tiling-demos.md](docs/tiling-demos.md) — how the Hat and Spectre viewers work
+- [docs/hat-edge-research.md](docs/hat-edge-research.md) — why curved edges make the Hat two tiles, and how that was checked
 - [docs/inventory.md](docs/inventory.md) — the source list the page renders
 - [docs/mint-pages.md](docs/mint-pages.md) — how the two mint pages work
 - [docs/roaming-diamond.md](docs/roaming-diamond.md) — a shelved intro-text

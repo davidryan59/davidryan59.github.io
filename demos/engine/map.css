@@ -70,16 +70,29 @@ a { color: var(--link); }
 }
 .top .card { position: static; pointer-events: auto; }
 
-.title { max-width: 340px; padding: 0.7rem 0.9rem 0.75rem; }
+.title { max-width: 380px; padding: 0.7rem 0.9rem 0.75rem; }
 .title .back { font-size: 0.85rem; text-decoration: none; }
 .title .back:hover { text-decoration: underline; }
+/* About sits in the title card's top right corner, level with the back
+   link, since it explains the tiling the card names. */
+.top .title { position: relative; }
+.title .about-open { position: absolute; top: 0.55rem; right: 0.65rem; padding: 0.12rem 0.55rem; font-size: 0.8rem; }
 .title h1 { font-size: 1.3rem; line-height: 1.2; color: var(--h1); margin: 0.2rem 0 0.25rem; font-weight: normal; }
 .title p { margin: 0; font-size: 0.9rem; color: var(--muted); }
 .title .row { display: flex; gap: 0.5rem; margin-top: 0.55rem; flex-wrap: wrap; align-items: center; }
 
-/* The Spectre | Hat switch, styled as two joined tabs. */
-.switch { display: inline-flex; border: 1px solid var(--ring); border-radius: 7px; overflow: hidden; font-size: 0.85rem; }
-.switch a { padding: 0.2rem 0.65rem; text-decoration: none; color: var(--h3); }
+/* The Hat | Spectre | Hat (extended) switch, styled as joined tabs of
+   equal width. */
+.switch {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border: 1px solid var(--ring);
+  border-radius: 7px;
+  overflow: hidden;
+  font-size: 0.85rem;
+}
+.switch a { padding: 0.2rem 0.55rem; text-decoration: none; color: var(--h3); text-align: center; white-space: nowrap; }
 .switch a + a { border-left: 1px solid var(--ring); }
 .switch a[aria-current="page"] { background: var(--ring); color: var(--h1); }
 .switch a:hover { color: var(--h1); }
@@ -216,7 +229,6 @@ select { background: var(--panel); max-width: 100%; }
 .legend figure { margin: 0; display: flex; flex-direction: column; align-items: center; min-width: 1.9rem; }
 .legend svg { width: 1.8rem; height: 1.8rem; display: block; overflow: visible; }
 .legend figcaption { font-size: 0.66rem; color: var(--text); line-height: 1.1; white-space: nowrap; }
-.legend .note { font-size: 0.72rem; color: var(--muted); margin: 0; }
 .legend input[type="color"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
 /* About sheet. */
@@ -255,6 +267,9 @@ select { background: var(--panel); max-width: 100%; }
   .title p.hint { display: none; }
   .title h1 { font-size: 1.1rem; }
   .title .row { margin-top: 0.35rem; }
+  .title .about-open { top: 0.4rem; right: 0.5rem; }
+  .switch { font-size: 0.8rem; }
+  .switch a { padding: 0.2rem 0.4rem; }
   .options { width: auto; }
   .options .head { display: block; }
   .options:not(.folded) .body { margin-top: 0.45rem; }

@@ -26,13 +26,13 @@
 <div class="top">
 <div class="card title">
   <a class="back" href="../../index.html">← David Ryan's builder page</a>
+  <button type="button" class="about-open" id="about-open">About</button>
   <h1>Spectre tiling</h1>
-  <p class="hint">One tile shape, a pattern that never repeats. Drag to move, scroll or pinch to zoom.</p>
+  <p class="hint">Tiles using only rotations, mirror image not required</p>
   <div class="row">
     <nav class="switch" aria-label="Tiling">
-      <a href="../hat/index.html">Hat</a><a href="index.html" aria-current="page">Spectre</a>
+      <a href="../hat/index.html">Hat</a><a href="../spectre/index.html" aria-current="page">Spectre</a><a href="../hat-extended/index.html">Hat (extended)</a>
     </nav>
-    <button type="button" id="about-open">About</button>
   </div>
 </div>
 
@@ -131,14 +131,14 @@
       </svg>
     </button>
     <button class="theme-toggle" type="button" hidden>
-    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="4.1"/>
-      <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
-    </svg>
-    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
-      <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
-    </svg>
-  </button>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.1"/>
+        <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+      </svg>
+    </button>
     <button type="button" class="linkish" id="legend-toggle" aria-expanded="true">Hide</button>
   </div>
   <div id="legend-body" aria-live="polite"></div>
@@ -205,13 +205,13 @@
 
 <script src="../engine/tiling-core.js"></script>
 <script src="tiling.js"></script>
-<script src="shapes.js"></script>
+<script src="../engine/edges.js"></script>
 <script src="../engine/map.js"></script>
 <script>
 (function () {
   'use strict';
 
-  var TM = TilingMap, SS = SpectreShapes, SPECTRE = SpectreTiling.SPECTRE;
+  var TM = TilingMap, SS = EdgeShapes, SPECTRE = SpectreTiling.SPECTRE;
   var oklch = TM.oklch, hex = TM.hex;
 
   /* ------------------------------------------------------------- state */
@@ -258,11 +258,8 @@
     outline: function (res) { return SS.outline(SPECTRE, st, res); },
     profile: function (res) {
       if (res < 0) return null;
-      var p = SS.fitted(st, res);
-      if (!p) return null;
-      var m = 0;
-      p.forEach(function (q) { m = Math.max(m, Math.abs(q[1])); });
-      return { pts: p, alt: st.arrangement === 'alt', maxAbs: m };
+      var p = SS.fitted(st, res), m = SS.mask(SS.spectreSym(st), 14);
+      return p ? { pts: p, sym: [m, m] } : null;
     }
   };
 
@@ -338,9 +335,6 @@
     shape: shape,
     gridSpacing: function () { return [1, 1]; },
     tileRadius: function () { return 6 + Math.abs(st.bend); },
-    keyNote: function (g) {
-      return g.n === 12 ? 'Six common orientations, then six rare ones turned a further 30°.' : '';
-    },
     onReset: function () {
       st = defaults();
       saveEdges();
@@ -433,7 +427,9 @@
       var lo = L[1] === null ? -0.75 : L[1], hi = L[0] === null ? 0.75 : L[0];
       limitsEl.style.background = 'linear-gradient(to right, ' + red + ' 0, ' + red + ' ' + pct(lo) + ', ' + ok + ' ' +
         pct(lo) + ', ' + ok + ' ' + pct(hi) + ', ' + red + ' ' + pct(hi) + ', ' + red + ' 100%)';
-      limitNote.textContent = L[0] === null && L[1] === null ? 'No collisions between −0.75 and +0.75.'
+      // The note shows only when tiles collide somewhere on the slider.
+      limitNote.hidden = L[0] === null && L[1] === null;
+      limitNote.textContent = limitNote.hidden ? ''
         : 'Tiles collide beyond ' + (L[0] !== null ? signed(L[0]) : 'none') + ' and ' + (L[1] !== null ? signed(L[1]) : 'none') + '.';
     }, 150);
   }

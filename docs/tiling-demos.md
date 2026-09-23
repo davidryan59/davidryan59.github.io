@@ -1,10 +1,14 @@
-# Tiling demos: Hat and Spectre
+# Tiling demos: Hat, Spectre and Hat (extended)
 
 ## Summary
 
-Two map-style viewers for the aperiodic monotiles found in 2023: the Hat at
-`demos/hat/` and the Spectre at `demos/spectre/`. Both pan, zoom and turn like
-a web map, build their tiles on demand so the plane has no edge, and share one
+Map-style viewers for the aperiodic monotiles found in 2023: the Hat at
+`demos/hat/` and the Spectre at `demos/spectre/`. A third page,
+`demos/hat-extended/`, draws the Hat with curved edges. Curved edges force
+the mirrored hats to become a second tile, as
+[hat-edge-research.md](hat-edge-research.md) explains, so that page keeps
+the Hat and Spectre pages one tile each. All three pan, zoom and turn like a
+web map, build their tiles on demand so the plane has no edge, and share one
 engine. Plain JavaScript and WebGL 2, no libraries, no build step.
 
 ## Files
@@ -14,11 +18,13 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
 | `demos/engine/tiling-core.js` | Worker side, shared: prototypes, supertile boundary levels, the hierarchy walk, chunk packing, corner lookup, the message loop |
 | `demos/engine/map.js` | Page side, shared: WebGL drawing, chunk cache and worker pool, pan, zoom and turn, colours and the key, the grid tool, the address bar |
 | `demos/engine/map.css` | Shared styling, using the site's colour tokens |
+| `demos/engine/edges.js` | Edge shapes, both arrangements, the symmetry each edge takes, collision limits |
 | `demos/hat/tiling.js` | Hat metatile construction and two-part lift, run as a worker |
 | `demos/hat/index.html` | Hat page: the a:b slider, colour presets, About text |
 | `demos/spectre/tiling.js` | Spectre substitution rules, run as a worker |
-| `demos/spectre/shapes.js` | Spectre edge shapes, both arrangements, collision limits |
 | `demos/spectre/index.html` | Spectre page: controls, colour presets, About text |
+| `demos/hat-extended/index.html` | Hat (extended) page: the a:b slider, curved edges with the two-tile rule, About text. It runs the Hat's worker |
+| `tools/hat-edges/` | The research scripts behind the Hat (extended) page, run under Node and Python |
 
 ## How it works
 
@@ -42,8 +48,20 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
   for higher levels, and draws discs at corners so thick lines meet cleanly.
 - **Strokes.** Each tile strokes the inner half of its own edges and its
   neighbour strokes the other half. Curved edges use the distance to the edge
-  profile, uploaded as up to 65 points. Each tile takes whichever of two inks
-  contrasts with it more, so outlines survive any key.
+  profile, uploaded as up to 65 points. There can be two profiles, A and B,
+  and a mask picks B for some edges: the Hat (extended) page gives b-edges
+  their own height this way. Each tile takes whichever of two inks contrasts
+  with it more, so outlines survive any key.
+- **Edge symmetries.** Each edge places the profile after one of four
+  symmetries: as it is, backwards, reflected in the edge's line, or a half
+  turn. The shader gets them as masks of two bits per edge, one mask for
+  unmirrored tiles and one for mirrored. The Spectre's Single half turns its
+  odd edges. The Hat (extended) rule is in
+  [hat-edge-research.md](hat-edge-research.md).
+- **Hands.** A shape with `hands: 2` has a second outline for mirrored tiles.
+  The page then keeps a mesh per hand, and the vertex shader sends each tile
+  of the other hand off screen, so each mesh draws only its own tiles. The
+  key draws each class from its own hand's outline.
 - **Fill.** Each tile shape is cut into triangles once per shape. The outline
   is tidied first: repeated corners, where edges have zero length at the
   chevron and the comet, and straight corners are removed. A corner lying on
@@ -51,6 +69,10 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
   turtle many corners fall on one grid line. A looser test cut triangles
   outside the tile there, and the old version left holes at the endpoints.
 - **Collisions.** Past the collision limit a tile's outline crosses itself.
+  The limit search tests exactly that: as a height grows from zero, the
+  first two curves to touch face each other across one tile, so they touch
+  as that tile's outline crosses itself. With two hands, both outlines are
+  tested.
   `faces()` in `map.js` splits the outline at the crossings and labels each
   piece with its winding number. Pieces with winding 1 or 2 fill normally.
   Pieces with winding -1 (inside out) draw as red stripes in a second pass.
@@ -63,9 +85,11 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
 ## Options
 
 - **Panels.** Colour lives in the bottom-left panel: the scheme menu, the
-  dice, the theme toggle, the key and Reset colours. Everything else lives
-  top right, with its own Reset options. Neither reset touches the theme,
-  which the whole site shares, or the view, which the home button resets.
+  dice, the theme toggle, the key and Reset colours. Shape, supertiles and
+  grid live top right, with their own Reset options. Neither reset touches
+  the theme, which the whole site shares, or the view, which the home
+  button resets. About sits in the title card's top right corner, and the
+  compass, zoom and turn buttons stack bottom right, as on a map.
 - **Colours.** Each page lists presets under its groupings. The Spectre
   groups its 12 orientations by turn modulo 30°, 60°, 90°, 120°, 180° or
   360°. The Hat has 12 colours, 2 (by hand) or 1. It has no grouping by turn
@@ -82,12 +106,18 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
   higher contrast ratio (WCAG) against the tile's colour.
 - **Spectre edges.** The bump shape first: Line (the default), Curve,
   Triangle, Trapezium or Jigsaw. Then Single (the default) or Double, then
-  Height. Line
-  hides those two, and they sit below the menu so the menu never moves. Height 0 is also a straight edge. Sine, Parabola,
-  Sawtooth and Square were folded in on 2026-09-23, and `OLD` in
-  `shapes.js` maps their ids so old links and saved settings load.
+  Height. Line hides those two, and they sit below the menu so the menu
+  never moves. Height 0 is also a straight edge. Sine, Parabola, Sawtooth
+  and Square were folded in on 2026-09-23, and `OLD` in `edges.js` maps
+  their ids so old links and saved settings load.
+- **Hat (extended) edges.** The Hat's tile shape slider, then the same edge
+  controls as the Spectre, with two heights: one for a-edges and one for
+  b-edges, since the two never meet. Each height slider shows its collision
+  limit with the other height held. With Line, the default, the page looks
+  the same as the Hat page.
+- **Tabs.** Hat, Spectre and Hat (extended), joined and of equal width.
 - **Sticky stops.** A slider near a stop snaps to it, within 4% of its
-  range: Height at 0, Peak position at 0, 0.5 and 1, Rising and Falling side
+  range: each Height at 0, Peak position at 0, 0.5 and 1, Rising and Falling side
   at 0 and 0.5. The Hat slider snaps within 3° at Hat, Spectre and Turtle,
   and within 1.25° at the two ends. The Jigsaw neck runs from 0 to 1, but
   the shape keeps at least 2% of it, since a zero neck hangs the head from a
@@ -122,12 +152,16 @@ hats for the first method alone. The reshaped tiling was sampled at 0°, 15°,
 ## Checking a change
 
 - Serve the site with `python3 -m http.server` from the repo root and open
-  `/demos/spectre/` and `/demos/hat/`. Opened from disk, the pages build
+  `/demos/spectre/`, `/demos/hat/` and `/demos/hat-extended/`. Opened from
+  disk, the pages build
   chunks on the main thread instead of in workers, which is slower but
   works.
 - The workers run under Node: `require('./demos/hat/tiling.js').build()`
   returns the root and the chunk functions. The checks above were run this
   way, by decoding chunks and testing edge pairing and point coverage.
+- After a change to `edges.js` or the Hat (extended) rule, run
+  `node tools/hat-edges/verify-page.js`. It checks that every shared edge
+  still carries one curve from both sides.
 
 ## Removed: colour by label
 

@@ -5,7 +5,11 @@
 
    Tiles arrive from the worker in chunks. Each tile carries a two-part
    position (see tiling-core.js) and draws at a*p + b*zeta*r, so the Hat page
-   can reshape every loaded tile at once by changing a and b. */
+   can reshape every loaded tile at once by changing a and b.
+
+   A tile shape usually has one outline, which mirrored tiles draw
+   reflected. A shape with hands: 2 has a second outline for mirrored
+   tiles, as the Hat (extended) page needs once its edges curve. */
 (function (global) {
   'use strict';
 
@@ -231,10 +235,17 @@
     'uniform mat2 u_view;',
     'uniform vec2 u_half;',
     'uniform vec2 u_anchor;',
+    'uniform int u_hand;',
     'out vec2 v_local;',
     'out vec2 v_rel;',
     'flat out uvec3 v_bits;',
     'void main() {',
+    // A mesh for one hand only: tiles of the other hand go off screen.
+    '  if (u_hand >= 0 && int((a_bits.x >> 4u) & 1u) != u_hand) {',
+    '    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);',
+    '    v_local = vec2(0.0); v_rel = vec2(0.0); v_bits = uvec3(0u);',
+    '    return;',
+    '  }',
     '  uint turn = a_bits.x & 15u;',
     '  vec2 v = a_local;',
     '  if ((a_bits.x & 16u) != 0u) v.y = -v.y;',
@@ -271,10 +282,15 @@
     'uniform vec3 u_line;',
     'uniform vec3 u_edgeAlt;',
     'uniform vec3 u_lineAlt;',
-    'uniform vec2 u_prof[65];',
-    'uniform int u_profN;',
-    'uniform float u_profMax;',
-    'uniform bool u_profAlt;',
+    // Up to two edge profiles of 65 points each, A then B. u_profSel picks
+    // B for an edge, one bit per edge. u_profSym holds each edge's symmetry,
+    // two bits per edge (1 backwards, 2 reflected), for unmirrored tiles in
+    // x and mirrored tiles in y.
+    'uniform vec2 u_prof[130];',
+    'uniform ivec2 u_profN;',
+    'uniform vec2 u_profMax;',
+    'uniform ivec2 u_profSym;',
+    'uniform int u_profSel;',
     'uniform float u_reach;',
     'uniform int u_pass;',
     'uniform vec3 u_hot;',
@@ -296,21 +312,29 @@
     '  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-12), 0.0, 1.0);',
     '  return length(pa - ba * h);',
     '}',
-    // Distance to edge i, following the edge profile when there is one.
-    'float edgeDist(vec2 p, vec2 a, vec2 b, int i) {',
+    // Distance to edge i, following its profile when it has one. The
+    // edge's symmetry is applied to the point, which measures the same
+    // distance as applying it to the profile.
+    'float edgeDist(vec2 p, vec2 a, vec2 b, int i, bool flip) {',
     '  float d = segDist(p, a, b);',
-    '  if (u_profN < 2) return d;',
+    '  int pb = (u_profSel >> i) & 1;',
+    '  int np = pb == 1 ? u_profN.y : u_profN.x;',
+    '  if (np < 2) return d;',
+    '  float mx = pb == 1 ? u_profMax.y : u_profMax.x;',
     '  vec2 e = b - a;',
     '  float L = length(e);',
     '  if (L < 1e-9) return d;',
-    '  if (d > (u_profMax + u_reach) * L) return d - u_profMax * L;',
+    '  if (d > (mx + u_reach) * L) return d - mx * L;',
     '  vec2 ue = e / L, n = vec2(-ue.y, ue.x), q = p - a;',
     '  vec2 pp = vec2(dot(q, ue), dot(q, n)) / L;',
-    '  if (u_profAlt && (i - 2 * (i / 2)) == 1) pp = vec2(1.0 - pp.x, -pp.y);',
+    '  int g = ((flip ? u_profSym.y : u_profSym.x) >> (2 * i)) & 3;',
+    '  if ((g & 1) != 0) pp.x = 1.0 - pp.x;',
+    '  if ((g & 2) != 0) pp.y = -pp.y;',
+    '  int off = pb * 65;',
     '  float best = 1e9;',
     '  for (int k = 0; k < 64; k++) {',
-    '    if (k >= u_profN - 1) break;',
-    '    best = min(best, segDist(pp, u_prof[k], u_prof[k + 1]));',
+    '    if (k >= np - 1) break;',
+    '    best = min(best, segDist(pp, u_prof[off + k], u_prof[off + k + 1]));',
     '  }',
     '  return best * L;',
     '}',
@@ -329,7 +353,7 @@
     '  for (int i = 0; i < 14; i++) {',
     '    vec2 a = u_corners[i];',
     '    vec2 b = u_corners[i == 13 ? 0 : i + 1];',
-    '    float d = edgeDist(v_local, a, b, i) * u_scale;',
+    '    float d = edgeDist(v_local, a, b, i, flip) * u_scale;',
     '    int lv = u_levels ? int(min(edgeLevel(i), 5u)) : 0;',
     '    cov[lv] = max(cov[lv], clamp(u_width[lv] + 0.5 - d, 0.0, 1.0));',
     '    if (u_levels) {',
@@ -488,27 +512,28 @@
       names.forEach(function (n) { U[n] = gl.getUniformLocation(p, n); });
       return { p: p, U: U };
     }
-    var tileProg = program(TILE_VS, TILE_FS, ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_corners',
+    var tileProg = program(TILE_VS, TILE_FS, ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_hand', 'u_corners',
       'u_scale', 'u_class', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line', 'u_edgeAlt',
-      'u_lineAlt', 'u_prof',
-      'u_profN', 'u_profMax', 'u_profAlt', 'u_reach', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat',
-      'u_dotCol', 'u_dotRange', 'u_dotR']);
+      'u_lineAlt', 'u_prof', 'u_profN', 'u_profMax', 'u_profSym', 'u_profSel',
+      'u_reach', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat', 'u_dotCol', 'u_dotRange', 'u_dotR']);
     var overProg = program(OVERLAY_VS, OVERLAY_FS, ['u_half', 'u_inv', 'u_anchor', 'u_on', 'u_lat', 'u_gap',
       'u_col', 'u_scale', 'u_px', 'u_picks', 'u_nPicks', 'u_pickCol']);
     var overVao = gl.createVertexArray();
 
     /* -------------------------------------------------- tile meshes */
 
-    // Meshes for the current tile shape, one per level of detail, all in one
-    // buffer. Each has a fill range and an inside-out range.
+    // Meshes for the current tile shape, one per level of detail and hand,
+    // all in one buffer. Hand 1 is the outline for mirrored tiles, when the
+    // shape has one. Each mesh has a fill range and an inside-out range.
     var baseBuf = gl.createBuffer();
     var meshData = [], meshes = new Map(), meshSig = null;
-    function mesh(res) {
+    var hands = cfg.shape.hands === 2 ? [0, 1] : [-1];
+    function mesh(res, hand) {
       var sig = cfg.shape.signature();
       if (sig !== meshSig) { meshes.clear(); meshData = []; meshSig = sig; }
-      var key = cfg.shape.lodKey(res);
+      var key = cfg.shape.lodKey(res) + (hand > 0 ? ':m' : '');
       if (meshes.has(key)) return meshes.get(key);
-      var outline = tidy(cfg.shape.outline(res));
+      var outline = tidy(cfg.shape.outline(res, hand > 0 ? 1 : 0));
       var fill = [], hot = [];
       faces(outline).forEach(function (f) {
         var pts = f.pts;
@@ -798,7 +823,7 @@
     // with the view so it matches the screen. SVG runs y down, so y flips.
     function tileSvg(cls, colour) {
       var c = cfg.classes[cls];
-      var pts = cfg.shape.outline(1), cx = 0, cy = 0;
+      var pts = cfg.shape.outline(1, c.flip), cx = 0, cy = 0;
       pts.forEach(function (p) { cx += p[0] / pts.length; cy += p[1] / pts.length; });
       var ang = c.turn * Math.PI / 6 + view.rot, co = Math.cos(ang), si = Math.sin(ang), rmax = 0;
       var out = pts.map(function (p) {
@@ -848,8 +873,7 @@
           });
           html += '</button>';
         });
-        html += '</div><p class="note">' + (cfg.keyNote ? cfg.keyNote(g) + ' ' : '') + 'Click a group to change its colour.</p>';
-        if (cfg.extraNotes) html += cfg.extraNotes();
+        html += '</div>';
         html += '<div><button type="button" class="linkish" id="reset-colours">Reset colours</button></div>';
         html += '<input type="color" id="legend-colour" tabindex="-1" aria-hidden="true">';
       }
@@ -991,7 +1015,7 @@
 
       var s = view.s, U = tileProg.U;
       var res = cfg.shape.lod(s * dpr);
-      var m = mesh(res);
+      var ms = hands.map(function (h) { return mesh(res, h); });
       gl.useProgram(tileProg.p);
       var co = Math.cos(view.rot), si = Math.sin(view.rot), k = s * dpr;
       gl.uniformMatrix2fv(U.u_view, false, [co * k, si * k, -si * k, co * k]);
@@ -1020,17 +1044,24 @@
       gl.uniform1fv(U.u_width, new Float32Array(widths.map(function (w) { return w * dpr / 2; })));
       var t = Math.min(1, Math.max(0, (s - 1.2) / 5));
       gl.uniform1f(U.u_edgeAlpha, 0.22 + 0.63 * t * t * (3 - 2 * t));
-      var prof = cfg.shape.profile(res);
-      if (prof && prof.pts.length >= 2) {
-        var arr = new Float32Array(130);
-        prof.pts.slice(0, 65).forEach(function (p, i) { arr[2 * i] = p[0]; arr[2 * i + 1] = p[1]; });
-        gl.uniform2fv(U.u_prof, arr);
-        gl.uniform1i(U.u_profN, Math.min(65, prof.pts.length));
-        gl.uniform1f(U.u_profMax, prof.maxAbs);
-        gl.uniform1i(U.u_profAlt, prof.alt ? 1 : 0);
-      } else {
-        gl.uniform1i(U.u_profN, 0);
-      }
+      // Edge profiles: A, and B for the edges in prof.sel. Each is a list of
+      // points or null for straight edges.
+      var prof = cfg.shape.profile(res) || {};
+      var arr = new Float32Array(260), np = [0, 0], mx = [0, 0];
+      [prof.pts, prof.pts2].forEach(function (pts, j) {
+        if (!pts || pts.length < 2) return;
+        np[j] = Math.min(65, pts.length);
+        pts.slice(0, 65).forEach(function (p, i) {
+          arr[130 * j + 2 * i] = p[0]; arr[130 * j + 2 * i + 1] = p[1];
+          mx[j] = Math.max(mx[j], Math.abs(p[1]));
+        });
+      });
+      gl.uniform2fv(U.u_prof, arr);
+      gl.uniform2i(U.u_profN, np[0], np[1]);
+      gl.uniform2f(U.u_profMax, mx[0], mx[1]);
+      var sym = prof.sym || [0, 0];
+      gl.uniform2i(U.u_profSym, sym[0], sym[1]);
+      gl.uniform1i(U.u_profSel, prof.sel || 0);
       gl.uniform1f(U.u_reach, (Math.max.apply(null, widths) * dpr / 2 + 1.5) / k);
 
       // Grid.
@@ -1088,14 +1119,18 @@
         }
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, baseBuf);
+      // Fills first, then the inside-out stripes over them, for each hand.
       [0, 1].forEach(function (pass) {
-        var first = pass ? m.hotFirst : m.first, count = pass ? m.hotCount : m.count;
-        if (!count) return;
         gl.uniform1i(U.u_pass, pass);
-        draws.forEach(function (d) {
-          gl.uniform2f(U.u_chunk, d.o[0], d.o[1]);
-          gl.bindVertexArray(d.c.vao);
-          gl.drawArraysInstanced(gl.TRIANGLES, first, count, d.c.count);
+        hands.forEach(function (h, hi) {
+          var m = ms[hi], first = pass ? m.hotFirst : m.first, count = pass ? m.hotCount : m.count;
+          if (!count) return;
+          gl.uniform1i(U.u_hand, h);
+          draws.forEach(function (d) {
+            gl.uniform2f(U.u_chunk, d.o[0], d.o[1]);
+            gl.bindVertexArray(d.c.vao);
+            gl.drawArraysInstanced(gl.TRIANGLES, first, count, d.c.count);
+          });
         });
       });
       gl.bindVertexArray(null);

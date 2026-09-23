@@ -26,13 +26,13 @@
 <div class="top">
 <div class="card title">
   <a class="back" href="../../index.html">← David Ryan's builder page</a>
+  <button type="button" class="about-open" id="about-open">About</button>
   <h1>Hat tiling</h1>
-  <p class="hint">One tile and its mirror image, a pattern that never repeats. Slide to reshape every tile.</p>
+  <p class="hint">The original aperiodic tile, which uses its mirror image</p>
   <div class="row">
     <nav class="switch" aria-label="Tiling">
-      <a href="index.html" aria-current="page">Hat</a><a href="../spectre/index.html">Spectre</a>
+      <a href="../hat/index.html" aria-current="page">Hat</a><a href="../spectre/index.html">Spectre</a><a href="../hat-extended/index.html">Hat (extended)</a>
     </nav>
-    <button type="button" id="about-open">About</button>
   </div>
 </div>
 
@@ -42,9 +42,8 @@
   </div>
   <div class="body">
     <div class="section">
-      <span class="section-title">Tile shape</span>
       <div class="slider">
-        <span id="shape-name">Hat</span><output id="shape-out"></output>
+        <span>Tile shape</span><output id="shape-out"></output>
         <input type="range" id="shape" min="0" max="90" step="0.25" aria-label="Tile shape, from chevron to comet">
         <div class="ticks placed" id="ticks">
           <button type="button" data-deg="0" style="left: 0">Chevron</button>
@@ -110,14 +109,14 @@
       </svg>
     </button>
     <button class="theme-toggle" type="button" hidden>
-    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="4.1"/>
-      <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
-    </svg>
-    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
-      <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
-    </svg>
-  </button>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.1"/>
+        <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+      </svg>
+    </button>
     <button type="button" class="linkish" id="legend-toggle" aria-expanded="true">Hide</button>
   </div>
   <div id="legend-body" aria-live="polite"></div>
@@ -154,8 +153,9 @@
     Hats turn in 60° steps and come in two hands, so the colours give each
     turn and hand its own colour, or split the hats by hand alone. Click a
     group in the key to give it your own colour, or roll the dice for random
-    colours. <em>Supertiles</em> show the hierarchy that forces the pattern: hats group into the metatiles H, T, P and F, which group into
-    larger ones, level after level. <em>Grid</em> lays a triangular grid
+    colours. <em>Supertiles</em> show the hierarchy that forces the pattern:
+    hats group into the metatiles H, T, P and F, which group into larger
+    ones, level after level. <em>Grid</em> lays a triangular grid
     through a corner. At the hat's own shape the 0° grid passes through every
     corner, since the hat is built from the kites of a regular grid. Move the
     slider and the fit breaks.
@@ -278,7 +278,6 @@
       (corners || []).forEach(function (p) { r = Math.max(r, Math.hypot(p[0], p[1])); });
       return r + 0.5;
     },
-    keyNote: function (g) { return g.n === 12 ? 'Top: six turns. Below: the same turns mirrored (m).' : ''; },
     onReset: function () {
       deg = 30;
       try { localStorage.removeItem('hat-shape'); } catch (e) {}
@@ -298,7 +297,7 @@
 
   /* ---------------------------------------------------------- controls */
 
-  var shapeEl = document.getElementById('shape'), nameEl = document.getElementById('shape-name');
+  var shapeEl = document.getElementById('shape');
   var outEl = document.getElementById('shape-out'), ticks = document.querySelectorAll('#ticks button');
 
   function applyShape() {
@@ -306,13 +305,11 @@
     var ab = abAt(deg);
     corners = cornersAt(ab[0], ab[1]);
     shapeEl.value = String(deg);
+    // A named shape shows as its lit tick, with its formula alongside.
     var named = NAMED.filter(function (n) { return Math.abs(n[0] - deg) < 1e-9; })[0];
-    if (named) { nameEl.textContent = named[1]; outEl.textContent = named[2]; }
-    else {
-      var t = deg * Math.PI / 180;
-      nameEl.textContent = 'Tile(a, b)';
-      outEl.textContent = deg <= 45 ? 'a : b = ' + Math.tan(t).toFixed(2) + ' : 1' : 'a : b = 1 : ' + (1 / Math.tan(t)).toFixed(2);
-    }
+    var t = deg * Math.PI / 180;
+    outEl.textContent = named ? named[2]
+      : deg <= 45 ? 'a : b = ' + Math.tan(t).toFixed(2) + ' : 1' : 'a : b = 1 : ' + (1 / Math.tan(t)).toFixed(2);
     Array.prototype.forEach.call(ticks, function (b) { b.classList.toggle('on', +b.dataset.deg === deg); });
     map.setAB(ab[0], ab[1]);
   }
