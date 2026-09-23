@@ -157,6 +157,11 @@ not the release — the live Optimism deployment above is the one to publish.
 | GitHub, public repos | [github.com/davidryan59](https://github.com/davidryan59) | Live |
 | npm profile | [npmjs.com/~davidryan](https://www.npmjs.com/~davidryan) | Live, confirmed in browser 2026-08-14. Blocked to automated checks; the four packages below were confirmed instead via the npm registry's own search API, which has no such block |
 
+### Maths demos
+| Item | Link | Status |
+|---|---|---|
+| Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [davidryan59.github.io/demos/spectre/](https://davidryan59.github.io/demos/spectre/) | Unchecked; live once pushed |
+
 ### npm packages
 Four, all last published December 2019 or later, confirmed live on the
 registry 2026-08-13.

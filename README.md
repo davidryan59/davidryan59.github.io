@@ -8,6 +8,8 @@ David Ryan's GitHub Pages site, served at <https://davidryan59.github.io/>.
   collections, both still mintable onchain. See
   [docs/mint-pages.md](docs/mint-pages.md).
 - `mint.css`, `mint.js` — shared styling and mint logic for those pages.
+- `demos/spectre/` — a pan-and-zoom viewer for the Spectre tiling. WebGL 2,
+  no libraries. `tiling.js` builds the tiles in Web Workers, chunk by chunk.
 
 There is no build step. Edit the files here and push; GitHub Pages serves the
 repo as it stands.

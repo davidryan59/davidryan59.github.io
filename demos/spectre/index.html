@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spectre tiling – an aperiodic monotile</title>
+<meta name="description" content="Pan and zoom across the Spectre tiling, the aperiodic monotile found in 2023. One tile shape covers the plane in a pattern that never repeats.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://davidryan59.github.io/demos/spectre/">
+<meta property="og:title" content="Spectre tiling – an aperiodic monotile">
+<meta property="og:description" content="Pan and zoom across the Spectre tiling. One tile shape, a pattern that never repeats.">
+<meta property="og:image" content="https://davidryan59.github.io/social-card.jpg">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:creator" content="@davidryan59">
+<script src="../../audit.js"></script>
+<script>Audit.initTheme();</script>
+<style>
+/* Colour tokens match index.html and audit.css, so the cards read as part of
+   the site. The map itself takes its colours from the script. */
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#f6f3ec, #16161a);
+  --panel: light-dark(rgba(255, 253, 248, 0.94), rgba(30, 30, 35, 0.94));
+  --text: light-dark(#46443d, #c8c4b9);
+  --h1: light-dark(#1a1a1a, #f5f3ec);
+  --h3: light-dark(#38362e, #d8d4c9);
+  --link: light-dark(#1552a1, #7aa6e0);
+  --rule: light-dark(#ddd8cc, #3a3a3a);
+  --ring: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.16));
+  --muted: light-dark(#7c786d, #918c80);
+  --shadow: light-dark(0 2px 10px rgba(40, 30, 10, 0.14), 0 2px 12px rgba(0, 0, 0, 0.5));
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
+body {
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+a { color: var(--link); }
+
+#map {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+  outline: none;
+}
+#map.dragging { cursor: grabbing; }
+
+.card {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* The title and options cards share a top bar. They sit at either end on a
+   wide screen and wrap onto two rows on a phone. The bar itself lets drags
+   through to the map. */
+.top {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+.top .card { position: static; pointer-events: auto; }
+
+/* Title card, top left. */
+.title {
+  max-width: 340px;
+  padding: 0.7rem 0.9rem 0.75rem;
+}
+.title .back { font-size: 0.85rem; text-decoration: none; }
+.title .back:hover { text-decoration: underline; }
+.title h1 { font-size: 1.3rem; line-height: 1.2; color: var(--h1); margin: 0.2rem 0 0.25rem; font-weight: normal; }
+.title p { margin: 0; font-size: 0.9rem; color: var(--muted); }
+.title .row { display: flex; gap: 0.5rem; margin-top: 0.55rem; flex-wrap: wrap; }
+
+button, select {
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--h3);
+  background: transparent;
+  border: 1px solid var(--ring);
+  border-radius: 7px;
+  padding: 0.28rem 0.6rem;
+  cursor: pointer;
+}
+button:hover, select:hover { border-color: var(--muted); color: var(--h1); }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+select { background: var(--panel); }
+
+/* Options card, top right. */
+.options {
+  margin-left: auto;
+  padding: 0.55rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+.options .line { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
+.options label { font-size: 0.88rem; color: var(--h3); display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+.options input[type="checkbox"] { accent-color: var(--link); width: 1rem; height: 1rem; margin: 0; }
+
+.theme-toggle {
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+}
+.theme-toggle svg { display: block; width: 1.05rem; height: 1.05rem; }
+:root[data-theme="dark"] .theme-toggle .moon { display: none; }
+:root[data-theme="light"] .theme-toggle .sun { display: none; }
+
+/* Zoom buttons, bottom right, stacked as on a map. */
+.zoom {
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.zoom button {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.zoom button + button { border-top: 1px solid var(--rule); }
+.zoom button:hover { background: var(--ring); }
+.zoom svg { width: 1.1rem; height: 1.1rem; display: block; }
+
+/* Colour key, bottom left. */
+.legend {
+  left: max(12px, env(safe-area-inset-left));
+  bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px));
+  padding: 0.5rem 0.7rem 0.55rem;
+  max-width: calc(100vw - 90px);
+}
+.legend h2 {
+  font-size: 0.8rem;
+  font-weight: normal;
+  color: var(--muted);
+  margin: 0 0 0.3rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+.legend h2 button { border: none; padding: 0; font-size: 0.8rem; color: var(--link); }
+.legend .grid { display: grid; grid-template-columns: repeat(6, auto); gap: 0.15rem 0.35rem; justify-content: start; }
+.legend .grid.two { grid-template-columns: auto auto; }
+.legend .grid.labels { grid-template-columns: repeat(5, auto); }
+.legend figure { margin: 0; display: flex; flex-direction: column; align-items: center; min-width: 2.2rem; }
+.legend figure.wide { flex-direction: row; gap: 0.4rem; min-width: 0; }
+.legend svg { width: 2.1rem; height: 2.1rem; display: block; overflow: visible; }
+.legend figcaption { font-size: 0.72rem; color: var(--text); line-height: 1.1; white-space: nowrap; }
+.legend .note { font-size: 0.72rem; color: var(--muted); margin: 0.2rem 0 0; }
+
+/* About sheet. */
+.about {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  padding: 1.1rem 1.25rem 0.4rem;
+  font-size: 0.95rem;
+  z-index: 5;
+}
+.about h2 { font-size: 1.15rem; font-weight: normal; color: var(--h1); margin: 0 2rem 0.6rem 0; }
+.about p { margin: 0 0 0.8rem; }
+.about ul { margin: 0 0 0.9rem; padding-left: 1.2rem; }
+.about li { margin-bottom: 0.25rem; }
+.about .close { position: absolute; top: 0.7rem; right: 0.7rem; width: 2rem; height: 2rem; padding: 0; border-radius: 50%; font-size: 1.1rem; }
+
+.status {
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+.fail { top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 1rem 1.25rem; max-width: calc(100vw - 24px); }
+
+/* On a phone the title card drops its description and the status pill
+   moves down, clear of the two top cards. */
+@media (max-width: 640px) {
+  .title { padding: 0.5rem 0.75rem 0.6rem; }
+  .title p.hint { display: none; }
+  .title h1 { font-size: 1.1rem; }
+  .title .row { margin-top: 0.35rem; }
+  .status { top: auto; bottom: 7rem; }
+  .legend .grid { grid-template-columns: repeat(6, auto); }
+  .legend svg { width: 1.7rem; height: 1.7rem; }
+  .legend figure { min-width: 1.8rem; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="map" tabindex="0" aria-label="Spectre tiling map. Drag to move, scroll or pinch to zoom, arrow keys to move, plus and minus to zoom."></canvas>
+
+<div class="top">
+<div class="card title">
+  <a class="back" href="../../index.html">← David Ryan's builder page</a>
+  <h1>Spectre tiling</h1>
+  <p class="hint">One tile shape, a pattern that never repeats. Drag to move, scroll or pinch to zoom.</p>
+  <div class="row">
+    <button type="button" id="about-open">About the Spectre</button>
+  </div>
+</div>
+
+<div class="card options">
+  <div class="line">
+    <select id="scheme" aria-label="Colour scheme">
+      <option value="0">Colour by orientation</option>
+      <option value="1">Common and rare</option>
+      <option value="2">Colour by label</option>
+      <option value="3">Plain</option>
+    </select>
+    <button class="theme-toggle" type="button" hidden>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.1"/>
+        <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+      </svg>
+    </button>
+  </div>
+  <label><input type="checkbox" id="outlines"> Supertile outlines</label>
+</div>
+</div>
+
+<div class="card zoom" role="group" aria-label="Zoom">
+  <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+  <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+  <button type="button" id="home" title="Back to the start" aria-label="Back to the start">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>
+    </svg>
+  </button>
+</div>
+
+<div class="card legend" id="legend" aria-live="polite"></div>
+
+<div class="card status" id="status" hidden>Building tiles…</div>
+
+<div class="card about" id="about" role="dialog" aria-modal="false" aria-labelledby="about-title" hidden>
+  <button type="button" class="close" id="about-close" aria-label="Close">×</button>
+  <h2 id="about-title">The Spectre</h2>
+  <p>
+    The Spectre is a single tile that covers the whole plane with no gaps
+    and no overlaps. The pattern it makes never repeats. David Smith, Joseph
+    Samuel Myers, Craig S. Kaplan and Chaim Goodman-Strauss announced it in
+    2023. It settles the "einstein" problem in its strictest form, because
+    the tiling never needs a mirror image of the tile.
+  </p>
+  <p>
+    The tile appears in 12 orientations. Six are common and sit 60° apart.
+    The other six are rare. Each rare tile is turned a further 30°, and it
+    pairs with one neighbour to make a two-tile cluster called a Mystic. In
+    the default colours, the hue turns with the tile, so each colour marks
+    one orientation.
+  </p>
+  <p>
+    Tiles group into supertiles, and those group into larger supertiles,
+    level after level. Turn on <em>Supertile outlines</em> to see five levels
+    of that hierarchy, drawn thicker as the level rises. This page builds
+    each patch of tiles from the hierarchy as you move, so you never reach
+    an edge.
+  </p>
+  <p>
+    Drag to move, and scroll, pinch or double-click to zoom. The arrow keys
+    move, and <kbd>+</kbd> and <kbd>−</kbd> zoom. The address bar keeps your
+    place, so you can share a view.
+  </p>
+  <ul>
+    <li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2305.17743">A chiral aperiodic monotile</a> – the paper, on arXiv</li>
+    <li><a target="_blank" rel="noopener" href="https://cs.uwaterloo.ca/~csk/spectre/">Craig Kaplan's Spectre page</a> – the substitution rules here follow his reference code</li>
+    <li><a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Einstein_problem">Einstein problem</a> – on Wikipedia</li>
+    <li><a target="_blank" rel="noopener" href="https://github.com/davidryan59/davidryan59.github.io/tree/main/demos/spectre">Code on GitHub</a> – WebGL, no libraries</li>
+  </ul>
+</div>
+
+<div class="card fail" id="fail" hidden>
+  <p>This demo needs WebGL 2, which this browser does not offer.</p>
+</div>
+
+<script src="tiling.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var SPECTRE = SpectreTiling.SPECTRE;
+  var CHUNK = 128;            // world units per chunk side
+  var MIN_S = 1, MAX_S = 400; // CSS pixels per world unit
+  var START_S = 8;
+  var MAX_CHUNKS = 900;
+  var MARGIN = 3;             // a tile reaches up to 3 units past its centre
+
+  var canvas = document.getElementById('map');
+  var gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
+  if (!gl) { document.getElementById('fail').hidden = false; return; }
+
+  // View state. The centre is in world units, as doubles; the tiling's
+  // coordinates run to about 10^8, so float32 is used only for offsets.
+  var view = { x: 0, y: 0, s: START_S };
+  var start = null;
+  var W = 0, H = 0, dpr = 1;
+
+  /* ---------------------------------------------------------------- colour */
+
+  function oklch(L, C, hue) {
+    var h = hue * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
+    var l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3);
+    var m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3);
+    var s = Math.pow(L - 0.0894841775 * a - 1.2914855480 * b, 3);
+    function enc(x) {
+      x = Math.min(1, Math.max(0, x));
+      return x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
+    }
+    return [
+      enc(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+      enc(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+      enc(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)
+    ];
+  }
+  function hex(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16) / 255; }); }
+  function css(c) { return 'rgb(' + c.map(function (v) { return Math.round(v * 255); }).join(',') + ')'; }
+
+  var LABEL_NAMES = ['Γ₁', 'Γ₂', 'Δ', 'Θ', 'Λ', 'Ξ', 'Π', 'Σ', 'Φ', 'Ψ'];
+
+  function palette(dark) {
+    var p = {};
+    // Twelve orientations, hue following the angle. The six common ones are
+    // pale; the six rare ones, turned a further 30 degrees, are deeper.
+    p.orient = [];
+    for (var k = 0; k < 12; k++) {
+      var rare = k % 2 === 1;
+      p.orient.push(dark
+        ? oklch(rare ? 0.66 : 0.40, rare ? 0.13 : 0.065, k * 30 + 25)
+        : oklch(rare ? 0.64 : 0.88, rare ? 0.15 : 0.075, k * 30 + 25));
+    }
+    p.base = dark ? hex('#2a2a30') : hex('#fdfcf8');
+    p.accent = dark ? hex('#67704c') : hex('#c1c5a0');
+    // Gamma1 and Gamma2 share a hue: together they make one Mystic.
+    p.labels = [];
+    var hues = [20, 20, 70, 110, 150, 190, 230, 270, 310, 350];
+    for (k = 0; k < 10; k++) {
+      p.labels.push(dark ? oklch(k === 1 ? 0.5 : 0.42, 0.07, hues[k]) : oklch(k === 1 ? 0.76 : 0.85, 0.08, hues[k]));
+    }
+    p.edge = dark ? hex('#b4afa3') : hex('#34332e');
+    p.line = dark ? hex('#d9d4c7') : hex('#16150f');
+    p.bg = dark ? hex('#16161a') : hex('#f6f3ec');
+    return p;
+  }
+
+  /* ---------------------------------------------------------------- WebGL */
+
+  var VS = '#version 300 es\n' +
+    'layout(location=0) in vec2 a_local;\n' +
+    'layout(location=1) in vec2 a_pos;\n' +
+    'layout(location=2) in uvec3 a_bits;\n' +
+    'uniform vec2 u_chunk;\n' +
+    'uniform float u_scale;\n' +
+    'uniform vec2 u_half;\n' +
+    'out vec2 v_local;\n' +
+    'flat out uvec3 v_bits;\n' +
+    'void main() {\n' +
+    '  float t = float(a_bits.x & 15u) * 0.52359877559829887;\n' +
+    '  float c = cos(t), s = sin(t);\n' +
+    '  vec2 w = u_chunk + a_pos + vec2(c * a_local.x - s * a_local.y, s * a_local.x + c * a_local.y);\n' +
+    '  gl_Position = vec4(w * u_scale / u_half, 0.0, 1.0);\n' +
+    '  v_local = a_local;\n' +
+    '  v_bits = a_bits;\n' +
+    '}\n';
+
+  // Each tile strokes the inner half of its own edges, and its neighbour
+  // strokes the other half, so every line is whole and antialiased. A tile
+  // also draws a disc at any vertex that a thicker line passes through, which
+  // fills the corner where it meets only at that vertex.
+  var FS = '#version 300 es\n' +
+    'precision highp float;\n' +
+    'precision highp int;\n' +
+    'in vec2 v_local;\n' +
+    'flat in uvec3 v_bits;\n' +
+    'uniform vec2 u_v[14];\n' +
+    'uniform float u_scale;\n' +
+    'uniform int u_mode;\n' +
+    'uniform bool u_levels;\n' +
+    'uniform vec3 u_orient[12];\n' +
+    'uniform vec3 u_labels[10];\n' +
+    'uniform vec3 u_base;\n' +
+    'uniform vec3 u_accent;\n' +
+    'uniform vec3 u_edge;\n' +
+    'uniform vec3 u_line;\n' +
+    'uniform float u_width[6];\n' +
+    'uniform float u_edgeAlpha;\n' +
+    'out vec4 outColor;\n' +
+    'uint edgeLevel(int i) {\n' +
+    '  return i < 8 ? (v_bits.x >> uint(8 + 3 * i)) & 7u : (v_bits.y >> uint(3 * (i - 8))) & 7u;\n' +
+    '}\n' +
+    'uint vertLevel(int i) {\n' +
+    '  return i < 4 ? (v_bits.y >> uint(18 + 3 * i)) & 7u : (v_bits.z >> uint(3 * (i - 4))) & 7u;\n' +
+    '}\n' +
+    'void main() {\n' +
+    '  uint ang = v_bits.x & 15u;\n' +
+    '  uint lab = (v_bits.x >> 4u) & 15u;\n' +
+    '  vec3 fill = u_base;\n' +
+    '  if (u_mode == 0) fill = u_orient[ang];\n' +
+    '  else if (u_mode == 1) fill = (ang & 1u) == 1u ? u_accent : u_base;\n' +
+    '  else if (u_mode == 2) fill = u_labels[lab];\n' +
+    '  float cov[6];\n' +
+    '  for (int k = 0; k < 6; k++) cov[k] = 0.0;\n' +
+    '  for (int i = 0; i < 14; i++) {\n' +
+    '    vec2 a = u_v[i];\n' +
+    '    vec2 b = u_v[i == 13 ? 0 : i + 1];\n' +
+    '    vec2 pa = v_local - a, ba = b - a;\n' +
+    '    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);\n' +
+    '    float d = length(pa - ba * h) * u_scale;\n' +
+    '    int lv = u_levels ? int(min(edgeLevel(i), 5u)) : 0;\n' +
+    '    cov[lv] = max(cov[lv], clamp(u_width[lv] + 0.5 - d, 0.0, 1.0));\n' +
+    '    if (u_levels) {\n' +
+    '      int vl = int(min(vertLevel(i), 5u));\n' +
+    '      if (vl > 0) {\n' +
+    '        float dv = length(v_local - a) * u_scale;\n' +
+    '        cov[vl] = max(cov[vl], clamp(u_width[vl] + 0.5 - dv, 0.0, 1.0));\n' +
+    '      }\n' +
+    '    }\n' +
+    '  }\n' +
+    '  vec3 col = mix(fill, u_edge, cov[0] * u_edgeAlpha);\n' +
+    '  for (int k = 1; k < 6; k++) col = mix(col, u_line, cov[k]);\n' +
+    '  outColor = vec4(col, 1.0);\n' +
+    '}\n';
+
+  function compile(type, src) {
+    var sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+    return sh;
+  }
+  var prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  var U = {};
+  ['u_chunk', 'u_scale', 'u_half', 'u_v', 'u_mode', 'u_levels', 'u_orient', 'u_labels', 'u_base',
+   'u_accent', 'u_edge', 'u_line', 'u_edgeAlpha'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+  U.u_width = gl.getUniformLocation(prog, 'u_width');
+
+  // Ear-clip the Spectre once. It is a simple polygon, counter-clockwise.
+  function triangulate(pts) {
+    var idx = pts.map(function (p, i) { return i; }), tris = [];
+    function cross(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
+    function inTri(p, a, b, c) { return cross(a, b, p) > 1e-12 && cross(b, c, p) > 1e-12 && cross(c, a, p) > 1e-12; }
+    while (idx.length > 3) {
+      for (var i = 0; i < idx.length; i++) {
+        var a = pts[idx[(i + idx.length - 1) % idx.length]], b = pts[idx[i]], c = pts[idx[(i + 1) % idx.length]];
+        if (cross(a, b, c) <= 1e-12) continue;
+        var ear = idx.every(function (j) { var p = pts[j]; return p === a || p === b || p === c || !inTri(p, a, b, c); });
+        if (!ear) continue;
+        tris.push(a, b, c);
+        idx.splice(i, 1);
+        break;
+      }
+    }
+    tris.push(pts[idx[0]], pts[idx[1]], pts[idx[2]]);
+    return tris;
+  }
+  var tris = triangulate(SPECTRE);
+  var baseBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, baseBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([].concat.apply([], tris)), gl.STATIC_DRAW);
+  var BASE_COUNT = tris.length;
+
+  gl.uniform2fv(U.u_v, new Float32Array([].concat.apply([], SPECTRE)));
+
+  /* --------------------------------------------------------------- chunks */
+
+  var cache = new Map();   // "i,j" -> { vao, buf, count, i, j, used }
+  var inFlight = new Map();
+  var frame = 0;
+
+  function makeChunk(i, j, buffer, count) {
+    var vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, baseBuf);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    var buf = null;
+    if (count > 0) {
+      buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, buffer, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 0);
+      gl.vertexAttribDivisor(1, 1);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribIPointer(2, 3, gl.UNSIGNED_INT, 20, 8);
+      gl.vertexAttribDivisor(2, 1);
+    }
+    gl.bindVertexArray(null);
+    return { vao: vao, buf: buf, count: count, i: i, j: j, used: frame };
+  }
+
+  function evict() {
+    if (cache.size <= MAX_CHUNKS) return;
+    var list = Array.from(cache.values()).filter(function (c) { return c.used < frame; });
+    list.sort(function (a, b) { return a.used - b.used; });
+    for (var k = 0; k < list.length && cache.size > MAX_CHUNKS * 0.8; k++) {
+      var c = list[k];
+      gl.deleteVertexArray(c.vao);
+      if (c.buf) gl.deleteBuffer(c.buf);
+      cache.delete(c.i + ',' + c.j);
+    }
+  }
+
+  /* -------------------------------------------------------------- workers */
+
+  // Workers build chunks off the main thread. Opened from disk, a browser may
+  // refuse to start a worker, so the page falls back to building chunks
+  // itself in short slices between frames.
+  var workers = [];
+  var readyCount = 0;
+
+  function onMessage(ev) {
+    var m = ev.data, w = this;
+    if (m.type === 'ready') {
+      w.ready = true;
+      readyCount++;
+      if (!start) begin(m.start);
+    } else if (m.type === 'chunk') {
+      w.busy--;
+      var k = m.i + ',' + m.j;
+      inFlight.delete(k);
+      if (!cache.has(k)) cache.set(k, makeChunk(m.i, m.j, m.buffer, m.count));
+      requestDraw();
+    }
+  }
+
+  function localWorker() {
+    var w = { busy: 0, ready: false, queue: [] };
+    var root = null;
+    w.postMessage = function (m) {
+      w.queue.push(m);
+      setTimeout(step, 0);
+    };
+    function step() {
+      if (!w.queue.length) return;
+      var m = w.queue.shift();
+      var res = SpectreTiling.chunk(root, m.i * m.size, m.j * m.size, m.size);
+      onMessage.call(w, { data: { type: 'chunk', i: m.i, j: m.j, count: res.count, buffer: res.buffer } });
+    }
+    setTimeout(function () {
+      root = SpectreTiling.buildAll();
+      onMessage.call(w, { data: { type: 'ready', start: SpectreTiling.findStart(root) } });
+    }, 0);
+    return w;
+  }
+
+  function startWorkers() {
+    var n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
+    var failed = false;
+    function fallback() {
+      if (failed || readyCount > 0) return;
+      failed = true;
+      workers.forEach(function (w) { if (w.terminate) w.terminate(); });
+      workers = [localWorker()];
+    }
+    try {
+      for (var i = 0; i < n; i++) {
+        var w = new Worker('tiling.js');
+        w.busy = 0;
+        w.ready = false;
+        w.onmessage = onMessage;
+        w.onerror = fallback;
+        workers.push(w);
+      }
+    } catch (e) {
+      fallback();
+    }
+  }
+
+  // Each worker holds at most two requests, so a new view can jump the queue.
+  function requestChunks(needed) {
+    needed.sort(function (a, b) { return a.d - b.d; });
+    for (var k = 0; k < needed.length; k++) {
+      var n = needed[k];
+      if (inFlight.has(n.key)) continue;
+      var w = null;
+      workers.forEach(function (x) { if (x.ready && x.busy < 2 && (!w || x.busy < w.busy)) w = x; });
+      if (!w) return;
+      w.busy++;
+      inFlight.set(n.key, true);
+      w.postMessage({ type: 'chunk', i: n.i, j: n.j, size: CHUNK });
+    }
+  }
+
+  /* --------------------------------------------------------------- render */
+
+  var pal = null, scheme = 0, outlines = false;
+  var drawPending = false;
+  var statusEl = document.getElementById('status');
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    requestDraw();
+  }
+
+  function applyPalette() {
+    pal = palette(document.documentElement.dataset.theme === 'dark');
+    gl.uniform3fv(U.u_orient, new Float32Array([].concat.apply([], pal.orient)));
+    gl.uniform3fv(U.u_labels, new Float32Array([].concat.apply([], pal.labels)));
+    gl.uniform3fv(U.u_base, pal.base);
+    gl.uniform3fv(U.u_accent, pal.accent);
+    gl.uniform3fv(U.u_edge, pal.edge);
+    gl.uniform3fv(U.u_line, pal.line);
+    renderLegend();
+    requestDraw();
+  }
+
+  function requestDraw() {
+    if (drawPending) return;
+    drawPending = true;
+    requestAnimationFrame(tick);
+  }
+
+  function draw() {
+    frame++;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(pal.bg[0], pal.bg[1], pal.bg[2], 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    if (!start) return;
+
+    var s = view.s;
+    gl.uniform1f(U.u_scale, s * dpr);
+    gl.uniform2f(U.u_half, canvas.width / 2, canvas.height / 2);
+    gl.uniform1i(U.u_mode, scheme);
+    gl.uniform1i(U.u_levels, outlines ? 1 : 0);
+    // Full line widths in CSS pixels, by supertile level, halved for the
+    // shader since each side of a line is drawn by its own tile. A supertile
+    // line thickens with the supertile's size on screen, which grows about
+    // 2.8 times per level, so small supertiles never bury their tiles.
+    var widths = [1.0];
+    for (var k = 1; k <= 5; k++) {
+      var w = Math.min(6, Math.max(0, 0.55 * Math.log2(s * Math.pow(2.8, k) / 4)));
+      if (widths[k - 1] > 0 && k > 1) w = Math.max(w, widths[k - 1] + 0.4);
+      widths.push(Math.min(6, w));
+    }
+    gl.uniform1fv(U.u_width, new Float32Array(widths.map(function (w) { return w * dpr / 2; })));
+    // Tile edges fade as the tiles shrink, so the colours still read.
+    var t = Math.min(1, Math.max(0, (s - 1.2) / 5));
+    gl.uniform1f(U.u_edgeAlpha, 0.22 + 0.63 * t * t * (3 - 2 * t));
+
+    var hw = W / 2 / s + MARGIN, hh = H / 2 / s + MARGIN;
+    var i0 = Math.floor((view.x - hw) / CHUNK), i1 = Math.floor((view.x + hw) / CHUNK);
+    var j0 = Math.floor((view.y - hh) / CHUNK), j1 = Math.floor((view.y + hh) / CHUNK);
+    var needed = [];
+    for (var i = i0 - 1; i <= i1 + 1; i++) {
+      for (var j = j0 - 1; j <= j1 + 1; j++) {
+        var key = i + ',' + j;
+        var c = cache.get(key);
+        var visible = i >= i0 && i <= i1 && j >= j0 && j <= j1;
+        if (!c) {
+          var dx = (i + 0.5) * CHUNK - view.x, dy = (j + 0.5) * CHUNK - view.y;
+          // Visible chunks first, then the ring just outside the view.
+          needed.push({ key: key, i: i, j: j, d: dx * dx + dy * dy + (visible ? 0 : 1e12) });
+          continue;
+        }
+        c.used = frame;
+        if (!visible || !c.count) continue;
+        gl.uniform2f(U.u_chunk, i * CHUNK - view.x, j * CHUNK - view.y);
+        gl.bindVertexArray(c.vao);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, BASE_COUNT, c.count);
+      }
+    }
+    gl.bindVertexArray(null);
+    var missing = needed.filter(function (n) { return n.d < 1e12; }).length;
+    statusEl.hidden = missing === 0;
+    requestChunks(needed);
+    evict();
+  }
+
+  /* ----------------------------------------------------------- navigation */
+
+  var anim = { zoomTo: null, ax: 0, ay: 0, panX: 0, panY: 0, vx: 0, vy: 0 };
+  var reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var lastTick = 0;
+
+  function clampS(s) { return Math.min(MAX_S, Math.max(MIN_S, s)); }
+
+  function panBy(dx, dy) {
+    view.x -= dx / view.s;
+    view.y += dy / view.s;
+    changed();
+  }
+
+  // Zoom about a point on screen, which stays under the pointer.
+  function zoomAbout(factor, px, py) {
+    var ns = clampS(view.s * factor);
+    var ox = px - W / 2, oy = py - H / 2;
+    view.x += ox / view.s - ox / ns;
+    view.y -= oy / view.s - oy / ns;
+    view.s = ns;
+    changed();
+  }
+
+  function zoomTowards(factor, px, py) {
+    var target = clampS((anim.zoomTo || view.s) * factor);
+    if (reduceMotion) { zoomAbout(target / view.s, px, py); return; }
+    anim.zoomTo = target;
+    anim.ax = px;
+    anim.ay = py;
+    requestDraw();
+  }
+
+  function tick(now) {
+    drawPending = false;
+    var dt = lastTick ? Math.min(64, now - lastTick) : 16;
+    lastTick = now;
+    var moving = false;
+    if (anim.zoomTo) {
+      var f = 1 - Math.exp(-dt / 55);
+      var ratio = Math.pow(anim.zoomTo / view.s, f);
+      zoomAbout(ratio, anim.ax, anim.ay);
+      if (Math.abs(Math.log(anim.zoomTo / view.s)) < 0.002) { zoomAbout(anim.zoomTo / view.s, anim.ax, anim.ay); anim.zoomTo = null; }
+      else moving = true;
+    }
+    if (anim.panX || anim.panY) {
+      var g = 1 - Math.exp(-dt / 70);
+      var mx = anim.panX * g, my = anim.panY * g;
+      if (Math.abs(anim.panX) < 0.5 && Math.abs(anim.panY) < 0.5) { mx = anim.panX; my = anim.panY; }
+      anim.panX -= mx; anim.panY -= my;
+      panBy(mx, my);
+      moving = anim.panX !== 0 || anim.panY !== 0 || moving;
+    }
+    if (anim.vx || anim.vy) {
+      panBy(anim.vx * dt, anim.vy * dt);
+      var decay = Math.exp(-dt / 320);
+      anim.vx *= decay; anim.vy *= decay;
+      if (Math.hypot(anim.vx, anim.vy) < 0.015) { anim.vx = 0; anim.vy = 0; }
+      else moving = true;
+    }
+    draw();
+    if (moving || inFlight.size) requestDraw();
+    else lastTick = 0;
+  }
+
+  var hashTimer = 0;
+  function changed() {
+    requestDraw();
+    clearTimeout(hashTimer);
+    hashTimer = setTimeout(writeHash, 300);
+  }
+
+  // The address keeps the view relative to the start tile, so the numbers
+  // stay short: #x,y,zoom
+  function writeHash() {
+    if (!start) return;
+    var h = '#' + (view.x - start[0]).toFixed(1) + ',' + (view.y - start[1]).toFixed(1) + ',' + view.s.toFixed(2);
+    try { history.replaceState(null, '', h); } catch (e) {}
+  }
+  function readHash() {
+    var m = /^#(-?[\d.]+),(-?[\d.]+),([\d.]+)$/.exec(location.hash);
+    if (!m) return false;
+    view.x = start[0] + parseFloat(m[1]);
+    view.y = start[1] + parseFloat(m[2]);
+    view.s = clampS(parseFloat(m[3]));
+    return true;
+  }
+
+  function begin(st) {
+    start = st;
+    if (!readHash()) { view.x = start[0]; view.y = start[1]; view.s = START_S; }
+    requestDraw();
+  }
+
+  function goHome() {
+    anim.vx = anim.vy = anim.panX = anim.panY = 0;
+    // panBy moves the view the opposite way to the drag, as a map does.
+    var dx = (view.x - start[0]) * view.s, dy = (start[1] - view.y) * view.s;
+    if (Math.hypot(dx, dy) < 4 * Math.max(W, H) && !reduceMotion) {
+      anim.panX = dx; anim.panY = dy;
+    } else {
+      view.x = start[0]; view.y = start[1];
+    }
+    anim.zoomTo = START_S / view.s === 1 ? null : START_S;
+    anim.ax = W / 2; anim.ay = H / 2;
+    changed();
+  }
+
+  // Pointers: one drags, two pinch. Recent moves set the fling speed.
+  var pointers = new Map();
+  var pinch = null;
+  var trail = [];
+  var lastTap = { t: 0, x: 0, y: 0 };
+
+  canvas.addEventListener('pointerdown', function (e) {
+    if (e.button !== undefined && e.button > 0) return;
+    canvas.setPointerCapture(e.pointerId);
+    canvas.focus({ preventScroll: true });
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    anim.vx = anim.vy = 0;
+    anim.panX = anim.panY = 0;
+    trail = [{ t: e.timeStamp, x: e.clientX, y: e.clientY }];
+    canvas.classList.add('dragging');
+    if (pointers.size === 2) pinch = pinchState();
+  });
+
+  function pinchState() {
+    var p = Array.from(pointers.values());
+    return { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 };
+  }
+
+  canvas.addEventListener('pointermove', function (e) {
+    var p = pointers.get(e.pointerId);
+    if (!p) return;
+    var dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (pointers.size === 1) {
+      panBy(dx, dy);
+      trail.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+      if (trail.length > 8) trail.shift();
+    } else if (pointers.size === 2 && pinch) {
+      var n = pinchState();
+      panBy(n.x - pinch.x, n.y - pinch.y);
+      if (pinch.d > 0 && n.d > 0) zoomAbout(n.d / pinch.d, n.x, n.y);
+      pinch = n;
+      trail = [];
+    }
+  });
+
+  function pointerEnd(e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 1) {
+      var q = pointers.values().next().value;
+      trail = [{ t: e.timeStamp, x: q.x, y: q.y }];
+      return;
+    }
+    if (pointers.size) return;
+    canvas.classList.remove('dragging');
+    if (e.type === 'pointercancel' || reduceMotion) return;
+    // Fling: the speed over the last 80 ms of the drag.
+    var last = trail[trail.length - 1], first = null;
+    for (var k = trail.length - 1; k >= 0; k--) {
+      if (last && last.t - trail[k].t <= 80) first = trail[k];
+    }
+    if (last && first && last !== first && e.timeStamp - last.t < 60) {
+      var ms = Math.max(8, last.t - first.t);
+      anim.vx = (last.x - first.x) / ms;
+      anim.vy = (last.y - first.y) / ms;
+      if (Math.hypot(anim.vx, anim.vy) < 0.1) anim.vx = anim.vy = 0;
+      else requestDraw();
+    }
+    // Double tap on a touch screen zooms in, as a double-click does.
+    if (e.pointerType === 'touch') {
+      var tap = trail.length <= 2;
+      if (tap && e.timeStamp - lastTap.t < 300 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+        zoomTowards(2, e.clientX, e.clientY);
+        lastTap.t = 0;
+      } else if (tap) {
+        lastTap = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+      }
+    }
+  }
+  canvas.addEventListener('pointerup', pointerEnd);
+  canvas.addEventListener('pointercancel', pointerEnd);
+
+  canvas.addEventListener('dblclick', function (e) {
+    e.preventDefault();
+    zoomTowards(e.shiftKey ? 0.5 : 2, e.clientX, e.clientY);
+  });
+
+  // Mouse wheels send big steps, animated. Trackpads send small ones, and a
+  // pinch arrives as a wheel event with ctrlKey set; both apply at once.
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 800 : 1);
+    if (e.ctrlKey) {
+      zoomAbout(Math.exp(-dy * 0.01), e.clientX, e.clientY);
+    } else if (Math.abs(dy) >= 50 && e.deltaX === 0) {
+      zoomTowards(Math.exp(-dy * 0.003), e.clientX, e.clientY);
+    } else {
+      zoomAbout(Math.exp(-dy * 0.004), e.clientX, e.clientY);
+    }
+  }, { passive: false });
+
+  // Safari on a Mac reports a trackpad pinch as gesture events instead.
+  var gestureScale = 1;
+  canvas.addEventListener('gesturestart', function (e) { e.preventDefault(); gestureScale = 1; });
+  canvas.addEventListener('gesturechange', function (e) {
+    e.preventDefault();
+    zoomAbout(e.scale / gestureScale, e.clientX, e.clientY);
+    gestureScale = e.scale;
+  });
+  canvas.addEventListener('gestureend', function (e) { e.preventDefault(); });
+
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
+    var step = Math.min(W, H) * 0.25;
+    var handled = true;
+    switch (e.key) {
+      case 'ArrowLeft': anim.panX += step; break;
+      case 'ArrowRight': anim.panX -= step; break;
+      case 'ArrowUp': anim.panY += step; break;
+      case 'ArrowDown': anim.panY -= step; break;
+      case '+': case '=': zoomTowards(1.6, W / 2, H / 2); break;
+      case '-': case '_': zoomTowards(1 / 1.6, W / 2, H / 2); break;
+      case '0': goHome(); break;
+      case 'Escape': closeAbout(); break;
+      default: handled = false;
+    }
+    if (handled) { e.preventDefault(); requestDraw(); }
+  });
+
+  document.getElementById('zoom-in').addEventListener('click', function () { zoomTowards(2, W / 2, H / 2); });
+  document.getElementById('zoom-out').addEventListener('click', function () { zoomTowards(0.5, W / 2, H / 2); });
+  document.getElementById('home').addEventListener('click', goHome);
+
+  /* ------------------------------------------------------------- controls */
+
+  var schemeEl = document.getElementById('scheme');
+  var outlinesEl = document.getElementById('outlines');
+  try {
+    var saved = JSON.parse(localStorage.getItem('spectre-options') || '{}');
+    if (saved.scheme >= 0 && saved.scheme <= 3) scheme = saved.scheme;
+    outlines = !!saved.outlines;
+  } catch (e) {}
+  schemeEl.value = String(scheme);
+  outlinesEl.checked = outlines;
+  function saveOptions() {
+    try { localStorage.setItem('spectre-options', JSON.stringify({ scheme: scheme, outlines: outlines })); } catch (e) {}
+  }
+  schemeEl.addEventListener('change', function () {
+    scheme = parseInt(schemeEl.value, 10);
+    saveOptions();
+    renderLegend();
+    requestDraw();
+  });
+  outlinesEl.addEventListener('change', function () {
+    outlines = outlinesEl.checked;
+    saveOptions();
+    renderLegend();
+    requestDraw();
+  });
+
+  var aboutEl = document.getElementById('about');
+  var aboutOpen = document.getElementById('about-open');
+  function closeAbout() {
+    if (aboutEl.hidden) return;
+    aboutEl.hidden = true;
+    aboutOpen.focus();
+  }
+  aboutOpen.addEventListener('click', function () {
+    aboutEl.hidden = !aboutEl.hidden;
+    if (!aboutEl.hidden) document.getElementById('about-close').focus();
+  });
+  document.getElementById('about-close').addEventListener('click', closeAbout);
+
+  /* --------------------------------------------------------------- legend */
+
+  var legendEl = document.getElementById('legend');
+  // The key starts closed on a phone, where it would cover a fifth of the map.
+  var legendOpen = window.innerWidth > 640;
+  try {
+    var ls = localStorage.getItem('spectre-legend');
+    if (ls) legendOpen = ls === 'open';
+  } catch (e) {}
+
+  // A small Spectre, turned as the tiles on the map are. SVG runs y down
+  // and the map runs y up, so the path is mirrored in y to match.
+  function tileSvg(angleIndex, colour) {
+    var t = angleIndex * Math.PI / 6, c = Math.cos(t), s = Math.sin(t);
+    var cx = 1.5, cy = 0.95;
+    var pts = SPECTRE.map(function (p) {
+      var x = p[0] - cx, y = p[1] - cy;
+      return (c * x - s * y).toFixed(3) + ',' + (-(s * x + c * y)).toFixed(3);
+    }).join(' ');
+    return '<svg viewBox="-2.6 -2.6 5.2 5.2" aria-hidden="true"><polygon points="' + pts +
+      '" fill="' + css(colour) + '" stroke="' + css(pal.edge) + '" stroke-width="0.16" stroke-linejoin="round"/></svg>';
+  }
+
+  function renderLegend() {
+    if (!pal) return;
+    var head = { 0: '12 orientations', 1: 'Orientation mod 60°', 2: 'Supertile labels', 3: 'Plain' }[scheme];
+    var html = '<h2><span>' + head + '</span><button type="button" id="legend-toggle" aria-expanded="' + legendOpen + '">' +
+      (legendOpen ? 'Hide' : 'Key') + '</button></h2>';
+    if (legendOpen) {
+      if (scheme === 0) {
+        html += '<div class="grid">';
+        for (var k = 0; k < 12; k += 2) html += '<figure>' + tileSvg(k, pal.orient[k]) + '<figcaption>' + (k * 30) + '°</figcaption></figure>';
+        for (k = 1; k < 12; k += 2) html += '<figure>' + tileSvg(k, pal.orient[k]) + '<figcaption>' + (k * 30) + '°</figcaption></figure>';
+        html += '</div><p class="note">Top row common. Bottom row rare, turned a further 30°.</p>';
+      } else if (scheme === 1) {
+        html += '<div class="grid two">' +
+          '<figure class="wide">' + tileSvg(0, pal.base) + '<figcaption>Common<br>0°, 60° … 300°</figcaption></figure>' +
+          '<figure class="wide">' + tileSvg(1, pal.accent) + '<figcaption>Rare<br>30°, 90° … 330°</figcaption></figure>' +
+          '</div>';
+      } else if (scheme === 2) {
+        html += '<div class="grid labels">';
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].forEach(function (k) {
+          html += '<figure>' + tileSvg(k === 1 ? 1 : 0, pal.labels[k]) + '<figcaption>' + LABEL_NAMES[k] + '</figcaption></figure>';
+        });
+        html += '</div><p class="note">Γ₁ and Γ₂ together make one Mystic.</p>';
+      } else {
+        html += '<p class="note">Every tile the same colour.</p>';
+      }
+      if (outlines) html += '<p class="note">Outlines: thicker for higher supertile levels, 1 to 5.</p>';
+    }
+    legendEl.innerHTML = html;
+    document.getElementById('legend-toggle').addEventListener('click', function () {
+      legendOpen = !legendOpen;
+      try { localStorage.setItem('spectre-legend', legendOpen ? 'open' : 'closed'); } catch (e) {}
+      renderLegend();
+    });
+  }
+
+  /* ----------------------------------------------------------------- boot */
+
+  Audit.wireThemeToggle();
+  new MutationObserver(applyPalette).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  window.addEventListener('resize', resize);
+  window.addEventListener('hashchange', function () { if (start && readHash()) requestDraw(); });
+  resize();
+  applyPalette();
+  startWorkers();
+})();
+</script>
+</body>
+</html>
