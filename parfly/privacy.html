@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parfly privacy policy</title>
+<meta name="description" content="Parfly records your journeys by GPS and keeps them on your phone. No account, no ads, no analytics, and your rides are never uploaded.">
+<link rel="canonical" href="https://drbuild.uk/parfly/privacy">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/parfly/privacy">
+<meta property="og:title" content="Parfly privacy policy">
+<meta property="og:description" content="Parfly keeps your rides on your phone. No account, no ads, no analytics, and nothing is uploaded.">
+<meta name="twitter:card" content="summary">
+<style>
+  /* The builder page's colour tokens and type, so this page reads as part of the same site. */
+  :root {
+    color-scheme: light dark;
+    --bg: light-dark(#f6f3ec, #16161a);
+    --text: light-dark(#46443d, #c8c4b9);
+    --h1: light-dark(#1a1a1a, #f5f3ec);
+    --h2: light-dark(#2a2922, #e6e2d8);
+    --link: light-dark(#1552a1, #7aa6e0);
+    --link-visited: light-dark(#6a3d9a, #b79ad6);
+    --rule: light-dark(#ddd8cc, #3a3a3a);
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.65;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 4rem 1.25rem 6rem;
+  }
+  h1 { color: var(--h1); font-size: 2rem; line-height: 1.2; margin: 0 0 0.5rem; }
+  h2 {
+    color: var(--h2);
+    font-size: 1.3rem;
+    margin: 2.5rem 0 0.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  p, ul { margin: 0 0 1rem; }
+  ul { padding-left: 1.25rem; }
+  li { margin-bottom: 0.5rem; }
+  a { color: var(--link); }
+  a:visited { color: var(--link-visited); }
+  .meta { font-style: italic; margin-bottom: 2rem; }
+  footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<h1>Parfly privacy policy</h1>
+<p class="meta">Version 1, effective 23 September 2026</p>
+
+<p>Parfly records your journeys by GPS and keeps them on your phone. It has no account, no ads and
+no analytics. It never sends your rides to me or to anyone else. It goes online only when you look
+at a ride over a Google map.</p>
+
+<p>Parfly is made by David Ryan, an independent developer. If you have a question about this
+policy, email me at <a href="mailto:parfly@drbuild.uk">parfly@drbuild.uk</a>.</p>
+
+<h2>What Parfly records</h2>
+<p>Parfly records only between the moment you press Record and the moment you press Finish. Android
+shows a notification for the whole of that time.</p>
+<p>Once a second during a ride, it stores:</p>
+<ul>
+  <li>your position, and how accurate the phone says it is</li>
+  <li>your altitude, and how accurate that is</li>
+  <li>your speed and your direction of travel</li>
+  <li>the time</li>
+</ul>
+<p>For each ride it also stores:</p>
+<ul>
+  <li>the name you give the ride, its start and finish times, and the vehicle and phone mount you
+    pick</li>
+  <li>any marks you press, each with its time, position, type and any note you add</li>
+  <li>when the signal dropped, when you paused, and when Parfly went into or out of the background,
+    so that a gap in the record can be explained</li>
+  <li>the rider name you enter, and a random ID that tells your rides apart from another rider's
+    when ride files are compared</li>
+</ul>
+
+<h2>Where it is kept</h2>
+<p>Everything stays in Parfly's own storage on your phone. So do your settings: your rider name,
+the map view you last picked, and whether diagnostics are shown. Parfly has no server, so nothing
+is uploaded and I never receive your rides.</p>
+<p>If you have turned on Android's backup, Android may include Parfly's data in your phone's
+backup to your Google account. Google runs that backup under its own terms, and I cannot see
+it.</p>
+
+<h2>Permissions</h2>
+<ul>
+  <li><strong>Location</strong>, to record where you go. Parfly asks for it while the app is open.
+    During a ride you started, it keeps recording when you switch to another app or turn the
+    screen off.</li>
+  <li><strong>Notifications</strong>, to show that a ride is recording.</li>
+  <li><strong>Internet</strong>, only for the Google map views described next.</li>
+</ul>
+
+<h2>Google Maps</h2>
+<p>A finished ride can be shown in four views. Trace Only, the first time you open a ride, draws
+your route on a plain background and contacts nobody. Map, Satellite and Terrain draw it over a
+Google map.</p>
+<p>When you pick one of those three, the Google Maps SDK loads the map from Google. Google then
+receives the map area you look at and how you pan and zoom, your phone's IP address, an identifier
+for the Maps SDK, and crash and performance data. Parfly does not give Google your ride: the route
+is drawn over the map on your phone. The map area you look at still shows roughly where you
+went.</p>
+<p>Google's <a href="https://policies.google.com/privacy">Privacy Policy</a> covers what Google
+receives. Using those three views means you accept the
+<a href="https://maps.google.com/help/terms_maps/">Google Maps/Google Earth Additional Terms of
+Service</a>.</p>
+
+<h2>When you share a ride</h2>
+<p>The Share button makes two files for a ride, a GPX file and a JSON file, and passes them to
+Android's share menu. They go only where you send them.</p>
+<p>Look before you send one to someone you do not know. A ride file shows where you started and
+finished, which can reveal your home, and the time and speed of every part of the journey. The
+ride's name is in both files and in their filenames. The JSON file also carries your rider name
+and rider ID.</p>
+<p>If you import a ride file, Parfly reads only the file you choose.</p>
+
+<h2>What Parfly does not do</h2>
+<ul>
+  <li>It has no account and no sign-in.</li>
+  <li>It shows no ads.</li>
+  <li>It runs no analytics or tracking.</li>
+  <li>It does not sell or share your data. I never receive it.</li>
+</ul>
+
+<h2>Deleting your data</h2>
+<p>Delete a ride from Past rides. Uninstalling Parfly deletes everything it stored on your phone.
+Files you have already shared stay wherever you sent them.</p>
+
+<h2>Children</h2>
+<p>Parfly is made for adults and is not directed at children.</p>
+
+<h2>Your rights</h2>
+<p>Your rides never reach me, so I hold no personal data about you from the app. There is nothing
+for me to show you, correct or delete, and you can delete everything yourself as described above.
+If you email me, I use your address and your message only to reply to you.</p>
+
+<h2>Changes to this policy</h2>
+<p>If Parfly ever sends data anywhere new, this policy will change first, and the app will ask you
+before anything is sent. Each change gets a new version number and date at the top of this
+page.</p>
+
+<footer>Parfly is made by <a href="/">David Ryan</a>.</footer>
+</body>
+</html>
