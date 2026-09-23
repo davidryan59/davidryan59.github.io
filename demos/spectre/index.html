@@ -30,15 +30,16 @@
   <p class="hint">One tile shape, a pattern that never repeats. Drag to move, scroll or pinch to zoom.</p>
   <div class="row">
     <nav class="switch" aria-label="Tiling">
-      <a href="index.html" aria-current="page">Spectre</a><a href="../hat/index.html">Hat</a>
+      <a href="../hat/index.html">Hat</a><a href="index.html" aria-current="page">Spectre</a>
     </nav>
     <button type="button" id="about-open">About</button>
   </div>
 </div>
 
 <div class="card options">
+  <label class="section-title head-title" for="scheme">Colour</label>
   <div class="head">
-    <select id="scheme" aria-label="Colours"></select>
+    <select id="scheme"></select>
     <button class="theme-toggle" type="button" hidden>
       <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
         <circle cx="12" cy="12" r="4.1"/>
@@ -51,16 +52,6 @@
     <button type="button" class="fold" id="options-fold" aria-expanded="false">Options</button>
   </div>
   <div class="body">
-    <label><input type="checkbox" id="outlines"> Supertile outlines</label>
-    <label><input type="checkbox" id="grid"> Grid</label>
-    <div class="sub" id="grid-sub" hidden>
-      <div class="inline">
-        <label><input type="checkbox" id="grid0"> 0° grid</label>
-        <label><input type="checkbox" id="grid30"> 30° grid</label>
-      </div>
-      <p class="hint" id="grid-hint"></p>
-      <div><button type="button" class="linkish" id="grid-clear">Start again</button></div>
-    </div>
     <div class="section">
       <label class="section-title" for="shape">Edge shape</label>
       <select id="shape"></select>
@@ -93,6 +84,18 @@
       <div class="inline" id="arrangement" role="radiogroup" aria-label="Arrangement">
         <label><input type="radio" name="arrangement" value="S"> S on every edge</label>
         <label><input type="radio" name="arrangement" value="alt"> Alternating</label>
+      </div>
+    </div>
+    <div class="section">
+      <label><input type="checkbox" id="outlines"> Supertile outlines</label>
+      <label><input type="checkbox" id="grid"> Grid</label>
+      <div class="sub" id="grid-sub" hidden>
+        <div class="inline">
+          <label><input type="checkbox" id="grid0"> 0° grid</label>
+          <label><input type="checkbox" id="grid30"> 30° grid</label>
+        </div>
+        <p class="hint" id="grid-hint"></p>
+        <div><button type="button" class="linkish" id="grid-clear">Start again</button></div>
       </div>
     </div>
   </div>
@@ -191,6 +194,8 @@
   var st = { shape: 'line', bend: 0.15, params: Object.assign({}, SS.DEFAULTS), arrangement: 'S' };
   try {
     var saved = JSON.parse(localStorage.getItem('spectre-edges') || '{}');
+    // Skew triangle was folded into Triangle, which has the same peak slider.
+    if (saved.shape === 'skew') saved.shape = 'triangle';
     if (SS.BY_ID[saved.shape]) st.shape = saved.shape;
     if (typeof saved.bend === 'number') st.bend = Math.max(-0.75, Math.min(0.75, saved.bend));
     if (saved.params) Object.keys(SS.DEFAULTS).forEach(function (k) { if (typeof saved.params[k] === 'number') st.params[k] = saved.params[k]; });
@@ -255,12 +260,17 @@
                     : oklch(rare ? 0.64 : 0.88, rare ? 0.15 : 0.075, k * 30 + 25);
       });
     } },
-    { id: 'rainbow', name: 'Rainbow', grouping: 'all12', colours: function (dark) {
-      return ring(12, dark, dark ? 0.55 : 0.8, 0.12);
-    } },
     { id: 'rainbow2', name: 'Rainbow, common first', grouping: 'all12', colours: function (dark) {
       var hues = ring(12, dark, dark ? 0.55 : 0.8, 0.12);
       return classes.map(function (cl, k) { return hues[COMMON_FIRST.indexOf(k)]; });
+    } },
+    { id: 'rainbow', name: 'Rainbow', grouping: 'all12', colours: function (dark) {
+      return ring(12, dark, dark ? 0.55 : 0.8, 0.12);
+    } },
+    // Black to white in twelve even steps of lightness, the six common
+    // orientations first: 0° is black and 330° is white.
+    { id: 'grey', name: 'Greyscale, common first', grouping: 'all12', colours: function () {
+      return classes.map(function (cl, k) { return oklch(COMMON_FIRST.indexOf(k) / 11, 0, 0); });
     } },
     { id: 'six', name: 'Six pairs', grouping: 'mod180', colours: function (dark) { return ring(6, dark, dark ? 0.45 : 0.82, 0.1); } },
     { id: 'four', name: 'Four sets', grouping: 'mod120', colours: function (dark) { return ring(4, dark, dark ? 0.45 : 0.82, 0.1); } },
@@ -298,6 +308,7 @@
       return h;
     },
     hashSet: function (q) {
+      if (q.e === 'skew') q.e = 'triangle';
       if (q.e && SS.BY_ID[q.e]) st.shape = q.e;
       if (q.b !== undefined && !isNaN(parseFloat(q.b))) st.bend = Math.max(-0.75, Math.min(0.75, parseFloat(q.b)));
       st.arrangement = q.a === 'alt' ? 'alt' : 'S';

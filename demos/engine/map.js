@@ -149,33 +149,70 @@
     return res;
   }
 
-  // Ear clipping on a linked ring; each search resumes beside the last ear.
-  function triangulate(pts) {
-    var n = pts.length, prev = new Int32Array(n), next = new Int32Array(n), tris = [];
+  /* Drop repeated corners and corners where the outline runs straight on.
+     The Hat's outline has zero-length edges at the chevron and the comet,
+     and a straight corner at every shape. */
+  function tidy(pts) {
+    var out = pts.slice(), changed = true, scale = 0;
+    out.forEach(function (p) { scale = Math.max(scale, Math.abs(p[0]), Math.abs(p[1])); });
+    var eps = 1e-9 * Math.max(1, scale);
+    while (changed && out.length > 3) {
+      changed = false;
+      for (var i = 0; i < out.length && out.length > 3; i++) {
+        var a = out[(i + out.length - 1) % out.length], b = out[i], c = out[(i + 1) % out.length];
+        var ab = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        var cr = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+        var dot = (a[0] - b[0]) * (c[0] - b[0]) + (a[1] - b[1]) * (c[1] - b[1]);
+        if (ab < eps || (Math.abs(cr) < eps * Math.max(ab, 1e-12) && dot <= 0)) { out.splice(i, 1); i--; changed = true; }
+      }
+    }
+    return out;
+  }
+
+  /* Ear clipping on a linked ring; each search resumes beside the last ear.
+     A corner lying on the edge of a candidate ear blocks it, as well as one
+     inside it. The Hat's outline sits on a grid at the hat and the turtle,
+     so three of its corners often fall on one line, and a looser test there
+     would cut triangles that reach outside the tile. */
+  function triangulate(input) {
+    var pts = tidy(input), n = pts.length, prev = new Int32Array(n), next = new Int32Array(n), tris = [];
     if (n < 3) return tris;
+    var scale = 0;
+    pts.forEach(function (p) { scale = Math.max(scale, Math.abs(p[0]), Math.abs(p[1])); });
+    var eps = 1e-12 * Math.max(1, scale * scale);
     for (var i = 0; i < n; i++) { prev[i] = (i + n - 1) % n; next[i] = (i + 1) % n; }
     function cross(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
-    function isEar(i) {
+    function same(p, q) { return Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) < 1e-9 * Math.max(1, scale); }
+    function blocks(i, strict) {
       var a = pts[prev[i]], b = pts[i], c = pts[next[i]];
-      if (cross(a, b, c) <= 1e-14) return false;
+      if (cross(a, b, c) <= eps) return true;
       for (var j = next[next[i]]; j !== prev[i]; j = next[j]) {
         var p = pts[j];
-        if (cross(a, b, p) > 1e-14 && cross(b, c, p) > 1e-14 && cross(c, a, p) > 1e-14) return false;
+        if (same(p, a) || same(p, b) || same(p, c)) continue;
+        var t = strict ? -eps : eps;
+        if (cross(a, b, p) > t && cross(b, c, p) > t && cross(c, a, p) > t) return true;
       }
-      return true;
+      return false;
     }
-    var left = n, k = 0, misses = 0;
-    while (left > 3 && misses <= left) {
-      if (isEar(k)) {
+    var left = n, k = 0, misses = 0, strict = true;
+    while (left > 3) {
+      if (!blocks(k, strict)) {
         tris.push(pts[prev[k]], pts[k], pts[next[k]]);
         next[prev[k]] = next[k];
         prev[next[k]] = prev[k];
         k = prev[k];
         left--;
         misses = 0;
+        strict = true;
       } else {
         k = next[k];
-        misses++;
+        // A full lap with no ear: relax to the plain inside test, and stop
+        // only if even that finds nothing.
+        if (++misses > left) {
+          if (!strict) break;
+          strict = false;
+          misses = 0;
+        }
       }
     }
     if (left === 3) tris.push(pts[prev[k]], pts[k], pts[next[k]]);
@@ -232,6 +269,9 @@
     'uniform float u_edgeAlpha;',
     'uniform vec3 u_edge;',
     'uniform vec3 u_line;',
+    'uniform vec3 u_edgeAlt;',
+    'uniform vec3 u_lineAlt;',
+    'uniform bool u_dark;',
     'uniform vec2 u_prof[65];',
     'uniform int u_profN;',
     'uniform float u_profMax;',
@@ -301,8 +341,12 @@
     '      }',
     '    }',
     '  }',
-    '  vec3 col = mix(fill, u_edge, cov[0] * u_edgeAlpha);',
-    '  for (int k = 1; k < 6; k++) col = mix(col, u_line, cov[k]);',
+    // On a tile too close to the ink colour, the ink flips to its partner,
+    // so outlines stay visible on a black or white tile.
+    '  float lum = dot(fill, vec3(0.2126, 0.7152, 0.0722));',
+    '  bool alt = u_dark ? lum > 0.72 : lum < 0.2;',
+    '  vec3 col = mix(fill, alt ? u_edgeAlt : u_edge, cov[0] * u_edgeAlpha);',
+    '  for (int k = 1; k < 6; k++) col = mix(col, alt ? u_lineAlt : u_line, cov[k]);',
     // Grid dots: a disc on each corner of this tile that sits on a grid.
     '  if (u_gridOn != 0) {',
     '    float t = float(turn) * 0.52359877559829887;',
@@ -445,7 +489,8 @@
       return { p: p, U: U };
     }
     var tileProg = program(TILE_VS, TILE_FS, ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_corners',
-      'u_scale', 'u_class', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line', 'u_prof',
+      'u_scale', 'u_class', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line', 'u_edgeAlt',
+      'u_lineAlt', 'u_dark', 'u_prof',
       'u_profN', 'u_profMax', 'u_profAlt', 'u_reach', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat',
       'u_dotCol', 'u_dotRange', 'u_dotR']);
     var overProg = program(OVERLAY_VS, OVERLAY_FS, ['u_half', 'u_inv', 'u_anchor', 'u_on', 'u_lat', 'u_gap',
@@ -463,7 +508,7 @@
       if (sig !== meshSig) { meshes.clear(); meshData = []; meshSig = sig; }
       var key = cfg.shape.lodKey(res);
       if (meshes.has(key)) return meshes.get(key);
-      var outline = cfg.shape.outline(res);
+      var outline = tidy(cfg.shape.outline(res));
       var fill = [], hot = [];
       faces(outline).forEach(function (f) {
         var pts = f.pts;
@@ -641,6 +686,8 @@
       theme = {
         edge: dark ? hex('#b4afa3') : hex('#34332e'),
         line: dark ? hex('#d9d4c7') : hex('#16150f'),
+        edgeAlt: dark ? hex('#34332e') : hex('#d8d4c9'),
+        lineAlt: dark ? hex('#16150f') : hex('#f2efe6'),
         bg: dark ? hex('#16161a') : hex('#f6f3ec'),
         hot: dark ? hex('#ff4d64') : hex('#e0213e'),
         hot2: dark ? hex('#9e1b30') : hex('#8f0f24'),
@@ -719,7 +766,12 @@
       var k = 2.5 / rmax;
       return '<svg viewBox="-2.6 -2.6 5.2 5.2" aria-hidden="true"><polygon points="' +
         out.map(function (p) { return (p[0] * k).toFixed(3) + ',' + (p[1] * k).toFixed(3); }).join(' ') +
-        '" fill="' + css(colour) + '" stroke="' + css(theme.edge) + '" stroke-width="0.14" stroke-linejoin="round"/></svg>';
+        '" fill="' + css(colour) + '" stroke="' + css(inkFor(colour)) + '" stroke-width="0.14" stroke-linejoin="round"/></svg>';
+    }
+
+    function inkFor(c) {
+      var lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+      return (dark ? lum > 0.72 : lum < 0.2) ? theme.edgeAlt : theme.edge;
     }
 
     function renderLegend() {
@@ -896,6 +948,9 @@
       gl.uniform1i(U.u_levels, outlines ? 1 : 0);
       gl.uniform3fv(U.u_edge, theme.edge);
       gl.uniform3fv(U.u_line, theme.line);
+      gl.uniform3fv(U.u_edgeAlt, theme.edgeAlt);
+      gl.uniform3fv(U.u_lineAlt, theme.lineAlt);
+      gl.uniform1i(U.u_dark, dark ? 1 : 0);
       gl.uniform3fv(U.u_hot, theme.hot);
       gl.uniform3fv(U.u_hot2, theme.hot2);
       var corners = cfg.shape.corners();
@@ -1433,5 +1488,5 @@
     return map;
   }
 
-  global.TilingMap = { start: start, oklch: oklch, hex: hex, toHex: toHex, faces: faces, crossings: crossings, triangulate: triangulate, area: area };
+  global.TilingMap = { start: start, oklch: oklch, hex: hex, toHex: toHex, faces: faces, crossings: crossings, triangulate: triangulate, tidy: tidy, area: area };
 })(this);

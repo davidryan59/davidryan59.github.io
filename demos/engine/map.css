@@ -110,6 +110,7 @@ select { background: var(--panel); max-width: 100%; }
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
 }
+.options .head-title { display: block; margin-bottom: 0.2rem; }
 .options .head { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
 .options .head select { flex: 1; min-width: 0; }
 .options .fold { display: none; }
@@ -251,7 +252,7 @@ select { background: var(--panel); max-width: 100%; }
   .options { width: auto; }
   .options .fold { display: inline-block; }
   .options.folded .body { display: none; }
-  .options.folded .head select { display: none; }
+  .options.folded .head select, .options.folded .head-title { display: none; }
   .status { bottom: 5.5rem; }
   .legend svg { width: 1.55rem; height: 1.55rem; }
   .legend figure { min-width: 1.6rem; }

@@ -1,9 +1,9 @@
-# Tiling demos: Spectre and Hat
+# Tiling demos: Hat and Spectre
 
 ## Summary
 
-Two map-style viewers for the aperiodic monotiles found in 2023: the Spectre
-at `demos/spectre/` and the Hat at `demos/hat/`. Both pan, zoom and turn like
+Two map-style viewers for the aperiodic monotiles found in 2023: the Hat at
+`demos/hat/` and the Spectre at `demos/spectre/`. Both pan, zoom and turn like
 a web map, build their tiles on demand so the plane has no edge, and share one
 engine. Plain JavaScript and WebGL 2, no libraries, no build step.
 
@@ -14,11 +14,11 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
 | `demos/engine/tiling-core.js` | Worker side, shared: prototypes, supertile boundary levels, the hierarchy walk, chunk packing, corner lookup, the message loop |
 | `demos/engine/map.js` | Page side, shared: WebGL drawing, chunk cache and worker pool, pan, zoom and turn, colours and the key, the grid tool, the address bar |
 | `demos/engine/map.css` | Shared styling, using the site's colour tokens |
+| `demos/hat/tiling.js` | Hat metatile construction and two-part lift, run as a worker |
+| `demos/hat/index.html` | Hat page: the a:b slider, colour presets, About text |
 | `demos/spectre/tiling.js` | Spectre substitution rules, run as a worker |
 | `demos/spectre/shapes.js` | Spectre edge shapes, both arrangements, collision limits |
 | `demos/spectre/index.html` | Spectre page: controls, colour presets, About text |
-| `demos/hat/tiling.js` | Hat metatile construction and two-part lift, run as a worker |
-| `demos/hat/index.html` | Hat page: the a:b slider, colour presets, About text |
 
 ## How it works
 
@@ -42,7 +42,14 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
   for higher levels, and draws discs at corners so thick lines meet cleanly.
 - **Strokes.** Each tile strokes the inner half of its own edges and its
   neighbour strokes the other half. Curved edges use the distance to the edge
-  profile, uploaded as up to 65 points.
+  profile, uploaded as up to 65 points. On a very dark or very light tile the
+  ink flips to a contrasting colour, so outlines survive a greyscale key.
+- **Fill.** Each tile shape is cut into triangles once per shape. The outline
+  is tidied first: repeated corners, where edges have zero length at the
+  chevron and the comet, and straight corners are removed. A corner lying on
+  the edge of a candidate triangle blocks it, because at the hat and the
+  turtle many corners fall on one grid line. A looser test cut triangles
+  outside the tile there, and the old version left holes at the endpoints.
 - **Collisions.** Past the collision limit a tile's outline crosses itself.
   `faces()` in `map.js` splits the outline at the crossings and labels each
   piece with its winding number. Pieces with winding 1 or 2 fill normally.

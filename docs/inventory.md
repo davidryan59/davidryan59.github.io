@@ -160,8 +160,8 @@ not the release — the live Optimism deployment above is the one to publish.
 ### Maths demos
 | Item | Link | Status |
 |---|---|---|
-| Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [davidryan59.github.io/demos/spectre/](https://davidryan59.github.io/demos/spectre/) | Unchecked; live once pushed |
 | Hat tiling viewer: pan, zoom and reshape the Hat family from chevron to comet, built 2026-09-23 | [davidryan59.github.io/demos/hat/](https://davidryan59.github.io/demos/hat/) | Unchecked; live once pushed |
+| Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [davidryan59.github.io/demos/spectre/](https://davidryan59.github.io/demos/spectre/) | Unchecked; live once pushed |
 
 ### npm packages
 Four, all last published December 2019 or later, confirmed live on the

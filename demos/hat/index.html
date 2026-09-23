@@ -30,15 +30,16 @@
   <p class="hint">One tile and its mirror image, a pattern that never repeats. Slide to reshape every tile.</p>
   <div class="row">
     <nav class="switch" aria-label="Tiling">
-      <a href="../spectre/index.html">Spectre</a><a href="index.html" aria-current="page">Hat</a>
+      <a href="index.html" aria-current="page">Hat</a><a href="../spectre/index.html">Spectre</a>
     </nav>
     <button type="button" id="about-open">About</button>
   </div>
 </div>
 
 <div class="card options">
+  <label class="section-title head-title" for="scheme">Colour</label>
   <div class="head">
-    <select id="scheme" aria-label="Colours"></select>
+    <select id="scheme"></select>
     <button class="theme-toggle" type="button" hidden>
       <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
         <circle cx="12" cy="12" r="4.1"/>
@@ -51,16 +52,6 @@
     <button type="button" class="fold" id="options-fold" aria-expanded="false">Options</button>
   </div>
   <div class="body">
-    <label><input type="checkbox" id="outlines"> Supertile outlines</label>
-    <label><input type="checkbox" id="grid"> Grid</label>
-    <div class="sub" id="grid-sub" hidden>
-      <div class="inline">
-        <label><input type="checkbox" id="grid0"> 0° grid</label>
-        <label><input type="checkbox" id="grid30"> 30° grid</label>
-      </div>
-      <p class="hint" id="grid-hint"></p>
-      <div><button type="button" class="linkish" id="grid-clear">Start again</button></div>
-    </div>
     <div class="section">
       <span class="section-title">Tile shape</span>
       <div class="slider">
@@ -74,7 +65,18 @@
           <button type="button" data-deg="90">Comet</button>
         </div>
       </div>
-      <p class="hint">The same pattern at every shape. Only the edge lengths a and b change.</p>
+    </div>
+    <div class="section">
+      <label><input type="checkbox" id="outlines"> Supertile outlines</label>
+      <label><input type="checkbox" id="grid"> Grid</label>
+      <div class="sub" id="grid-sub" hidden>
+        <div class="inline">
+          <label><input type="checkbox" id="grid0"> 0° grid</label>
+          <label><input type="checkbox" id="grid30"> 30° grid</label>
+        </div>
+        <p class="hint" id="grid-hint"></p>
+        <div><button type="button" class="linkish" id="grid-clear">Start again</button></div>
+      </div>
     </div>
   </div>
 </div>
@@ -221,6 +223,11 @@
       return classes.map(function (cl, k) {
         return oklch(dark ? 0.55 : 0.8, 0.12, 25 + (k % 6) * 60 + (k >= 6 ? 30 : 0));
       });
+    } },
+    // Black to white in twelve even steps of lightness, unmirrored hats
+    // first: unmirrored 0° is black and mirrored 300° is white.
+    { id: 'grey', name: 'Greyscale, unmirrored first', grouping: 'turnhand', colours: function () {
+      return classes.map(function (cl, k) { return oklch(k / 11, 0, 0); });
     } },
     { id: 'turns', name: 'Six turns', grouping: 'turn', colours: function (dark) {
       var out = [];

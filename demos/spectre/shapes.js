@@ -20,7 +20,6 @@
     { id: 'sine', name: 'Sine', params: ['waves'] },
     { id: 'parabola', name: 'Parabola', params: [] },
     { id: 'triangle', name: 'Triangle', params: ['peak'], set: { peak: 0.5 } },
-    { id: 'skew', name: 'Skew triangle', params: ['peak'], set: { peak: 2 / 3 } },
     { id: 'sawtooth', name: 'Sawtooth', params: [], set: { peak: 1 } },
     { id: 'trapezium', name: 'Trapezium', params: ['rise', 'fall'], set: { rise: 0.2, fall: 0.2 } },
     { id: 'square', name: 'Square', params: [] },
@@ -40,7 +39,7 @@
       case 'parabola':
         for (i = 0; i <= n; i++) { t = i / n; out.push([t * L, H * 4 * t * (1 - t)]); }
         return out;
-      case 'triangle': case 'skew':
+      case 'triangle':
         return [[0, 0], [prm.peak * L, H], [L, 0]];
       case 'sawtooth':
         return [[0, 0], [L, H], [L, 0]];
