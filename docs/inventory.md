@@ -160,8 +160,9 @@ not the release — the live Optimism deployment above is the one to publish.
 ### Maths demos
 | Item | Link | Status |
 |---|---|---|
-| Hat tiling viewer: pan, zoom and reshape the Hat family from chevron to comet, built 2026-09-23 | [davidryan59.github.io/demos/hat/](https://davidryan59.github.io/demos/hat/) | Unchecked; live once pushed |
-| Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [davidryan59.github.io/demos/spectre/](https://davidryan59.github.io/demos/spectre/) | Unchecked; live once pushed |
+| Hat tiling viewer: pan, zoom and reshape the Hat family from chevron to comet, built 2026-09-23 | [drbuild.uk/demos/hat/](https://drbuild.uk/demos/hat/) | Unchecked; live once pushed |
+| Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [drbuild.uk/demos/spectre/](https://drbuild.uk/demos/spectre/) | Unchecked; live once pushed |
+| Hat (extended) viewer: the Hat with curved edges, where the mirrored hats become a second tile, built 2026-09-23. A third tab of the same explorer, so no separate entry on the page | [drbuild.uk/demos/hat-extended/](https://drbuild.uk/demos/hat-extended/) | Unchecked; live once pushed |
 
 ### npm packages
 Four, all last published December 2019 or later, confirmed live on the

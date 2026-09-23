@@ -152,7 +152,7 @@ a directory URL. A browser reading `file://` has no server to resolve
 `merge-fractals/` into `merge-fractals/index.html`, so it lists the folder
 instead. The explicit form behaves the same way on disk and on GitHub Pages,
 and the tidy URL still works for anyone who types or shares
-`davidryan59.github.io/merge-fractals/`.
+`drbuild.uk/merge-fractals/`.
 
 The RPC reads work from `file://` as well, since the chosen endpoints send
 `Access-Control-Allow-Origin: *`, which allows a file origin.

@@ -1,6 +1,7 @@
 # davidryan59.github.io
 
-David Ryan's GitHub Pages site, served at <https://davidryan59.github.io/>.
+David Ryan's GitHub Pages site, served at <https://drbuild.uk/>. The old
+address, `davidryan59.github.io`, redirects there.
 
 - `index.html` — the builder page: everything David has built and published,
   rendered from [docs/inventory.md](docs/inventory.md).
