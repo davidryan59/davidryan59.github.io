@@ -9,8 +9,8 @@
    reads the three audited contracts' bytecode from a public Ethereum RPC.
 
    Stage 1 draws the pictures the cards are made from into a temporary
-   folder: the tiling tabs with their panels hidden, the two live sites,
-   the bytecode. Stage 2 lays out each card in cards.html and saves a JPEG,
+   folder: the tiling tabs with their panels hidden, the Merge Fractals
+   part way through their animation, the two live sites, the bytecode. Stage 2 lays out each card in cards.html and saves a JPEG,
    at the best quality that stays under 300 KB, since WhatsApp shows no
    picture for anything larger. */
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os');
@@ -30,6 +30,10 @@ const TILINGS = {
   'hat-extended': '/demos/hat-extended/#v=0,0,34,0,0,0&c=pastel&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55',
   'hat-curves': '/demos/hat-extended/#v=0,0,30,0,0,0&c=pastel&t=30&e=curve&ha=0.22&hb=0.22&a=alt&p=waves%3A1'
 };
+// Merge Fractals animate: every few seconds the two diamonds break into
+// fractal shapes and back. Each is caught at a moment of seconds into its
+// animation where the shapes are clearest.
+const FRACTALS = { '1509': 17.5, '1904': 17.5, '2757': 11.5 };
 // Live sites for the builder page's mosaic, cropped to their liveliest part.
 const SITES = {
   'dino-dash': { url: 'https://pacman-dino-dash.netlify.app', clip: { x: 305, y: 195, width: 590, height: 413 } },
@@ -72,6 +76,16 @@ async function stageOne(browser, base) {
     console.log('drew ' + name + '.png', Math.round(fs.statSync(path.join(TMP, name + '.png')).size / 1024) + ' KB');
   }
   await ctx.close();
+  const art = await browser.newContext({ viewport: { width: 400, height: 400 }, deviceScaleFactor: 2 });
+  for (const [id, t] of Object.entries(FRACTALS)) {
+    const page = await art.newPage();
+    await page.goto(base + '/merge-fractal-' + id + '.svg');
+    await page.evaluate(t => { const svg = document.documentElement; svg.pauseAnimations(); svg.setCurrentTime(t); }, t);
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(TMP, 'merge-fractal-' + id + '.png'), omitBackground: true });
+    await page.close();
+  }
+  await art.close();
   const web = await browser.newContext({ viewport: { width: 1200, height: 840 } });
   for (const [name, site] of Object.entries(SITES)) {
     const page = await web.newPage();

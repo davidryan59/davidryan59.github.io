@@ -169,9 +169,9 @@
     function artTile(f) { return '<div class="tile art"><img src="' + f + '" alt=""></div>'; }
     var curve = '<div class="tile cream">' + diagrams['uniswap-v2']().replace('width="520" height="220"', 'width="286" height="121"') + '</div>';
     return '<div class="card mosaic"><div class="grid">' +
-      artTile('/merge-fractal-1509.svg') + img(SRC + 'hat.png', '40% 45%') + artTile('moving-mondrian-14.svg') + img(SRC + 'dino-dash.png') +
+      artTile(SRC + 'merge-fractal-1509.png') + img(SRC + 'hat.png', '40% 45%') + artTile('/moving-mondrian-951.svg') + img(SRC + 'dino-dash.png') +
       img(SRC + 'retuner.png') + '<div class="name">' + words('David Ryan', 'Everything I’ve built, in one place') + '</div>' + curve +
-      img(SRC + 'hat-curves.png', '55% 50%') + artTile('/merge-fractal-2757.svg') + img(SRC + 'spectre.png', '35% 50%') + artTile('/moving-mondrian-951.svg') +
+      img(SRC + 'hat-curves.png', '55% 50%') + artTile(SRC + 'merge-fractal-2757.png') + img(SRC + 'spectre.png', '35% 50%') + artTile('/moving-mondrian-563.svg') +
       '</div></div>';
   }
 
@@ -181,10 +181,11 @@
     spectre: function () { return tiling('spectre', 'Spectre tiling', 'Tiles using only rotations, mirror image not required'); },
     'hat-extended': function () { return tiling('hat-extended', 'Hat tiling (extended)', 'Edge options on Hat make mirror image a separate tile'); },
     'merge-fractals': function () {
-      return art(['/merge-fractal-1509.svg', '/merge-fractal-1904.svg', '/merge-fractal-2757.svg'], 'Ethereum Merge Fractals', 'Generative onchain art marking Ethereum’s Merge');
+      return art([SRC + 'merge-fractal-1509.png', SRC + 'merge-fractal-1904.png', SRC + 'merge-fractal-2757.png'],
+        'Ethereum Merge Fractals', 'Generative onchain art marking Ethereum’s Merge');
     },
-    // Tokens 12 and 14, kept beside this page, stand in for token 133,
-    // which is a portrait, so no card shows a face.
+    // Token 12, kept beside this page, stands in for token 133, which is a
+    // portrait, so no card shows a face.
     'moving-mondrian': function () {
       return art(['moving-mondrian-12.svg', '/moving-mondrian-563.svg', '/moving-mondrian-951.svg'], 'Moving Mondrian', 'Fully onchain generative art on Optimism');
     },
