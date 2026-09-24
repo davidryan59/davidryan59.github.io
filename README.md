@@ -16,6 +16,11 @@ address, `davidryan59.github.io`, redirects there.
 - `social/` — the 1200 × 630 share cards that each page's `og:image` names.
   `node tools/social-cards/render.js` redraws them from the live pages; its
   header says what it needs.
+- `tiles/` — the short address drbuild.uk/tiles, which redirects to the Hat
+  page.
+- `tools/tiling-video/` — renders a 45-second looping video of the tiling
+  explorer, with captions and a just-intonation soundtrack. See its
+  [README](tools/tiling-video/README.md).
 
 There is no build step. Edit the files here and push; GitHub Pages serves the
 repo as it stands.

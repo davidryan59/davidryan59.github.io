@@ -1,0 +1,77 @@
+{
+ "chromeArgs": [
+  "--use-gl=swiftshader",
+  "--enable-unsafe-swiftshader"
+ ],
+ "hat": {
+  "s0": 18,
+  "q0": [
+   0,
+   0
+  ],
+  "drift": [
+   0.457,
+   -0.196
+  ],
+  "rot": 0,
+  "diceSeeds": {
+   "any": 7,
+   "rgb": 3,
+   "bw": 5,
+   "greys": 11
+  }
+ },
+ "spectre": {
+  "s0": 23.4,
+  "q0": [
+   0,
+   0
+  ],
+  "drift": [
+   1.07,
+   0.14
+  ],
+  "rot": 0,
+  "colour": "rainbow",
+  "peaks": {
+   "curve:S": 0.45,
+   "curve:alt": 0.52,
+   "triangle:S": 0.45,
+   "triangle:alt": 0.55,
+   "jigsaw:S": 0.35,
+   "jigsaw:alt": 0.42
+  },
+  "params": {
+   "curve": "waves:1",
+   "triangle": "peak:0.5",
+   "jigsaw": "neck:0.55"
+  }
+ },
+ "probe": {
+  "hatBeats": [
+   0,
+   2,
+   6,
+   10,
+   13,
+   16,
+   21,
+   22.5,
+   24,
+   26,
+   27,
+   28,
+   29,
+   34
+  ],
+  "spectreBeats": [
+   41,
+   42,
+   44,
+   46,
+   48,
+   50,
+   52
+  ]
+ }
+}

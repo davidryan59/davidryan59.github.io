@@ -162,6 +162,9 @@ hats for the first method alone. The reshaped tiling was sampled at 0°, 15°,
 - After a change to `edges.js` or the Hat (extended) rule, run
   `node tools/hat-edges/verify-page.js`. It checks that every shared edge
   still carries one curve from both sides.
+- `tools/tiling-video/capture.js` hooks two lines of `map.js` to film the
+  pages: `statusEl.hidden = missing === 0;` and the `return map;` that ends
+  `start()`. After changing either, update the hook there.
 
 ## Removed: colour by label
 

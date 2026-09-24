@@ -1,0 +1,14 @@
+# Everything the scripts render or download. All of it rebuilds from the
+# scripts here, and none of it should reach git or the live site.
+node_modules/
+package-lock.json
+frames/
+probe/
+overlay/frames/
+overlay/test-bg.png
+overlay/contact-sheet.png
+music/tiling-loop.wav
+music/spectrogram.png
+*.mp4
+*.log
+__pycache__/

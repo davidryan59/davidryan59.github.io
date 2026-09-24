@@ -1,0 +1,8 @@
+{
+  "name": "tiling-video",
+  "private": true,
+  "description": "Renders the looping video of the tiling explorer. See README.md.",
+  "dependencies": {
+    "playwright-core": "1.57.0"
+  }
+}

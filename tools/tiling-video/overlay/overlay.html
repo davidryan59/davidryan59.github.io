@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>Tiling video overlay</title>
+<!-- The overlay layer of the tiling video: captions, the shape slider, the
+     palette and edge labels, and the watermark. render.js calls
+     renderFrame(n) for each frame and screenshots it with a transparent
+     background. Every value comes from the frame number through
+     ../timeline.js, so nothing runs on wall-clock time. Colours and card
+     styling follow the explorer's dark theme (demos/engine/map.css), scaled
+     about 2.4 times, since the 1080 px frame shows at about 400 px. -->
+<style>
+  :root {
+    --panel: rgba(30, 30, 35, 0.92);
+    --rule: #3a3a3a;
+    --ink: #d9d4c7;
+    /* A little lighter than the site's #918c80, since the small text
+       shows at about 9 px on a phone and the panel lets light tiles through. */
+    --muted: #a9a498;
+    --accent: #7aa6e0;
+    --shadow: 0 4px 26px rgba(0, 0, 0, 0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1080px; height: 1080px; overflow: hidden; background: transparent; }
+  body {
+    position: relative;
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    position: absolute;
+    background: var(--panel);
+    border: 2px solid var(--rule);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+  }
+  [data-off] { visibility: hidden; }
+
+  /* Watermark, top right: clear of X's own badges in the bottom corners. */
+  .wm {
+    top: 48px;
+    right: 48px;
+    padding: 8px 20px;
+    border-radius: 999px;
+    font-size: 24px;
+    line-height: 30px;
+    white-space: nowrap;
+  }
+
+  /* Captions, top centre, under the watermark. */
+  .cap { top: 120px; max-width: 940px; padding: 20px 36px 22px; text-align: center; }
+  .cap .main { font-size: 42px; line-height: 1.24; text-wrap: balance; }
+  .cap .sub { font-size: 26px; line-height: 1.3; color: var(--muted); margin-top: 10px; text-wrap: balance; }
+
+  /* Bottom slot: the shape slider or a label pill, never both at once. */
+  .slider { bottom: 48px; }
+  .slider svg { display: block; }
+  .slider text { font-family: Georgia, "Times New Roman", serif; }
+  .pill {
+    bottom: 48px;
+    height: 72px;
+    border-radius: 999px;
+    font-size: 32px;
+    line-height: 68px;
+  }
+  .pill span { position: absolute; left: 50%; top: 0; transform: translateX(-50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="card wm">drbuild.uk/tiles</div>
+<div id="caps"></div>
+<div class="card slider" id="slider"><svg id="slider-svg"></svg></div>
+<div class="card pill" id="pill" data-off><span id="pill-a"></span><span id="pill-b"></span></div>
+
+<script src="../timeline.js"></script>
+<script>
+(function () {
+  var T = window.Timeline, F = T.FRAMES, W = 1080;
+  var SVG = 'http://www.w3.org/2000/svg';
+
+  function beatAt(n) { return T.beatOfFrame(((n % F) + F) % F); }
+  function show(el, on) { if (on) el.removeAttribute('data-off'); else el.setAttribute('data-off', ''); }
+  function svgEl(name, attrs, parent) {
+    var e = document.createElementNS(SVG, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function hex(c) { return [1, 3, 5].map(function (i) { return parseInt(c.substr(i, 2), 16); }); }
+  function mix(a, b, t) {
+    var x = hex(a), y = hex(b);
+    return 'rgb(' + x.map(function (v, i) { return Math.round(v + (y[i] - v) * t); }).join(',') + ')';
+  }
+  var MUTED = '#a9a498', ACCENT = '#7aa6e0';
+
+  /* ------------------------------------------------------------ captions */
+
+  // One card per caption, all in the same place, each sized to its widest
+  // balanced line so the card hugs the text.
+  var capsEl = document.getElementById('caps'), capEls = {};
+  T.CAPTIONS.forEach(function (c) {
+    var el = document.createElement('div');
+    el.className = 'card cap';
+    var main = document.createElement('div');
+    main.className = 'main';
+    main.textContent = c[3];
+    el.appendChild(main);
+    if (c[4]) {
+      var sub = document.createElement('div');
+      sub.className = 'sub';
+      sub.textContent = c[4];
+      el.appendChild(sub);
+    }
+    el.style.left = '0px';
+    capsEl.appendChild(el);
+    capEls[c[0]] = el;
+  });
+  function widestLine(block) {
+    var r = document.createRange();
+    r.selectNodeContents(block);
+    var rects = r.getClientRects(), w = 0;
+    for (var i = 0; i < rects.length; i++) w = Math.max(w, rects[i].width);
+    return w;
+  }
+  function sizeCaptions() {
+    Object.keys(capEls).forEach(function (id) {
+      var el = capEls[id], w = 0;
+      Array.prototype.forEach.call(el.children, function (b) { w = Math.max(w, widestLine(b)); });
+      // Padding 36 + border 2 on each side, and 4 px spare so the balanced
+      // lines keep their breaks.
+      var width = Math.min(940, Math.ceil(w) + 76 + 4);
+      el.style.width = width + 'px';
+      el.style.left = Math.round((W - width) / 2) + 'px';
+      show(el, false);
+    });
+  }
+
+  /* -------------------------------------------------------------- slider */
+
+  // The track runs 800 px; the card leaves room for the end labels to sit
+  // centred under their ticks. Coordinates are inside the card's border.
+  var TW = 800, INNER_W = 926, INNER_H = 158, TX = (INNER_W - TW) / 2;
+  var TRACK_Y = 80, KNOB_R = 17;
+  var sliderEl = document.getElementById('slider'), svg = document.getElementById('slider-svg');
+  sliderEl.style.width = (INNER_W + 4) + 'px';
+  sliderEl.style.left = Math.round((W - INNER_W - 4) / 2) + 'px';
+  svg.setAttribute('width', INNER_W);
+  svg.setAttribute('height', INNER_H);
+  svg.setAttribute('viewBox', '0 0 ' + INNER_W + ' ' + INNER_H);
+
+  svgEl('text', { x: 26, y: 42, 'font-size': 26, fill: MUTED }, svg).textContent = 'Tile shape';
+  svgEl('rect', { x: TX, y: TRACK_Y - 5, width: TW, height: 10, rx: 5, fill: 'rgba(255,255,255,0.2)' }, svg);
+  var fill = svgEl('rect', { x: TX, y: TRACK_Y - 5, width: 0, height: 10, rx: 5, fill: ACCENT }, svg);
+  var stops = T.STOPS.map(function (s) {
+    var x = TX + TW * s[0] / 90;
+    return {
+      name: s[1],
+      tick: svgEl('rect', { x: x - 1.5, y: 95, width: 3, height: 14, rx: 1.5, fill: MUTED }, svg),
+      base: svgEl('text', { x: x, y: 140, 'font-size': 26, 'text-anchor': 'middle', fill: MUTED }, svg),
+      lit: svgEl('text', { x: x, y: 140, 'font-size': 26, 'font-weight': 'bold', 'text-anchor': 'middle', fill: ACCENT }, svg)
+    };
+  });
+  stops.forEach(function (s) { s.base.textContent = s.lit.textContent = s.name; });
+  var knob = svgEl('circle', { cx: TX, cy: TRACK_Y, r: KNOB_R, fill: ACCENT, stroke: '#1e1e23', 'stroke-width': 3 }, svg);
+
+  // How lit a stop's label is: the share of this frame and the three
+  // before it where the timeline sits at that stop, so a label brightens
+  // over four frames (0.13 s) rather than snapping.
+  function litLevel(n, name) {
+    var k = 0;
+    for (var j = 0; j < 4; j++) if (T.stopAt(beatAt(n - j)) === name) k++;
+    return k / 4;
+  }
+
+  /* ---------------------------------------------------------- label pill */
+
+  var pillEl = document.getElementById('pill');
+  var pillA = document.getElementById('pill-a'), pillB = document.getElementById('pill-b');
+  var ctx = document.createElement('canvas').getContext('2d');
+  ctx.font = '32px Georgia';
+  function pillWidth(text) { return ctx.measureText(text).width + 2 * 34 + 4; }
+  var DISSOLVE = 0.15 / T.SEC_PER_BEAT;   // 0.15 s in beats
+
+  // When the label's text changes within 0.075 s of beat b, the beat it
+  // changes on, found by halving the interval. The old and new text
+  // dissolve over 0.15 s centred on that beat.
+  function changeBeat(lo, hi, oldText) {
+    for (var i = 0; i < 40; i++) {
+      var mid = (lo + hi) / 2, m = T.labelAt(mid);
+      if (m && m.text === oldText) lo = mid; else hi = mid;
+    }
+    return hi;
+  }
+
+  function renderPill(b) {
+    var cur = T.labelAt(b);
+    if (!cur || cur.opacity <= 0) { show(pillEl, false); return; }
+    var h = DISSOLVE / 2, before = T.labelAt(b - h), after = T.labelAt(b + h);
+    var oldText = null, newText = cur.text, x = 1;
+    if (before && after && before.text !== after.text) {
+      oldText = before.text;
+      newText = after.text;
+      x = T.ease((b - changeBeat(b - h, b + h, oldText) + h) / DISSOLVE);
+    }
+    var w = oldText ? pillWidth(oldText) + (pillWidth(newText) - pillWidth(oldText)) * x : pillWidth(newText);
+    pillEl.style.width = w + 'px';
+    pillEl.style.left = (W - w) / 2 + 'px';
+    pillEl.style.opacity = cur.opacity;
+    pillB.textContent = newText;
+    pillB.style.opacity = x;
+    pillA.textContent = oldText || '';
+    pillA.style.opacity = oldText ? 1 - x : 0;
+    show(pillEl, true);
+  }
+
+  /* --------------------------------------------------------------- frame */
+
+  window.renderFrame = function (n) {
+    var b = beatAt(n);
+
+    var op = {};
+    T.captionsAt(b).forEach(function (c) { op[c.id] = c.opacity; });
+    Object.keys(capEls).forEach(function (id) {
+      var o = op[id] || 0;
+      capEls[id].style.opacity = o;
+      show(capEls[id], o > 0);
+    });
+
+    var so = T.sliderOpacity(b);
+    sliderEl.style.opacity = so;
+    show(sliderEl, so > 0);
+    var kx = TX + TW * T.deg(b) / 90;
+    knob.setAttribute('cx', kx.toFixed(3));
+    fill.setAttribute('width', (kx - TX).toFixed(3));
+    stops.forEach(function (s) {
+      var lv = litLevel(n, s.name);
+      s.lit.setAttribute('fill-opacity', lv);
+      s.base.setAttribute('fill-opacity', 1 - lv);
+      s.tick.setAttribute('fill', mix(MUTED, ACCENT, lv));
+    });
+
+    renderPill(b);
+    return b;
+  };
+
+  document.fonts.ready.then(function () {
+    sizeCaptions();
+    window.renderFrame(0);
+    window.overlayReady = true;
+  });
+})();
+</script>
+</body>
+</html>
