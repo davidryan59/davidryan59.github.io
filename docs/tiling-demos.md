@@ -104,6 +104,15 @@ engine. Plain JavaScript and WebGL 2, no libraries, no build step.
 - **Ink.** Tile edges and supertile lines use dark ink in light mode and
   light ink in dark mode. Each tile takes the other ink when that gives the
   higher contrast ratio (WCAG) against the tile's colour.
+- **Spectre edge lengths.** The first Spectre option, stored as `s=` in
+  the address bar. Edges at even multiples of 30° get length a, and edges at
+  odd multiples get length b. The slider angle t sets a = sin t and
+  b = cos t, scaled so the mean tile keeps the Spectre's area. At 45° every
+  edge is 1, and the slider snaps there within 1.5°. Anywhere else, a tile
+  at an odd turn swaps its a and b edges, so the tiling has two shapes. The
+  Common and rare colours show them apart. The worker keeps every position
+  exactly, as a part along the even directions and a part along the odd
+  ones (see `tiling-core.js`), so a stretch needs no rebuild.
 - **Spectre edges.** The bump shape first: Line (the default), Curve,
   Triangle, Trapezium or Jigsaw. Then Single (the default) or Double, then
   Height. Line hides those two, and they sit below the menu so the menu

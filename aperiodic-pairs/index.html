@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aperiodic pairs – six tilings with two tiles</title>
+<meta name="description" content="Penrose kites and darts, Penrose rhombs, Ammann A2, the trilobite and crab, the Taylor–Socolar hexagon and a two-shape Spectre tiling, each drawn from its mathematical definition. Pan and zoom every patch.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://drbuild.uk/aperiodic-pairs/">
+<meta property="og:title" content="Aperiodic pairs – six tilings with two tiles">
+<meta property="og:description" content="Six two-tile systems that never repeat, from Penrose's kites and darts to a two-shape Spectre tiling, each drawn from its definition.">
+<meta property="og:image" content="https://drbuild.uk/social/aperiodic-pairs.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Penrose kites and darts beside Penrose rhombs, in blue and ochre">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="Penrose kites and darts beside Penrose rhombs, in blue and ochre">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../audit.css">
+<script src="../audit.js"></script>
+<script>Audit.initTheme();</script>
+<style>
+  :root {
+    --tile-a: light-dark(#9db4dc, #4f6fa8);
+    --tile-b: light-dark(#ecc680, #a97f37);
+    --tile-c: light-dark(#b8cc9f, #6f8a5a);
+    --tile-d: light-dark(#e2ada0, #9c6556);
+    --tile-line: light-dark(#2a2922, #0d0d10);
+    /* The Taylor-Socolar hexagons stay paper-light in both themes, so their
+       stripes are black as the text says. */
+    --ts-a: light-dark(#fffdf8, #e9e4d8);
+    --ts-b: light-dark(#dcd6c8, #bdb6a6);
+    --stripe: #1a1a1a;
+    --flag-red: #c4452f;
+    --flag-blue: #2f5fb3;
+    --proved: light-dark(#2e6b3f, #86c595);
+  }
+  .status {
+    display: inline-block;
+    margin-left: 0.55rem;
+    padding: 0.05rem 0.55rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    vertical-align: 0.25em;
+    white-space: nowrap;
+  }
+  .status.proved { color: var(--proved); }
+  .status.tilings { color: var(--muted); }
+  .figure {
+    margin: 0 0 var(--gap-para);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .figure canvas {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 4 / 3;
+    cursor: grab;
+    touch-action: pan-x pan-y;
+  }
+  .figure canvas.dragging { cursor: grabbing; }
+  .figure canvas:focus-visible { outline: 2px solid var(--link); outline-offset: -3px; }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 0.9rem;
+    padding: 0.55rem 0.8rem;
+    border-top: 1px solid var(--rule);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .controls button {
+    font: inherit;
+    color: var(--h3);
+    background: none;
+    border: 1px solid var(--ring);
+    border-radius: 6px;
+    padding: 0.12rem 0.55rem;
+    cursor: pointer;
+  }
+  .controls button:hover { border-color: var(--rule); color: var(--h1); }
+  .controls button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+  .key { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .swatch { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 2px; border: 1px solid var(--rule); }
+  .swatch.a { background: var(--tile-a); }
+  .swatch.b { background: var(--tile-b); }
+  .swatch.c { background: var(--tile-c); }
+  .swatch.d { background: var(--tile-d); }
+  .swatch.ts-a { background: var(--ts-a); }
+  .swatch.ts-b { background: var(--ts-b); }
+  .swatch.red { background: var(--flag-red); }
+  .swatch.blue { background: var(--flag-blue); }
+  .zoom { display: inline-flex; gap: 0.3rem; margin-left: auto; }
+  .stretch { display: flex; align-items: center; gap: 0.6rem; flex: 1 1 100%; }
+  .stretch input { flex: 1 1 8rem; min-width: 0; accent-color: var(--link); }
+  .stretch output { font-variant-numeric: tabular-nums; min-width: 7.5rem; }
+  .prototiles {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem 2.5rem;
+    padding: 1.25rem 1rem 1rem;
+  }
+  .prototiles figure { margin: 0; text-align: center; font-size: 0.85rem; color: var(--muted); }
+  .prototiles svg { display: block; width: 7.5rem; height: auto; margin: 0 auto 0.4rem; }
+  .prototiles .fill-a { fill: var(--tile-a); }
+  .prototiles .fill-b { fill: var(--tile-b); }
+  .prototiles .edge { fill: none; stroke: var(--tile-line); stroke-width: 0.018; stroke-linejoin: round; }
+  .prototiles .bar { stroke: var(--tile-line); stroke-width: 0.05; stroke-linecap: round; opacity: 0.55; }
+  .probe { position: absolute; width: 0; height: 0; overflow: hidden; }
+  table.facts { width: auto; }
+  table.facts th { padding-right: 1.5rem; }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../index.html">← David Ryan's builder page</a>
+
+<h1>Aperiodic pairs</h1>
+<p class="tagline">Six tilings built from two tiles, each drawn here from its mathematical definition</p>
+
+<p>
+  An aperiodic set of tiles covers the plane, but never in a repeating pattern. For almost fifty years,
+  the smallest known sets had two tiles, until the Hat and the Spectre showed in 2023 that one unmarked shape is enough.
+  Here are six two-tile systems. Every picture is computed from the published definition, not copied from a paper.
+</p>
+<p class="muted">
+  Drag a picture to move it. Pinch, Ctrl+scroll or the buttons zoom it; on a phone, use two fingers.
+</p>
+
+<h2 id="kites-and-darts">Kites and darts <span class="status proved">Proved</span></h2>
+<p class="muted">Roger Penrose, 1974</p>
+<div class="figure">
+  <canvas id="p2" tabindex="0" aria-label="Penrose kites and darts, a patch grown from a sun of five kites"></canvas>
+  <div class="controls">
+    <span class="key"><span class="swatch a"></span>kite</span>
+    <span class="key"><span class="swatch b"></span>dart</span>
+    <span class="zoom"></span>
+  </div>
+</div>
+<p>
+  A kite has angles of 72°, 72°, 72° and 144°. A dart has angles of 36°, 72°, 36° and 216°.
+  Both have edges of length φ and 1, where φ = (1 + √5)/2 is the golden ratio.
+  The bare shapes also tile periodically, so the pair needs matching rules: marked corners, arcs or bumps.
+  The patch starts from a sun of five kites. Seven rounds of subdivision split every half-kite
+  and half-dart into smaller ones, cutting at the golden ratio.
+</p>
+<div class="table-wrap"><table class="facts">
+  <tr><th>Kites : darts</th><td>φ : 1 in the limit</td></tr>
+  <tr><th>Inflation</th><td>φ ≈ 1.618</td></tr>
+</table></div>
+
+<h2 id="rhombs">Penrose rhombs <span class="status proved">Proved</span></h2>
+<p class="muted">Roger Penrose, 1974</p>
+<div class="figure">
+  <canvas id="p3" tabindex="0" aria-label="Penrose rhombs, a patch grown from a wheel of ten half-rhombs"></canvas>
+  <div class="controls">
+    <span class="key"><span class="swatch a"></span>thick rhomb</span>
+    <span class="key"><span class="swatch b"></span>thin rhomb</span>
+    <span class="zoom"></span>
+  </div>
+</div>
+<p>
+  A thick rhomb with angles of 72° and 108°, and a thin rhomb with angles of 36° and 144°, all edges equal.
+  Like the kites and darts, they need matching rules. The patch starts from a wheel of ten half-rhombs
+  and goes through seven rounds of subdivision. Half-rhombs on the rim show as triangles.
+</p>
+<div class="table-wrap"><table class="facts">
+  <tr><th>Thick : thin</th><td>φ : 1 in the limit</td></tr>
+  <tr><th>Inflation</th><td>φ ≈ 1.618</td></tr>
+</table></div>
+
+<h2 id="ammann-a2">Ammann A2 <span class="status proved">Proved</span></h2>
+<p class="muted">Robert Ammann, 1977; published by Grünbaum and Shephard, 1987</p>
+<div class="figure">
+  <canvas id="a2" tabindex="0" aria-label="Ammann A2 tiling of big and small L-shaped hexagons"></canvas>
+  <div class="controls">
+    <span class="key"><span class="swatch a"></span>big tile</span>
+    <span class="key"><span class="swatch b"></span>small tile</span>
+    <span class="zoom"></span>
+  </div>
+</div>
+<p>
+  Two L-shaped hexagons with only right angles. The small tile is the big one scaled by
+  Ψ = 1/√φ ≈ 0.786. Going clockwise from the longest side, the big tile's sides are
+  1, Ψ, Ψ², Ψ⁵, Ψ⁴ and Ψ³. Each round of subdivision turns a big tile into a big and a small tile,
+  and a small tile into a big one, all scaled by Ψ. So the tile counts follow the Fibonacci numbers.
+  Marks on the edges enforce the hierarchy; they are not drawn here.
+</p>
+<div class="table-wrap"><table class="facts">
+  <tr><th>Tiles in the patch</th><td>4,181 after 17 rounds</td></tr>
+  <tr><th>Inflation</th><td>√φ ≈ 1.272</td></tr>
+</table></div>
+
+<h2 id="trilobite-and-crab">Trilobite and crab <span class="status proved">Proved</span></h2>
+<p class="muted">Chaim Goodman-Strauss, 1999 and 2016</p>
+<div class="figure">
+  <div class="prototiles">
+    <figure>
+      <svg viewBox="-0.3 -0.3 1.6 1.6" role="img" aria-label="The trilobite in the square-grid encoding">
+        <path class="fill-a" d="M 0.2 0 L 0.8 0 A 0.2 0.2 0 0 0 1 0.2 L 1 0.8 A 0.2 0.2 0 0 1 1.2 1 A 0.2 0.2 0 1 1 0.8 1 L 0.2 1 A 0.2 0.2 0 0 0 0 0.8 L 0 0.2 A 0.2 0.2 0 0 1 -0.2 0 A 0.2 0.2 0 1 1 0.2 0 Z"/>
+        <path class="edge" d="M 0.2 0 L 0.8 0 A 0.2 0.2 0 0 0 1 0.2 L 1 0.8 A 0.2 0.2 0 0 1 1.2 1 A 0.2 0.2 0 1 1 0.8 1 L 0.2 1 A 0.2 0.2 0 0 0 0 0.8 L 0 0.2 A 0.2 0.2 0 0 1 -0.2 0 A 0.2 0.2 0 1 1 0.2 0 Z"/>
+        <line class="bar" x1="0" y1="0" x2="1" y2="1"/>
+      </svg>
+      Trilobite: a tip at two opposite corners
+    </figure>
+    <figure>
+      <svg viewBox="-0.3 -0.3 1.6 1.6" role="img" aria-label="The crab in the square-grid encoding">
+        <path class="fill-b" d="M 0.2 0 L 0.8 0 A 0.2 0.2 0 0 0 1 0.2 L 1 0.8 A 0.2 0.2 0 0 0 0.8 1 L 0.2 1 A 0.2 0.2 0 0 0 0 0.8 L 0 0.2 A 0.2 0.2 0 0 0 0.2 0 Z"/>
+        <path class="edge" d="M 0.2 0 L 0.8 0 A 0.2 0.2 0 0 0 1 0.2 L 1 0.8 A 0.2 0.2 0 0 0 0.8 1 L 0.2 1 A 0.2 0.2 0 0 0 0 0.8 L 0 0.2 A 0.2 0.2 0 0 0 0.2 0 Z"/>
+      </svg>
+      Crab: a notch at every corner
+    </figure>
+  </div>
+  <canvas id="chair" tabindex="0" aria-label="Chair tiling of L-shaped triominoes, the hierarchy behind the trilobite"></canvas>
+  <div class="controls">
+    <span>Chair tiling, coloured by the four turns</span>
+    <span class="zoom"></span>
+  </div>
+</div>
+<p>
+  The trilobite and crab live on a square grid. In the encoding Goodman-Strauss uses for his proof,
+  every cell holds one tile, every tile is notched at its four corners, and a trilobite also carries
+  tips at two opposite corners. Every corner of the grid must take exactly one tip.
+  The pair descends from his trilobite and cross of 1999, whose tilings are recompositions of chair tilings:
+  every chair contributes one trilobite. The patch shows that chair hierarchy, after five rounds of the chair substitution.
+  The tiles' curved markings carry further rules and are not drawn here.
+</p>
+<div class="table-wrap"><table class="facts">
+  <tr><th>Hierarchy</th><td>chair, inflation 2</td></tr>
+  <tr><th>Orientations used</th><td>8 in all</td></tr>
+</table></div>
+
+<h2 id="taylor-socolar">Taylor–Socolar hexagon <span class="status proved">Proved</span></h2>
+<p class="muted">Joan Taylor and Joshua Socolar, 2010</p>
+<div class="figure">
+  <canvas id="ts" tabindex="0" aria-label="Taylor–Socolar hexagons, a patch of 469 tiles obeying both matching rules"></canvas>
+  <div class="controls">
+    <span class="key"><span class="swatch ts-a"></span>tile</span>
+    <span class="key"><span class="swatch ts-b"></span>mirror image</span>
+    <span class="key"><span class="swatch red"></span><span class="swatch blue"></span>diameters</span>
+    <span class="zoom"></span>
+  </div>
+</div>
+<p>
+  A hexagon and its mirror image, marked with black stripes and with red and blue diameters.
+  Rule R1: black stripes continue across every edge.
+  Rule R2: at the two ends of any edge, the diameters that line up with it have different colours.
+  Those diameters belong to the tiles just past each end, so R2 links tiles that do not touch.
+  With reflections allowed, the pair is a single tile; without them, it is an aperiodic pair.
+  A SAT solver found this patch of 469 hexagons from the two rules alone.
+  The same encoding admits no repeating pattern on any torus up to 16 by 32 hexagons, as the theorem requires.
+</p>
+<div class="table-wrap"><table class="facts">
+  <tr><th>Hierarchy</th><td>half-hex, inflation 2</td></tr>
+  <tr><th>Order</th><td>limit-periodic</td></tr>
+</table></div>
+
+<h2 id="spectre-family">A two-shape Spectre tiling <span class="status tilings">Tilings</span></h2>
+<p class="muted">Family: Michael Baake, Franz Gähler, Jan Mazáč and Lorenzo Sadun, 2025</p>
+<div class="figure">
+  <canvas id="spectre" tabindex="0" aria-label="A level-4 Spectre supertile of 4,401 tiles, with its two edge classes stretched"></canvas>
+  <div class="controls">
+    <span class="key"><span class="swatch a"></span>even turns</span>
+    <span class="key"><span class="swatch b"></span>odd turns</span>
+    <span class="zoom"></span>
+    <label class="stretch" for="stretch">Edge lengths
+      <input type="range" id="stretch" min="6" max="84" step="0.5" value="31">
+      <output id="stretch-out" for="stretch"></output>
+    </label>
+  </div>
+</div>
+<p>
+  The Spectre is one tile with fourteen equal edges, pointing in the twelve directions at multiples of 30°.
+  Stretch a Spectre tiling: give the six directions at even multiples of 30° length a, and the other six length b.
+  With a = b, this is the Spectre tiling. Otherwise, about one tile in 8.9 turns by an odd multiple of 30°,
+  which swaps its edge lengths and makes it a second shape. The tiling keeps the Spectre's hierarchy,
+  but nobody claims the two shapes force aperiodicity on their own. The slider stretches a level-4 supertile of 4,401 tiles.
+</p>
+<div class="table-wrap"><table class="facts">
+  <tr><th>Even : odd turns</th><td>4 + √15 : 1 in the limit</td></tr>
+  <tr><th>Overlap check</th><td>none at the ratios tested, from 0.1 to 10</td></tr>
+</table></div>
+
+<h2>Sources</h2>
+<ul class="links">
+  <li>Grünbaum and Shephard, <em>Tilings and Patterns</em>, 1987: Penrose's tiles and Ammann's A2</li>
+  <li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2408.07707">Ammann A2 side lengths and substitution</a></li>
+  <li><a target="_blank" rel="noopener" href="https://strauss.hosted.uark.edu/distribution/papers/trilobiteandcrab.pdf">Goodman-Strauss, A small aperiodic set of planar tiles</a> (1999)</li>
+  <li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/1608.07167">Goodman-Strauss, The Trilobite and Crab: a full explanation</a> (2016)</li>
+  <li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/1003.4279">Socolar and Taylor, An aperiodic hexagonal tile</a> (2010)</li>
+  <li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2305.17743">Smith, Myers, Kaplan and Goodman-Strauss, A chiral aperiodic monotile</a> (2023)</li>
+  <li><a target="_blank" rel="noopener" href="https://link.springer.com/article/10.1007/s00454-025-00756-z">Baake, Gähler, Mazáč and Sadun, On the long-range order of the Spectre tilings</a> (2025)</li>
+  <li><a href="../demos/hat/index.html">Aperiodic Tiling Explorer</a>: the Hat, the Spectre and the Hat with curved edges</li>
+  <li><a href="../index.html">David Ryan's builder page</a></li>
+</ul>
+
+<span class="probe" id="probe" aria-hidden="true"></span>
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var PHI = (1 + Math.sqrt(5)) / 2;
+  var DATA = window.PAIRS_DATA;
+
+  // light-dark() tokens only resolve on an element, so read them through one.
+  var probe = document.getElementById('probe');
+  function colour(name) {
+    probe.style.color = 'var(' + name + ')';
+    return getComputedStyle(probe).color;
+  }
+  function palette() {
+    return {
+      panel: colour('--panel'), a: colour('--tile-a'), b: colour('--tile-b'),
+      c: colour('--tile-c'), d: colour('--tile-d'), line: colour('--tile-line'),
+      tsA: colour('--ts-a'), tsB: colour('--ts-b'), stripe: colour('--stripe'),
+      red: colour('--flag-red'), blue: colour('--flag-blue')
+    };
+  }
+
+  function lerp(p, q, f) { return [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f]; }
+  function polar(r, t) { return [r * Math.cos(t), r * Math.sin(t)]; }
+
+  // A scene is a list of layers built once in world coordinates:
+  // {fill: key, path} or {stroke: key, path, px} (width in screen pixels)
+  // or {stroke: key, path, world} (width in world units).
+  function Layers() { this.list = []; this.box = [Infinity, Infinity, -Infinity, -Infinity]; }
+  Layers.prototype.grow = function (x, y) {
+    var b = this.box;
+    if (x < b[0]) b[0] = x; if (y < b[1]) b[1] = y; if (x > b[2]) b[2] = x; if (y > b[3]) b[3] = y;
+  };
+  Layers.prototype.layer = function (spec) {
+    spec.path = new Path2D();
+    this.list.push(spec);
+    return spec.path;
+  };
+  function addPolygon(layers, path, pts) {
+    path.moveTo(pts[0][0], pts[0][1]);
+    for (var i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]);
+    path.closePath();
+    for (var j = 0; j < pts.length; j++) layers.grow(pts[j][0], pts[j][1]);
+  }
+  function addSegment(path, p, q) { path.moveTo(p[0], p[1]); path.lineTo(q[0], q[1]); }
+  function addPolyline(path, pts) {
+    path.moveTo(pts[0][0], pts[0][1]);
+    for (var i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]);
+  }
+
+  // ---- Penrose kites and darts: half-kites (0) and half-darts (1) with
+  // the apex at B. Halves pair across their edge BC, so strokes skip it.
+  function kitesAndDarts(steps) {
+    var tris = [];
+    for (var i = 0; i < 10; i++) {
+      var A = polar(PHI, (-18 + 36 * i) * Math.PI / 180);
+      var C = polar(PHI, (18 + 36 * i) * Math.PI / 180);
+      if (i % 2) { var t = A; A = C; C = t; }
+      tris.push([0, A, [0, 0], C]);
+    }
+    for (var s = 0; s < steps; s++) {
+      var next = [];
+      for (var k = 0; k < tris.length; k++) {
+        var c = tris[k][0], P1 = tris[k][1], P2 = tris[k][2], P3 = tris[k][3];
+        if (c === 0) {
+          var Q = lerp(P1, P2, 1 / PHI), R = lerp(P2, P3, 1 / PHI);
+          next.push([1, R, Q, P2], [0, Q, P1, R], [0, P3, P1, R]);
+        } else {
+          var P = lerp(P3, P1, 1 / PHI);
+          next.push([1, P2, P, P1], [0, P, P3, P2]);
+        }
+      }
+      tris = next;
+    }
+    var layers = new Layers();
+    var kite = layers.layer({ fill: 'a' }), dart = layers.layer({ fill: 'b' });
+    var edges = layers.layer({ stroke: 'line', px: 0.9 });
+    tris.forEach(function (t) {
+      addPolygon(layers, t[0] ? dart : kite, [t[1], t[2], t[3]]);
+      addSegment(edges, t[1], t[2]);
+      addSegment(edges, t[1], t[3]);
+    });
+    return layers;
+  }
+
+  // ---- Penrose rhombs: Robinson triangles with the apex at A. Halves pair
+  // across BC. Colour 0 halves thin rhombs, colour 1 thick.
+  function rhombs(steps) {
+    var tris = [];
+    for (var i = 0; i < 10; i++) {
+      var B = polar(1, (2 * i - 1) * Math.PI / 10), C = polar(1, (2 * i + 1) * Math.PI / 10);
+      if (i % 2 === 0) { var t = B; B = C; C = t; }
+      tris.push([0, [0, 0], B, C]);
+    }
+    for (var s = 0; s < steps; s++) {
+      var next = [];
+      for (var k = 0; k < tris.length; k++) {
+        var c = tris[k][0], A = tris[k][1], P2 = tris[k][2], P3 = tris[k][3];
+        if (c === 0) {
+          var P = lerp(A, P2, 1 / PHI);
+          next.push([0, P3, P, P2], [1, P, P3, A]);
+        } else {
+          var Q = lerp(P2, A, 1 / PHI), R = lerp(P2, P3, 1 / PHI);
+          next.push([1, R, P3, A], [1, Q, R, P2], [0, R, Q, A]);
+        }
+      }
+      tris = next;
+    }
+    var layers = new Layers();
+    var thick = layers.layer({ fill: 'a' }), thin = layers.layer({ fill: 'b' });
+    var edges = layers.layer({ stroke: 'line', px: 0.9 });
+    tris.forEach(function (t) {
+      addPolygon(layers, t[0] ? thick : thin, [t[1], t[2], t[3]]);
+      addSegment(edges, t[3], t[1]);
+      addSegment(edges, t[1], t[2]);
+    });
+    return layers;
+  }
+
+  // ---- Ammann A2. The big tile, sides 1, PSI, PSI^2, PSI^5, PSI^4, PSI^3,
+  // with its notch at the bottom left. A big tile splits into a big tile,
+  // turned a quarter and scaled by PSI, and a small one, mirrored and scaled
+  // by PSI^2. A small tile becomes a big one where it stands.
+  function ammannA2(steps) {
+    var PSI = 1 / Math.sqrt(PHI), p2 = PSI * PSI, p3 = p2 * PSI, p4 = p2 * p2;
+    var L = [[0, 0], [1, 0], [1, -PSI], [p4, -PSI], [p4, -p3], [0, -p3]];
+    var CHILD_BIG = [0, PSI, -PSI, 0, 1, 0];      // x' = PSI y + 1, y' = -PSI x
+    var CHILD_SMALL = [-p2, 0, 0, p2, p2, 0];     // x' = PSI^2 (1 - x), y' = PSI^2 y
+    function compose(M, N) {
+      return [M[0] * N[0] + M[1] * N[2], M[0] * N[1] + M[1] * N[3],
+              M[2] * N[0] + M[3] * N[2], M[2] * N[1] + M[3] * N[3],
+              M[0] * N[4] + M[1] * N[5] + M[4], M[2] * N[4] + M[3] * N[5] + M[5]];
+    }
+    var tiles = [{ big: true, M: [1, 0, 0, 1, 0, 0] }];
+    for (var s = 0; s < steps; s++) {
+      var next = [];
+      tiles.forEach(function (tile) {
+        if (tile.big) {
+          next.push({ big: true, M: compose(tile.M, CHILD_BIG) });
+          next.push({ big: false, M: compose(tile.M, CHILD_SMALL) });
+        } else {
+          next.push({ big: true, M: tile.M });
+        }
+      });
+      tiles = next;
+    }
+    var layers = new Layers();
+    var big = layers.layer({ fill: 'a' }), small = layers.layer({ fill: 'b' });
+    var edges = layers.layer({ stroke: 'line', px: 0.9 });
+    tiles.forEach(function (tile) {
+      var M = tile.M;
+      var pts = L.map(function (p) { return [M[0] * p[0] + M[1] * p[1] + M[4], M[2] * p[0] + M[3] * p[1] + M[5]]; });
+      addPolygon(layers, tile.big ? big : small, pts);
+      addPolygon(layers, edges, pts);
+    });
+    return layers;
+  }
+
+  // ---- Chair tiling: the rep-4 dissection of the L-triomino, as (matrix,
+  // shift) pairs in doubled coordinates.
+  function chair(steps) {
+    var OUTLINE = [[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2]];
+    var CHILDREN = [[[0, -1, 1, 0], [4, 0]], [[1, 0, 0, 1], [0, 0]], [[0, 1, -1, 0], [0, 4]], [[1, 0, 0, 1], [1, 1]]];
+    var TURNS = ['1,0,0,1', '0,-1,1,0', '-1,0,0,-1', '0,1,-1,0'];
+    var tiles = [[[1, 0, 0, 1], [0, 0]]];
+    for (var s = 0; s < steps; s++) {
+      var next = [];
+      tiles.forEach(function (tile) {
+        var M = tile[0], t = tile[1];
+        CHILDREN.forEach(function (ch) {
+          var N = ch[0], u = ch[1];
+          next.push([[M[0] * N[0] + M[1] * N[2], M[0] * N[1] + M[1] * N[3], M[2] * N[0] + M[3] * N[2], M[2] * N[1] + M[3] * N[3]],
+                     [2 * t[0] + M[0] * u[0] + M[1] * u[1], 2 * t[1] + M[2] * u[0] + M[3] * u[1]]]);
+        });
+      });
+      tiles = next;
+    }
+    var layers = new Layers();
+    var fills = ['a', 'b', 'c', 'd'].map(function (key) { return layers.layer({ fill: key }); });
+    var edges = layers.layer({ stroke: 'line', px: 0.9 });
+    tiles.forEach(function (tile) {
+      var M = tile[0], t = tile[1];
+      var pts = OUTLINE.map(function (p) { return [M[0] * p[0] + M[1] * p[1] + t[0], M[2] * p[0] + M[3] * p[1] + t[1]]; });
+      addPolygon(layers, fills[TURNS.indexOf(M.join(','))], pts);
+      addPolygon(layers, edges, pts);
+    });
+    return layers;
+  }
+
+  // ---- Taylor-Socolar hexagons, pointy-top, circumradius 1. Vertex j sits
+  // at 90 - 60 j degrees. Half-diameter colours by vertex, from the prototile
+  // of Socolar and Taylor's Fig. 2: 1 red, 0 blue.
+  function taylorSocolar() {
+    var COLOUR = [1, 0, 1, 0, 0, 1];
+    var T = 0.28;
+    var V = [];
+    for (var j = 0; j < 6; j++) V.push(polar(1, (90 - 60 * j) * Math.PI / 180));
+    function arc(centre, from, to) {
+      var pts = [];
+      for (var i = 0; i <= 16; i++) {
+        var a = (from + (to - from) * i / 16) * Math.PI / 180;
+        pts.push([centre[0] + T * Math.cos(a), centre[1] + T * Math.sin(a)]);
+      }
+      return pts;
+    }
+    var STRIPES = [
+      arc(V[0], -30, -150),
+      arc(V[3], 30, 150),
+      [[V[4][0], V[5][1] - T], [V[1][0], V[1][1] - T]]
+    ];
+    var layers = new Layers();
+    var fillA = layers.layer({ fill: 'tsA' }), fillB = layers.layer({ fill: 'tsB' });
+    var red = layers.layer({ stroke: 'red', world: 0.1 }), blue = layers.layer({ stroke: 'blue', world: 0.1 });
+    var stripes = layers.layer({ stroke: 'stripe', world: 0.11 });
+    var edges = layers.layer({ stroke: 'line', px: 0.8 });
+    var S3 = Math.sqrt(3);
+    DATA.taylorSocolar.forEach(function (cell) {
+      var q = cell[0], r = cell[1], turn = cell[2], mirror = cell[3];
+      var cx = q * S3 + r * S3 / 2, cy = -1.5 * r;
+      var ang = -60 * turn * Math.PI / 180, cs = Math.cos(ang), sn = Math.sin(ang);
+      function place(p) {
+        var x = mirror ? -p[0] : p[0], y = p[1];
+        return [cx + cs * x - sn * y, cy + sn * x + cs * y];
+      }
+      var hex = V.map(place);
+      addPolygon(layers, mirror ? fillB : fillA, hex);
+      addPolygon(layers, edges, hex);
+      for (var j = 0; j < 6; j++) {
+        var isRed = mirror ? !COLOUR[j] : COLOUR[j];
+        addSegment(isRed ? red : blue, [cx, cy], place(V[j]));
+      }
+      STRIPES.forEach(function (s) { addPolyline(stripes, s.map(place)); });
+    });
+    return layers;
+  }
+
+  // ---- Spectre family. Positions are exact: doubled integer coordinates in
+  // the basis 1, z, z^2, z^3, with z = exp(i pi / 6). The even part
+  // (1, z^2) takes edge length a and the odd part (z, z^3) takes b.
+  var spectreCorners = null;
+  function spectreExact() {
+    if (spectreCorners) return spectreCorners;
+    function mulZ(v) { return [-v[3], v[0], v[1] + v[3], v[2]]; }
+    function conj(v) { return [v[0] + v[2], v[1], -v[2], -v[1] - v[3]]; }
+    spectreCorners = DATA.spectre.tiles.map(function (tile) {
+      var k = tile[0], mirror = tile[1], beta = tile.slice(2);
+      return {
+        odd: k % 2 === 1,
+        corners: DATA.spectre.outline.map(function (p) {
+          var v = mirror ? conj(p) : p.slice();
+          for (var i = 0; i < k; i++) v = mulZ(v);
+          return [v[0] + beta[0], v[1] + beta[1], v[2] + beta[2], v[3] + beta[3]];
+        })
+      };
+    });
+    return spectreCorners;
+  }
+  function spectreFamily(degrees) {
+    var a = Math.cos(degrees * Math.PI / 180), b = Math.sin(degrees * Math.PI / 180);
+    var H = Math.sqrt(3) / 2;
+    var layers = new Layers();
+    var even = layers.layer({ fill: 'a' }), odd = layers.layer({ fill: 'b' });
+    var edges = layers.layer({ stroke: 'line', px: 0.7 });
+    spectreExact().forEach(function (tile) {
+      var pts = tile.corners.map(function (v) {
+        var A = v[0] / 2, B = v[1] / 2, C = v[2] / 2, D = v[3] / 2;
+        return [a * (A + C / 2) + b * B * H, a * C * H + b * (B / 2 + D)];
+      });
+      addPolygon(layers, tile.odd ? odd : even, pts);
+      addPolygon(layers, edges, pts);
+    });
+    return layers;
+  }
+
+  // ---- A pannable, zoomable canvas.
+  var viewers = [];
+  function Viewer(canvas, build) {
+    this.canvas = canvas;
+    this.build = build;
+    this.layers = build();
+    this.touched = false;
+    this.fitView();
+    this.pointers = new Map();
+    this.wire();
+    viewers.push(this);
+  }
+  Viewer.prototype.size = function () {
+    var r = this.canvas.getBoundingClientRect();
+    return [Math.max(1, r.width), Math.max(1, r.height)];
+  };
+  Viewer.prototype.fitView = function () {
+    var b = this.layers.box, s = this.size();
+    this.fit = 0.94 * Math.min(s[0] / (b[2] - b[0]), s[1] / (b[3] - b[1]));
+    this.scale = this.fit;
+    this.ox = (b[0] + b[2]) / 2;
+    this.oy = (b[1] + b[3]) / 2;
+  };
+  Viewer.prototype.rebuild = function () {
+    this.layers = this.build();
+    this.draw();
+  };
+  Viewer.prototype.zoomAt = function (factor, px, py) {
+    var s = this.size();
+    var wx = this.ox + (px - s[0] / 2) / this.scale, wy = this.oy - (py - s[1] / 2) / this.scale;
+    this.scale = Math.min(this.fit * 80, Math.max(this.fit * 0.5, this.scale * factor));
+    this.ox = wx - (px - s[0] / 2) / this.scale;
+    this.oy = wy + (py - s[1] / 2) / this.scale;
+    this.touched = true;
+    this.request();
+  };
+  Viewer.prototype.pan = function (dx, dy) {
+    this.ox -= dx / this.scale;
+    this.oy += dy / this.scale;
+    this.touched = true;
+    this.request();
+  };
+  Viewer.prototype.request = function () {
+    var self = this;
+    if (this.pending) return;
+    this.pending = true;
+    requestAnimationFrame(function () { self.pending = false; self.draw(); });
+  };
+  Viewer.prototype.draw = function () {
+    var canvas = this.canvas, s = this.size(), dpr = window.devicePixelRatio || 1;
+    var w = Math.round(s[0] * dpr), h = Math.round(s[1] * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    var ctx = canvas.getContext('2d'), c = currentPalette;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = c.panel;
+    ctx.fillRect(0, 0, w, h);
+    var k = this.scale * dpr;
+    ctx.setTransform(k, 0, 0, -k, w / 2 - this.ox * k, h / 2 + this.oy * k);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    this.layers.list.forEach(function (layer) {
+      if (layer.fill) {
+        ctx.fillStyle = c[layer.fill];
+        ctx.fill(layer.path);
+      } else {
+        ctx.strokeStyle = c[layer.stroke];
+        ctx.lineWidth = layer.px ? layer.px * dpr / k : layer.world;
+        ctx.stroke(layer.path);
+      }
+    });
+  };
+  Viewer.prototype.wire = function () {
+    var self = this, canvas = this.canvas;
+    function local(e) {
+      var r = canvas.getBoundingClientRect();
+      return [e.clientX - r.left, e.clientY - r.top];
+    }
+    canvas.addEventListener('pointerdown', function (e) {
+      self.pointers.set(e.pointerId, local(e));
+      if (e.pointerType !== 'touch' || self.pointers.size === 2) {
+        canvas.setPointerCapture(e.pointerId);
+        canvas.classList.add('dragging');
+      }
+    });
+    canvas.addEventListener('pointermove', function (e) {
+      if (!self.pointers.has(e.pointerId)) return;
+      var now = local(e), before = self.pointers.get(e.pointerId);
+      if (self.pointers.size === 1 && e.pointerType !== 'touch') {
+        self.pan(now[0] - before[0], now[1] - before[1]);
+      } else if (self.pointers.size === 2) {
+        var ids = Array.from(self.pointers.keys());
+        var other = self.pointers.get(ids[0] === e.pointerId ? ids[1] : ids[0]);
+        var d0 = Math.hypot(before[0] - other[0], before[1] - other[1]);
+        var d1 = Math.hypot(now[0] - other[0], now[1] - other[1]);
+        var mid0 = [(before[0] + other[0]) / 2, (before[1] + other[1]) / 2];
+        var mid1 = [(now[0] + other[0]) / 2, (now[1] + other[1]) / 2];
+        if (d0 > 0) self.zoomAt(d1 / d0, mid1[0], mid1[1]);
+        self.pan(mid1[0] - mid0[0], mid1[1] - mid0[1]);
+      }
+      self.pointers.set(e.pointerId, now);
+    });
+    function release(e) {
+      self.pointers.delete(e.pointerId);
+      if (self.pointers.size === 0) canvas.classList.remove('dragging');
+    }
+    canvas.addEventListener('pointerup', release);
+    canvas.addEventListener('pointercancel', release);
+    canvas.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      var p = local(e);
+      self.zoomAt(Math.exp(-e.deltaY * 0.01), p[0], p[1]);
+    }, { passive: false });
+    canvas.addEventListener('dblclick', function (e) {
+      var p = local(e);
+      self.zoomAt(2, p[0], p[1]);
+    });
+    canvas.addEventListener('keydown', function (e) {
+      var s = self.size(), step = 0.1 * Math.min(s[0], s[1]);
+      var handled = true;
+      if (e.key === '+' || e.key === '=') self.zoomAt(1.4, s[0] / 2, s[1] / 2);
+      else if (e.key === '-' || e.key === '_') self.zoomAt(1 / 1.4, s[0] / 2, s[1] / 2);
+      else if (e.key === '0') { self.fitView(); self.request(); }
+      else if (e.key === 'ArrowLeft') self.pan(step, 0);
+      else if (e.key === 'ArrowRight') self.pan(-step, 0);
+      else if (e.key === 'ArrowUp') self.pan(0, step);
+      else if (e.key === 'ArrowDown') self.pan(0, -step);
+      else handled = false;
+      if (handled) e.preventDefault();
+    });
+    var zoom = canvas.parentNode.querySelector('.zoom');
+    [['−', 'Zoom out', function () { var s = self.size(); self.zoomAt(1 / 1.4, s[0] / 2, s[1] / 2); }],
+     ['+', 'Zoom in', function () { var s = self.size(); self.zoomAt(1.4, s[0] / 2, s[1] / 2); }],
+     ['Reset', 'Show the whole patch', function () { self.fitView(); self.touched = false; self.request(); }]
+    ].forEach(function (spec) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = spec[0];
+      button.setAttribute('aria-label', spec[1]);
+      button.addEventListener('click', spec[2]);
+      zoom.appendChild(button);
+    });
+    new ResizeObserver(function () {
+      if (!self.touched) self.fitView();
+      self.request();
+    }).observe(canvas);
+  };
+
+  var currentPalette = palette();
+  function repaint() {
+    currentPalette = palette();
+    viewers.forEach(function (v) { v.draw(); });
+  }
+  new MutationObserver(repaint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', repaint);
+
+  new Viewer(document.getElementById('p2'), function () { return kitesAndDarts(7); });
+  new Viewer(document.getElementById('p3'), function () { return rhombs(7); });
+  new Viewer(document.getElementById('a2'), function () { return ammannA2(17); });
+  new Viewer(document.getElementById('chair'), function () { return chair(5); });
+  new Viewer(document.getElementById('ts'), taylorSocolar);
+
+  var stretch = document.getElementById('stretch'), stretchOut = document.getElementById('stretch-out');
+  function stretchLabel() {
+    var d = parseFloat(stretch.value);
+    var a = Math.cos(d * Math.PI / 180), b = Math.sin(d * Math.PI / 180);
+    stretchOut.value = Math.abs(d - 45) < 0.25 ? 'a = b: the Spectre' : 'b : a = ' + (b / a).toFixed(2);
+  }
+  stretchLabel();
+  var spectreViewer = new Viewer(document.getElementById('spectre'), function () { return spectreFamily(parseFloat(stretch.value)); });
+  stretch.addEventListener('input', function () {
+    stretchLabel();
+    var keep = [spectreViewer.scale, spectreViewer.ox, spectreViewer.oy, spectreViewer.touched];
+    spectreViewer.layers = spectreViewer.build();
+    if (keep[3]) { spectreViewer.scale = keep[0]; spectreViewer.ox = keep[1]; spectreViewer.oy = keep[2]; }
+    else spectreViewer.fitView();
+    spectreViewer.request();
+  });
+})();
+</script>
+<script>Audit.wireThemeToggle();</script>
+
+</body>
+</html>

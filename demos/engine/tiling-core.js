@@ -12,11 +12,12 @@
    that corner, capped at LEVEL_CAP. The page draws supertile outlines from
    these numbers.
 
-   Positions come in two parts, p and r, so the Hat page can reshape its
-   tiles live: a corner sits at a*p + b*zeta*r, where a and b are the two edge
+   Positions come in two parts, p and r, so a page can reshape its tiles
+   live: a corner sits at a*p + b*zeta*r, where a and b are the two edge
    lengths and zeta turns r by 30 degrees. p and r are elements of Z[w],
-   w = e^(i pi/3), stored as integer pairs (m, n) = m + n*w. The Spectre has
-   one edge length, so it stores its position in p and leaves r at zero. */
+   w = e^(i pi/3), stored as integer pairs (m, n) = m + n*w. The Hat's a and
+   b are its two edge lengths. The Spectre's are the lengths of its edges at
+   even and at odd multiples of 30 degrees, equal for the Spectre itself. */
 (function (global) {
   'use strict';
 
@@ -53,13 +54,24 @@
   /* A two-part transform {k, f, p, r}: reflect first when f is 1, then turn by
      k * 60 degrees, then add (p, r). Turning or reflecting the plane acts on
      p directly, and on r through zeta, which is why a reflection sends r to
-     w^-1 * conj(r). */
+     w^-1 * conj(r). The Spectre also needs 30-degree turns, so a transform
+     may carry h = 1 for one more 30-degree turn. That turn sends
+     p + zeta*r to w*r + zeta*p: the parts swap, and the new p gains a w. */
   function linP(k, f, p) { return zw.rot(f ? zw.conj(p) : p, k); }
   function linR(k, f, r) { return zw.rot(f ? zw.rot(zw.conj(r), -1) : r, k); }
-  function tpApply(T, x) { return { p: zw.add(linP(T.k, T.f, x.p), T.p), r: zw.add(linR(T.k, T.f, x.r), T.r) }; }
+  function tpApply(T, x) {
+    if (!T.h) return { p: zw.add(linP(T.k, T.f, x.p), T.p), r: zw.add(linR(T.k, T.f, x.r), T.r) };
+    var p = linP(T.k, T.f, x.p), r = linR(T.k, T.f, x.r);
+    return { p: zw.add(zw.rot(r, 1), T.p), r: zw.add(p, T.r) };
+  }
   function tpCompose(A, B) {
     var t = tpApply(A, B);
-    return { k: A.f ? ((A.k - B.k) % 6 + 6) % 6 : (A.k + B.k) % 6, f: A.f ^ B.f, p: t.p, r: t.r };
+    // Turns in 30-degree steps: a reflection in A reverses B's turn.
+    var jA = 2 * A.k + (A.h || 0), jB = 2 * B.k + (B.h || 0);
+    var j = ((A.f ? jA - jB : jA + jB) % 12 + 12) % 12;
+    var out = { k: j >> 1, f: A.f ^ B.f, p: t.p, r: t.r };
+    if (j & 1) out.h = 1;
+    return out;
   }
   function tpLinear(M) {
     var f = M[0] * M[4] - M[1] * M[3] < 0 ? 1 : 0;

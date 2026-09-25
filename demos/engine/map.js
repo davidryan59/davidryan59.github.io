@@ -9,7 +9,9 @@
 
    A tile shape usually has one outline, which mirrored tiles draw
    reflected. A shape with hands: 2 has a second outline for mirrored
-   tiles, as the Hat (extended) page needs once its edges curve. */
+   tiles, as the Hat (extended) page needs once its edges curve. With
+   handByTurn as well, the second outline is for tiles at odd turns instead:
+   the Spectre page uses it when its two edge lengths differ. */
 (function (global) {
   'use strict';
 
@@ -236,17 +238,21 @@
     'uniform vec2 u_half;',
     'uniform vec2 u_anchor;',
     'uniform int u_hand;',
+    'uniform int u_handTurn;',
     'out vec2 v_local;',
     'out vec2 v_rel;',
     'flat out uvec3 v_bits;',
     'void main() {',
+    '  uint turn = a_bits.x & 15u;',
+    // A tile's hand is its mirror flag, or the parity of its turn when the
+    // page draws odd turns with their own outline.
+    '  int hand = u_handTurn == 1 ? int(turn & 1u) : int((a_bits.x >> 4u) & 1u);',
     // A mesh for one hand only: tiles of the other hand go off screen.
-    '  if (u_hand >= 0 && int((a_bits.x >> 4u) & 1u) != u_hand) {',
+    '  if (u_hand >= 0 && hand != u_hand) {',
     '    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);',
     '    v_local = vec2(0.0); v_rel = vec2(0.0); v_bits = uvec3(0u);',
     '    return;',
     '  }',
-    '  uint turn = a_bits.x & 15u;',
     '  vec2 v = a_local;',
     '  if ((a_bits.x & 16u) != 0u) v.y = -v.y;',
     '  float t = float(turn) * 0.52359877559829887;',
@@ -512,7 +518,7 @@
       names.forEach(function (n) { U[n] = gl.getUniformLocation(p, n); });
       return { p: p, U: U };
     }
-    var tileProg = program(TILE_VS, TILE_FS, ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_hand', 'u_corners',
+    var tileProg = program(TILE_VS, TILE_FS, ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_hand', 'u_handTurn', 'u_corners',
       'u_scale', 'u_class', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line', 'u_edgeAlt',
       'u_lineAlt', 'u_prof', 'u_profN', 'u_profMax', 'u_profSym', 'u_profSel',
       'u_reach', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat', 'u_dotCol', 'u_dotRange', 'u_dotR']);
@@ -823,7 +829,7 @@
     // with the view so it matches the screen. SVG runs y down, so y flips.
     function tileSvg(cls, colour) {
       var c = cfg.classes[cls];
-      var pts = cfg.shape.outline(1, c.flip), cx = 0, cy = 0;
+      var pts = cfg.shape.outline(1, cfg.shape.handByTurn ? c.turn & 1 : c.flip), cx = 0, cy = 0;
       pts.forEach(function (p) { cx += p[0] / pts.length; cy += p[1] / pts.length; });
       var ang = c.turn * Math.PI / 6 + view.rot, co = Math.cos(ang), si = Math.sin(ang), rmax = 0;
       var out = pts.map(function (p) {
@@ -1031,8 +1037,13 @@
       gl.uniform3fv(U.u_lineAlt, theme.lineAlt);
       gl.uniform3fv(U.u_hot, theme.hot);
       gl.uniform3fv(U.u_hot2, theme.hot2);
-      var corners = cfg.shape.corners();
-      gl.uniform2fv(U.u_corners, new Float32Array([].concat.apply([], corners)));
+      gl.uniform1i(U.u_handTurn, cfg.shape.handByTurn ? 1 : 0);
+      // Each hand's corners, for edge strokes. They differ only when odd
+      // turns have their own outline.
+      var cornerSets = hands.map(function (h) {
+        return new Float32Array([].concat.apply([], cfg.shape.corners(h > 0 ? 1 : 0)));
+      });
+      gl.uniform2fv(U.u_corners, cornerSets[0]);
       // Supertile lines thicken with the supertile's size on screen, about
       // 2.8 times per level, so small supertiles never bury their tiles.
       var widths = [1.0];
@@ -1084,7 +1095,7 @@
       var cr = camRef();
       var marginRef = 6 * Math.max(ab[0], ab[1] || 0, 1);
       if (slope && info.spread) {
-        var dev = Math.abs(Math.sqrt(3) * ab[0] - ab[1]) / Math.hypot(slope[0] + refB, slope[1]) * info.spread * 1.5;
+        var dev = Math.abs(refB * ab[0] - ab[1]) / Math.hypot(slope[0] + refB, slope[1]) * info.spread * 1.5;
         var M = Math.hypot.apply(null, cdiv([slope[0] + refB, slope[1]], [ab[0] * slope[0] + ab[1], ab[0] * slope[1]]));
         marginRef = M * (dev + 6 * Math.max(ab[0], ab[1])) + 4;
       }
@@ -1126,6 +1137,7 @@
           var m = ms[hi], first = pass ? m.hotFirst : m.first, count = pass ? m.hotCount : m.count;
           if (!count) return;
           gl.uniform1i(U.u_hand, h);
+          gl.uniform2fv(U.u_corners, cornerSets[hi]);
           draws.forEach(function (d) {
             gl.uniform2f(U.u_chunk, d.o[0], d.o[1]);
             gl.bindVertexArray(d.c.vao);

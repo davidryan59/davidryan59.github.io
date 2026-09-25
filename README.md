@@ -13,6 +13,10 @@ address, `davidryan59.github.io`, redirects there.
   for the Hat and Spectre tilings, and the Hat with curved edges, sharing the
   engine in `demos/engine/`. WebGL 2, no libraries. See
   [docs/tiling-demos.md](docs/tiling-demos.md).
+- `aperiodic-pairs/` — a gallery of six two-tile aperiodic systems, each
+  drawn in the browser from its definition. `data.js` holds the two
+  datasets built by `tools/aperiodic-pairs/build_data.py`. See
+  [docs/aperiodic-pairs.md](docs/aperiodic-pairs.md).
 - `papers/` — David's draft papers as PDFs. Each is built from its LaTeX
   source elsewhere and copied here.
 - `social/` — the 1200 × 630 share cards that each page's `og:image` names.
@@ -36,6 +40,7 @@ there first, then render it into `index.html`.
 ## Docs
 
 - [docs/tiling-demos.md](docs/tiling-demos.md) — how the Hat and Spectre viewers work
+- [docs/aperiodic-pairs.md](docs/aperiodic-pairs.md) — how each gallery tiling is generated and checked
 - [docs/hat-edge-research.md](docs/hat-edge-research.md) — why curved edges make the Hat two tiles, and how that was checked
 - [docs/inventory.md](docs/inventory.md) — the source list the page renders
 - [docs/mint-pages.md](docs/mint-pages.md) — how the two mint pages work

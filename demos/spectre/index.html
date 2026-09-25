@@ -46,6 +46,13 @@
   </div>
   <div class="body">
     <div class="section">
+      <div class="slider">
+        <span>Edge lengths</span><output id="stretch-out"></output>
+        <input type="range" id="stretch" min="6" max="84" step="0.25" aria-label="Edge lengths: even-direction edges against odd-direction edges">
+        <div class="ticks placed"><button type="button" id="stretch-spectre" style="left: 50%">Spectre</button></div>
+      </div>
+    </div>
+    <div class="section">
       <label class="section-title" for="shape">Edge shape</label>
       <select id="shape"></select>
       <div class="inline" id="arrangement" role="radiogroup" aria-label="Arrangement">
@@ -181,6 +188,17 @@
     collide: the red stripes show where they overlap.
   </p>
   <p>
+    <em>Edge lengths</em> stretches the tiling. The Spectre's edges point in
+    twelve directions, 30° apart. The slider gives the six directions at even
+    multiples of 30° length a, and the other six length b. In the middle,
+    a = b and the tiles are Spectres. Anywhere else, the rare tiles, turned
+    by an odd multiple of 30°, swap their two lengths and become a second
+    shape, so the tiling has two tile shapes but keeps the Spectre's
+    hierarchy. The <em>Common and rare</em> colours show the two shapes. The
+    <a href="../../aperiodic-pairs/index.html#spectre-family">aperiodic pairs page</a>
+    says more.
+  </p>
+  <p>
     Tiles group into supertiles, and those group into larger supertiles,
     level after level. Turn on <em>Supertiles</em> to see five levels of
     that hierarchy, drawn thicker as the level rises. <em>Grid</em> lays a
@@ -215,8 +233,52 @@
 (function () {
   'use strict';
 
-  var TM = TilingMap, SS = EdgeShapes, SPECTRE = SpectreTiling.SPECTRE;
-  var oklch = TM.oklch, hex = TM.hex;
+  var TM = TilingMap, SS = EdgeShapes, SPECTRE = SpectreTiling.SPECTRE, SPECTRE_TP = SpectreTiling.SPECTRE_TP;
+  var oklch = TM.oklch, hex = TM.hex, H3 = Math.sqrt(3) / 2;
+
+  /* ----------------------------------------------------------- stretch */
+
+  // The six edge directions at even multiples of 30 degrees get length a,
+  // the six odd ones length b. A tile at an odd turn has its edges swapped
+  // between the two classes, so it draws with the second outline. The
+  // slider angle t gives a = sin t and b = cos t, as on the Hat page,
+  // scaled so the average tile keeps the Spectre's area.
+  var stretch = 45;
+  try { var sv = parseFloat(localStorage.getItem('spectre-stretch')); if (sv >= 6 && sv <= 84) stretch = sv; } catch (e) {}
+  function cornersAt(a, b) {
+    return SPECTRE_TP.map(function (v) {
+      var P = [v.p[0] + 0.5 * v.p[1], H3 * v.p[1]], R = [v.r[0] + 0.5 * v.r[1], H3 * v.r[1]];
+      var Z = [H3 * R[0] - 0.5 * R[1], 0.5 * R[0] + H3 * R[1]];
+      return [a * P[0] + b * Z[0], a * P[1] + b * Z[1]];
+    });
+  }
+  // Common tiles outnumber rare ones by 4 + sqrt(15) to 1.
+  var RARE = 1 / (5 + Math.sqrt(15));
+  function abAt(d) {
+    var t = d * Math.PI / 180, a = Math.sin(t), b = Math.cos(t);
+    var mean = (1 - RARE) * Math.abs(TM.area(cornersAt(a, b))) + RARE * Math.abs(TM.area(cornersAt(b, a)));
+    var k = Math.sqrt(Math.abs(TM.area(SPECTRE)) / mean);
+    return [a * k, b * k];
+  }
+  var ab = abAt(stretch), handCorners = [cornersAt(ab[0], ab[1]), cornersAt(ab[1], ab[0])];
+  var stretchEl = document.getElementById('stretch'), stretchOut = document.getElementById('stretch-out');
+  var stretchTick = document.getElementById('stretch-spectre');
+  function syncStretch() {
+    var t = stretch * Math.PI / 180, spectre = Math.abs(stretch - 45) < 1e-9;
+    stretchEl.value = String(stretch);
+    stretchOut.textContent = spectre ? 'Tile(1, 1), one shape'
+      : stretch < 45 ? 'a : b = ' + Math.tan(t).toFixed(2) + ' : 1' : 'a : b = 1 : ' + (1 / Math.tan(t)).toFixed(2);
+    stretchTick.classList.toggle('on', spectre);
+  }
+  function applyStretch() {
+    ab = abAt(stretch);
+    handCorners = [cornersAt(ab[0], ab[1]), cornersAt(ab[1], ab[0])];
+    syncStretch();
+    if (!map) return;
+    map.setAB(ab[0], ab[1]);
+    map.shapeChanged();
+    scheduleLimits();
+  }
 
   /* ------------------------------------------------------------- state */
 
@@ -249,7 +311,9 @@
   /* The tile shape, as the engine asks for it. Level of detail -1 is the
      plain polygon, used whenever the bend is under a third of a pixel. */
   var shape = {
-    signature: function () { return straight() ? 'line' : JSON.stringify(st); },
+    hands: 2,
+    handByTurn: true,
+    signature: function () { return (straight() ? 'line' : JSON.stringify(st)) + '|' + stretch; },
     lodKey: function (res) {
       var smooth = st.shape === 'curve' || st.shape === 'jigsaw';
       return res < 0 ? 'straight' : smooth ? 'r' + res : 'poly';
@@ -258,8 +322,8 @@
       if (straight() || Math.abs(st.bend) * k < 0.3) return -1;
       return k < 6 ? 0 : k < 20 ? 1 : k < 60 ? 2 : 3;
     },
-    corners: function () { return SPECTRE; },
-    outline: function (res) { return SS.outline(SPECTRE, st, res); },
+    corners: function (hand) { return handCorners[hand ? 1 : 0]; },
+    outline: function (res, hand) { return SS.outline(handCorners[hand ? 1 : 0], st, res); },
     profile: function (res) {
       if (res < 0) return null;
       var p = SS.fitted(st, res), m = SS.mask(SS.spectreSym(st), 14);
@@ -326,27 +390,32 @@
 
   /* ------------------------------------------------------------ engine */
 
-  var map = TM.start({
+  var map = null;
+  map = TM.start({
     name: 'spectre',
     worker: 'tiling.js',
     build: SpectreTiling.build,
-    ab: [1, 0],
-    refB: 0,
+    ab: ab,
+    refB: 1,
     classMode: 0,
     classes: classes,
     groupings: groupings,
     presets: presets,
     shape: shape,
-    gridSpacing: function () { return [1, 1]; },
-    tileRadius: function () { return 6 + Math.abs(st.bend); },
+    gridSpacing: function (v) { return [v[0], v[1]]; },
+    tileRadius: function () { return (6 + Math.abs(st.bend)) * Math.max(ab[0], ab[1]); },
     onReset: function () {
       st = defaults();
+      stretch = 45;
+      try { localStorage.removeItem('spectre-stretch'); } catch (e) {}
       saveEdges();
       syncControls();
-      map.shapeChanged();
+      applyStretch();
     },
+    onReady: function () { applyStretch(); },
     hashGet: function () {
       var h = { e: st.shape };
+      if (Math.abs(stretch - 45) > 1e-9) h.s = String(+stretch.toFixed(2));
       if (st.shape !== 'line') h.b = st.bend.toFixed(3).replace(/\.?0+$/, '');
       if (st.shape !== 'line') h.a = st.arrangement;
       var extra = (SS.BY_ID[st.shape].params || []).map(function (k) { return k + ':' + (+st.params[k].toFixed(3)); });
@@ -358,12 +427,14 @@
         var p = kv.split(':');
         if (SS.DEFAULTS[p[0]] !== undefined && !isNaN(parseFloat(p[1]))) st.params[p[0]] = parseFloat(p[1]);
       });
+      if (q.s !== undefined && !isNaN(parseFloat(q.s))) stretch = Math.max(6, Math.min(84, parseFloat(q.s)));
       if (q.e) setShape(q.e);
       if (q.b !== undefined && !isNaN(parseFloat(q.b))) st.bend = clampBend(parseFloat(q.b));
       // Links from before Single became the default carry no a= for Double.
       if (q.a === 'alt' || q.a === 'S') st.arrangement = q.a;
       else if (q.e && q.e !== 'line') st.arrangement = 'S';
       syncControls();
+      applyStretch();
     }
   });
   if (!map) return;
@@ -420,12 +491,16 @@
   var limitTimer = 0, limitSig = '';
   function scheduleLimits() {
     if (st.shape === 'line') return;
-    var sig = st.shape + st.arrangement + JSON.stringify(st.params);
+    var sig = st.shape + st.arrangement + JSON.stringify(st.params) + '|' + stretch;
     if (sig === limitSig) return;
     clearTimeout(limitTimer);
     limitTimer = setTimeout(function () {
       limitSig = sig;
-      var L = SS.limits(SPECTRE, st, function (poly) { return TM.crossings(poly, true).length > 0; });
+      // Both shapes, when the edge lengths differ: the tighter limit wins.
+      var L = SS.limitsBy(function (b) {
+        var trial = { shape: st.shape, bend: b, params: st.params, arrangement: st.arrangement };
+        return handCorners.some(function (cs) { return TM.crossings(SS.outline(cs, trial, 2), true).length > 0; });
+      });
       var pct = function (x) { return ((x + 0.75) / 1.5 * 100).toFixed(1) + '%'; };
       var red = 'var(--danger)', ok = 'var(--ring)';
       var lo = L[1] === null ? -0.75 : L[1], hi = L[0] === null ? 0.75 : L[0];
@@ -491,6 +566,25 @@
     r.addEventListener('change', function () { if (r.checked) { st.arrangement = r.value; edgesChanged(); } });
   });
 
+  stretchEl.addEventListener('input', function () {
+    var v = parseFloat(stretchEl.value);
+    // A sticky stop at the Spectre itself.
+    if (Math.abs(v - 45) < 1.5) v = 45;
+    stretch = v;
+    applyStretch();
+  });
+  stretchEl.addEventListener('change', function () {
+    try { localStorage.setItem('spectre-stretch', String(stretch)); } catch (e) {}
+    map.changed();
+  });
+  stretchTick.addEventListener('click', function () {
+    stretch = 45;
+    applyStretch();
+    try { localStorage.removeItem('spectre-stretch'); } catch (e) {}
+    map.changed();
+  });
+
+  syncStretch();
   syncControls();
 })();
 </script>
