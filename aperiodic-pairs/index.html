@@ -36,6 +36,8 @@
     --stripe: #1a1a1a;
     --flag-red: #c4452f;
     --flag-blue: #2f5fb3;
+    --tile-mark: light-dark(#2f4a7a, #dce6f7);
+    --chair: light-dark(#c4452f, #ff8a6e);
     --proved: light-dark(#2e6b3f, #86c595);
   }
   .status {
@@ -60,7 +62,7 @@
     border-radius: 10px;
     overflow: hidden;
   }
-  .figure canvas {
+  .figure > canvas {
     display: block;
     width: 100%;
     max-width: 100%;
@@ -68,8 +70,8 @@
     cursor: grab;
     touch-action: pan-x pan-y;
   }
-  .figure canvas.dragging { cursor: grabbing; }
-  .figure canvas:focus-visible { outline: 2px solid var(--link); outline-offset: -3px; }
+  .figure > canvas.dragging { cursor: grabbing; }
+  .figure > canvas:focus-visible { outline: 2px solid var(--link); outline-offset: -3px; }
   .controls {
     display: flex;
     flex-wrap: wrap;
@@ -102,23 +104,29 @@
   .swatch.ts-b { background: var(--ts-b); }
   .swatch.red { background: var(--flag-red); }
   .swatch.blue { background: var(--flag-blue); }
+  .swatch.chair { background: none; border: 2px solid var(--chair); }
+  .controls button[aria-pressed="true"] { border-color: var(--chair); color: var(--h1); }
   .zoom { display: inline-flex; gap: 0.3rem; margin-left: auto; }
   .stretch { display: flex; align-items: center; gap: 0.6rem; flex: 1 1 100%; }
   .stretch input { flex: 1 1 8rem; min-width: 0; accent-color: var(--link); }
   .stretch output { font-variant-numeric: tabular-nums; min-width: 7.5rem; }
+  /* The tiles of each set, drawn by the same code as the patch below them
+     and at one scale within a set, so their sizes compare. */
   .prototiles {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
+    align-items: flex-end;
     gap: 1rem 2.5rem;
-    padding: 1.25rem 1rem 1rem;
+    padding: 1.1rem 1rem 0.9rem;
+    border-bottom: 1px solid var(--rule);
   }
-  .prototiles figure { margin: 0; text-align: center; font-size: 0.85rem; color: var(--muted); }
-  .prototiles svg { display: block; width: 7.5rem; height: auto; margin: 0 auto 0.4rem; }
-  .prototiles .fill-a { fill: var(--tile-a); }
-  .prototiles .fill-b { fill: var(--tile-b); }
-  .prototiles .edge { fill: none; stroke: var(--tile-line); stroke-width: 0.018; stroke-linejoin: round; }
-  .prototiles .bar { stroke: var(--tile-line); stroke-width: 0.05; stroke-linecap: round; opacity: 0.55; }
+  .prototiles figure { margin: 0; max-width: 14rem; text-align: center; font-size: 0.85rem; line-height: 1.35; color: var(--muted); }
+  .prototiles canvas { display: block; margin: 0 auto 0.45rem; }
+  @media (max-width: 34rem) {
+    .prototiles { gap: 0.9rem 1.2rem; padding: 0.9rem 0.6rem 0.7rem; }
+    .prototiles figure { max-width: 9.5rem; font-size: 0.78rem; }
+  }
   .probe { position: absolute; width: 0; height: 0; overflow: hidden; }
   table.facts { width: auto; }
   table.facts th { padding-right: 1.5rem; }
@@ -147,12 +155,17 @@
   Here are six two-tile systems. Every picture is computed from the published definition, not copied from a paper.
 </p>
 <p class="muted">
-  Drag a picture to move it. Pinch, Ctrl+scroll or the buttons zoom it; on a phone, use two fingers.
+  Above each picture are the two tiles it uses. Drag a picture to move it. Pinch, Ctrl+scroll or the buttons zoom it;
+  on a phone, use two fingers.
 </p>
 
 <h2 id="kites-and-darts">Kites and darts <span class="status proved">Proved</span></h2>
 <p class="muted">Roger Penrose, 1974</p>
 <div class="figure">
+  <div class="prototiles">
+    <figure><canvas id="tile-kite" role="img" aria-label="The kite"></canvas><figcaption>Kite: angles 72°, 72°, 72° and 144°</figcaption></figure>
+    <figure><canvas id="tile-dart" role="img" aria-label="The dart"></canvas><figcaption>Dart: angles 36°, 72°, 36° and 216°</figcaption></figure>
+  </div>
   <canvas id="p2" tabindex="0" aria-label="Penrose kites and darts, a patch grown from a sun of five kites"></canvas>
   <div class="controls">
     <span class="key"><span class="swatch a"></span>kite</span>
@@ -175,6 +188,10 @@
 <h2 id="rhombs">Penrose rhombs <span class="status proved">Proved</span></h2>
 <p class="muted">Roger Penrose, 1974</p>
 <div class="figure">
+  <div class="prototiles">
+    <figure><canvas id="tile-thick" role="img" aria-label="The thick rhomb"></canvas><figcaption>Thick rhomb: angles 72° and 108°</figcaption></figure>
+    <figure><canvas id="tile-thin" role="img" aria-label="The thin rhomb"></canvas><figcaption>Thin rhomb: angles 36° and 144°</figcaption></figure>
+  </div>
   <canvas id="p3" tabindex="0" aria-label="Penrose rhombs, a patch grown from a wheel of ten half-rhombs"></canvas>
   <div class="controls">
     <span class="key"><span class="swatch a"></span>thick rhomb</span>
@@ -195,6 +212,10 @@
 <h2 id="ammann-a2">Ammann A2 <span class="status proved">Proved</span></h2>
 <p class="muted">Robert Ammann, 1977; published by Grünbaum and Shephard, 1987</p>
 <div class="figure">
+  <div class="prototiles">
+    <figure><canvas id="tile-a2-big" role="img" aria-label="The big A2 tile"></canvas><figcaption>Big tile: sides 1, Ψ, Ψ², Ψ⁵, Ψ⁴ and Ψ³</figcaption></figure>
+    <figure><canvas id="tile-a2-small" role="img" aria-label="The small A2 tile"></canvas><figcaption>Small tile: the big one scaled by Ψ</figcaption></figure>
+  </div>
   <canvas id="a2" tabindex="0" aria-label="Ammann A2 tiling of big and small L-shaped hexagons"></canvas>
   <div class="controls">
     <span class="key"><span class="swatch a"></span>big tile</span>
@@ -218,37 +239,36 @@
 <p class="muted">Chaim Goodman-Strauss, 1999 and 2016</p>
 <div class="figure">
   <div class="prototiles">
-    <figure>
-      <svg viewBox="-0.3 -0.3 1.6 1.6" role="img" aria-label="The trilobite in the square-grid encoding">
-        <path class="fill-a" d="M 0.2 0 L 0.8 0 A 0.2 0.2 0 0 0 1 0.2 L 1 0.8 A 0.2 0.2 0 0 1 1.2 1 A 0.2 0.2 0 1 1 0.8 1 L 0.2 1 A 0.2 0.2 0 0 0 0 0.8 L 0 0.2 A 0.2 0.2 0 0 1 -0.2 0 A 0.2 0.2 0 1 1 0.2 0 Z"/>
-        <path class="edge" d="M 0.2 0 L 0.8 0 A 0.2 0.2 0 0 0 1 0.2 L 1 0.8 A 0.2 0.2 0 0 1 1.2 1 A 0.2 0.2 0 1 1 0.8 1 L 0.2 1 A 0.2 0.2 0 0 0 0 0.8 L 0 0.2 A 0.2 0.2 0 0 1 -0.2 0 A 0.2 0.2 0 1 1 0.2 0 Z"/>
-        <line class="bar" x1="0" y1="0" x2="1" y2="1"/>
-      </svg>
-      Trilobite: a tip at two opposite corners
-    </figure>
-    <figure>
-      <svg viewBox="-0.3 -0.3 1.6 1.6" role="img" aria-label="The crab in the square-grid encoding">
-        <path class="fill-b" d="M 0.2 0 L 0.8 0 A 0.2 0.2 0 0 0 1 0.2 L 1 0.8 A 0.2 0.2 0 0 0 0.8 1 L 0.2 1 A 0.2 0.2 0 0 0 0 0.8 L 0 0.2 A 0.2 0.2 0 0 0 0.2 0 Z"/>
-        <path class="edge" d="M 0.2 0 L 0.8 0 A 0.2 0.2 0 0 0 1 0.2 L 1 0.8 A 0.2 0.2 0 0 0 0.8 1 L 0.2 1 A 0.2 0.2 0 0 0 0 0.8 L 0 0.2 A 0.2 0.2 0 0 0 0.2 0 Z"/>
-      </svg>
-      Crab: a notch at every corner
-    </figure>
+    <figure><canvas id="tile-trilobite" role="img" aria-label="The trilobite in the square-grid encoding"></canvas><figcaption>Trilobite: three tips and one notch</figcaption></figure>
+    <figure><canvas id="tile-crab" role="img" aria-label="The crab in the square-grid encoding"></canvas><figcaption>Crab: a notch at every corner</figcaption></figure>
+    <figure><canvas id="tile-chair" role="img" aria-label="An L-shaped chair with its trilobite at the inner corner"></canvas><figcaption>A chair and its trilobite</figcaption></figure>
   </div>
-  <canvas id="chair" tabindex="0" aria-label="Chair tiling of L-shaped triominoes, the hierarchy behind the trilobite"></canvas>
+  <canvas id="chair" tabindex="0" aria-label="Trilobites and crabs in the square-grid encoding, one trilobite for each of 1,024 chairs"></canvas>
   <div class="controls">
-    <span>Chair tiling, coloured by the four turns</span>
+    <span class="key"><span class="swatch a"></span>trilobite</span>
+    <span class="key"><span class="swatch b"></span>crab</span>
+    <button type="button" id="chairs" aria-pressed="false">Show chairs</button>
     <span class="zoom"></span>
   </div>
 </div>
 <p>
-  The trilobite and crab live on a square grid. In the encoding Goodman-Strauss uses for his proof,
-  every cell holds one tile, every tile is notched at its four corners, and a trilobite also carries
-  tips at two opposite corners. Every corner of the grid must take exactly one tip.
-  The pair descends from his trilobite and cross of 1999, whose tilings are recompositions of chair tilings:
-  every chair contributes one trilobite. The patch shows that chair hierarchy, after five rounds of the chair substitution.
-  The tiles' curved markings carry further rules and are not drawn here.
+  The real trilobite and crab are curved shapes with stripes. Goodman-Strauss's 2016 proof draws them on a
+  square grid, and so does this page. Every cell holds one tile. A crab has a notch at each corner.
+  A trilobite has a round tip at three corners and a notch at the fourth. At every corner of the grid,
+  exactly one tile puts its tip into the notches of the other three.
+</p>
+<p>
+  The tiling comes from the chair tiling of L-shaped triominoes, as in his 1999 proof for the trilobite and cross.
+  Centre the grid's cells on the corners of the chairs' unit squares. Then put a trilobite at the inner corner
+  of every chair, with its three tips in the chair's three squares, and a crab everywhere else.
+  Each square belongs to exactly one chair, so each corner of the grid takes exactly one tip.
+  The patch has 1,024 chairs from five rounds of the chair substitution, so it has 1,024 trilobites.
+  Show the chairs to see them: thin lines for the chairs, thick lines for the chairs twice the size.
+  Four chairs make one chair twice the size, and their four trilobites make one larger trilobite.
+  That hierarchy is what the matching rules force. The stripes on the real tiles carry further rules and are not drawn here.
 </p>
 <div class="table-wrap"><table class="facts">
+  <tr><th>Trilobites : crabs</th><td>1 : 2</td></tr>
   <tr><th>Hierarchy</th><td>chair, inflation 2</td></tr>
   <tr><th>Orientations used</th><td>8 in all</td></tr>
 </table></div>
@@ -256,6 +276,10 @@
 <h2 id="taylor-socolar">Taylor–Socolar hexagon <span class="status proved">Proved</span></h2>
 <p class="muted">Joan Taylor and Joshua Socolar, 2010</p>
 <div class="figure">
+  <div class="prototiles">
+    <figure><canvas id="tile-ts" role="img" aria-label="The Taylor–Socolar tile"></canvas><figcaption>The tile</figcaption></figure>
+    <figure><canvas id="tile-ts-mirror" role="img" aria-label="The mirror image of the Taylor–Socolar tile"></canvas><figcaption>Its mirror image</figcaption></figure>
+  </div>
   <canvas id="ts" tabindex="0" aria-label="Taylor–Socolar hexagons, a patch of 469 tiles obeying both matching rules"></canvas>
   <div class="controls">
     <span class="key"><span class="swatch ts-a"></span>tile</span>
@@ -281,6 +305,10 @@
 <h2 id="spectre-family">A two-shape Spectre tiling <span class="status tilings">Tilings</span></h2>
 <p class="muted">Family: Michael Baake, Franz Gähler, Jan Mazáč and Lorenzo Sadun, 2025</p>
 <div class="figure">
+  <div class="prototiles">
+    <figure><canvas id="tile-spectre-even" role="img" aria-label="The shape of the tiles at even turns"></canvas><figcaption>Tiles at even multiples of 30°</figcaption></figure>
+    <figure><canvas id="tile-spectre-odd" role="img" aria-label="The shape of the tiles at odd turns"></canvas><figcaption>Tiles at odd multiples of 30°, with a and b swapped</figcaption></figure>
+  </div>
   <canvas id="spectre" tabindex="0" aria-label="A level-4 Spectre supertile of 4,401 tiles, with its two edge classes stretched"></canvas>
   <div class="controls">
     <span class="key"><span class="swatch a"></span>even turns</span>
@@ -337,7 +365,8 @@
       panel: colour('--panel'), a: colour('--tile-a'), b: colour('--tile-b'),
       c: colour('--tile-c'), d: colour('--tile-d'), line: colour('--tile-line'),
       tsA: colour('--ts-a'), tsB: colour('--ts-b'), stripe: colour('--stripe'),
-      red: colour('--flag-red'), blue: colour('--flag-blue')
+      red: colour('--flag-red'), blue: colour('--flag-blue'),
+      mark: colour('--tile-mark'), chair: colour('--chair')
     };
   }
 
@@ -478,11 +507,12 @@
   }
 
   // ---- Chair tiling: the rep-4 dissection of the L-triomino, as (matrix,
-  // shift) pairs in doubled coordinates.
-  function chair(steps) {
-    var OUTLINE = [[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2]];
+  // shift) pairs. The base chair covers the unit squares [0,1]x[0,1],
+  // [1,2]x[0,1] and [0,1]x[1,2]; its inner corner is (1, 1). Each round
+  // doubles every position, so the squares stay of side 1.
+  var CHAIR = [[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2]];
+  function chairTiles(steps) {
     var CHILDREN = [[[0, -1, 1, 0], [4, 0]], [[1, 0, 0, 1], [0, 0]], [[0, 1, -1, 0], [0, 4]], [[1, 0, 0, 1], [1, 1]]];
-    var TURNS = ['1,0,0,1', '0,-1,1,0', '-1,0,0,-1', '0,1,-1,0'];
     var tiles = [[[1, 0, 0, 1], [0, 0]]];
     for (var s = 0; s < steps; s++) {
       var next = [];
@@ -496,22 +526,85 @@
       });
       tiles = next;
     }
+    return tiles;
+  }
+  function onChair(M, t, p, k) { return [k * (M[0] * p[0] + M[1] * p[1] + t[0]), k * (M[2] * p[0] + M[3] * p[1] + t[1])]; }
+
+  // ---- Trilobites and crabs in the square-grid encoding. A cell is a unit
+  // square centred on a grid point. At each corner a tile has a tip, a
+  // three-quarter disc that sticks out, or a notch, the quarter disc the tip
+  // fills. Corners run anticlockwise from the bottom left.
+  var CORNERS = [[-1, -1], [1, -1], [1, 1], [-1, 1]], TIP = 0.22;
+  function addCell(layers, path, c, tipAt) {
+    for (var i = 0; i < 4; i++) {
+      var x = c[0] + CORNERS[i][0] / 2, y = c[1] + CORNERS[i][1] / 2;
+      var from = (i + 1) * Math.PI / 2, to = i * Math.PI / 2;
+      if (i === 0) path.moveTo(x + TIP * Math.cos(from), y + TIP * Math.sin(from));
+      path.arc(x, y, TIP, from, to, !tipAt(CORNERS[i]));
+    }
+    path.closePath();
+    layers.grow(c[0] - 0.5 - TIP, c[1] - 0.5 - TIP);
+    layers.grow(c[0] + 0.5 + TIP, c[1] + 0.5 + TIP);
+  }
+  // A trilobite at c with its notch towards n = [+-1, +-1]. Its mark joins
+  // the two tips beside the notch and runs a branch to the tip opposite it.
+  function addTrilobite(layers, fill, edges, mark, c, n) {
+    var tip = function (d) { return d[0] !== n[0] || d[1] !== n[1]; };
+    addCell(layers, fill, c, tip);
+    addCell(layers, edges, c, tip);
+    addSegment(mark, [c[0] + n[0] / 2, c[1] - n[1] / 2], [c[0] - n[0] / 2, c[1] + n[1] / 2]);
+    addSegment(mark, c, [c[0] - n[0] / 2, c[1] - n[1] / 2]);
+  }
+  function addCrab(layers, fill, edges, c) {
+    var notch = function () { return false; };
+    addCell(layers, fill, c, notch);
+    addCell(layers, edges, c, notch);
+  }
+  function trilobiteLayers() {
     var layers = new Layers();
-    var fills = ['a', 'b', 'c', 'd'].map(function (key) { return layers.layer({ fill: key }); });
-    var edges = layers.layer({ stroke: 'line', px: 0.9 });
-    tiles.forEach(function (tile) {
+    return {
+      layers: layers, fillA: layers.layer({ fill: 'a' }), fillB: layers.layer({ fill: 'b' }),
+      mark: layers.layer({ stroke: 'mark', world: 0.14 }), edges: layers.layer({ stroke: 'line', px: 0.8 })
+    };
+  }
+
+  // Every chair holds one trilobite at its inner corner, turned so that its
+  // three tips sit in the chair's three squares and its notch in the square
+  // the chair lacks. Every other grid point with four squares around it
+  // holds a crab. A square belongs to one chair, so each corner of the
+  // grid takes exactly one tip.
+  function trilobitesAndCrabs(steps) {
+    var T = trilobiteLayers(), layers = T.layers;
+    var chairs = chairTiles(steps), squares = {}, inner = {};
+    chairs.forEach(function (tile) {
       var M = tile[0], t = tile[1];
-      var pts = OUTLINE.map(function (p) { return [M[0] * p[0] + M[1] * p[1] + t[0], M[2] * p[0] + M[3] * p[1] + t[1]]; });
-      addPolygon(layers, fills[TURNS.indexOf(M.join(','))], pts);
-      addPolygon(layers, edges, pts);
+      [[0.5, 0.5], [1.5, 0.5], [0.5, 1.5]].forEach(function (p) {
+        var q = onChair(M, t, p, 1);
+        squares[Math.floor(q[0]) + ',' + Math.floor(q[1])] = true;
+      });
+      var c = onChair(M, t, [1, 1], 1);
+      inner[c[0] + ',' + c[1]] = true;
+      addTrilobite(layers, T.fillA, T.edges, T.mark, c, [M[0] + M[1], M[2] + M[3]]);
     });
+    Object.keys(squares).forEach(function (key) {
+      var xy = key.split(',').map(Number), x = xy[0], y = xy[1];
+      if (inner[x + ',' + y] || !squares[(x - 1) + ',' + y] || !squares[x + ',' + (y - 1)] || !squares[(x - 1) + ',' + (y - 1)]) return;
+      addCrab(layers, T.fillB, T.edges, [x, y]);
+    });
+    // Chair outlines, shown on request: each chair, and each chair of the
+    // round before at twice the size.
+    var thin = layers.layer({ stroke: 'chair', world: 0.07, when: 'chairs' });
+    var thick = layers.layer({ stroke: 'chair', world: 0.2, when: 'chairs' });
+    chairs.forEach(function (tile) { addPolyline(thin, CHAIR.concat([CHAIR[0]]).map(function (p) { return onChair(tile[0], tile[1], p, 1); })); });
+    chairTiles(steps - 1).forEach(function (tile) { addPolyline(thick, CHAIR.concat([CHAIR[0]]).map(function (p) { return onChair(tile[0], tile[1], p, 2); })); });
     return layers;
   }
 
   // ---- Taylor-Socolar hexagons, pointy-top, circumradius 1. Vertex j sits
   // at 90 - 60 j degrees. Half-diameter colours by vertex, from the prototile
-  // of Socolar and Taylor's Fig. 2: 1 red, 0 blue.
-  function taylorSocolar() {
+  // of Socolar and Taylor's Fig. 2: 1 red, 0 blue. Cells are [q, r, turn,
+  // mirror]; the default is the solved patch.
+  function taylorSocolar(cells) {
     var COLOUR = [1, 0, 1, 0, 0, 1];
     var T = 0.28;
     var V = [];
@@ -535,7 +628,7 @@
     var stripes = layers.layer({ stroke: 'stripe', world: 0.11 });
     var edges = layers.layer({ stroke: 'line', px: 0.8 });
     var S3 = Math.sqrt(3);
-    DATA.taylorSocolar.forEach(function (cell) {
+    (cells || DATA.taylorSocolar).forEach(function (cell) {
       var q = cell[0], r = cell[1], turn = cell[2], mirror = cell[3];
       var cx = q * S3 + r * S3 / 2, cy = -1.5 * r;
       var ang = -60 * turn * Math.PI / 180, cs = Math.cos(ang), sn = Math.sin(ang);
@@ -559,9 +652,14 @@
   // the basis 1, z, z^2, z^3, with z = exp(i pi / 6). The even part
   // (1, z^2) takes edge length a and the odd part (z, z^3) takes b.
   var spectreCorners = null;
+  function mulZ(v) { return [-v[3], v[0], v[1] + v[3], v[2]]; }
+  // A point in the plane, with the even part scaled by a and the odd by b.
+  function spectrePoint(v, a, b) {
+    var A = v[0] / 2, B = v[1] / 2, C = v[2] / 2, D = v[3] / 2, H = Math.sqrt(3) / 2;
+    return [a * (A + C / 2) + b * B * H, a * C * H + b * (B / 2 + D)];
+  }
   function spectreExact() {
     if (spectreCorners) return spectreCorners;
-    function mulZ(v) { return [-v[3], v[0], v[1] + v[3], v[2]]; }
     function conj(v) { return [v[0] + v[2], v[1], -v[2], -v[1] - v[3]]; }
     spectreCorners = DATA.spectre.tiles.map(function (tile) {
       var k = tile[0], mirror = tile[1], beta = tile.slice(2);
@@ -578,26 +676,133 @@
   }
   function spectreFamily(degrees) {
     var a = Math.cos(degrees * Math.PI / 180), b = Math.sin(degrees * Math.PI / 180);
-    var H = Math.sqrt(3) / 2;
     var layers = new Layers();
     var even = layers.layer({ fill: 'a' }), odd = layers.layer({ fill: 'b' });
     var edges = layers.layer({ stroke: 'line', px: 0.7 });
     spectreExact().forEach(function (tile) {
-      var pts = tile.corners.map(function (v) {
-        var A = v[0] / 2, B = v[1] / 2, C = v[2] / 2, D = v[3] / 2;
-        return [a * (A + C / 2) + b * B * H, a * C * H + b * (B / 2 + D)];
-      });
+      var pts = tile.corners.map(function (v) { return spectrePoint(v, a, b); });
       addPolygon(layers, tile.odd ? odd : even, pts);
       addPolygon(layers, edges, pts);
     });
     return layers;
   }
 
-  // ---- A pannable, zoomable canvas.
+  // ---- Single tiles for the rows above the patches, drawn from the same
+  // definitions as the patches.
+  function oneTile(fill, pts) {
+    var layers = new Layers();
+    addPolygon(layers, layers.layer({ fill: fill }), pts);
+    addPolygon(layers, layers.layer({ stroke: 'line', px: 1.2 }), pts);
+    return layers;
+  }
+  // Kite and dart with the 72-degree apex at the top: long edges phi, short
+  // edges 1. The kite's fourth corner lies phi below the apex, the dart's 1.
+  function kiteOrDart(dart) {
+    var t = 36 * Math.PI / 180, sx = PHI * Math.sin(t), sy = -PHI * Math.cos(t);
+    return oneTile(dart ? 'b' : 'a', [[0, 0], [-sx, sy], [0, dart ? -1 : -PHI], [sx, sy]]);
+  }
+  // A unit rhomb with its acute corners at the top and bottom.
+  function rhomb(acute, fill) {
+    var h = acute * Math.PI / 360;
+    return oneTile(fill, [[0, Math.cos(h)], [Math.sin(h), 0], [0, -Math.cos(h)], [-Math.sin(h), 0]]);
+  }
+  function a2Tile(small) {
+    var PSI = 1 / Math.sqrt(PHI), k = small ? PSI : 1, p3 = PSI * PSI * PSI, p4 = p3 * PSI;
+    var L = [[0, 0], [1, 0], [1, -PSI], [p4, -PSI], [p4, -p3], [0, -p3]];
+    return oneTile(small ? 'b' : 'a', L.map(function (p) { return [k * p[0], k * p[1]]; }));
+  }
+  // The odd tile is turned back by 30 degrees, to stand beside the even one.
+  function spectreTile(degrees, odd) {
+    var a = Math.cos(degrees * Math.PI / 180), b = Math.sin(degrees * Math.PI / 180);
+    var c = Math.cos(-Math.PI / 6), s = Math.sin(-Math.PI / 6);
+    return oneTile(odd ? 'b' : 'a', DATA.spectre.outline.map(function (v) {
+      if (!odd) return spectrePoint(v, a, b);
+      var p = spectrePoint(mulZ(v), a, b);
+      return [c * p[0] - s * p[1], s * p[0] + c * p[1]];
+    }));
+  }
+  function trilobiteTile() {
+    var T = trilobiteLayers();
+    addTrilobite(T.layers, T.fillA, T.edges, T.mark, [0, 0], [1, -1]);
+    return T.layers;
+  }
+  function crabTile() {
+    var T = trilobiteLayers();
+    addCrab(T.layers, T.fillB, T.edges, [0, 0]);
+    return T.layers;
+  }
+  // The base chair and its trilobite: the notch sits in the missing square.
+  function chairTile() {
+    var T = trilobiteLayers(), layers = T.layers;
+    addTrilobite(layers, T.fillA, T.edges, T.mark, [1, 1], [1, 1]);
+    var chair = layers.layer({ stroke: 'chair', world: 0.07, when: 'chairs' });
+    addPolygon(layers, chair, CHAIR);
+    addSegment(chair, [1, 0], [1, 1]);
+    addSegment(chair, [0, 1], [1, 1]);
+    return layers;
+  }
+
+  // ---- Drawing. A layer with a `when` key draws only while that flag is on.
+  function paint(canvas, layers, scale, ox, oy, cssW, cssH, flags, background) {
+    var dpr = window.devicePixelRatio || 1;
+    var w = Math.round(cssW * dpr), h = Math.round(cssH * dpr);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    var ctx = canvas.getContext('2d'), c = currentPalette;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (background) { ctx.fillStyle = c.panel; ctx.fillRect(0, 0, w, h); } else ctx.clearRect(0, 0, w, h);
+    var k = scale * dpr;
+    ctx.setTransform(k, 0, 0, -k, w / 2 - ox * k, h / 2 + oy * k);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    layers.list.forEach(function (layer) {
+      if (layer.when && !(flags && flags[layer.when])) return;
+      if (layer.fill) {
+        ctx.fillStyle = c[layer.fill];
+        ctx.fill(layer.path);
+      } else {
+        ctx.strokeStyle = c[layer.stroke];
+        ctx.lineWidth = layer.px ? layer.px * dpr / k : layer.world;
+        ctx.stroke(layer.path);
+      }
+    });
+  }
+
+  // ---- The tiles of one set, each on its own small canvas, all at one
+  // scale so that their sizes compare. `px` is the longest side, in pixels.
+  function TileRow(ids, builders, px) {
+    this.canvases = ids.map(function (id) { return document.getElementById(id); });
+    this.builders = builders;
+    this.px = px;
+    this.refresh();
+    viewers.push(this);
+  }
+  TileRow.prototype.refresh = function () {
+    this.layers = this.builders.map(function (build) { return build(); });
+    var longest = 0;
+    this.layers.forEach(function (L) { longest = Math.max(longest, L.box[2] - L.box[0], L.box[3] - L.box[1]); });
+    this.unit = this.px / longest;
+    this.draw();
+  };
+  TileRow.prototype.draw = function () {
+    var self = this, pad = 4;
+    this.canvases.forEach(function (canvas, i) {
+      var b = self.layers[i].box;
+      var w = (b[2] - b[0]) * self.unit + 2 * pad, h = (b[3] - b[1]) * self.unit + 2 * pad;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      paint(canvas, self.layers[i], self.unit, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2, w, h, { chairs: true }, false);
+    });
+  };
+
+  // ---- A pannable, zoomable canvas. The first view shows the whole patch,
+  // or with `start` = {x, y, span} the point (x, y) with span world units
+  // across the canvas's shorter side.
   var viewers = [];
-  function Viewer(canvas, build) {
+  function Viewer(canvas, build, start) {
     this.canvas = canvas;
     this.build = build;
+    this.start = start;
+    this.flags = {};
     this.layers = build();
     this.touched = false;
     this.fitView();
@@ -612,9 +817,9 @@
   Viewer.prototype.fitView = function () {
     var b = this.layers.box, s = this.size();
     this.fit = 0.94 * Math.min(s[0] / (b[2] - b[0]), s[1] / (b[3] - b[1]));
-    this.scale = this.fit;
-    this.ox = (b[0] + b[2]) / 2;
-    this.oy = (b[1] + b[3]) / 2;
+    this.scale = this.start ? Math.min(s[0], s[1]) / this.start.span : this.fit;
+    this.ox = this.start ? this.start.x : (b[0] + b[2]) / 2;
+    this.oy = this.start ? this.start.y : (b[1] + b[3]) / 2;
   };
   Viewer.prototype.rebuild = function () {
     this.layers = this.build();
@@ -642,27 +847,8 @@
     requestAnimationFrame(function () { self.pending = false; self.draw(); });
   };
   Viewer.prototype.draw = function () {
-    var canvas = this.canvas, s = this.size(), dpr = window.devicePixelRatio || 1;
-    var w = Math.round(s[0] * dpr), h = Math.round(s[1] * dpr);
-    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-    var ctx = canvas.getContext('2d'), c = currentPalette;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = c.panel;
-    ctx.fillRect(0, 0, w, h);
-    var k = this.scale * dpr;
-    ctx.setTransform(k, 0, 0, -k, w / 2 - this.ox * k, h / 2 + this.oy * k);
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    this.layers.list.forEach(function (layer) {
-      if (layer.fill) {
-        ctx.fillStyle = c[layer.fill];
-        ctx.fill(layer.path);
-      } else {
-        ctx.strokeStyle = c[layer.stroke];
-        ctx.lineWidth = layer.px ? layer.px * dpr / k : layer.world;
-        ctx.stroke(layer.path);
-      }
-    });
+    var s = this.size();
+    paint(this.canvas, this.layers, this.scale, this.ox, this.oy, s[0], s[1], this.flags, true);
   };
   Viewer.prototype.wire = function () {
     var self = this, canvas = this.canvas;
@@ -726,7 +912,7 @@
     var zoom = canvas.parentNode.querySelector('.zoom');
     [['−', 'Zoom out', function () { var s = self.size(); self.zoomAt(1 / 1.4, s[0] / 2, s[1] / 2); }],
      ['+', 'Zoom in', function () { var s = self.size(); self.zoomAt(1.4, s[0] / 2, s[1] / 2); }],
-     ['Reset', 'Show the whole patch', function () { self.fitView(); self.touched = false; self.request(); }]
+     ['Reset', 'Back to the first view', function () { self.fitView(); self.touched = false; self.request(); }]
     ].forEach(function (spec) {
       var button = document.createElement('button');
       button.type = 'button';
@@ -749,10 +935,27 @@
   new MutationObserver(repaint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', repaint);
 
+  new TileRow(['tile-kite', 'tile-dart'], [function () { return kiteOrDart(false); }, function () { return kiteOrDart(true); }], 120);
+  new TileRow(['tile-thick', 'tile-thin'], [function () { return rhomb(72, 'a'); }, function () { return rhomb(36, 'b'); }], 130);
+  new TileRow(['tile-a2-big', 'tile-a2-small'], [function () { return a2Tile(false); }, function () { return a2Tile(true); }], 120);
+  new TileRow(['tile-trilobite', 'tile-crab', 'tile-chair'], [trilobiteTile, crabTile, chairTile], 130);
+  new TileRow(['tile-ts', 'tile-ts-mirror'], [function () { return taylorSocolar([[0, 0, 0, 0]]); }, function () { return taylorSocolar([[0, 0, 0, 1]]); }], 120);
+
   new Viewer(document.getElementById('p2'), function () { return kitesAndDarts(7); });
   new Viewer(document.getElementById('p3'), function () { return rhombs(7); });
   new Viewer(document.getElementById('a2'), function () { return ammannA2(17); });
-  new Viewer(document.getElementById('chair'), function () { return chair(5); });
+  // The patch covers [0, 64] x [0, 32] and [0, 32] x [0, 64]. It opens on
+  // a dozen cells in the middle of the corner square, so the tiles read.
+  var chairViewer = new Viewer(document.getElementById('chair'), function () { return trilobitesAndCrabs(5); },
+                               { x: 16, y: 16, span: 12 });
+  var chairsButton = document.getElementById('chairs');
+  chairsButton.addEventListener('click', function () {
+    var on = !chairViewer.flags.chairs;
+    chairViewer.flags.chairs = on;
+    chairsButton.setAttribute('aria-pressed', String(on));
+    chairsButton.textContent = on ? 'Hide chairs' : 'Show chairs';
+    chairViewer.request();
+  });
   new Viewer(document.getElementById('ts'), taylorSocolar);
 
   var stretch = document.getElementById('stretch'), stretchOut = document.getElementById('stretch-out');
@@ -762,9 +965,13 @@
     stretchOut.value = Math.abs(d - 45) < 0.25 ? 'a = b: the Spectre' : 'b : a = ' + (b / a).toFixed(2);
   }
   stretchLabel();
+  var spectreTiles = new TileRow(['tile-spectre-even', 'tile-spectre-odd'], [
+    function () { return spectreTile(parseFloat(stretch.value), false); },
+    function () { return spectreTile(parseFloat(stretch.value), true); }], 150);
   var spectreViewer = new Viewer(document.getElementById('spectre'), function () { return spectreFamily(parseFloat(stretch.value)); });
   stretch.addEventListener('input', function () {
     stretchLabel();
+    spectreTiles.refresh();
     var keep = [spectreViewer.scale, spectreViewer.ox, spectreViewer.oy, spectreViewer.touched];
     spectreViewer.layers = spectreViewer.build();
     if (keep[3]) { spectreViewer.scale = keep[0]; spectreViewer.ox = keep[1]; spectreViewer.oy = keep[2]; }
