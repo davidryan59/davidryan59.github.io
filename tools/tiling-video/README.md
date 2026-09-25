@@ -1,8 +1,8 @@
 # Tiling video
 
-Renders the 45-second looping video of the tiling explorer, for posting on
+Renders the 48.8-second looping video of the tiling explorer, for posting on
 social media: 1080 × 1080, 30 fps, with captions and a just-intonation
-soundtrack. The last frame flows into the first. The scripts capture the real
+soundtrack, David's own track, mixed by him in Ableton. The last frame flows into the first. The scripts capture the real
 Hat and Spectre pages frame by frame, so the video always shows the explorer
 as it is. [storyboard.md](storyboard.md) says what happens on each beat.
 
@@ -21,12 +21,22 @@ as it is. [storyboard.md](storyboard.md) says what happens on each beat.
   shape slider, the labels and the watermark for any frame. `render.js` saves
   them as transparent PNGs in `overlay/frames/`. `contact.js` builds a sheet
   of sample frames over busy, white and black backgrounds.
-- `music/compose.py` — the soundtrack, built on justsynth from
-  [daily-python-music](https://github.com/davidryan59/daily-python-music).
-  Output: `music/tiling-loop.wav`. [music/notes.md](music/notes.md) explains
-  the tuning and the design.
-- `compose.py` — the final mix. It blends the two pages at the crossfades,
-  lays the captions on top and adds the music. Output: `tiling-explorer.mp4`.
+- `music/` — the soundtrack. David exports his own mix from Ableton at the
+  timeline's tempo. `loop_export.py` folds the export's reverb tail over its
+  start, sets the level and writes `music/tiling-loop.wav`.
+  [music/notes.md](music/notes.md) describes the track. Two earlier
+  soundtracks are kept for reference, and each also writes
+  `music/tiling-loop.wav`: `compose.py` arranged sections of his first set
+  on synth sounds, from `sections.json`, which `read_ableton.py` fills
+  ([music/compose-notes.md](music/compose-notes.md)). `house.py` is the
+  tropical house track before it, on the 45 s timeline.
+- `compose.py` — the picture. It blends the two pages at the crossfades and
+  lays the captions on top. Output: `tiling-explorer.mp4`, silent.
+- `deliver.py` — adds the music to the picture, makes a two-loop MP3 to
+  listen to, and runs `check_audio.py` on both.
+- `check_audio.py` — checks finished audio for distortion as a listener gets
+  it: clipped samples, true peak, clicks, sub-bass, and with `--master`,
+  sync and the encoder's error at the start and end of the file.
 
 ## Setup
 
@@ -34,8 +44,9 @@ as it is. [storyboard.md](storyboard.md) says what happens on each beat.
 - Run `npm install` here. It installs playwright-core, which has no browser
   of its own: set `CHROMIUM` to a Chromium binary, or run
   `npx playwright@1.57.0 install chromium` once.
-- For the music, clone daily-python-music beside this repo and set up its
-  `.venv`. Set `JUSTSYNTH_REPO` if it lives somewhere else.
+- For the earlier synthesised music, `music/compose.py`, clone
+  daily-python-music beside this repo and set up its `.venv`. Set
+  `JUSTSYNTH_REPO` if it lives somewhere else.
 
 ## Render
 
@@ -43,11 +54,12 @@ Run each step from this folder. Times are from an Apple silicon Mac.
 
 | Step | Command | Time |
 |---|---|---|
-| Tiling, Hat | `node capture.js hat` | 3.5 min |
-| Tiling, Spectre | `node capture.js spectre` | 3 min |
+| Tiling, Hat | `node capture.js hat` | 3 min |
+| Tiling, Spectre | `node capture.js spectre` | 4 min |
 | Captions | `node overlay/render.js` | 30 s |
-| Music | `cd music && ../../../../daily-python-music/.venv/bin/python compose.py` | 20 s |
-| Final mix | `python3 compose.py music/tiling-loop.wav` | 1 min |
+| Music | `python3 music/loop_export.py EXPORT.wav` | 5 s |
+| Picture | `python3 compose.py` | 1 min |
+| Delivery and checks | `python3 deliver.py tiling-explorer.mp4 music/tiling-loop.wav out.mp4 out.mp3` | 10 s |
 
 - The two captures can run at the same time.
 - A capture overwrites its frames. After a crash, add `--resume` to keep the
@@ -59,13 +71,23 @@ Run each step from this folder. Times are from an Apple silicon Mac.
 
 | Change | Rerun |
 |---|---|
-| Caption text or timing, labels, watermark | Captions, final mix |
-| Colours, zoom, pan speed or edge heights | The capture of each page it touches, final mix |
-| The time of an event | Everything. `music/compose.py` keeps its own copy of the accent beats and `ZOOM_FAR`, so update those too |
-| The music | Music, final mix |
+| David's mix in Ableton | A new export, then music, delivery |
+| Caption text or timing, labels, watermark | Captions, picture, delivery |
+| Colours, zoom, pan speed or edge heights | The capture of each page it touches, picture, delivery |
+| The time of an event | The captures, captions, picture, delivery. Keep shape moves and colour changes on music beats, multiples of 0.625 video beats |
+| The tempo | `LOOP_SECONDS` in `timeline.js`, then everything, with the music exported at the new `MUSIC_BPM` |
+| The music | Music, delivery |
 
-The music script checks its copy of the timeline's curves against
-`timeline.js` and stops if they differ.
+Deliver only files that pass `check_audio.py`. Check the MP3 and MP4 that get
+shared, not only the WAV: lossy encoding can add peaks and clicks the master
+does not have.
+
+`loop_export.py` reads the loop's length and tempo from `timeline.js`, and
+stops if the export's music does not end where the loop does, which is the
+sign of an export at the wrong tempo.
+
+A change to the music needs only the music and delivery steps: delivery
+copies the picture across without re-encoding it.
 
 ## Coupling with the explorer
 

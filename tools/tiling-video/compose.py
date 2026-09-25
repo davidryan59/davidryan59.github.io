@@ -1,11 +1,11 @@
-"""Composes the final video from the three layers.
+"""Composes the picture of the video from its two layers.
 
-python3 compose.py [music.wav] [out.mp4]
+python3 compose.py [out.mp4]
 
 Tiling: frames/hat/NNNN.jpg and frames/spectre/NNNN.jpg, blended by the
 timeline's hatMix at the two crossfades. Overlay: overlay/frames/NNNN.png,
-alpha-composited on top. Music: muxed as AAC. Without a music file the video
-is silent, for checking the picture.
+alpha-composited on top. The result is silent: deliver.py adds the music,
+since it needs care at the start of the file.
 """
 import json
 import os
@@ -47,21 +47,16 @@ def frame(n, mix):
 
 
 def main():
-    music = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] != '-' else None
-    out = sys.argv[2] if len(sys.argv) > 2 else f'{HERE}/tiling-explorer.mp4'
+    out = sys.argv[1] if len(sys.argv) > 1 else f'{HERE}/tiling-explorer.mp4'
     ms = mixes()
     cmd = ['ffmpeg', '-loglevel', 'error', '-y',
            '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{SIZE}x{SIZE}', '-r', '30', '-i', '-']
-    if music:
-        cmd += ['-i', music]
     # X (Twitter) takes H.264 High with yuv420p and AAC. A high-quality upload
     # leaves X's own re-encode more to work with.
     # The conversion matrix must match the BT.709 tags, or colours shift.
     cmd += ['-vf', 'scale=out_color_matrix=bt709:out_range=tv',
             '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
             '-g', '60', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709']
-    if music:
-        cmd += ['-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest']
     cmd += ['-movflags', '+faststart', out]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     for n, mix in enumerate(ms):

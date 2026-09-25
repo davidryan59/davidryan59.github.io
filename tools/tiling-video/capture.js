@@ -138,12 +138,22 @@ function diceColours(kind, n, seed) {
   return shuffled(out.slice(0, n));
 }
 
-// The Hat camera drifts at a steady rate in q through every beat the Hat
-// shows, from beat 53 round the seam to beat 41, so the loop closes exactly.
+// The Hat camera drifts in q through every beat the Hat shows, from beat 53
+// round the seam to beat 41. It is at rest from the seam through the opening
+// pause, and eases to and from rest over RAMP beats, so the loop joins on a
+// still frame. travel(u) is the distance covered u beats after starting from
+// rest, in units of full speed times beats.
+const RAMP = 2;
+function travel(u) {
+  if (u <= 0) return 0;
+  if (u >= RAMP) return RAMP / 2 + (u - RAMP);
+  return u / 2 - RAMP * Math.sin(Math.PI * u / RAMP) / (2 * Math.PI);
+}
 function hatTau(b) { return b >= 45 ? b - 60 : b; }
 function hatState(b) {
   const tau = hatTau(b), c = T.colourAt(b);
-  const q = [LOOK.hat.q0[0] + LOOK.hat.drift[0] * tau, LOOK.hat.q0[1] + LOOK.hat.drift[1] * tau];
+  const k = tau >= 0 ? travel(tau - T.PAUSE) : -travel(-tau);
+  const q = [LOOK.hat.q0[0] + LOOK.hat.drift[0] * k, LOOK.hat.q0[1] + LOOK.hat.drift[1] * k];
   return { deg: T.deg(b), colour: c.id, q, s: LOOK.hat.s0 * T.zoomAt(b), rot: LOOK.hat.rot };
 }
 

@@ -163,6 +163,7 @@ not the release — the live Optimism deployment above is the one to publish.
 | Hat tiling viewer: pan, zoom and reshape the Hat family from chevron to comet, built 2026-09-23 | [drbuild.uk/demos/hat/](https://drbuild.uk/demos/hat/) | Unchecked; live once pushed |
 | Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [drbuild.uk/demos/spectre/](https://drbuild.uk/demos/spectre/) | Unchecked; live once pushed |
 | Hat (extended) viewer: the Hat with curved edges, where the mirrored hats become a second tile, built 2026-09-23. A third tab of the same explorer, so no separate entry on the page | [drbuild.uk/demos/hat-extended/](https://drbuild.uk/demos/hat-extended/) | Unchecked; live once pushed |
+| Draft paper, *A polygonal Spectre: straight-edged strictly chiral aperiodic monotiles*, written with Claude, draft of 2026-09-25. It proves that the Spectre with triangle edges, a 27-sided polygon, is a strictly chiral aperiodic monotile, a case the 2024 Spectre paper left open. Listed inside the tiling explorer's entry on the page | [drbuild.uk/papers/polygonal-spectre.pdf](https://drbuild.uk/papers/polygonal-spectre.pdf) | Unchecked; live once pushed |
 
 ### npm packages
 Four, all last published December 2019 or later, confirmed live on the

@@ -7,8 +7,8 @@ probe/
 overlay/frames/
 overlay/test-bg.png
 overlay/contact-sheet.png
-music/tiling-loop.wav
-music/spectrogram.png
+music/*.wav
+music/*.png
 *.mp4
 *.log
 __pycache__/

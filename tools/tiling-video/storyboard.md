@@ -1,103 +1,67 @@
 # Tiling explorer video: storyboard
 
-A 45-second square video for X (Twitter) about the aperiodic tiling explorer at
+A 48.8-second square video about the aperiodic tiling explorer at
 drbuild.uk/tiles (the Hat and Spectre pages of David Ryan's builder site). It
 plays as a seamless loop: the last frame flows into the first. No voiceover, no
-end card. The video is only about the explorer.
+end card. The video is only about the explorer. `timeline.js` holds every
+number here and is the source of truth.
 
-## Fixed format
+## Format
 
-- 1080 × 1080, 30 fps, exactly 1350 frames, frame n shows time t = n / 30 s.
-- Tempo 80 BPM. One beat = 0.75 s = 22.5 frames. 60 beats = 45.0 s.
-- Beat b is at time t = 0.75 × b. Beat 60 is the same moment as beat 0 (the loop seam).
-- Dark theme throughout. Page background `#16161a`, light ink `#d9d4c7`.
-  The site's font is Georgia (serif).
+- 1080 × 1080, 30 fps, exactly 1,464 frames.
+- The timeline counts 60 video beats of 0.8133 s. Beat 60 is beat 0, the
+  loop join.
+- The music is 24 bars of 4/4 at 118.03 BPM. A bar is 2.5 video beats and a
+  music beat is 0.625 video beats. The shape moves and colour changes sit on
+  music beats.
+- Dark theme. Page background `#16161a`, light ink `#d9d4c7`, Georgia.
 
 ## Layers
 
-1. **Tiling** (captured from the real pages by `capture.js`, clean, no UI).
-2. **Overlay** (captions, a shape slider graphic, palette and edge labels, a
-   watermark). Transparent PNG frames, composited over the tiling.
-3. **Music** (a new just-intonation track, calm and hypnotic, 45.0 s, loops
-   seamlessly, with musical accents on the events below).
+1. **Tiling**: the real pages, captured frame by frame by `capture.js`.
+2. **Overlay**: captions, the shape slider graphic, palette and edge labels,
+   and the watermark, drawn by `overlay/`.
+3. **Music**: David's own mix, exported from Ableton and looped by
+   `music/loop_export.py`.
 
-## Storyboard, in beats (b) and seconds (t)
+## Sections
 
-The Hat page's shape slider runs 0°–90°: Chevron 0°, Hat 30°, Spectre 45°,
-Turtle 60°, Comet 90°. Moves between stops are eased (smooth in and out).
+The shape slider runs 0°–90°: Chevron 0°, Hat 30°, Spectre 45°, Turtle 60°,
+Comet 90°. Moves are eased. The Hat camera drifts slowly, and is at rest at
+the loop join and through the opening 0.25 s.
 
-| Beats | Seconds | Picture | Overlay |
+| Music | Bars | Video beats | Picture |
 |---|---|---|---|
-| 58 → 62 (wraps to 2) | 43.5 → 1.5 | Hat page. Shape moves 30° → 0°, crossing the seam at 15° mid-move | Slider graphic visible |
-| 2 | 1.5 | Arrives at **Chevron** (0°) | Chevron tick highlights |
-| 3 → 6 | 2.25 → 4.5 | 0° → 30°, arrives at **Hat** at b 6 | Hat tick highlights at b 6 |
-| 4 → 9.5 | 3.0 → 7.125 | | Caption C1 |
-| 8 → 10 | 6.0 → 7.5 | 30° → 45°, arrives at **Spectre** at b 10 | |
-| 10 → 19.5 | 7.5 → 14.625 | | Caption C2 |
-| 11 → 13 | 8.25 → 9.75 | 45° → 60°, arrives at **Turtle** at b 13 | |
-| 14 → 16 | 10.5 → 12.0 | 60° → 90°, arrives at **Comet** at b 16 | |
-| 17 → 20 | 12.75 → 15.0 | 90° → 30°, back at **Hat** at b 20 | |
-| 20.25 → 20.75 | | | Slider graphic fades out |
-| 0 → 21 | 0 → 15.75 | Colours: **Rainbow** (the home palette, also from b 53) | |
-| 20.67 | 15.5 | | Palette label fades in, showing "Pastel" |
-| 21 | 15.75 | Colours switch to **Pastel** | label "Pastel" |
-| 22.5 | 16.875 | **Greyscale** (12 even steps, black to white) | label "Greyscale" |
-| 21 → 23.9 | | | Caption C3 |
-| 24, 25, 26, 27 | 18.0, 18.75, 19.5, 20.25 | Dice rolls: any colour, RGB corners, black and white, greys | labels "Dice: any colour", "Dice: RGB corners", "Dice: black and white", "Dice: greys" |
-| 24 → 27.9 | | | Caption C5 |
-| 28 | 21.0 | **Mirrored hats** (dark grey tiles, mirrored hats blue `#6fa0e8`), kept through the zoom | label "Mirrored hats" |
-| 28 → 31.6 | | | Caption C4 |
-| 31 | 23.25 | | Palette label fades out |
-| 30 → 34 | 22.5 → 25.5 | Zoom out, far, while panning (thousands of tiles) | |
-| 34 → 38 | 25.5 → 28.5 | Zoom back in | |
-| 31.9 → 37.8 | | | Caption C6 |
-| 37.5 → 38 | | | Slider graphic fades in |
-| 38 → 40 | 28.5 → 30.0 | Shape 30° → 45°, arrives at **Spectre** mark at b 40 | Spectre tick highlights |
-| 40 → 41 | 30.0 → 30.75 | Crossfade from the Hat page to the Spectre page (straight edges) | Slider fades out b 40.5 → 41 |
-| 39.5 → 44.5 | 29.625 → 33.375 | | Caption C7 |
-| 41 → 43 | 30.75 → 32.25 | Edge height sweep 0 → peak (b 42) → 0: **Curve, single** | Edge label "Curve · single" |
-| 43 → 45 | | **Curve, double** | "Curve · double" |
-| 45 → 47 | | **Triangle, single** | "Triangle · single" |
-| 47 → 49 | | **Triangle, double** | "Triangle · double" |
-| 49 → 51 | | **Jigsaw, single** | "Jigsaw · single" |
-| 51 → 53 | 38.25 → 39.75 | **Jigsaw, double**. Edges flat again at b 53 | "Jigsaw · double", label fades out b 53 |
-| 45 → 52.5 | 33.75 → 39.375 | | Caption C8 |
-| 53 → 54 | 39.75 → 40.5 | Crossfade from the Spectre page back to the Hat page at 45° | Slider graphic fades in b 53.5 → 54 |
-| 54 → 58.5 | 40.5 → 43.875 | | Caption C9 |
-| 55 → 57 | 41.25 → 42.75 | 45° → 30°, arrives at **Hat** at b 57 | |
-| 58 → 60 | 43.5 → 45.0 | 30° → 15°, the first half of the move that the video opens with | |
+| Groove | 0–7 | 0–20 | Opens still on the Hat. Arrives at Spectre (bar 1), Turtle (bar 2), Comet (bar 3), sweeps down to Chevron (bar 5), back to the Hat (bar 7) |
+| Busier groove | 8–15 | 20–40 | Rainbow (bar 8), Greyscale (bar 8½), four dice rolls on the beats of bar 9, Mirrored hats (bar 10) and kept through the zoom (bars 12–15). The shape moves to the Spectre mark (bar 15¾) |
+| Build | 16–23 | 40–60 | Crossfade to the Spectre page (bar 16), six edge sweeps (bars 16.4–21.2), crossfade back to the Hat at 45° (bar 21.2), back to the Hat (bar 23), held to the loop join |
 
-Each edge sweep is eased: height 0 at the even beat, the peak at the odd beat,
-0 again at the next even beat. The edge shape and single/double switch only at
-height 0, where every edge is straight, so the switch itself is invisible.
+Edge sweeps are eased, each 2 video beats: height 0 at the start, the peak
+in the middle, 0 at the end. The shape and single or double switch only at
+height 0, so the switch is invisible.
 
-## Caption text
+## Captions
 
-Captions fade in and out over 0.3 s. The text lives in `timeline.js`.
+Captions fade in and out over 0.3 s.
 
-- **C1**, two lines: "One tile covers the whole plane, and the pattern never repeats."
-  Small second line: "The Hat · Smith, Myers, Kaplan and Goodman-Strauss, 2023"
-- **C2**: "Slide from chevron to comet, and every tile changes shape at once."
-- **C3**: "Colour the tiles by turn and mirror image."
-- **C4**: "Blue marks the mirrored hats, about one tile in eight."
-- **C5**: "Or roll the dice."
-- **C6**: "Pan and zoom. Tiles are built as you move, so the plane has no edge."
-- **C7**: "The Spectre covers the plane with no mirror images at all."
-- **C8**: "Change the edges, and every tile still fits."
-- **C9**: "Try it yourself at drbuild.uk/tiles"
+| Caption | Video beats | Text |
+|---|---|---|
+| C1 | 0.5–6.5 | "One tile covers the whole plane, and the pattern never repeats." Small second line: "The Hat · Smith, Myers, Kaplan and Goodman-Strauss, 2023" |
+| C2 | 7–17 | "Slide from chevron to comet, and every tile changes shape at once." |
+| C3 | 18–22.3 | "Colour the tiles by turn and mirror image." |
+| C5 | 22.5–24.8 | "Or roll the dice." |
+| C4 | 25–29.4 | "Blue marks the mirrored hats, about one tile in eight." |
+| C6 | 29.7–37.3 | "Pan and zoom. Tiles are built as you move, so the plane has no edge." |
+| C7 | 39.5–44.5 | "The Spectre covers the plane with no mirror images at all." |
+| C8 | 45–52.5 | "Change the edges, and every tile still fits." |
+| C9 | 54–58.5 | "Try it yourself at drbuild.uk/tiles" |
 
-## Musical accents (for the music layer)
+The slider graphic shows while the shape can move: to beat 19.75, from 37 to
+41, and from 53.5 round the loop join. The palette labels show from 19.67 to
+29.5, the edge labels from 41 to 53.
 
-Accent beats and what happens on screen:
+## Music
 
-- Shape arrivals: b 2 (Chevron), 6 (Hat), 10 (Spectre), 13 (Turtle), 16 (Comet),
-  20 (Hat), 40 (Spectre), 57 (Hat). Consider a pitch per shape, rising from
-  chevron to comet, so the ear hears the slider's position.
-- Colour switches: b 21, 22.5, then dice rolls at b 24, 25, 26, 27, then Mirrored hats at b 28.
-- Zoom: out over b 30 → 34 (furthest at b 34), back in over b 34 → 38. A swell suits it.
-- Crossfade to the Spectre at b 40 → 41: a change of harmony suits it.
-- Edge sweeps: six sweeps over b 41 → 53, each 2 beats, peak at the odd beat.
-  A glide or timbre change that follows the edge height suits it.
-- Crossfade back to the Hat at b 53 → 54, then home harmony for the loop.
-- The seam at b 60 = b 0 falls mid-move, so the music must flow straight
-  through it with no downbeat accent, no gap and no click.
+The track's form, tempo and level are in [music/notes.md](music/notes.md).
+The build ends in a drum fill, and the kick comes back at the loop join, so
+the music's drop falls where the video restarts.

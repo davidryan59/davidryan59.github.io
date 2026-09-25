@@ -13,6 +13,8 @@ address, `davidryan59.github.io`, redirects there.
   for the Hat and Spectre tilings, and the Hat with curved edges, sharing the
   engine in `demos/engine/`. WebGL 2, no libraries. See
   [docs/tiling-demos.md](docs/tiling-demos.md).
+- `papers/` — David's draft papers as PDFs. Each is built from its LaTeX
+  source elsewhere and copied here.
 - `social/` — the 1200 × 630 share cards that each page's `og:image` names.
   `node tools/social-cards/render.js` redraws them from the live pages; its
   header says what it needs.

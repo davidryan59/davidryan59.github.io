@@ -1,0 +1,1792 @@
+{
+ "source": "Aperiodic Monotile Video.als",
+ "tempo": 118.0,
+ "tuning": {
+  "name": "JI_scale_7-note_5-limit_minor",
+  "ratios": [
+   "1",
+   "10/9",
+   "5/4",
+   "4/3",
+   "3/2",
+   "5/3",
+   "15/8"
+  ],
+  "note_names": [
+   "C",
+   "D'",
+   "E\u2019",
+   "F",
+   "G",
+   "A\u2019",
+   "B\u2019"
+  ],
+  "reference": {
+   "octave": 4,
+   "index": 0,
+   "hz": 261.63
+  }
+ },
+ "tracks": [
+  {
+   "name": "1-707 Core Kit",
+   "mixer": {
+    "volume": 0.3981071115,
+    "pan": -0.1746031791,
+    "sends": [
+     0.0003162277571,
+     0.0003162277571
+    ]
+   },
+   "drum_pads": {
+    "37": {
+     "name": "Rimshot",
+     "sample": "Samples/One Shots/Drums/Rim/Rim 707.wav",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "38": {
+     "name": "Snare",
+     "sample": "Samples/One Shots/Drums/Snare/Snare 707 Variation.aif",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "39": {
+     "name": "Handclap",
+     "sample": "Samples/One Shots/Drums/Clap/Clap 707.wav",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "40": {
+     "name": "Snare",
+     "sample": "Samples/One Shots/Drums/Snare/Snare 707.wav",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "44": {
+     "name": "Tamb",
+     "sample": "Samples/One Shots/Drums/Tambourine/Tamb 707.aif",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "45": {
+     "name": "Tom Low",
+     "sample": "Samples/One Shots/Drums/Tom/Tom 707 Low.wav",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "48": {
+     "name": "Tom Hi",
+     "sample": "Samples/One Shots/Drums/Tom/Tom 707 Hi.wav",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "50": {
+     "name": "Cowbell",
+     "sample": "Samples/One Shots/Drums/Bell/Cowbell 707.aif",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "42": {
+     "name": "Closed Hi Hat",
+     "sample": "Samples/One Shots/Drums/Hihat/Hihat Closed 707.aif",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "43": {
+     "name": "Tom Low",
+     "sample": "Samples/One Shots/Drums/Tom/Tom 707 Low.wav",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "46": {
+     "name": "Open Hi Hat",
+     "sample": "Samples/One Shots/Drums/Hihat/Hihat Open 707.aif",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "47": {
+     "name": "Tom Mid",
+     "sample": "Samples/One Shots/Drums/Tom/Tom 707 Mid.aif",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "36": {
+     "name": "Bassdrum",
+     "sample": "Samples/One Shots/Drums/Kick/Kick 707 1.aif",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "41": {
+     "name": "Kick",
+     "sample": "Samples/One Shots/Drums/Kick/Kick 707 2.aif",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "49": {
+     "name": "Crash",
+     "sample": "Samples/One Shots/Drums/Cymbal/Crash 707.wav",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    },
+    "51": {
+     "name": "Ride",
+     "sample": "Samples/One Shots/Drums/Ride/Ride 707.aif",
+     "volume_db": -12.0,
+     "velocity_to_volume": 0.5
+    }
+   },
+   "sections": {
+    "A": {
+     "length": 4.0,
+     "notes": [
+      {
+       "time": 0.0,
+       "duration": 0.5,
+       "key": 36,
+       "velocity": 100.984
+      },
+      {
+       "time": 0.0,
+       "duration": 3.5,
+       "key": 51,
+       "velocity": 1.0
+      },
+      {
+       "time": 0.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 17.312
+      },
+      {
+       "time": 1.0,
+       "duration": 0.5,
+       "key": 40,
+       "velocity": 100.984
+      },
+      {
+       "time": 1.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 12.391
+      },
+      {
+       "time": 2.0,
+       "duration": 0.5,
+       "key": 36,
+       "velocity": 100.0
+      },
+      {
+       "time": 2.5,
+       "duration": 0.25,
+       "key": 44,
+       "velocity": 8.875
+      },
+      {
+       "time": 2.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 19.281
+      },
+      {
+       "time": 3.0,
+       "duration": 0.5,
+       "key": 40,
+       "velocity": 100.984
+      },
+      {
+       "time": 3.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 8.453
+      }
+     ]
+    },
+    "B": {
+     "length": 4.0,
+     "notes": [
+      {
+       "time": 0.0,
+       "duration": 0.5,
+       "key": 36,
+       "velocity": 100.984
+      },
+      {
+       "time": 0.0,
+       "duration": 3.5,
+       "key": 51,
+       "velocity": 1.0
+      },
+      {
+       "time": 0.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 17.312
+      },
+      {
+       "time": 1.0,
+       "duration": 0.5,
+       "key": 40,
+       "velocity": 100.984
+      },
+      {
+       "time": 1.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 12.391
+      },
+      {
+       "time": 1.774983,
+       "duration": 0.181992,
+       "key": 40,
+       "velocity": 57.672
+      },
+      {
+       "time": 2.0,
+       "duration": 0.5,
+       "key": 36,
+       "velocity": 100.0
+      },
+      {
+       "time": 2.5,
+       "duration": 0.25,
+       "key": 36,
+       "velocity": 54.719
+      },
+      {
+       "time": 2.5,
+       "duration": 0.25,
+       "key": 44,
+       "velocity": 8.875
+      },
+      {
+       "time": 2.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 19.281
+      },
+      {
+       "time": 3.0,
+       "duration": 0.5,
+       "key": 40,
+       "velocity": 100.984
+      },
+      {
+       "time": 3.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 8.453
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "2-808 Core Kit",
+   "mixer": {
+    "volume": 0.3162277937,
+    "pan": 0.0,
+    "sends": [
+     0.0003162277571,
+     0.0003162277571
+    ]
+   },
+   "drum_pads": {
+    "36": {
+     "name": "Bass Drum",
+     "sample": "Samples/Multisamples/Drum Machines/808/Kick 808 Tone1.wav",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "37": {
+     "name": "Rim Shot",
+     "sample": "Samples/One Shots/Drums/Rim/Rim 808.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "38": {
+     "name": "Snare Drum",
+     "sample": "Samples/Multisamples/Drum Machines/808/Snare 808 Tone1.wav",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "39": {
+     "name": "Hand Clap",
+     "sample": "Samples/One Shots/Drums/Clap/Clap 808.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "40": {
+     "name": "Low Conga",
+     "sample": "Samples/One Shots/Drums/Conga/Conga 808 Low.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "41": {
+     "name": "Mid Conga",
+     "sample": "Samples/One Shots/Drums/Conga/Conga 808 Mid.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "42": {
+     "name": "Closed Hi Hat",
+     "sample": "Samples/One Shots/Drums/Hihat/Hihat Closed 808.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "43": {
+     "name": "Hi Conga",
+     "sample": "Samples/One Shots/Drums/Conga/Conga 808 Hi.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "48": {
+     "name": "Maracas",
+     "sample": "Samples/One Shots/Drums/Shaker/Maracas 808.wav",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "44": {
+     "name": "Low Tom",
+     "sample": "Samples/One Shots/Drums/Tom/Tom 808 Low.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "46": {
+     "name": "Open Hi Hat",
+     "sample": "Samples/One Shots/Drums/Hihat/Hihat Open 808.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "45": {
+     "name": "Mid Tom",
+     "sample": "Samples/One Shots/Drums/Tom/Tom 808 Mid.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "47": {
+     "name": "Hi Tom",
+     "sample": "Samples/One Shots/Drums/Tom/Tom 808 Hi.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "49": {
+     "name": "Cymbal",
+     "sample": "Samples/Multisamples/Drum Machines/808/Cymbal 808 Tone1.wav",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "50": {
+     "name": "Cow Bell",
+     "sample": "Samples/One Shots/Drums/Bell/Cowbell 808.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    },
+    "51": {
+     "name": "Claves",
+     "sample": "Samples/One Shots/Drums/Wood/Clave 808.aif",
+     "volume_db": -10.0,
+     "velocity_to_volume": 0.5
+    }
+   },
+   "sections": {
+    "A": {
+     "length": 4.0,
+     "notes": [
+      {
+       "time": 0.263879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 50.844
+      },
+      {
+       "time": 0.286086,
+       "duration": 0.12474,
+       "key": 37,
+       "velocity": 9.75
+      },
+      {
+       "time": 0.5,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 80.375
+      },
+      {
+       "time": 0.75,
+       "duration": 0.25,
+       "key": 37,
+       "velocity": 28.453
+      },
+      {
+       "time": 0.763879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 38.047
+      },
+      {
+       "time": 1.263879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 50.844
+      },
+      {
+       "time": 1.5,
+       "duration": 0.25,
+       "key": 37,
+       "velocity": 36.328
+      },
+      {
+       "time": 1.5,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 64.625
+      },
+      {
+       "time": 1.763879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 38.047
+      },
+      {
+       "time": 2.25,
+       "duration": 0.25,
+       "key": 37,
+       "velocity": 48.141
+      },
+      {
+       "time": 2.263879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 50.844
+      },
+      {
+       "time": 2.5,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 80.375
+      },
+      {
+       "time": 2.763879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 38.047
+      },
+      {
+       "time": 3.0,
+       "duration": 0.25,
+       "key": 37,
+       "velocity": 20.578
+      },
+      {
+       "time": 3.263879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 50.844
+      },
+      {
+       "time": 3.5,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 64.625
+      },
+      {
+       "time": 3.75,
+       "duration": 0.161173,
+       "key": 37,
+       "velocity": 6.906
+      },
+      {
+       "time": 3.763879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 38.047
+      }
+     ]
+    },
+    "B": {
+     "length": 4.0,
+     "notes": [
+      {
+       "time": 0.0,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 38.047
+      },
+      {
+       "time": 0.263879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 50.844
+      },
+      {
+       "time": 0.286086,
+       "duration": 0.12474,
+       "key": 37,
+       "velocity": 9.75
+      },
+      {
+       "time": 0.5,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 80.375
+      },
+      {
+       "time": 1.263879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 50.844
+      },
+      {
+       "time": 1.5,
+       "duration": 0.25,
+       "key": 37,
+       "velocity": 36.328
+      },
+      {
+       "time": 1.5,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 64.625
+      },
+      {
+       "time": 1.763879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 38.047
+      },
+      {
+       "time": 2.0,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 38.047
+      },
+      {
+       "time": 2.263879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 50.844
+      },
+      {
+       "time": 2.5,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 80.375
+      },
+      {
+       "time": 3.0,
+       "duration": 0.25,
+       "key": 37,
+       "velocity": 20.578
+      },
+      {
+       "time": 3.263879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 50.844
+      },
+      {
+       "time": 3.5,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 64.625
+      },
+      {
+       "time": 3.75,
+       "duration": 0.161173,
+       "key": 37,
+       "velocity": 6.906
+      },
+      {
+       "time": 3.763879,
+       "duration": 0.097155,
+       "key": 48,
+       "velocity": 38.047
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "3-Analog Bass",
+   "mixer": {
+    "volume": 0.1122018546,
+    "pan": 0.0,
+    "sends": [
+     0.1995262057,
+     0.0003162277571
+    ]
+   },
+   "drum_pads": {},
+   "sections": {
+    "A": {
+     "length": 32.0,
+     "notes": [
+      {
+       "time": 0.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 1.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 2.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 3.5,
+       "duration": 0.25,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 3.75,
+       "duration": 0.25,
+       "key": 48,
+       "velocity": 100.531
+      },
+      {
+       "time": 4.5,
+       "duration": 0.5,
+       "key": 49,
+       "velocity": 100.531
+      },
+      {
+       "time": 5.5,
+       "duration": 0.5,
+       "key": 49,
+       "velocity": 100.531
+      },
+      {
+       "time": 6.5,
+       "duration": 0.25,
+       "key": 50,
+       "velocity": 100.0
+      },
+      {
+       "time": 6.75,
+       "duration": 0.25,
+       "key": 49,
+       "velocity": 89.703
+      },
+      {
+       "time": 7.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 8.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 9.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 10.5,
+       "duration": 0.25,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 10.75,
+       "duration": 0.25,
+       "key": 43,
+       "velocity": 89.703
+      },
+      {
+       "time": 11.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 12.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 13.5,
+       "duration": 0.25,
+       "key": 52,
+       "velocity": 100.531
+      },
+      {
+       "time": 13.75,
+       "duration": 0.25,
+       "key": 53,
+       "velocity": 89.703
+      },
+      {
+       "time": 14.5,
+       "duration": 0.5,
+       "key": 50,
+       "velocity": 100.531
+      },
+      {
+       "time": 15.0,
+       "duration": 0.5,
+       "key": 48,
+       "velocity": 83.797
+      },
+      {
+       "time": 15.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 16.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 17.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 18.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 19.5,
+       "duration": 0.25,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 19.75,
+       "duration": 0.25,
+       "key": 48,
+       "velocity": 89.703
+      },
+      {
+       "time": 20.5,
+       "duration": 0.5,
+       "key": 49,
+       "velocity": 100.531
+      },
+      {
+       "time": 21.5,
+       "duration": 0.5,
+       "key": 49,
+       "velocity": 100.531
+      },
+      {
+       "time": 22.5,
+       "duration": 0.25,
+       "key": 50,
+       "velocity": 100.0
+      },
+      {
+       "time": 22.75,
+       "duration": 0.25,
+       "key": 49,
+       "velocity": 89.703
+      },
+      {
+       "time": 23.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 24.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 25.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 26.5,
+       "duration": 0.25,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 26.75,
+       "duration": 0.25,
+       "key": 43,
+       "velocity": 89.703
+      },
+      {
+       "time": 27.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 28.5,
+       "duration": 0.372329,
+       "key": 53,
+       "velocity": 100.531
+      },
+      {
+       "time": 29.0,
+       "duration": 0.372329,
+       "key": 50,
+       "velocity": 81.828
+      },
+      {
+       "time": 29.5,
+       "duration": 0.372329,
+       "key": 48,
+       "velocity": 100.531
+      },
+      {
+       "time": 30.0,
+       "duration": 0.372329,
+       "key": 45,
+       "velocity": 81.828
+      },
+      {
+       "time": 30.5,
+       "duration": 0.372329,
+       "key": 43,
+       "velocity": 100.531
+      },
+      {
+       "time": 31.0,
+       "duration": 0.372329,
+       "key": 44,
+       "velocity": 81.828
+      },
+      {
+       "time": 31.5,
+       "duration": 0.25,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 31.75,
+       "duration": 0.25,
+       "key": 47,
+       "velocity": 89.703
+      }
+     ]
+    },
+    "B": {
+     "length": 32.0,
+     "notes": [
+      {
+       "time": 0.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 1.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 2.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 3.5,
+       "duration": 0.25,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 3.75,
+       "duration": 0.25,
+       "key": 48,
+       "velocity": 100.531
+      },
+      {
+       "time": 4.5,
+       "duration": 0.5,
+       "key": 49,
+       "velocity": 100.531
+      },
+      {
+       "time": 5.5,
+       "duration": 0.5,
+       "key": 49,
+       "velocity": 100.531
+      },
+      {
+       "time": 6.5,
+       "duration": 0.25,
+       "key": 50,
+       "velocity": 100.0
+      },
+      {
+       "time": 6.75,
+       "duration": 0.25,
+       "key": 49,
+       "velocity": 89.703
+      },
+      {
+       "time": 7.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 8.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 9.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 10.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 11.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 12.5,
+       "duration": 0.5,
+       "key": 44,
+       "velocity": 100.531
+      },
+      {
+       "time": 13.5,
+       "duration": 0.5,
+       "key": 44,
+       "velocity": 100.531
+      },
+      {
+       "time": 14.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 15.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 16.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 17.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 18.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 19.5,
+       "duration": 0.25,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 19.75,
+       "duration": 0.25,
+       "key": 48,
+       "velocity": 100.531
+      },
+      {
+       "time": 20.5,
+       "duration": 0.5,
+       "key": 49,
+       "velocity": 100.531
+      },
+      {
+       "time": 21.5,
+       "duration": 0.5,
+       "key": 49,
+       "velocity": 100.531
+      },
+      {
+       "time": 22.5,
+       "duration": 0.25,
+       "key": 50,
+       "velocity": 100.0
+      },
+      {
+       "time": 22.75,
+       "duration": 0.25,
+       "key": 49,
+       "velocity": 89.703
+      },
+      {
+       "time": 23.5,
+       "duration": 0.5,
+       "key": 46,
+       "velocity": 100.531
+      },
+      {
+       "time": 24.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 25.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 26.5,
+       "duration": 0.434753,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 27.0,
+       "duration": 0.434753,
+       "key": 43,
+       "velocity": 81.828
+      },
+      {
+       "time": 27.5,
+       "duration": 0.5,
+       "key": 45,
+       "velocity": 100.531
+      },
+      {
+       "time": 28.5,
+       "duration": 0.5,
+       "key": 44,
+       "velocity": 100.531
+      },
+      {
+       "time": 29.5,
+       "duration": 0.25,
+       "key": 44,
+       "velocity": 100.531
+      },
+      {
+       "time": 29.75,
+       "duration": 0.25,
+       "key": 51,
+       "velocity": 91.672
+      },
+      {
+       "time": 30.0,
+       "duration": 0.391819,
+       "key": 52,
+       "velocity": 84.781
+      },
+      {
+       "time": 30.5,
+       "duration": 0.391819,
+       "key": 49,
+       "velocity": 100.531
+      },
+      {
+       "time": 31.0,
+       "duration": 0.391819,
+       "key": 47,
+       "velocity": 84.781
+      },
+      {
+       "time": 31.5,
+       "duration": 0.391819,
+       "key": 45,
+       "velocity": 100.531
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "4-Grand Piano",
+   "mixer": {
+    "volume": 0.3162277937,
+    "pan": 0.5396825671,
+    "sends": [
+     0.0003162277571,
+     0.09660509229
+    ]
+   },
+   "drum_pads": {},
+   "sections": {
+    "A": {
+     "length": 32.0,
+     "notes": [
+      {
+       "time": 0.0,
+       "duration": 0.66261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 0.0,
+       "duration": 0.66261,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 0.75,
+       "duration": 0.66261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 0.75,
+       "duration": 0.66261,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 1.5,
+       "duration": 0.66261,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 1.5,
+       "duration": 0.66261,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 2.25,
+       "duration": 0.66261,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 2.25,
+       "duration": 0.66261,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 3.0,
+       "duration": 4.0,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 3.0,
+       "duration": 4.0,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 8.0,
+       "duration": 0.66261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 8.0,
+       "duration": 0.66261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 8.75,
+       "duration": 0.66261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 8.75,
+       "duration": 0.66261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 9.5,
+       "duration": 0.66261,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 9.5,
+       "duration": 0.66261,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 10.25,
+       "duration": 0.66261,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 10.25,
+       "duration": 0.66261,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 11.0,
+       "duration": 4.0,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 11.0,
+       "duration": 4.0,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 16.0,
+       "duration": 0.66261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 16.0,
+       "duration": 0.66261,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 16.75,
+       "duration": 0.66261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 16.75,
+       "duration": 0.66261,
+       "key": 64,
+       "velocity": 100.0
+      },
+      {
+       "time": 17.5,
+       "duration": 0.66261,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 17.5,
+       "duration": 0.66261,
+       "key": 64,
+       "velocity": 100.0
+      },
+      {
+       "time": 18.25,
+       "duration": 0.66261,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 18.25,
+       "duration": 0.66261,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 19.0,
+       "duration": 4.0,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 19.0,
+       "duration": 4.0,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 24.0,
+       "duration": 0.66261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 24.0,
+       "duration": 0.66261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 24.75,
+       "duration": 0.66261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 24.75,
+       "duration": 0.66261,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 25.5,
+       "duration": 0.66261,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 25.5,
+       "duration": 0.66261,
+       "key": 64,
+       "velocity": 100.0
+      },
+      {
+       "time": 26.25,
+       "duration": 0.66261,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 26.25,
+       "duration": 0.66261,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 27.0,
+       "duration": 4.0,
+       "key": 60,
+       "velocity": 114.766
+      }
+     ]
+    },
+    "B": {
+     "length": 32.0,
+     "notes": [
+      {
+       "time": 1.0,
+       "duration": 0.276538,
+       "key": 60,
+       "velocity": 37.0
+      },
+      {
+       "time": 1.0,
+       "duration": 0.276538,
+       "key": 64,
+       "velocity": 37.0
+      },
+      {
+       "time": 1.276538,
+       "duration": 0.276538,
+       "key": 60,
+       "velocity": 53.734
+      },
+      {
+       "time": 1.276538,
+       "duration": 0.276538,
+       "key": 64,
+       "velocity": 53.734
+      },
+      {
+       "time": 1.553077,
+       "duration": 0.372549,
+       "key": 60,
+       "velocity": 71.453
+      },
+      {
+       "time": 1.553077,
+       "duration": 0.372549,
+       "key": 64,
+       "velocity": 71.453
+      },
+      {
+       "time": 2.0,
+       "duration": 1.91261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 2.0,
+       "duration": 1.91261,
+       "key": 64,
+       "velocity": 100.0
+      },
+      {
+       "time": 4.0,
+       "duration": 0.41261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 4.0,
+       "duration": 0.41261,
+       "key": 64,
+       "velocity": 100.0
+      },
+      {
+       "time": 4.5,
+       "duration": 0.41261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 4.5,
+       "duration": 0.41261,
+       "key": 63,
+       "velocity": 100.0
+      },
+      {
+       "time": 5.0,
+       "duration": 0.41261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 5.0,
+       "duration": 0.41261,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 5.5,
+       "duration": 0.91261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 5.5,
+       "duration": 0.91261,
+       "key": 64,
+       "velocity": 100.0
+      },
+      {
+       "time": 6.5,
+       "duration": 0.91261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 6.5,
+       "duration": 0.91261,
+       "key": 63,
+       "velocity": 100.0
+      },
+      {
+       "time": 8.5,
+       "duration": 0.472013,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 8.5,
+       "duration": 0.472013,
+       "key": 66,
+       "velocity": 100.0
+      },
+      {
+       "time": 9.0,
+       "duration": 0.472013,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 9.0,
+       "duration": 0.472013,
+       "key": 66,
+       "velocity": 100.0
+      },
+      {
+       "time": 10.0,
+       "duration": 0.472013,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 10.0,
+       "duration": 0.472013,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 10.472013,
+       "duration": 0.472013,
+       "key": 57,
+       "velocity": 100.0
+      },
+      {
+       "time": 10.5,
+       "duration": 0.472013,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 10.972013,
+       "duration": 0.472013,
+       "key": 57,
+       "velocity": 100.0
+      },
+      {
+       "time": 11.0,
+       "duration": 0.472013,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 11.5,
+       "duration": 0.472013,
+       "key": 57,
+       "velocity": 100.0
+      },
+      {
+       "time": 11.5,
+       "duration": 0.472013,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 12.0,
+       "duration": 0.701397,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 12.0,
+       "duration": 0.701397,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 12.75,
+       "duration": 0.701397,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 12.75,
+       "duration": 0.701397,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 13.5,
+       "duration": 0.701397,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 13.5,
+       "duration": 0.701397,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 14.25,
+       "duration": 0.701397,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 14.25,
+       "duration": 0.701397,
+       "key": 64,
+       "velocity": 100.0
+      },
+      {
+       "time": 15.0,
+       "duration": 0.451397,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 15.0,
+       "duration": 0.451397,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 15.5,
+       "duration": 0.451397,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 15.5,
+       "duration": 0.451397,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 17.0,
+       "duration": 0.66261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 17.0,
+       "duration": 0.66261,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 18.0,
+       "duration": 1.91261,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 18.0,
+       "duration": 1.91261,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 20.0,
+       "duration": 0.41261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 20.0,
+       "duration": 0.41261,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 20.5,
+       "duration": 0.41261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 20.5,
+       "duration": 0.41261,
+       "key": 63,
+       "velocity": 100.0
+      },
+      {
+       "time": 21.0,
+       "duration": 0.41261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 21.0,
+       "duration": 0.41261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 21.5,
+       "duration": 1.25,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 21.5,
+       "duration": 1.25,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 23.0,
+       "duration": 0.91261,
+       "key": 58,
+       "velocity": 100.0
+      },
+      {
+       "time": 23.0,
+       "duration": 0.91261,
+       "key": 60,
+       "velocity": 100.0
+      },
+      {
+       "time": 24.5,
+       "duration": 0.472013,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 24.5,
+       "duration": 0.472013,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 25.0,
+       "duration": 0.472013,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 25.0,
+       "duration": 0.472013,
+       "key": 62,
+       "velocity": 100.0
+      },
+      {
+       "time": 26.0,
+       "duration": 0.472013,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 26.0,
+       "duration": 0.472013,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 26.472013,
+       "duration": 0.472013,
+       "key": 59,
+       "velocity": 100.0
+      },
+      {
+       "time": 26.5,
+       "duration": 0.472013,
+       "key": 61,
+       "velocity": 100.0
+      },
+      {
+       "time": 27.5,
+       "duration": 3.5,
+       "key": 57,
+       "velocity": 100.0
+      },
+      {
+       "time": 27.5,
+       "duration": 3.5,
+       "key": 60,
+       "velocity": 100.0
+      }
+     ]
+    }
+   }
+  }
+ ]
+}
