@@ -34,6 +34,9 @@ as it is. [storyboard.md](storyboard.md) says what happens on each beat.
   lays the captions on top. Output: `tiling-explorer.mp4`, silent.
 - `deliver.py` — adds the music to the picture, makes a two-loop MP3 to
   listen to, and runs `check_audio.py` on both.
+- `loop_trim.py` — makes loop candidates for players that pause at the loop
+  join, such as X's. Each one ends a few frames early, with audio exactly as
+  long as the picture and short fades at the join. The posted video is trim 3.
 - `check_audio.py` — checks finished audio for distortion as a listener gets
   it: clipped samples, true peak, clicks, sub-bass, and with `--master`,
   sync and the encoder's error at the start and end of the file.
@@ -60,6 +63,7 @@ Run each step from this folder. Times are from an Apple silicon Mac.
 | Music | `python3 music/loop_export.py EXPORT.wav` | 5 s |
 | Picture | `python3 compose.py` | 1 min |
 | Delivery and checks | `python3 deliver.py tiling-explorer.mp4 music/tiling-loop.wav out.mp4 out.mp3` | 10 s |
+| Loop candidates for X | `python3 loop_trim.py tiling-explorer.mp4 music/tiling-loop.wav out 2 3 4` | 1 min each |
 
 - The two captures can run at the same time.
 - A capture overwrites its frames. After a crash, add `--resume` to keep the
