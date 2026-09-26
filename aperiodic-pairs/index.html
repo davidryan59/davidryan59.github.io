@@ -29,32 +29,17 @@
     --tile-c: light-dark(#b8cc9f, #6f8a5a);
     --tile-d: light-dark(#e2ada0, #9c6556);
     --tile-line: light-dark(#2a2922, #0d0d10);
-    /* The Taylor-Socolar hexagons stay paper-light in both themes, so their
-       stripes are black as the text says. */
-    --ts-a: light-dark(#fffdf8, #e9e4d8);
-    --ts-b: light-dark(#dcd6c8, #bdb6a6);
+    /* The Taylor-Socolar hexagons stay light in both themes, so their
+       stripes are black as the text says. Yellow and green keep clear of
+       the black stripes and the red and blue diameters. */
+    --ts-a: light-dark(#f3d77f, #d9bd66);
+    --ts-b: light-dark(#9fcf97, #80ae79);
     --stripe: #1a1a1a;
     --flag-red: #c4452f;
     --flag-blue: #2f5fb3;
     --tile-mark: light-dark(#2f4a7a, #dce6f7);
     --chair: light-dark(#c4452f, #ff8a6e);
-    --proved: light-dark(#2e6b3f, #86c595);
   }
-  .status {
-    display: inline-block;
-    margin-left: 0.55rem;
-    padding: 0.05rem 0.55rem;
-    border: 1px solid currentColor;
-    border-radius: 999px;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-size: 0.68rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    vertical-align: 0.25em;
-    white-space: nowrap;
-  }
-  .status.proved { color: var(--proved); }
-  .status.tilings { color: var(--muted); }
   .figure {
     margin: 0 0 var(--gap-para);
     background: var(--panel);
@@ -116,7 +101,7 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 1rem 2.5rem;
     padding: 1.1rem 1rem 0.9rem;
     border-bottom: 1px solid var(--rule);
@@ -151,7 +136,7 @@
 
 <p>
   An aperiodic set of tiles covers the plane, but never in a repeating pattern. Fewer tiles is more interesting, and for almost fifty years
-  the Penrose tilings at two tiles held the record. This was until the Hat aperiodic monotile was discovered in 2023, showing that one unmarked shape is enough.
+  the Penrose tilings at two tiles held the record. This was until the <a href="../demos/hat/index.html" target="_blank" rel="noopener">Hat aperiodic monotile</a> was discovered in 2023, showing that one unmarked shape is enough.
   Here are interactive demos of some interesting two-tile systems:
 </p>
 <p class="muted">
@@ -159,7 +144,7 @@
   on a phone, use two fingers.
 </p>
 
-<h2 id="kites-and-darts">Kites and darts <span class="status proved">Proved</span></h2>
+<h2 id="kites-and-darts">Kites and darts</h2>
 <p class="muted">Roger Penrose, 1974</p>
 <div class="figure">
   <div class="prototiles">
@@ -185,7 +170,7 @@
   <tr><th>Inflation</th><td>φ ≈ 1.618</td></tr>
 </table></div>
 
-<h2 id="rhombs">Penrose rhombs <span class="status proved">Proved</span></h2>
+<h2 id="rhombs">Penrose rhombs</h2>
 <p class="muted">Roger Penrose, 1974</p>
 <div class="figure">
   <div class="prototiles">
@@ -209,7 +194,7 @@
   <tr><th>Inflation</th><td>φ ≈ 1.618</td></tr>
 </table></div>
 
-<h2 id="ammann-a2">Ammann A2 <span class="status proved">Proved</span></h2>
+<h2 id="ammann-a2">Ammann A2</h2>
 <p class="muted">Robert Ammann, 1977; published by Grünbaum and Shephard, 1987</p>
 <div class="figure">
   <div class="prototiles">
@@ -235,7 +220,7 @@
   <tr><th>Inflation</th><td>√φ ≈ 1.272</td></tr>
 </table></div>
 
-<h2 id="trilobite-and-crab">Trilobite and crab <span class="status proved">Proved</span></h2>
+<h2 id="trilobite-and-crab">Trilobite and crab</h2>
 <p class="muted">Chaim Goodman-Strauss, 1999 and 2016</p>
 <div class="figure">
   <div class="prototiles">
@@ -273,12 +258,12 @@
   <tr><th>Orientations used</th><td>8 in all</td></tr>
 </table></div>
 
-<h2 id="taylor-socolar">Taylor–Socolar hexagon <span class="status proved">Proved</span></h2>
+<h2 id="taylor-socolar">Taylor–Socolar hexagon</h2>
 <p class="muted">Joan Taylor and Joshua Socolar, 2010</p>
 <div class="figure">
   <div class="prototiles">
     <figure><canvas id="tile-ts" role="img" aria-label="The Taylor–Socolar tile"></canvas><figcaption>The tile</figcaption></figure>
-    <figure><canvas id="tile-ts-mirror" role="img" aria-label="The mirror image of the Taylor–Socolar tile"></canvas><figcaption>Its mirror image</figcaption></figure>
+    <figure><canvas id="tile-ts-mirror" role="img" aria-label="The mirror image of the Taylor–Socolar tile"></canvas><figcaption>Its mirror image, with red and blue swapped</figcaption></figure>
   </div>
   <canvas id="ts" tabindex="0" aria-label="Taylor–Socolar hexagons, a patch of 469 tiles obeying both matching rules"></canvas>
   <div class="controls">
@@ -290,6 +275,8 @@
 </div>
 <p>
   A hexagon and its mirror image, marked with black stripes and with red and blue diameters.
+  The colours stand for left- and right-handed flags in Socolar and Taylor's first drawing,
+  so reflecting the tile also swaps red and blue.
   Rule R1: black stripes continue across every edge.
   Rule R2: at the two ends of any edge, the diameters that line up with it have different colours.
   Those diameters belong to the tiles just past each end, so R2 links tiles that do not touch.
@@ -302,8 +289,8 @@
   <tr><th>Order</th><td>limit-periodic</td></tr>
 </table></div>
 
-<h2 id="spectre-family">A two-shape Spectre tiling <span class="status tilings">Tilings</span></h2>
-<p class="muted">Family: Michael Baake, Franz Gähler, Jan Mazáč and Lorenzo Sadun, 2025</p>
+<h2 id="spectre-family">A two-shape Spectre tiling</h2>
+<p class="muted">David Smith, Joseph Samuel Myers, Craig S. Kaplan and Chaim Goodman-Strauss, 2023</p>
 <div class="figure">
   <div class="prototiles">
     <figure><canvas id="tile-spectre-even" role="img" aria-label="The shape of the tiles at even turns"></canvas><figcaption>Tiles at even multiples of 30°</figcaption></figure>
@@ -324,8 +311,8 @@
   The Spectre is one tile with fourteen equal edges, pointing in the twelve directions at multiples of 30°.
   Stretch a Spectre tiling: give the six directions at even multiples of 30° length a, and the other six length b.
   With a = b, this is the Spectre tiling. Otherwise, about one tile in 8.9 turns by an odd multiple of 30°,
-  which swaps its edge lengths and makes it a second shape. The tiling keeps the Spectre's hierarchy,
-  but nobody claims the two shapes force aperiodicity on their own. The slider stretches a level-4 supertile of 4,401 tiles.
+  which swaps its edge lengths and makes it a second shape. The tiling keeps the Spectre's hierarchy.
+  The slider stretches a level-4 supertile of 4,401 tiles.
 </p>
 <div class="table-wrap"><table class="facts">
   <tr><th>Even : odd turns</th><td>4 + √15 : 1 in the limit</td></tr>
@@ -701,10 +688,10 @@
     var t = 36 * Math.PI / 180, sx = PHI * Math.sin(t), sy = -PHI * Math.cos(t);
     return oneTile(dart ? 'b' : 'a', [[0, 0], [-sx, sy], [0, dart ? -1 : -PHI], [sx, sy]]);
   }
-  // A unit rhomb with its acute corners at the top and bottom.
+  // A unit rhomb with its acute corners at the left and right.
   function rhomb(acute, fill) {
     var h = acute * Math.PI / 360;
-    return oneTile(fill, [[0, Math.cos(h)], [Math.sin(h), 0], [0, -Math.cos(h)], [-Math.sin(h), 0]]);
+    return oneTile(fill, [[Math.cos(h), 0], [0, Math.sin(h)], [-Math.cos(h), 0], [0, -Math.sin(h)]]);
   }
   function a2Tile(small) {
     var PSI = 1 / Math.sqrt(PHI), k = small ? PSI : 1, p3 = PSI * PSI * PSI, p4 = p3 * PSI;
@@ -769,10 +756,13 @@
 
   // ---- The tiles of one set, each on its own small canvas, all at one
   // scale so that their sizes compare. `px` is the longest side, in pixels.
-  function TileRow(ids, builders, px) {
+  // A `fixed` row keeps every canvas px square, so a row that changes with a
+  // slider does not move the page as it redraws.
+  function TileRow(ids, builders, px, fixed) {
     this.canvases = ids.map(function (id) { return document.getElementById(id); });
     this.builders = builders;
     this.px = px;
+    this.fixed = fixed;
     this.refresh();
     viewers.push(this);
   }
@@ -783,13 +773,20 @@
     this.unit = this.px / longest;
     this.draw();
   };
+  // The tiles stand on one line, so their captions start level.
   TileRow.prototype.draw = function () {
     var self = this, pad = 4;
+    var sizes = this.layers.map(function (L) {
+      var b = L.box;
+      return [(self.fixed ? self.px : (b[2] - b[0]) * self.unit) + 2 * pad,
+              (self.fixed ? self.px : (b[3] - b[1]) * self.unit) + 2 * pad];
+    });
+    var tallest = Math.max.apply(null, sizes.map(function (wh) { return wh[1]; }));
     this.canvases.forEach(function (canvas, i) {
-      var b = self.layers[i].box;
-      var w = (b[2] - b[0]) * self.unit + 2 * pad, h = (b[3] - b[1]) * self.unit + 2 * pad;
+      var b = self.layers[i].box, w = sizes[i][0], h = sizes[i][1];
       canvas.style.width = w + 'px';
       canvas.style.height = h + 'px';
+      canvas.style.marginTop = (tallest - h) + 'px';
       paint(canvas, self.layers[i], self.unit, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2, w, h, { chairs: true }, false);
     });
   };
@@ -967,11 +964,15 @@
   stretchLabel();
   var spectreTiles = new TileRow(['tile-spectre-even', 'tile-spectre-odd'], [
     function () { return spectreTile(parseFloat(stretch.value), false); },
-    function () { return spectreTile(parseFloat(stretch.value), true); }], 150);
+    function () { return spectreTile(parseFloat(stretch.value), true); }], 150, true);
   var spectreViewer = new Viewer(document.getElementById('spectre'), function () { return spectreFamily(parseFloat(stretch.value)); });
+  // The two tiles follow the slider as it moves. The patch of 4,401 tiles
+  // redraws once, when the slider is released.
   stretch.addEventListener('input', function () {
     stretchLabel();
     spectreTiles.refresh();
+  });
+  stretch.addEventListener('change', function () {
     var keep = [spectreViewer.scale, spectreViewer.ox, spectreViewer.oy, spectreViewer.touched];
     spectreViewer.layers = spectreViewer.build();
     if (keep[3]) { spectreViewer.scale = keep[0]; spectreViewer.ox = keep[1]; spectreViewer.oy = keep[2]; }
