@@ -80,7 +80,7 @@
   // come out a pixel or two wide on arrival.
   function make(o) {
     var r = Smash.rng(o.seed), W = o.W, H = o.H, m = Math.min(W, H), P = [o.x, o.y];
-    var glassy = o.device === 'phone' || o.device === 'tablet', s = o.strength;
+    var glassy = o.device === 'phone' || o.device === 'tablet', s = Math.max(0, Math.min(1, o.strength));
     var u = 1 / o.px, cell = Math.max(u * 0.8, 0.6), speed = m * 6;
     var hit = { P: P, t0: o.t0, u: u, cell: cell, cracks: [], sectors: [], blobs: [], lines: [], end: 0 };
     var perimeter = 2 * (W + H), branches = [], i, k;
@@ -124,11 +124,16 @@
       return c;
     }
 
-    var n = (glassy ? r.int(5, 8) : r.int(3, 6)) + (s > 0.85 ? 1 : 0), base = r.range(0, TAU), mains = [];
+    // Strength runs from 0, a tap, to 1, a full swing. A tap only chips the
+    // glass. Cracks that reach the edge, black ink and the bright lines all
+    // take a real swing.
+    var tap = s < 0.25, n = tap ? r.int(2, 4) : (glassy ? r.int(4, 7) : r.int(3, 5)) + (s > 0.8 ? 1 : 0);
+    var forced = s > 0.45 ? 2 : 0, throughP = tap ? 0 : Math.min(0.9, (s - 0.25) * 1.2);
+    var base = r.range(0, TAU), mains = [];
     for (i = 0; i < n; i++) {
-      var through = i < 2 || r.chance(0.75);
-      mains.push(grow(P[0], P[1], base + (i + r.range(-0.3, 0.3)) * TAU / n, through ? Infinity : r.range(0.15, 0.6) * m,
-                      4, 0.02, 0, glassy ? 0.006 : 0.004));
+      var through = !tap && (i < forced || r() < throughP);
+      mains.push(grow(P[0], P[1], base + (i + r.range(-0.3, 0.3)) * TAU / n, through ? Infinity : m * r.range(0.02, 0.06 + 0.5 * s),
+                      4, 0.02, 0, (glassy ? 0.006 : 0.004) * s));
     }
     branches.forEach(function (b) { grow(b[0], b[1], b[2], r.range(0.04, 0.35) * m, 3, 0.03, b[3], 0); });
 
@@ -139,7 +144,7 @@
       }
       return null;
     }
-    var rings = glassy ? r.int(1, 3) : r.chance(0.3) ? 1 : 0;
+    var rings = s < 0.5 ? 0 : glassy ? r.int(1, 3) : r.chance(0.3) ? 1 : 0;
     for (k = 0; k < rings; k++) {
       var rad = m * r.range(0.05, 0.1) * (k + 1) * (glassy ? 1.4 : 1);
       for (i = 0; i < mains.length; i++) {
@@ -160,26 +165,26 @@
     }
 
     // The burst of short cracks around the impact.
-    for (i = r.int(10, 22); i > 0; i--) {
-      var ray = grow(P[0], P[1], r.range(0, TAU), m * (0.008 + 0.03 * Math.pow(r(), 2)), 2, 0.08, 0, 0);
+    for (i = r.int(4, 8) + Math.round(14 * s); i > 0; i--) {
+      var ray = grow(P[0], P[1], r.range(0, TAU), m * (0.008 + 0.03 * Math.pow(r(), 2)) * (0.5 + s), 2, 0.08, 0, 0);
       ray.style = 'fine';
       ray.speed = speed * 0.5;
     }
     hit.crater = [];
-    var cr = m * r.range(0.004, 0.009) * (0.7 + 0.5 * s);
+    var cr = m * r.range(0.004, 0.009) * (0.4 + 0.8 * s);
     for (i = 0, k = r.int(8, 13); i < k; i++) {
       var ca = TAU * i / k, cd = cr * r.range(0.6, 1.3);
       hit.crater.push([P[0] + Math.cos(ca) * cd, P[1] + Math.sin(ca) * cd]);
     }
     hit.glitter = [];
-    for (i = r.int(20, 60); i > 0; i--) {
+    for (i = r.int(8, 12) + Math.round(45 * s); i > 0; i--) {
       var ga = r.range(0, TAU), gd = m * 0.04 * r() * r();
       hit.glitter.push([P[0] + Math.cos(ga) * gd, P[1] + Math.sin(ga) * gd, cell * r.range(0.6, 1.8), r.range(0.3, 1)]);
     }
 
     var exits = mains.filter(function (c) { return c.exit; });
     exits.forEach(function (c) {
-      if (r() < (glassy ? 0.25 : 0.4)) c.style = 'ribbon';
+      if (s > 0.5 && r() < (glassy ? 0.25 : 0.4)) c.style = 'ribbon';
       c.half = u * r.range(2, 5);
     });
 
@@ -208,17 +213,19 @@
       sec.poly.forEach(function (p) { sec.reach = Math.max(sec.reach, Math.hypot(p[0] - P[0], p[1] - P[1])); });
     });
 
-    /* Fates. The first hit on a screen leaves at least half of it alive. */
-    var dark = 0, limit = o.first ? 0.5 : 0.85, active = 0;
+    /* Fates. Only a hard blow floods a sector black. The first hit on a
+       screen leaves at least half of it alive. */
+    var dark = 0, limit = o.first ? 0.5 : 0.85, active = 0, whole = hit.sectors.length === 1;
+    var pDark = whole || s < 0.5 ? 0 : 0.2 + 0.5 * (s - 0.5), pBleed = tap ? 0 : Math.min(0.5, 0.15 + 0.4 * s);
     hit.sectors.forEach(function (sec) {
       var roll = r();
-      if (roll < 0.45 && dark + sec.frac <= limit) { sec.fate = 'dark'; dark += sec.frac; }
-      else if (roll < 0.8) sec.fate = 'bleed';
+      if (roll < pDark && dark + sec.frac <= limit) { sec.fate = 'dark'; dark += sec.frac; }
+      else if (roll < pDark + pBleed) sec.fate = 'bleed';
       else sec.fate = 'live';
       sec.white = sec.fate === 'bleed' && r.chance(0.12);
       if (sec.fate !== 'live') active++;
     });
-    if (!active) hit.sectors.reduce(function (a, b) { return a.frac < b.frac ? a : b; }).fate = 'dark';
+    if (!active && s >= 0.6) hit.sectors.reduce(function (a, b) { return a.frac < b.frac ? a : b; }).fate = 'dark';
 
     function blob(cx, cy, R, delay, dur, sector, white) {
       var harm = [], j;
@@ -272,33 +279,48 @@
           blob(far[0], far[1], sec.reach * r.range(0.3, 0.6), r.range(0.3, 0.8), r.range(1, 2), si, false);
         }
       } else if (sec.fate === 'bleed') {
-        for (var j = r.int(1, 3); j > 0; j--) {
-          var at = sec.sides && r.chance(0.75) ? pointOn(r.pick(sec.sides), r.range(0.15, 0.8)) : sec.poly[Math.floor(r() * sec.poly.length)];
-          blob(at[0], at[1], m * r.range(0.1, 0.35) * (0.75 + 0.5 * s), r.range(0.1, 0.6), r.range(1.2, 2.6), si, sec.white);
+        for (var j = r.int(1, s > 0.6 ? 3 : 2); j > 0; j--) {
+          var at = r.chance(0.75) ? pointOn(r.pick(sec.sides || mains), r.range(0.15, 0.8)) : sec.whole ? P : sec.poly[Math.floor(r() * sec.poly.length)];
+          blob(at[0], at[1], m * r.range(0.06, 0.2 + 0.2 * s) * (0.5 + 0.7 * s), r.range(0.1, 0.6), r.range(1.2, 2.6), si, sec.white);
         }
       }
     });
+    // A tap can still kill a few pixels under the point of the blow.
+    if (tap && r.chance(0.5)) blob(P[0], P[1], m * r.range(0.008, 0.025), 0.05, 0.6, 0, false);
 
-    /* Lines of stuck pixels. */
+    /* Lines of stuck pixels: fine, close together and uneven, like the
+       photo. Most are one pixel. Some come in runs of two or three
+       colours side by side, some glow less than others, and some break
+       into dashes where only part of the row is stuck. */
     function addLines(sec, si, groups, clip, faint) {
       var horiz = r() < (glassy ? 0.55 : 0.85), pal = r.pick(LINE_SETS);
       for (var g = 0; g < groups; g++) {
         var lo = horiz ? sec.box[1] : sec.box[0], hi = horiz ? sec.box[3] : sec.box[2];
         var c0 = r.range(lo, hi), band = m * r.range(0.05, 0.3), pos = c0 - band / 2, gDelay = r.range(0.05, 1);
         var count = 0;
-        while (pos < c0 + band / 2 && count < (faint ? 3 : 30)) {
-          pos += m * (0.006 + 0.04 * r() * r());
-          var th = r.pick([1, 1, 1.5, 2, 2.5]) * u, spans = chords(sec.poly, pos, horiz);
+        while (pos < c0 + band / 2 && count < (faint ? 4 : 60)) {
+          pos += m * (0.003 + 0.022 * r() * r());
+          var th = r.pick([0.5, 0.5, 0.75, 1, 1, 1.5]) * u, spans = chords(sec.poly, pos, horiz);
           if (!spans.length) continue;
-          var edge = horiz ? W : H, pair = r.chance(0.25), colours = [r.pick(pal)];
-          if (pair) colours.push(r.pick(pal));
+          var edge = horiz ? W : H, colours = [r.pick(pal)];
+          if (r.chance(0.35)) {
+            colours.push(r.pick(pal));
+            if (r.chance(0.3)) colours.push(r.pick(pal));
+          }
+          var dashed = r.chance(0.15), alpha = faint ? 0.45 : r.range(0.6, 1);
           colours.forEach(function (col, ci) {
-            var y = pos + ci * th, segs = spans.map(function (sp) {
+            var y = pos + ci * th, segs = [];
+            spans.forEach(function (sp) {
               var a = sp[0] > 0.5 ? sp[0] + r.range(0, 3) * u : sp[0];
               var b = sp[1] < edge - 0.5 ? sp[1] - r.range(0, 3) * u : sp[1];
-              return [a, b];
+              if (!dashed) { segs.push([a, b]); return; }
+              for (var x = a; x < b;) {
+                var dash = u * r.range(4, 40);
+                segs.push([x, Math.min(b, x + dash)]);
+                x += dash + u * r.range(1, 8);
+              }
             });
-            hit.lines.push({ horiz: horiz, pos: y, th: th, segs: segs, color: col, dead: r.chance(0.1), alpha: faint ? 0.45 : 1,
+            hit.lines.push({ horiz: horiz, pos: y, th: th, segs: segs, color: col, dead: r.chance(0.08), alpha: alpha,
                              t: gDelay + r.range(0, 0.35), clip: clip ? si : -1 });
           });
           pos += th * colours.length;
@@ -307,15 +329,15 @@
       }
     }
     hit.sectors.forEach(function (sec, si) {
-      if (sec.fate === 'dark') addLines(sec, si, r.int(1, 3), true, false);
-      else if (sec.fate === 'bleed') addLines(sec, si, r.int(1, 2), r.chance(0.7), false);
-      else if (r.chance(0.4)) addLines(sec, si, 1, false, true);
+      if (sec.fate === 'dark') addLines(sec, si, r.int(1, 2) + (s > 0.7 ? 1 : 0) + (s > 0.9 ? 1 : 0), true, false);
+      else if (sec.fate === 'bleed' && s > 0.5) addLines(sec, si, r.int(1, 2), r.chance(0.7), false);
+      else if (sec.fate === 'live' && s > 0.75 && r.chance(0.35)) addLines(sec, si, 1, false, true);
     });
     var broken = hit.sectors.filter(function (sec) { return sec.fate !== 'live'; });
-    if (broken.length && r() < (glassy ? 0.3 : 0.5)) {
+    if (s > 0.6 && broken.length && r() < (glassy ? 0.3 : 0.5)) {
       var vs = r.pick(broken), vx = r.range(vs.box[0], vs.box[2]), vspans = chords(vs.poly, vx, false);
       if (vspans.length) {
-        hit.lines.push({ horiz: false, pos: vx, th: r.range(1.5, 2.5) * u, segs: vspans, color: r.pick(['#ff6d00', '#ff1744', '#00e676', '#ffffff']),
+        hit.lines.push({ horiz: false, pos: vx, th: r.range(0.75, 1.5) * u, segs: vspans, color: r.pick(['#ff6d00', '#ff1744', '#00e676', '#ffffff']),
                          dead: false, alpha: 1, t: r.range(0.2, 1.2), clip: hit.sectors.indexOf(vs) });
       }
     }

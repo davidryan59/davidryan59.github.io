@@ -15,9 +15,9 @@
 <meta property="og:image" content="https://drbuild.uk/social/smash.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A laptop screen broken by a hammer: long cracks, black patches and bright horizontal lines of coloured pixels">
+<meta property="og:image:alt" content="A close-up of a broken monitor: half an article about glass, then cracks, black ink and bright lines of stuck pixels under a raised hammer">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image:alt" content="A laptop screen broken by a hammer: long cracks, black patches and bright horizontal lines of coloured pixels">
+<meta name="twitter:image:alt" content="A close-up of a broken monitor: half an article about glass, then cracks, black ink and bright lines of stuck pixels under a raised hammer">
 <meta name="twitter:creator" content="@davidryan59">
 <link rel="stylesheet" href="../audit.css">
 <script src="../audit.js"></script>
@@ -28,6 +28,29 @@
   .back { margin: 0; font-size: 0.9rem; }
   h1 { margin: 0.3rem 0 0.15rem; }
   .tagline { margin: 0 0 0.8rem; font-size: 0.95rem; }
+  /* The new-device button sits at the right of the title and tagline. */
+  .title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0 1.25rem;
+    margin-right: -3rem;
+  }
+  .title-row > div { flex: 1 1 22rem; }
+  .new-device {
+    margin: 0 0 0.8rem;
+    font: 600 0.95rem system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--h1);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 0.55rem 1.05rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .new-device:hover { border-color: var(--link); }
+  .new-device:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
   .theme-toggle { top: 1rem; right: 1rem; }
 
   /* The stage fits the window with room for the text around it, so the
@@ -83,7 +106,6 @@
   .controls button:hover:not(:disabled) { border-color: var(--rule); color: var(--h1); }
   .controls button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
   .controls button:disabled { opacity: 0.45; cursor: default; }
-  .controls .primary { color: var(--h1); border-color: var(--rule); font-weight: 600; }
   .zoom { display: inline-flex; gap: 0.25rem; }
   .zoom button { min-width: 2.3rem; padding-left: 0.4rem; padding-right: 0.4rem; font-variant-numeric: tabular-nums; }
   .caption { flex: 1 1 16rem; text-align: right; }
@@ -95,7 +117,9 @@
     body { padding: 0.8rem 0.75rem 0.8rem; }
     h1 { font-size: 1.5rem; }
     .tagline { font-size: 0.9rem; }
-    .stage { height: clamp(300px, calc(100svh - 18rem), 780px); }
+    .stage { height: clamp(300px, calc(100svh - 20.5rem), 780px); }
+    .title-row { margin-right: 0; }
+    .new-device { margin-top: -0.2rem; font-size: 0.9rem; padding: 0.45rem 0.9rem; }
     .caption { text-align: left; }
   }
 </style>
@@ -114,8 +138,13 @@
 
 <header>
   <a class="back" href="../index.html">&larr; David Ryan's builder page</a>
-  <h1>Smash a screen</h1>
-  <p class="tagline" id="hint">Click to swing the hammer. Hold for a harder hit. Scroll or pinch to zoom in on the damage.</p>
+  <div class="title-row">
+    <div>
+      <h1>Smash a screen</h1>
+      <p class="tagline" id="hint">Click to swing the hammer. Hold it back longer for a harder hit. Scroll or pinch to zoom in on the damage.</p>
+    </div>
+    <button type="button" id="new-device" class="new-device">Help! Give me a new device</button>
+  </div>
 </header>
 
 <div class="stage" id="stage" tabindex="0" role="application"
@@ -152,7 +181,6 @@
 </div>
 
 <div class="controls">
-  <button type="button" id="new-device" class="primary">New device</button>
   <span class="zoom" role="group" aria-label="Zoom">
     <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
     <button type="button" id="zoom-fit" aria-label="Show the whole device">1&times;</button>

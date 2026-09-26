@@ -8,7 +8,8 @@ breaks the screen the way a real LCD breaks: the glass cracks, black ink
 spreads from the cracks, and whole rows of pixels light up in one bright
 colour. The look comes from a photo of a shattered monitor that
 [Austin Griffith posted on X](https://x.com/austingriffith/status/2103545545801556280),
-and the page credits it. It is not yet linked from the builder page.
+and the page credits it. The builder page lists it under Apps & Websites,
+after dice-to-seed.
 
 ## Files
 
@@ -19,6 +20,7 @@ and the page credits it. It is not yet linked from the builder page.
 | `smash/damage.js` | What one blow does to a screen, and how to draw it |
 | `smash/smash.js` | Devices, layout, the view, input, the hammer's swing, sound and controls |
 | `tools/smash/card.js` | Draws `social/smash.jpg`, the share card |
+| `tools/thumbnails/smash.js` | Draws `thumbs/smash.svg`, the builder page's animated picture, from the page's own damage model |
 
 ## Pictures
 
@@ -55,14 +57,21 @@ because the page redraws it whenever the view changes.
   others, and is clipped to its sector, so it stops sharp at a crack. A
   fringe of short coloured spikes, in the direction of the nearest pixel
   row or column, marks its soft edge.
-- **Stuck pixels.** Groups of lines, one to three pixels thick, run across a
-  sector from crack to edge. Most are horizontal on laptops and monitors;
-  about half are vertical on phones and tablets. They light up in the 'lighten' blend, so
-  they glow on black and almost vanish on white, as in the photo. Some
-  appear only where the black has spread. A few blows add one vertical line.
-- **Strength.** Holding the press longer lands a harder blow, with more
-  cracks and bigger patches. A blow on the bezel breaks the screen from its
-  edge; a blow off the device only thuds. A device takes 40 blows.
+- **Stuck pixels.** Groups of fine lines, half a pixel to one and a half
+  pixels thick, run across a sector from crack to edge. Most are horizontal
+  on laptops and monitors; about half are vertical on phones and tablets.
+  Some come in runs of two or three colours side by side, some glow less
+  than others, and some break into dashes where only part of a row is
+  stuck. They light up in the 'lighten' blend, so they glow on black and
+  almost vanish on white, as in the photo. Some appear only where the black
+  has spread. A few hard blows add one vertical line.
+- **Strength.** The hammer rises while the press lasts, to 70 degrees after
+  about 0.9 s, and trembles at the top. The height it reaches sets the blow.
+  A quick click is a tap: it chips the glass and may kill a few pixels.
+  Cracks to the edge and patches of ink need a longer hold; a black flood
+  and the bright lines need a full swing. A blow on the bezel breaks the
+  screen from its edge; a blow off the device only thuds. A device takes 40
+  blows.
 
 ## Drawing and cost
 
@@ -82,16 +91,21 @@ Measured in headless Chromium without a GPU, at twice the pixel density:
 
 | Case | Frame time, median | 95th percentile |
 |---|---|---|
-| First blow on a laptop, while the damage grows | 8.3 ms | 9.1 ms |
-| Ten blows in quick succession | 9.2 ms | 12.8 ms |
-| A phone-sized page, one blow on a tablet | 8.3 ms | 9.4 ms |
+| First blow on a laptop, while the damage grows | 8.3 ms | 9.3 ms |
+| Ten full-strength blows, about a second apart | 8.3 ms | 9.2 ms |
+| A phone-sized page, one blow on a tablet | 8.3 ms | 9.2 ms |
 
-Zooming to 8× after eleven blows raised no task over 50 ms. Once the damage
-has settled the page requests no frames at all, so it uses no CPU at rest.
+Across the ten full blows one frame took 0.19 s: the first press, when the
+browser starts its audio. No blow itself slowed a frame past 55 ms. Zooming
+to 8× after eleven blows raised no task over 50 ms. Once the damage has
+settled the page requests no frames at all, so it uses no CPU at rest.
 
 ## Controls
 
-- Click or tap to swing: press lifts the hammer, release strikes.
+- Click or tap to swing: press lifts the hammer, release strikes. Hold
+  longer for a harder blow.
+- The Help! Give me a new device button, top right, brings a new device
+  and picture.
 - Scroll, pinch, or − and + zoom in towards the last blow; drag moves the
   view when zoomed in.
 - Keys, with the stage focused: the arrows aim, Space or Enter swings, + and
@@ -113,6 +127,10 @@ of `scenes.js`.
 node tools/smash/card.js
 ```
 
-It lands two random blows on a monitor showing the article and saves
-`social/smash.jpg` at 1200 × 630, under 300 KB. Every run differs, so run
-it a few times and keep the best. The current card was the best of four.
+It draws the card in the style of the site's other cards: one full-bleed
+picture, no text. The white article about glass fills the frame, two
+full-strength blows break its right half, and the page's hammer is raised
+over the second. It uses the page's own drawing code, and the blows come
+from fixed seeds, 5 and 30, so the card redraws exactly. Pass two other
+seeds to try another. It saves `social/smash.jpg` at 1200 × 630, under
+300 KB.

@@ -159,7 +159,7 @@
   var sw = 0, sh = 0, dpr = 1;
   var dev = null, pic = null, place = { k: 1, ox: 0, oy: 0 };
   var view = { z: 1, cx: 0, cy: 0 }, cacheView = null;
-  var settled = [], active = [], dirty = true, lastView = 0;
+  var settled = [], active = [], dirty = true, lastView = -1e9;
 
   function layout() {
     var rect = stage.getBoundingClientRect();
@@ -238,7 +238,7 @@
     screenPath(f, dev);
     f.clip();
     S.drawPicture(f, dev.W, dev.H, pic);
-    S.Damage.drawLCD(f, settled, t, env(true));
+    settled.forEach(function (h) { S.Damage.drawLCD(f, [h], t, env(true)); });
     f.restore();
     drawOverlay(f, dev);
     g.save();
@@ -249,6 +249,26 @@
     g.restore();
     cacheView = { z: view.z, cx: view.cx, cy: view.cy };
     dirty = false;
+  }
+
+  // A blow that has finished growing is added to the caches as it stands,
+  // without redrawing the blows before it. Each blow draws whole, over the
+  // ones before, just as it looked while it grew.
+  function bake(hits, t) {
+    var f = flat.getContext('2d'), g = glass.getContext('2d');
+    setUnits(f, view);
+    setUnits(g, view);
+    f.save();
+    screenPath(f, dev);
+    f.clip();
+    hits.forEach(function (h) { S.Damage.drawLCD(f, [h], t, env(true)); });
+    f.restore();
+    drawOverlay(f, dev);
+    g.save();
+    screenPath(g, dev);
+    g.clip();
+    S.Damage.drawGlass(g, hits, t, env(true));
+    g.restore();
   }
 
   function compose(t) {
@@ -263,7 +283,7 @@
     ctx.save();
     screenPath(ctx, dev);
     ctx.clip();
-    if (active.length) S.Damage.drawLCD(ctx, active, t, env());
+    active.forEach(function (h) { S.Damage.drawLCD(ctx, [h], t, env()); });
     drawSubpixels(ctx);
     ctx.restore();
     if (active.length) drawOverlay(ctx, dev);
@@ -293,12 +313,15 @@
     if (done.length) {
       active = active.filter(function (h) { return done.indexOf(h) < 0; });
       settled = settled.concat(done);
-      dirty = true;
+      if (cacheView && !dirty && cacheView.z === view.z && cacheView.cx === view.cx && cacheView.cy === view.cy) bake(done, t);
+      else dirty = true;
     }
     var resting = !zoomAnim && !gesture.active() && t - lastView > 0.15;
     if (!cacheView || (dirty && resting) || (resting && (cacheView.z !== view.z || cacheView.cx !== view.cx || cacheView.cy !== view.cy))) {
       renderCaches(t);
     }
+    // A resize clears the caches. Keep drawing until they are rebuilt.
+    if (dirty) more = true;
     compose(t);
     if (active.length) more = true;
     if (shake) {
@@ -399,7 +422,13 @@
     placeHammer();
   }
 
-  // Press to lift, release to strike. Holding longer lands a harder blow.
+  // Press to lift, release to strike. The hammer keeps rising while the
+  // press lasts, up to 70 degrees after about 0.9 s, and the height it
+  // reaches sets the blow: a quick click is a tap, a long hold a smash.
+  var LIFT = 70;
+  function lift(dt) {
+    return 24 * (1 - Math.pow(1 - Math.min(1, dt / 0.12), 2)) + (LIFT - 24) * Math.pow(clamp((dt - 0.12) / 0.75, 0, 1), 0.8);
+  }
   function windUp() {
     hammer.phase = 'wind';
     hammer.t0 = hammer.pressAt = now();
@@ -409,15 +438,15 @@
   }
   function release() {
     if (hammer.phase !== 'wind') return;
-    hammer.strength = 0.55 + 0.45 * Math.min(1, (now() - hammer.pressAt) / 0.45);
-    if (hammer.a < 22) hammer.queued = true;
+    hammer.strength = clamp((lift(now() - hammer.t0) - 14) / (LIFT - 14), 0, 1);
+    if (hammer.a < 20) hammer.queued = true;
     else strike();
   }
   function strike() {
     hammer.phase = 'strike';
     hammer.t0 = now();
     hammer.from = hammer.a;
-    playSwing();
+    playSwing(hammer.strength);
     request();
   }
   function lower() {
@@ -432,11 +461,13 @@
   function stepHammer(t) {
     var h = hammer, p;
     if (h.phase === 'wind') {
-      p = Math.min(1, (t - h.t0) / 0.14);
-      h.a = h.from + (38 - h.from) * (1 - Math.pow(1 - p, 2));
-      if (h.queued && h.a >= 22) strike();
+      var dt = t - h.t0;
+      h.a = h.from * Math.max(0, 1 - dt / 0.12) + lift(dt);
+      // At full height the hammer trembles, held back as hard as it goes.
+      if (dt > 0.87 && !reduceMotion) h.a += Math.sin(dt * 110) * 1.2;
+      if (h.queued && h.a >= 20) strike();
     } else if (h.phase === 'strike') {
-      p = Math.min(1, (t - h.t0) / 0.07);
+      p = Math.min(1, (t - h.t0) / (0.05 + 0.03 * h.from / LIFT));
       h.a = h.from * (1 - p * p);
       if (p >= 1) {
         contact();
@@ -456,7 +487,7 @@
     } else {
       return false;
     }
-    h.s = 1 + 0.12 * Math.max(0, h.a) / 38;
+    h.s = 1 + 0.16 * Math.max(0, h.a) / LIFT;
     placeHammer();
     return true;
   }
@@ -682,24 +713,24 @@
     o.stop(t + dur + 0.05);
   }
 
-  function playSwing() {
+  function playSwing(strength) {
     if (!audio || muted) return;
-    var t = audio.ctx.currentTime, f = noise(audio, t, 0.09, 'bandpass', 500, 1.2, 0.05);
+    var t = audio.ctx.currentTime, f = noise(audio, t, 0.09, 'bandpass', 500, 1.2, 0.02 + 0.05 * strength);
     f.frequency.setValueAtTime(500, t);
     f.frequency.exponentialRampToValueAtTime(1600, t + 0.08);
   }
   function playHit(strength, onGlass) {
     if (!audio || muted) return;
-    var a = audio, t = a.ctx.currentTime + 0.005;
-    tone(a, t, 150, 50, 0.22, 0.55 * strength);
-    noise(a, t, 0.06, 'bandpass', 1800, 1.1, 0.35 * strength);
+    var a = audio, t = a.ctx.currentTime + 0.005, g = 0.25 + 0.75 * strength;
+    tone(a, t, 150, 50, 0.22, 0.55 * g);
+    noise(a, t, 0.06, 'bandpass', 1800, 1.1, 0.35 * g);
     if (!onGlass) return;
-    noise(a, t, 0.14, 'highpass', 2600, 0.7, 0.5 * strength);
-    for (var i = 0, n = 10 + Math.round(14 * strength); i < n; i++) {
-      noise(a, t + Math.pow(Math.random(), 2) * 0.35, 0.006 + Math.random() * 0.02, 'bandpass',
-            2500 + Math.random() * 6500, 4 + Math.random() * 8, (0.08 + Math.random() * 0.25) * strength);
+    noise(a, t, 0.06 + 0.08 * strength, 'highpass', 2600, 0.7, 0.5 * g);
+    for (var i = 0, n = 3 + Math.round(21 * strength); i < n; i++) {
+      noise(a, t + Math.pow(Math.random(), 2) * 0.35 * g, 0.006 + Math.random() * 0.02, 'bandpass',
+            2500 + Math.random() * 6500, 4 + Math.random() * 8, (0.08 + Math.random() * 0.25) * g);
     }
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < Math.round(1 + 3 * strength); i++) {
       var f0 = 3000 + Math.random() * 4500;
       tone(a, t + 0.02 + Math.random() * 0.3, f0, f0 * 0.98, 0.15 + Math.random() * 0.35, 0.025 + Math.random() * 0.03);
     }
@@ -788,7 +819,7 @@
   if (window.Audit) Audit.wireThemeToggle();
   hammerBase = window.matchMedia && matchMedia('(pointer: coarse)').matches ? 0.8 : 1;
   if (window.matchMedia && matchMedia('(hover: none)').matches) {
-    document.getElementById('hint').textContent = 'Tap the screen to swing the hammer. Hold for a harder hit. Pinch to zoom in on the damage.';
+    document.getElementById('hint').textContent = 'Tap to swing the hammer. Hold it back longer for a harder hit. Pinch to zoom in on the damage.';
   }
   setMuted(muted);
   hammerEl.style.opacity = '0';
