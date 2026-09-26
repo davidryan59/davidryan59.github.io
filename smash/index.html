@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smash a screen &ndash; take a hammer to a device</title>
+<meta name="description" content="Swing a hammer at a phone, tablet, laptop or monitor and watch its screen break the way a real one does: cracks, spreading black ink and bright lines of stuck pixels.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/smash/">
+<meta property="og:title" content="Smash a screen &ndash; take a hammer to a device">
+<meta property="og:description" content="Swing a hammer at a phone, tablet, laptop or monitor and watch its screen crack, bleed black and light up with stuck pixels.">
+<meta property="og:image" content="https://drbuild.uk/social/smash.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A laptop screen broken by a hammer: long cracks, black patches and bright horizontal lines of coloured pixels">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="A laptop screen broken by a hammer: long cracks, black patches and bright horizontal lines of coloured pixels">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../audit.css">
+<script src="../audit.js"></script>
+<script>Audit.initTheme();</script>
+<style>
+  body { max-width: 1200px; padding: 1.1rem 1rem 1rem; }
+  header { padding-right: 3rem; }
+  .back { margin: 0; font-size: 0.9rem; }
+  h1 { margin: 0.3rem 0 0.15rem; }
+  .tagline { margin: 0 0 0.8rem; font-size: 0.95rem; }
+  .theme-toggle { top: 1rem; right: 1rem; }
+
+  /* The stage fits the window with room for the text around it, so the
+     device is never cropped and the page never scrolls on a laptop. */
+  .stage {
+    position: relative;
+    overflow: hidden;
+    height: clamp(300px, calc(100vh - 13.5rem), 780px);
+    height: clamp(300px, calc(100svh - 13.5rem), 780px);
+    background: radial-gradient(ellipse at 50% 38%, var(--panel), var(--bg) 75%);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: none;
+    outline: none;
+  }
+  .stage:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  #hammer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 130px;
+    height: 150px;
+    transform-origin: 110px 140px;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin: 0.7rem 0 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .controls button {
+    font: inherit;
+    color: var(--h3);
+    background: var(--panel);
+    border: 1px solid var(--ring);
+    border-radius: 6px;
+    padding: 0.28rem 0.7rem;
+    cursor: pointer;
+  }
+  .controls button:hover:not(:disabled) { border-color: var(--rule); color: var(--h1); }
+  .controls button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+  .controls button:disabled { opacity: 0.45; cursor: default; }
+  .controls .primary { color: var(--h1); border-color: var(--rule); font-weight: 600; }
+  .zoom { display: inline-flex; gap: 0.25rem; }
+  .zoom button { min-width: 2.3rem; padding-left: 0.4rem; padding-right: 0.4rem; font-variant-numeric: tabular-nums; }
+  .caption { flex: 1 1 16rem; text-align: right; }
+  .credit { margin: 0.55rem 0 0; font-size: 0.85rem; color: var(--muted); }
+  @media (hover: none) { .keys { display: none; } }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (max-width: 34rem) {
+    body { padding: 0.8rem 0.75rem 0.8rem; }
+    h1 { font-size: 1.5rem; }
+    .tagline { font-size: 0.9rem; }
+    .stage { height: clamp(300px, calc(100svh - 18rem), 780px); }
+    .caption { text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<header>
+  <a class="back" href="../index.html">&larr; David Ryan's builder page</a>
+  <h1>Smash a screen</h1>
+  <p class="tagline" id="hint">Click to swing the hammer. Hold for a harder hit. Scroll or pinch to zoom in on the damage.</p>
+</header>
+
+<div class="stage" id="stage" tabindex="0" role="application"
+     aria-label="A device to smash. Click or tap to swing the hammer. Arrow keys aim, Space swings, plus and minus zoom.">
+  <canvas id="screen"></canvas>
+  <svg id="hammer" viewBox="0 0 130 150" aria-hidden="true">
+    <defs>
+      <linearGradient id="h-wood" x1="0" x2="1">
+        <stop offset="0" stop-color="#8d5524"/>
+        <stop offset="0.45" stop-color="#c68642"/>
+        <stop offset="1" stop-color="#7a4a1f"/>
+      </linearGradient>
+      <linearGradient id="h-steel" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#f1f3f6"/>
+        <stop offset="0.45" stop-color="#aab1bb"/>
+        <stop offset="1" stop-color="#5d646e"/>
+      </linearGradient>
+      <linearGradient id="h-face" x1="0" x2="1">
+        <stop offset="0" stop-color="#6b727c"/>
+        <stop offset="1" stop-color="#d9dde3"/>
+      </linearGradient>
+    </defs>
+    <g transform="translate(110 140) rotate(-30)">
+      <rect x="-6" y="-112" width="12" height="112" rx="5" fill="url(#h-wood)"/>
+      <rect x="-7.5" y="-40" width="15" height="42" rx="6" fill="#23252b"/>
+      <path d="M-7.5 -32h15M-7.5 -24h15M-7.5 -16h15M-7.5 -8h15" stroke="#3a3d45" stroke-width="2"/>
+      <path d="M24 -130C40 -128 50 -118 54 -100C47 -110 38 -116 28 -118Z" fill="url(#h-steel)"/>
+      <path d="M24 -112C36 -110 44 -104 47 -92C41 -99 34 -104 26 -106Z" fill="#8e959f"/>
+      <path d="M-30 -131H22Q27 -131 29 -127L31 -110Q31 -106 26 -106H-30Z" fill="url(#h-steel)"/>
+      <rect x="-41" y="-134" width="12" height="32" rx="3" fill="url(#h-face)"/>
+      <rect x="-26" y="-128" width="46" height="4" rx="2" fill="#ffffff" opacity="0.55"/>
+    </g>
+  </svg>
+</div>
+
+<div class="controls">
+  <button type="button" id="new-device" class="primary">New device</button>
+  <span class="zoom" role="group" aria-label="Zoom">
+    <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
+    <button type="button" id="zoom-fit" aria-label="Show the whole device">1&times;</button>
+    <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+  </span>
+  <button type="button" id="sound" aria-pressed="true">Sound on</button>
+  <span id="caption" class="caption"></span>
+</div>
+<p class="credit">Inspired by <a href="https://x.com/austingriffith/status/2103545545801556280">a photo of a shattered monitor</a> by Austin Griffith.<span class="keys">
+  Keys: N for a new device, M for sound, arrows and Space to aim and swing.</span></p>
+<p id="status" class="sr-only" aria-live="polite"></p>
+
+<script src="scenes.js"></script>
+<script src="damage.js"></script>
+<script src="smash.js"></script>
+</body>
+</html>

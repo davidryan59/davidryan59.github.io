@@ -25,6 +25,9 @@ address, `davidryan59.github.io`, redirects there.
 - `thumbs/` — the animated pictures beside the builder page's entries, each
   drawn by a script in `tools/thumbnails/`. See its
   [README](tools/thumbnails/README.md).
+- `smash/` — a device with a random picture and a hammer that breaks its
+  screen: cracks, spreading black ink and lines of stuck pixels. Not yet
+  linked from the builder page. See [docs/smash.md](docs/smash.md).
 - `tiles/` — the short address drbuild.uk/tiles, which redirects to the Hat
   page.
 - `tools/tiling-video/` — renders a 45-second looping video of the tiling
@@ -44,6 +47,7 @@ there first, then render it into `index.html`.
 
 - [docs/tiling-demos.md](docs/tiling-demos.md) — how the Hat and Spectre viewers work
 - [docs/aperiodic-pairs.md](docs/aperiodic-pairs.md) — how each gallery tiling is generated and checked
+- [docs/smash.md](docs/smash.md) — how the smash page breaks a screen, and what it costs to run
 - [docs/hat-edge-research.md](docs/hat-edge-research.md) — why curved edges make the Hat two tiles, and how that was checked
 - [docs/inventory.md](docs/inventory.md) — the source list the page renders
 - [docs/mint-pages.md](docs/mint-pages.md) — how the two mint pages work

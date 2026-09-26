@@ -825,7 +825,7 @@
     shadowText('LEVEL ' + r.int(1, 9), W - T * 0.4, T * 0.35, 'right');
     for (k = 0; k < 3; k++) sprite(ctx, HEART, T * 0.4 + k * 9 * p, T * 0.35 + fs * 1.4, p, { R: k < r.int(1, 3) ? '#ff4d6d' : '#6c1a2a' });
     coin(ctx, W - T * 2.1, T * 0.35 + fs * 1.4 + 3 * p, p);
-    shadowText('× ' + r.int(3, 40), W - T * 0.4, T * 0.35 + fs * 1.3, 'right');
+    shadowText('\u00d7 ' + r.int(3, 40), W - T * 0.4, T * 0.35 + fs * 1.3, 'right');
   }
 
   var CATS = [
@@ -1107,13 +1107,17 @@
         ctx.stroke();
         break;
       case 'Calendar':
+        // Text at a font size below one unit renders unreliably, so this
+        // glyph is drawn a hundred times larger and scaled down.
+        ctx.scale(0.01, 0.01);
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
         ctx.fillStyle = '#ff3b30';
-        ctx.font = '600 0.15px ' + SANS;
-        ctx.fillText(DAYS[date.getDay()].slice(0, 3).toUpperCase(), 0.5, 0.27);
+        ctx.font = '600 15px ' + SANS;
+        ctx.fillText(DAYS[date.getDay()].slice(0, 3).toUpperCase(), 50, 27);
         ctx.fillStyle = '#1c1c1e';
-        ctx.font = '300 0.48px ' + SANS;
-        ctx.fillText(String(date.getDate()), 0.5, 0.74);
+        ctx.font = '300 46px ' + SANS;
+        ctx.fillText(String(date.getDate()), 50, 78);
         break;
       case 'Calculator':
         for (var j = 0; j < 4; j++) {
@@ -1290,7 +1294,7 @@
       ctx.font = '600 ' + s * 0.2 + 'px ' + SANS;
       ctx.fillText(r.pick(['Da Nang', 'Oxford', 'Leeds', 'Brighton', 'Cardiff']), wx + s * 0.18, wy + s * 0.16);
       ctx.font = '300 ' + s * 0.62 + 'px ' + SANS;
-      ctx.fillText(r.int(12, 31) + '°', wx + s * 0.14, wy + s * 0.42);
+      ctx.fillText(r.int(12, 31) + '\u00b0', wx + s * 0.14, wy + s * 0.42);
       circle(ctx, wx + ww - s * 0.5, wy + s * 0.5, s * 0.2, '#ffd43b');
       ctx.font = '500 ' + s * 0.17 + 'px ' + SANS;
       ctx.fillText(r.pick(['Sunny', 'Sunny spells', 'Clear skies']), wx + s * 0.18, wy + rowH + s * 0.55);
@@ -1315,8 +1319,8 @@
 
   function fitText(ctx, text, width) {
     if (ctx.measureText(text).width <= width) return text;
-    while (text.length > 1 && ctx.measureText(text + '…').width > width) text = text.slice(0, -1);
-    return text + '…';
+    while (text.length > 1 && ctx.measureText(text + '\u2026').width > width) text = text.slice(0, -1);
+    return text + '\u2026';
   }
 
   function lockScreen(ctx, W, H, r, info) {
@@ -1517,7 +1521,7 @@
     waves(ctx, W, H, r);
     menuBar(ctx, W, H, info, ['Code', 'File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Window', 'Help']);
     var py = r.chance(0.35), lines = CODE[py ? 1 : 0], file = py ? 'pixels.py' : 'hammer.js';
-    var x = W * 0.05, y = 60, w = W * 0.9, h = H - 90, tb = appWindow(ctx, x, y, w, h, file + ' — smash', true);
+    var x = W * 0.05, y = 60, w = W * 0.9, h = H - 90, tb = appWindow(ctx, x, y, w, h, file + ' \u2014 smash', true);
     var side = w * 0.19, fs = 19, lh = 29.5, status = 28, i;
     ctx.save();
     ctx.beginPath();
@@ -1530,7 +1534,7 @@
     ctx.font = '600 15px ' + SANS;
     ctx.fillStyle = '#a6adc8';
     ctx.fillText('EXPLORER', x + 20, y + tb + 26);
-    ['▾ smash', '  ▾ src', '    glass.js', '    hammer.js', '    pixels.py', '    screen.js', '  ▸ tests', '  index.html', '  README.md'].forEach(function (f, k) {
+    ['\u25be smash', '  \u25be src', '    glass.js', '    hammer.js', '    pixels.py', '    screen.js', '  \u25b8 tests', '  index.html', '  README.md'].forEach(function (f, k) {
       var fy = y + tb + 64 + k * 32;
       if (f.trim() === file) {
         ctx.fillStyle = '#313244';
@@ -1583,7 +1587,7 @@
     ctx.fillRect(x, y + h - status, w, status);
     ctx.fillStyle = '#ffffff';
     ctx.font = '400 15px ' + SANS;
-    ctx.fillText('⎇ main    ✓ 0 problems', x + 16, y + h - status / 2);
+    ctx.fillText('\u2387 main    \u2713 0 problems', x + 16, y + h - status / 2);
     ctx.textAlign = 'right';
     ctx.fillText('Ln ' + (cur + 1) + ', Col ' + (lines[cur].length + 1) + '    Spaces: ' + (py ? 4 : 2) + '    UTF-8    ' + (py ? 'Python' : 'JavaScript'),
                  x + w - 16, y + h - status / 2);
