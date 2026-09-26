@@ -1,0 +1,6 @@
+# GitHub Pages builds this repo with Jekyll. These paths hold notes and scripts
+# for people who work on the repo, so the site leaves them out.
+exclude:
+  - docs
+  - tools
+  - README.md

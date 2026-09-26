@@ -26,7 +26,7 @@ const SHEET = [
   const page = await context.newPage();
 
   if (!fs.existsSync(BG)) {
-    await page.goto('http://127.0.0.1:8765/demos/hat/#v=0,0,40,0,0,0&c=rainbow&t=30');
+    await page.goto('http://127.0.0.1:8765/app/tiles/hat/#v=0,0,40,0,0,0&c=rainbow&t=30');
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'dark';
       const s = document.createElement('style');

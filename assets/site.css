@@ -1,6 +1,7 @@
-/* Shared styling for the audit pages. The colour tokens, the typography and
-   the vertical rhythm match index.html and mint.css exactly, so every page on
-   the site reads as one site. The toggle pins data-theme, which sets
+/* Shared styling for the site's document pages: the audits, the gallery and
+   Smash Screen. The colour tokens, the typography and the vertical rhythm
+   match index.html and mint.css exactly, so every page on the site reads as
+   one site. The toggle pins data-theme, which sets
    color-scheme and flips every pair. */
 :root {
   color-scheme: light dark;

@@ -1,5 +1,5 @@
-/* Shared styling for the tiling demos. Colour tokens match index.html and
-   audit.css, so the cards read as part of the site. The map itself takes
+/* Shared styling for the tiling explorer. Colour tokens match index.html and
+   site.css, so the cards read as part of the site. The map itself takes
    its colours from map.js. */
 :root {
   color-scheme: light dark;

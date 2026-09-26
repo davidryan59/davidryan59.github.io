@@ -1,23 +1,23 @@
-/* Draws thumbs/smash.svg: the Smash Screen page in miniature. A monitor
+/* Draws assets/thumbs/smash.svg: the Smash Screen page in miniature. A monitor
    shows a white web page. The hammer lifts and strikes, cracks run out from
    the blow, black ink spreads and bright lines of stuck pixels flicker on.
    The broken screen holds, then fades back to whole, on an 8 s loop.
 
    Run from anywhere: node tools/thumbnails/smash.js [seed]
 
-   The damage is the page's own: the script runs smash/damage.js in Node and
+   The damage is the page's own: the script runs app/smash/damage.js in Node and
    turns one hit into SVG. Each ink blob grows as one shape, where the page
    also grows some directions later than others; the fringe of coloured
    pixels is left out, since at this size it would only be noise. The
-   hammer is the page's own too, read from smash/index.html. */
+   hammer is the page's own too, read from app/smash/index.html. */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'thumbs/smash.svg');
+const OUT = path.join(ROOT, 'assets/thumbs/smash.svg');
 const SEED = +process.argv[2] || 7;
 
 const sandbox = {};
 vm.createContext(sandbox);
-['smash/scenes.js', 'smash/damage.js'].forEach(f => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), sandbox, { filename: f }));
+['app/smash/scenes.js', 'app/smash/damage.js'].forEach(f => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), sandbox, { filename: f }));
 const Smash = sandbox.Smash;
 
 // The monitor's screen, 1778 x 1000 screen units, fills 100 x 56 px.
@@ -129,7 +129,7 @@ const P = px(hit.P);
 glass.push(`<path d="${pathD(hit.crater.map(px), true)}" fill="#eef2ff" opacity="0">${anim('opacity', [[0, 0], [HIT, 1], [LOOP, 1]], 'discrete')}</path>`);
 
 // The page's hammer, with its striking face on the point of the blow.
-const page = fs.readFileSync(path.join(ROOT, 'smash/index.html'), 'utf8');
+const page = fs.readFileSync(path.join(ROOT, 'app/smash/index.html'), 'utf8');
 const hammer = page.match(/<svg id="hammer"[^>]*>([\s\S]*?)<\/svg>/)[1];
 const FACE = [15.5, 58.3], PIVOT = [110, 140], HS = 0.4;
 const rot = a => `${a} ${PIVOT[0]} ${PIVOT[1]}`;

@@ -1,4 +1,4 @@
-/* Draws thumbs/sonic-asteroids.svg: Sonic "The Asteroids" in miniature, with
+/* Draws assets/thumbs/sonic-asteroids.svg: Sonic "The Asteroids" in miniature, with
    the game's own sprites. Sonic hovers on the left and fires rings; a Mario
    head drifts in, takes a hit, bursts and splits into two Luigis, as the
    asteroids do. A Wario and a Luigi drift past, two rings spin, stars
@@ -12,7 +12,7 @@
    game's size. The picture is 240 units across and shows at 120 px. */
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'thumbs/sonic-asteroids.svg');
+const OUT = path.join(ROOT, 'assets/thumbs/sonic-asteroids.svg');
 
 const W = 240, LOOP = 6, Z = 0.75;          // Z: game pixels to picture units
 const LOOPING = `dur="${LOOP}s" repeatCount="indefinite"`;

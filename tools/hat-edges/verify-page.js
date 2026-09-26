@@ -7,11 +7,11 @@
 const path = require('path');
 const R = path.join(__dirname, '..', '..') + '/';
 const fs = require('fs');
-const C = require(R + 'demos/engine/tiling-core.js');
-const HT = require(R + 'demos/hat/tiling.js');
-const ES = require(R + 'demos/engine/edges.js');
+const C = require(R + 'app/tiles/engine/tiling-core.js');
+const HT = require(R + 'app/tiles/hat/tiling.js');
+const ES = require(R + 'app/tiles/engine/edges.js');
 // The rule, read from the page itself.
-const page = fs.readFileSync(R + 'demos/hat-extended/index.html', 'utf8');
+const page = fs.readFileSync(R + 'app/tiles/hat-extended/index.html', 'utf8');
 const HAT_SYM = JSON.parse(page.match(/var HAT_SYM = (\[[^\]]*\])/)[1]);
 const pageSym = hand => i => HAT_SYM[i] ^ (hand ? 2 : 0);
 const naiveSym = () => i => HAT_SYM[i];          // mirrored hat = exact mirror image

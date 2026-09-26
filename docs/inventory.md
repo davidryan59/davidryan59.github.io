@@ -155,16 +155,16 @@ not the release — the live Optimism deployment above is the one to publish.
 | Item | Link | Status |
 |---|---|---|
 | GitHub, public repos | [github.com/davidryan59](https://github.com/davidryan59) | Live |
-| Smash Screen: take a hammer to a phone, tablet, laptop or monitor, and the screen cracks, bleeds black ink and lights lines of stuck pixels, built 2026-09-26. Listed on the page after dice-to-seed | [drbuild.uk/smash/](https://drbuild.uk/smash/) | Unchecked, not yet pushed |
+| Smash Screen: take a hammer to a phone, tablet, laptop or monitor, and the screen cracks, bleeds black ink and lights lines of stuck pixels, built 2026-09-26. Listed on the page after dice-to-seed | [drbuild.uk/app/smash/](https://drbuild.uk/app/smash/) | Unchecked, not yet pushed |
 | npm profile | [npmjs.com/~davidryan](https://www.npmjs.com/~davidryan) | Live, confirmed in browser 2026-08-14. Blocked to automated checks; the four packages below were confirmed instead via the npm registry's own search API, which has no such block |
 
-### Maths demos
+### Maths apps
 | Item | Link | Status |
 |---|---|---|
-| Hat tiling viewer: pan, zoom and reshape the Hat family from chevron to comet, built 2026-09-23 | [drbuild.uk/demos/hat/](https://drbuild.uk/demos/hat/) | Live, checked 2026-09-26 |
-| Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [drbuild.uk/demos/spectre/](https://drbuild.uk/demos/spectre/) | Live, checked 2026-09-26 |
-| Hat (extended) viewer: the Hat with curved edges, where the mirrored hats become a second tile, built 2026-09-23. A third tab of the same explorer, so no separate entry on the page | [drbuild.uk/demos/hat-extended/](https://drbuild.uk/demos/hat-extended/) | Live, checked 2026-09-26 |
-| Aperiodic Pair Gallery: Penrose kites and darts, Penrose rhombs, Ammann A2, the trilobite and crab, the Taylor–Socolar hexagon and a two-shape Spectre tiling, each drawn from its mathematical definition, with pan and zoom, built 2026-09-25. Listed on the page as its own entry, after the tiling explorer | [drbuild.uk/aperiodic-pairs/](https://drbuild.uk/aperiodic-pairs/) | Live, checked 2026-09-26 |
+| Hat tiling viewer: pan, zoom and reshape the Hat family from chevron to comet, built 2026-09-23 | [drbuild.uk/app/tiles/hat/](https://drbuild.uk/app/tiles/hat/) | Unchecked, not yet pushed; the old address redirects here |
+| Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [drbuild.uk/app/tiles/spectre/](https://drbuild.uk/app/tiles/spectre/) | Unchecked, not yet pushed; the old address redirects here |
+| Hat (extended) viewer: the Hat with curved edges, where the mirrored hats become a second tile, built 2026-09-23. A third tab of the same explorer, so no separate entry on the page | [drbuild.uk/app/tiles/hat-extended/](https://drbuild.uk/app/tiles/hat-extended/) | Unchecked, not yet pushed; the old address redirects here |
+| Aperiodic Pair Gallery: Penrose kites and darts, Penrose rhombs, Ammann A2, the trilobite and crab, the Taylor–Socolar hexagon and a two-shape Spectre tiling, each drawn from its mathematical definition, with pan and zoom, built 2026-09-25. Listed on the page as its own entry, after the tiling explorer | [drbuild.uk/app/aperiodic-pairs/](https://drbuild.uk/app/aperiodic-pairs/) | Unchecked, not yet pushed; the old address redirects here |
 | Draft paper, *A two-parameter family of polygonal Spectres*, written with Claude, Draft 2 of 2026-09-25. It proves that putting a triangle on each edge of Tile(1,1) gives a 27-sided strictly chiral aperiodic monotile for every triangle below a height bound, extending Adam Goucher's 2023 proof for one such polygon. Listed first under Pre-prints on the page, and linked from the tiling explorer's entry | [drbuild.uk/papers/polygonal-spectre.pdf](https://drbuild.uk/papers/polygonal-spectre.pdf) | Live, checked 2026-09-26 |
 
 ### npm packages

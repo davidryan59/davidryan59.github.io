@@ -169,9 +169,9 @@
     function artTile(f) { return '<div class="tile art"><img src="' + f + '" alt=""></div>'; }
     var curve = '<div class="tile cream">' + diagrams['uniswap-v2']().replace('width="520" height="220"', 'width="286" height="121"') + '</div>';
     return '<div class="card mosaic"><div class="grid">' +
-      artTile(SRC + 'merge-fractal-1509.png') + img(SRC + 'hat.png', '40% 45%') + artTile('/moving-mondrian-951.svg') + img(SRC + 'dino-dash.png') +
+      artTile(SRC + 'merge-fractal-1509.png') + img(SRC + 'hat.png', '40% 45%') + artTile('/moving-mondrian/moving-mondrian-951.svg') + img(SRC + 'dino-dash.png') +
       img(SRC + 'retuner.png') + '<div class="name">' + words('David Ryan', 'Everything I’ve built, in one place') + '</div>' + curve +
-      img(SRC + 'hat-curves.png', '55% 50%') + artTile(SRC + 'merge-fractal-2757.png') + img(SRC + 'spectre.png', '35% 50%') + artTile('/moving-mondrian-563.svg') +
+      img(SRC + 'hat-curves.png', '55% 50%') + artTile(SRC + 'merge-fractal-2757.png') + img(SRC + 'spectre.png', '35% 50%') + artTile('/moving-mondrian/moving-mondrian-563.svg') +
       '</div></div>';
   }
 
@@ -187,7 +187,7 @@
     // Token 12, kept beside this page, stands in for token 133, which is a
     // portrait, so no card shows a face.
     'moving-mondrian': function () {
-      return art(['moving-mondrian-12.svg', '/moving-mondrian-563.svg', '/moving-mondrian-951.svg'], 'Moving Mondrian', 'Fully onchain generative art on Optimism');
+      return art(['moving-mondrian-12.svg', '/moving-mondrian/moving-mondrian-563.svg', '/moving-mondrian/moving-mondrian-951.svg'], 'Moving Mondrian', 'Fully onchain generative art on Optimism');
     },
     weth9: function () { return audit('weth9', 'WETH9 security audit', 'No exploitable vulnerability, read from the deployed bytecode'); },
     'uniswap-v2': function () { return audit('uniswap-v2', 'Uniswap V2 security audit', 'No exploitable vulnerability across 519,134 pairs'); },

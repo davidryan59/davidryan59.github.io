@@ -1,4 +1,4 @@
-/* Draws thumbs/retuner.svg: the left and middle of ReTuner's keyboard, from
+/* Draws assets/thumbs/retuner.svg: the left and middle of ReTuner's keyboard, from
    the number row down to the space bar, in the app's own colours. Barely
    moving: the coloured keys breathe a few per cent and the dashed rings on
    the octave keys turn slowly. No text: at thumbnail size the labels would
@@ -11,7 +11,7 @@
    with the space bar moved left so that it fits. */
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'thumbs/retuner.svg');
+const OUT = path.join(ROOT, 'assets/thumbs/retuner.svg');
 
 const CROP = { x: 360, y: 335, r: 255 };     // the circle cut from the screenshot
 const SIZE = 120;

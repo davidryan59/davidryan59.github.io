@@ -15,12 +15,12 @@ site draws:
 The first answer has a twist. If the mirrored hats may be a second shape,
 any curve works. That second shape is the mirror image of the curved hat
 with every bump turned inside out. The Hat (extended) page, at
-`demos/hat-extended/`, draws it. The Hat and Spectre pages stay one tile
+`app/tiles/hat-extended/`, draws it. The Hat and Spectre pages stay one tile
 each.
 
 ## How a shared edge constrains a curve
 
-Every hat has 14 edges, numbered as `HAT14` in `demos/hat/tiling.js`: edge
+Every hat has 14 edges, numbered as `HAT14` in `app/tiles/hat/tiling.js`: edge
 *i* runs from corner *i* to corner *i* + 1. Edges 1, 2, 3, 4, 7, 8, 11 and
 12 are a-edges; edges 0, 5, 6, 9, 10 and 13 are b-edges. The tiling is edge
 to edge, so each shared edge is a whole edge of both tiles. An a-edge only
@@ -119,7 +119,7 @@ second shape slider is possible, at least to first order.
 
 ## Re-running
 
-The scripts are in `tools/hat-edges/`. They build tilings with the demos'
+The scripts are in `tools/hat-edges/`. They build tilings with the explorer's
 own workers, so they check the code the pages run.
 
 - `node edge-pairs.js [level]`: edge pairs, loops and the two-tile rule,

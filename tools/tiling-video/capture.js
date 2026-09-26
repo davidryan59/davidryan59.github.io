@@ -73,7 +73,7 @@ function serve() {
     if (p.endsWith('/')) file = path.join(file, 'index.html');
     fs.readFile(file, (err, data) => {
       if (err) { res.writeHead(404); res.end(); return; }
-      if (p === '/demos/engine/map.js') data = Buffer.from(patch(data.toString()));
+      if (p === '/app/tiles/engine/map.js') data = Buffer.from(patch(data.toString()));
       res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
       res.end(data);
     });
@@ -192,7 +192,7 @@ const MIN_BYTES = 30000;
 async function capture(browser, base, which, from, to, resume) {
   const dir = path.join(OUT, which);
   fs.mkdirSync(dir, { recursive: true });
-  const url = which === 'hat' ? '/demos/hat/' : '/demos/spectre/';
+  const url = which === 'hat' ? '/app/tiles/hat/' : '/app/tiles/spectre/';
   let page = null;
   async function reopen() {
     if (page) await page.context().close().catch(() => {});
@@ -227,7 +227,7 @@ async function capture(browser, base, which, from, to, resume) {
 async function probe(browser, base) {
   const dir = path.join(__dirname, 'probe');
   fs.mkdirSync(dir, { recursive: true });
-  const hat = await openPage(browser, base, '/demos/hat/');
+  const hat = await openPage(browser, base, '/app/tiles/hat/');
   const shot = async (page, name) => fs.writeFileSync(path.join(dir, name + '.jpg'), await page.screenshot({ type: 'jpeg', quality: 90 }));
   for (const b of LOOK.probe.hatBeats) {
     const t1 = Date.now();
@@ -237,7 +237,7 @@ async function probe(browser, base) {
   }
   await apply(hat, { hash: 't=45' });
   const hatEdge45 = (await hat.evaluate(() => window.__tm.state())).edge;
-  const sp = await openPage(browser, base, '/demos/spectre/');
+  const sp = await openPage(browser, base, '/app/tiles/spectre/');
   const specEdge = (await sp.evaluate(() => window.__tm.state())).edge;
   console.log('edge length: hat at 45 =', hatEdge45, ' spectre =', specEdge, ' so spectre s0 =', LOOK.hat.s0 * hatEdge45 / specEdge);
   for (const [shape, arr] of [['curve', 'S'], ['curve', 'alt'], ['triangle', 'S'], ['triangle', 'alt'], ['jigsaw', 'S'], ['jigsaw', 'alt']]) {
@@ -257,7 +257,7 @@ async function shots(browser, base, list) {
   const dir = path.join(__dirname, 'probe'), pages = {};
   fs.mkdirSync(dir, { recursive: true });
   for (const sh of list) {
-    if (!pages[sh.page]) pages[sh.page] = await openPage(browser, base, '/demos/' + sh.page + '/');
+    if (!pages[sh.page]) pages[sh.page] = await openPage(browser, base, '/app/tiles/' + sh.page + '/');
     await apply(pages[sh.page], sh);
     fs.writeFileSync(path.join(dir, sh.name + '.jpg'), await pages[sh.page].screenshot({ type: 'jpeg', quality: 90 }));
   }

@@ -3,7 +3,7 @@
    check a picture after changing its script.
 
    node tools/thumbnails/frames.js <file.svg> <out.png> <circle|square> <scale> <seconds...>
-   e.g. node tools/thumbnails/frames.js thumbs/dice-to-seed.svg /tmp/dice.png square 2 0 0.5 1 3
+   e.g. node tools/thumbnails/frames.js assets/thumbs/dice-to-seed.svg /tmp/dice.png square 2 0 0.5 1 3
 
    It pauses both kinds of animation the pictures use, SMIL and CSS, at each
    time. It needs the Playwright install in tools/tiling-video: run npm

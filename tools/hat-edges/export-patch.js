@@ -2,7 +2,7 @@
    placement at the hat's own shape, the prototype corners, and every pair
    of hat corners that coincide. The first argument is the Kaplan level. */
 const path = require('path');
-const R = path.join(__dirname, '..', '..', 'demos') + '/';
+const R = path.join(__dirname, '..', '..', 'app', 'tiles') + '/';
 const C = require(R + 'engine/tiling-core.js');
 const HT = require(R + 'hat/tiling.js');
 const built = HT.build();

@@ -2,13 +2,13 @@
 
 ## Summary
 
-`aperiodic-pairs/` shows six tilings built from two tiles: Penrose kites and
+`app/aperiodic-pairs/` shows six tilings built from two tiles: Penrose kites and
 darts, Penrose rhombs, Ammann A2, the trilobite and crab, the Taylor–Socolar
 hexagon and a two-shape Spectre tiling. Every picture is computed from the
 published definition; none is copied from a paper. Each patch has a row of
 its tiles above it, drawn by the same code at one scale per set, and each
 patch pans and zooms. Four patches are generated in the browser on load.
-The other two are precomputed into `aperiodic-pairs/data.js`, because one
+The other two are precomputed into `app/aperiodic-pairs/data.js`, because one
 needs exact arithmetic and the other a SAT solver.
 
 ## How each tiling is made

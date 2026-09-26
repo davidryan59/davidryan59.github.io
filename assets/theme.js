@@ -1,14 +1,14 @@
-/* Shared plumbing for the audit pages. Theme only: these pages are static
-   documents, so they need none of the RPC and wallet code in mint.js. No
-   build step and no dependencies. */
+/* The theme switch every page shares: it picks light or dark before first
+   paint and wires the toggle button. Theme only, so a page needs none of the
+   RPC and wallet code in mint.js. No build step and no dependencies. */
 (function (global) {
   'use strict';
 
-  var Audit = {};
+  var Theme = {};
 
   /* Called from an inline script in <head>, before first paint, so the page
      never flashes the wrong theme. */
-  Audit.initTheme = function () {
+  Theme.initTheme = function () {
     try {
       var t = localStorage.getItem('theme');
       if (t !== 'light' && t !== 'dark') {
@@ -18,7 +18,7 @@
     } catch (e) {}
   };
 
-  Audit.wireThemeToggle = function () {
+  Theme.wireThemeToggle = function () {
     var root = document.documentElement;
     var btn = document.querySelector('.theme-toggle');
     if (!btn) return;
@@ -35,5 +35,5 @@
     });
   };
 
-  global.Audit = Audit;
+  global.Theme = Theme;
 })(this);

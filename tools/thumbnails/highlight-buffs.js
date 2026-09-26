@@ -1,4 +1,4 @@
-/* Draws thumbs/highlight-buffs.svg: a still of the Highlight Buffs plugin at
+/* Draws assets/thumbs/highlight-buffs.svg: a still of the Highlight Buffs plugin at
    work on a patch of the Dark Forest map. Planets sit in dark space and
    nebula, and the plugin rings the good ones in its seven colours: 2x
    energy cap, energy growth, defence, speed and range, spacetime rips and
@@ -13,7 +13,7 @@
    each ring at a different point in its pulse, as the plugin's desync does. */
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'thumbs/highlight-buffs.svg');
+const OUT = path.join(ROOT, 'assets/thumbs/highlight-buffs.svg');
 
 const SIZE = 120;
 const n = v => (Math.round(v * 100) / 100).toString().replace(/^0\./, '.').replace(/^-0\./, '-.');

@@ -1,15 +1,15 @@
-/* Draws thumbs/aperiodic-pairs.svg: Penrose kites and darts in the gallery's
+/* Draws assets/thumbs/aperiodic-pairs.svg: Penrose kites and darts in the gallery's
    light-mode colours, zooming gently in and out on a 7-second loop about
    the sun of five kites at the centre.
 
    Run from anywhere: node tools/thumbnails/aperiodic-pairs.js
 
-   The patch is grown the way aperiodic-pairs/index.html grows it: a sun of
+   The patch is grown the way app/aperiodic-pairs/index.html grows it: a sun of
    ten half-kites, split again and again at the golden ratio. Halves pair
    across their shared edge, so each kite and dart is drawn whole. */
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'thumbs/aperiodic-pairs.svg');
+const OUT = path.join(ROOT, 'assets/thumbs/aperiodic-pairs.svg');
 
 const SIZE = 120;
 const EDGE = 11;       // a long edge in pixels, zoomed out

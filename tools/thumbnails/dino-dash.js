@@ -1,4 +1,4 @@
-/* Draws thumbs/dino-dash.svg: a 7 x 7 corner of a Dino Dash maze, with the
+/* Draws assets/thumbs/dino-dash.svg: a 7 x 7 corner of a Dino Dash maze, with the
    game's own sprites. The runner laps a ring of corridor eating coins and
    shouts "Yay!" at the tenth, a dinosaur plods five tiles behind, a cat
    darts through and an eagle flies straight over the walls. At the end of
@@ -12,7 +12,7 @@
    tiles across at 120 px, so one unit is about 0.7 px. */
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'thumbs/dino-dash.svg');
+const OUT = path.join(ROOT, 'assets/thumbs/dino-dash.svg');
 
 const TS = 28, N = 7, W = TS * N;
 const LAP = 6.4;              // seconds per loop: 16 tiles at 2.5 tiles a second

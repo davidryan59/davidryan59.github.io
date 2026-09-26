@@ -2,25 +2,26 @@
 
 ## Summary
 
-`smash/` shows a random device, a phone, tablet, laptop or monitor, with a
+`app/smash/` shows a random device, a phone, tablet, laptop or monitor, with a
 random picture on its screen, and a hammer that follows the pointer. A blow
 breaks the screen the way a real LCD breaks: the glass cracks, black ink
 spreads from the cracks, and whole rows of pixels light up in one bright
 colour. The look comes from a photo of a shattered monitor that
 [Austin Griffith posted on X](https://x.com/austingriffith/status/2103545545801556280),
 and the page credits it. The builder page lists it under Apps & Websites,
-after dice-to-seed.
+after dice-to-seed. It is served at drbuild.uk/app/smash/, and the short address
+drbuild.uk/smash redirects there.
 
 ## Files
 
 | File | What it holds |
 |---|---|
-| `smash/index.html` | The page, its styles and the hammer, drawn in SVG |
-| `smash/scenes.js` | The 14 pictures, drawn from shapes, and the seeded random generator |
-| `smash/damage.js` | What one blow does to a screen, and how to draw it |
-| `smash/smash.js` | Devices, layout, the view, input, the hammer's swing, sound and controls |
+| `app/smash/index.html` | The page, its styles and the hammer, drawn in SVG |
+| `app/smash/scenes.js` | The 14 pictures, drawn from shapes, and the seeded random generator |
+| `app/smash/damage.js` | What one blow does to a screen, and how to draw it |
+| `app/smash/smash.js` | Devices, layout, the view, input, the hammer's swing, sound and controls |
 | `tools/smash/card.js` | Draws `social/smash.jpg`, the share card |
-| `tools/thumbnails/smash.js` | Draws `thumbs/smash.svg`, the builder page's animated picture, from the page's own damage model |
+| `tools/thumbnails/smash.js` | Draws `assets/thumbs/smash.svg`, the builder page's animated picture, from the page's own damage model |
 
 ## Pictures
 

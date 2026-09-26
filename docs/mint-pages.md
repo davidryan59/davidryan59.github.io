@@ -12,15 +12,15 @@ how the two replacement pages work.
 
 The pages are deliberately small: plain HTML, one shared stylesheet, one shared
 script, no framework and no build step. They match the hand-written style of
-the index page and deploy through the same [deploy.sh](../deploy.sh).
+the index page, and they publish the same way, with a git push.
 
 ## Implementation checklist
 
 - [x] Read both contracts from source and verify every function against the
   live deployments
-- [x] Shared `site/mint.css` and `site/mint.js`
-- [x] `site/moving-mondrian/index.html`, fixed price, batch minting
-- [x] `site/merge-fractals/index.html`, rising price read at click time
+- [x] Shared `assets/mint.css` and `assets/mint.js`
+- [x] `moving-mondrian/index.html`, fixed price, batch minting
+- [x] `merge-fractals/index.html`, rising price read at click time
 - [x] Wallet connection through EIP-6963
 - [x] Holdings panel on both pages, rendering the onchain art
 - [x] Linked from the Ethereum & NFTs section of the index page
@@ -134,7 +134,7 @@ contract uses.
   recipient rather than a split.
 
 Two bugs turned up only once real browser testing started, both fixed in
-`mint.css` / `mint.js` rather than the page markup:
+`assets/mint.css` / `assets/mint.js` rather than the page markup:
 
 - `.btn { display: inline-block }` outranked the browser's own `[hidden]`
   rule, so a hidden button (the "Show more" gallery control, in particular)
@@ -146,7 +146,7 @@ Two bugs turned up only once real browser testing started, both fixed in
 
 ## Testing
 
-Open `site/index.html` straight from disk and click through. That works
+Open `index.html` straight from disk and click through. That works
 because every internal link names `index.html` in full, rather than relying on
 a directory URL. A browser reading `file://` has no server to resolve
 `merge-fractals/` into `merge-fractals/index.html`, so it lists the folder
@@ -157,10 +157,10 @@ and the tidy URL still works for anyone who types or shares
 The RPC reads work from `file://` as well, since the chosen endpoints send
 `Access-Control-Allow-Origin: *`, which allows a file origin.
 
-For a test that matches production exactly, serve the folder over HTTP:
+For a test that matches production exactly, serve the repo over HTTP, from its root:
 
 ```sh
-cd projects/david-builder-site/site && python3 -m http.server 8899
+python3 -m http.server 8899
 ```
 
 What was checked on 2026-08-14:

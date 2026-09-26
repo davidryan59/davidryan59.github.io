@@ -816,7 +816,7 @@
 
   /* -------------------------------------------------------------- start */
 
-  if (window.Audit) Audit.wireThemeToggle();
+  if (window.Theme) Theme.wireThemeToggle();
   hammerBase = window.matchMedia && matchMedia('(pointer: coarse)').matches ? 0.8 : 1;
   if (window.matchMedia && matchMedia('(hover: none)').matches) {
     document.getElementById('hint').textContent = 'Tap to swing the hammer. Hold it back longer for a harder hit. Pinch to zoom in on the damage.';

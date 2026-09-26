@@ -1,4 +1,4 @@
-/* Draws thumbs/tiling-explorer.svg: a patch of the Hat tiling that morphs
+/* Draws assets/thumbs/tiling-explorer.svg: a patch of the Hat tiling that morphs
    from the chevron to the comet and back, as the explorer's shape slider
    does. The loop runs 10 seconds: 0.5 s still at the chevron, 4.5 s
    sliding to the comet, 0.5 s still, 4.5 s sliding back. Pastel colours,
@@ -6,7 +6,7 @@
 
    Run from anywhere: node tools/thumbnails/tiling-explorer.js
 
-   Every hat corner sits at a*P + b*zeta*R (see demos/engine/tiling-core.js),
+   Every hat corner sits at a*P + b*zeta*R (see app/tiles/engine/tiling-core.js),
    so the slider's tiling at angle t is k(t) * (sin t * P + cos t * zeta*R),
    with k keeping the hat's area. A straight blend of the chevron and comet
    paths gives the same shapes at a smaller or larger size, so the file
@@ -15,10 +15,10 @@
    scales the patch to hold the tile area steady. */
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
-const C = require(path.join(ROOT, 'demos/engine/tiling-core.js'));
-const HT = require(path.join(ROOT, 'demos/hat/tiling.js'));
+const C = require(path.join(ROOT, 'app/tiles/engine/tiling-core.js'));
+const HT = require(path.join(ROOT, 'app/tiles/hat/tiling.js'));
 
-const OUT = path.join(ROOT, 'thumbs/tiling-explorer.svg');
+const OUT = path.join(ROOT, 'assets/thumbs/tiling-explorer.svg');
 const SIZE = 120;             // the viewBox, in CSS pixels at the page's size
 const PX = 5.0;               // pixels per unit of edge a at the hat's own shape
 const DUR = 10;               // seconds per loop
@@ -37,7 +37,7 @@ function area(pts) {
   return Math.abs(s / 2);
 }
 
-// The explorer's Pastel preset in light mode, as demos/hat/index.html has it.
+// The explorer's Pastel preset in light mode, as app/tiles/hat/index.html has it.
 function oklch(L, Cc, hue) {
   const h = hue * Math.PI / 180, a = Cc * Math.cos(h), b = Cc * Math.sin(h);
   const l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3);

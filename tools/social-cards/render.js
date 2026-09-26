@@ -25,10 +25,10 @@ const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'merge-fractals', 'm
 
 // The tiling views, as each tab's address bar holds them.
 const TILINGS = {
-  hat: '/demos/hat/#v=0,0,14,0,0,0&c=pastel&t=30',
-  spectre: '/demos/spectre/#v=0,0,16,0&c=rainbow2&e=curve&b=0.18&a=alt&p=waves%3A1',
-  'hat-extended': '/demos/hat-extended/#v=0,0,34,0,0,0&c=pastel&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55',
-  'hat-curves': '/demos/hat-extended/#v=0,0,30,0,0,0&c=pastel&t=30&e=curve&ha=0.22&hb=0.22&a=alt&p=waves%3A1'
+  hat: '/app/tiles/hat/#v=0,0,14,0,0,0&c=pastel&t=30',
+  spectre: '/app/tiles/spectre/#v=0,0,16,0&c=rainbow2&e=curve&b=0.18&a=alt&p=waves%3A1',
+  'hat-extended': '/app/tiles/hat-extended/#v=0,0,34,0,0,0&c=pastel&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55',
+  'hat-curves': '/app/tiles/hat-extended/#v=0,0,30,0,0,0&c=pastel&t=30&e=curve&ha=0.22&hb=0.22&a=alt&p=waves%3A1'
 };
 // Merge Fractals animate: every few seconds the two diamonds break into
 // fractal shapes and back. Each is caught at a moment of seconds into its

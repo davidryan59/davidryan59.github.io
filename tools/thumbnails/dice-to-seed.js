@@ -1,4 +1,4 @@
-/* Draws thumbs/dice-to-seed.svg: six red casino dice thrown into the corner
+/* Draws assets/thumbs/dice-to-seed.svg: six red casino dice thrown into the corner
    of a craps table. They tumble, bounce off the rubber walls, settle, rest a
    while and fade, on an 11-second loop.
 
@@ -13,7 +13,7 @@
    keyframes play the frames back. */
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'thumbs/dice-to-seed.svg');
+const OUT = path.join(ROOT, 'assets/thumbs/dice-to-seed.svg');
 
 const LOOP = 11;              // seconds
 const FPS = 25;               // keyframes per second while the dice move

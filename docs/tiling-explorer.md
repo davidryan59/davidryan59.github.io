@@ -1,29 +1,34 @@
-# Tiling demos: Hat, Spectre and Hat (extended)
+# Tiling explorer: Hat, Spectre and Hat (extended)
 
 ## Summary
 
 Map-style viewers for the aperiodic monotiles found in 2023: the Hat at
-`demos/hat/` and the Spectre at `demos/spectre/`. A third page,
-`demos/hat-extended/`, draws the Hat with curved edges. Curved edges force
+`app/tiles/hat/` and the Spectre at `app/tiles/spectre/`. A third page,
+`app/tiles/hat-extended/`, draws the Hat with curved edges. Curved edges force
 the mirrored hats to become a second tile, as
 [hat-edge-research.md](hat-edge-research.md) explains, so that page keeps
 the Hat and Spectre pages one tile each. All three pan, zoom and turn like a
 web map, build their tiles on demand so the plane has no edge, and share one
 engine. Plain JavaScript and WebGL 2, no libraries, no build step.
 
+The explorer is served at drbuild.uk/app/tiles/, which opens on the Hat page.
+The short address drbuild.uk/tiles goes there too, and the old addresses under
+drbuild.uk/demos/ redirect to the new ones.
+
 ## Files
 
 | File | What it holds |
 |---|---|
-| `demos/engine/tiling-core.js` | Worker side, shared: prototypes, supertile boundary levels, the hierarchy walk, chunk packing, corner lookup, the message loop |
-| `demos/engine/map.js` | Page side, shared: WebGL drawing, chunk cache and worker pool, pan, zoom and turn, colours and the key, the grid tool, the address bar |
-| `demos/engine/map.css` | Shared styling, using the site's colour tokens |
-| `demos/engine/edges.js` | Edge shapes, both arrangements, the symmetry each edge takes, collision limits |
-| `demos/hat/tiling.js` | Hat metatile construction and two-part lift, run as a worker |
-| `demos/hat/index.html` | Hat page: the a:b slider, colour presets, About text |
-| `demos/spectre/tiling.js` | Spectre substitution rules, run as a worker |
-| `demos/spectre/index.html` | Spectre page: controls, colour presets, About text |
-| `demos/hat-extended/index.html` | Hat (extended) page: the a:b slider, curved edges with the two-tile rule, About text. It runs the Hat's worker |
+| `app/tiles/index.html` | Redirect page: opens the Hat page, so the address of the folder works |
+| `app/tiles/engine/tiling-core.js` | Worker side, shared: prototypes, supertile boundary levels, the hierarchy walk, chunk packing, corner lookup, the message loop |
+| `app/tiles/engine/map.js` | Page side, shared: WebGL drawing, chunk cache and worker pool, pan, zoom and turn, colours and the key, the grid tool, the address bar |
+| `app/tiles/engine/map.css` | Shared styling, using the site's colour tokens |
+| `app/tiles/engine/edges.js` | Edge shapes, both arrangements, the symmetry each edge takes, collision limits |
+| `app/tiles/hat/tiling.js` | Hat metatile construction and two-part lift, run as a worker |
+| `app/tiles/hat/index.html` | Hat page: the a:b slider, colour presets, About text |
+| `app/tiles/spectre/tiling.js` | Spectre substitution rules, run as a worker |
+| `app/tiles/spectre/index.html` | Spectre page: controls, colour presets, About text |
+| `app/tiles/hat-extended/index.html` | Hat (extended) page: the a:b slider, curved edges with the two-tile rule, About text. It runs the Hat's worker |
 | `tools/hat-edges/` | The research scripts behind the Hat (extended) page, run under Node and Python |
 
 ## How it works
@@ -161,11 +166,11 @@ hats for the first method alone. The reshaped tiling was sampled at 0°, 15°,
 ## Checking a change
 
 - Serve the site with `python3 -m http.server` from the repo root and open
-  `/demos/spectre/`, `/demos/hat/` and `/demos/hat-extended/`. Opened from
+  `/app/tiles/spectre/`, `/app/tiles/hat/` and `/app/tiles/hat-extended/`. Opened from
   disk, the pages build
   chunks on the main thread instead of in workers, which is slower but
   works.
-- The workers run under Node: `require('./demos/hat/tiling.js').build()`
+- The workers run under Node: `require('./app/tiles/hat/tiling.js').build()`
   returns the root and the chunk functions. The checks above were run this
   way, by decoding chunks and testing edge pairing and point coverage.
 - After a change to `edges.js` or the Hat (extended) rule, run
@@ -191,10 +196,11 @@ visitors, and is kept here in case a mathematician asks for it.
   a 10-colour palette on hues 20, 20, 70, 110, 150, 190, 230, 270, 310 and
   350 in OKLCH, with Γ₂ lighter than Γ₁, and a key with Greek captions.
 - **To restore it.** See commit `15be1c7`, files `demos/spectre/tiling.js`
-  and `demos/spectre/index.html`. The tile format now has only 3 spare bits
-  after the mirror flag, so the label needs a fourth: widen the record, or
-  take a bit from the corner levels. Add a class mode for labels in
-  `map.js`, since colour classes are currently turns and mirror flags.
+  and `demos/spectre/index.html`, now under `app/tiles/spectre/`. The tile
+  format now has only 3 spare bits after the mirror flag, so the label needs
+  a fourth: widen the record, or take a bit from the corner levels. Add a
+  class mode for labels in `map.js`, since colour classes are currently
+  turns and mirror flags.
 
 ## Known limits
 

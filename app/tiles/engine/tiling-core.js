@@ -1,4 +1,4 @@
-/* Shared worker code for the tiling demos. A tiling file (spectre/tiling.js,
+/* Shared worker code for the tiling explorer. A tiling file (spectre/tiling.js,
    hat/tiling.js) builds a hierarchy of prototypes with the helpers here, then
    calls TilingCore.serve() to answer the page's requests.
 

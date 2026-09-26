@@ -1607,7 +1607,7 @@
     renderGridHint();
     renderSchemeSelect();
 
-    Audit.wireThemeToggle();
+    Theme.wireThemeToggle();
     new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.addEventListener('resize', resize);
     window.addEventListener('hashchange', function () { if (info && readHash()) { renderSchemeSelect(); renderLegend(); requestDraw(); } });

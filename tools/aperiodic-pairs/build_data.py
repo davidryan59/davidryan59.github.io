@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build aperiodic-pairs/data.js: the two datasets the page cannot compute
+"""Build app/aperiodic-pairs/data.js: the two datasets the page cannot compute
 cheaply in the browser.
 
 * spectre: a level-4 Spectre supertile of 4,401 tiles, from the substitution
@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / "aperiodic-pairs" / "data.js"
+OUT = ROOT / "app" / "aperiodic-pairs" / "data.js"
 
 
 # ---------------------------------------------------------------------------

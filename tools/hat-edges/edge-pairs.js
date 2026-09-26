@@ -12,7 +12,7 @@
      edge to an odd one.
    See docs/hat-edge-research.md. Run with node from anywhere. */
 const path = require('path');
-const R = path.join(__dirname, '..', '..', 'demos') + '/';
+const R = path.join(__dirname, '..', '..', 'app', 'tiles') + '/';
 const C = require(R + 'engine/tiling-core.js');
 const HT = require(R + 'hat/tiling.js');
 const ST = require(R + 'spectre/tiling.js');

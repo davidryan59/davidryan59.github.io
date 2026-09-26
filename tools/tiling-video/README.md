@@ -14,7 +14,7 @@ as it is. [storyboard.md](storyboard.md) says what happens on each beat.
 - `look.json` — how the tiling looks: zoom, pan speed, dice seeds, and the
   Spectre's palette and edge heights.
 - `capture.js` — the tiling layer. It serves this repo locally and adds a
-  small hook to the served copy of `demos/engine/map.js`, so it can place the
+  small hook to the served copy of `app/tiles/engine/map.js`, so it can place the
   camera exactly and wait until every chunk in view is drawn. Output:
   `frames/hat/` and `frames/spectre/`.
 - `overlay/` — the caption layer. `overlay.html` draws the captions, the
@@ -95,7 +95,7 @@ copies the picture across without re-encoding it.
 
 ## Coupling with the explorer
 
-`capture.js` hooks two lines of `demos/engine/map.js`:
+`capture.js` hooks two lines of `app/tiles/engine/map.js`:
 `statusEl.hidden = missing === 0;` in the draw loop, and the `return map;` at
 the end of `start()`. If either changes, the capture stops with "hook points
 not found". Update `patch()` in `capture.js` to match.

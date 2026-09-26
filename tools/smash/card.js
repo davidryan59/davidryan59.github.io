@@ -1,4 +1,4 @@
-/* Draws social/smash.jpg, the 1200 x 630 share card for smash/, in the
+/* Draws social/smash.jpg, the 1200 x 630 share card for app/smash/, in the
    style of the site's other cards: one full-bleed picture, no text. It is a
    close-up of a broken monitor, as in the photo that inspired the page: the
    white article about glass fills the frame, two full-strength blows have
@@ -23,7 +23,7 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 // The blows, as fractions of the screen, and the hammer over the second.
 const HITS = [[0.33, 0.34, SEEDS[0]], [0.64, 0.6, SEEDS[1]]];
-const hammer = fs.readFileSync(path.join(ROOT, 'smash/index.html'), 'utf8').match(/<svg id="hammer"[\s\S]*?<\/svg>/)[0];
+const hammer = fs.readFileSync(path.join(ROOT, 'app/smash/index.html'), 'utf8').match(/<svg id="hammer"[\s\S]*?<\/svg>/)[0];
 
 const CARD = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
   body { margin: 0; background: #000; }
@@ -33,8 +33,8 @@ const CARD = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 </style></head><body>
 <canvas id="card" width="2400" height="1260"></canvas>
 ${hammer}
-<script src="/smash/scenes.js"></script>
-<script src="/smash/damage.js"></script>
+<script src="/app/smash/scenes.js"></script>
+<script src="/app/smash/damage.js"></script>
 <script>
   var W = 1778, H = 1000, k = 1200 / W, oy = (630 - H * k) / 2, HITS = ${JSON.stringify(HITS)};
   var ctx = document.getElementById('card').getContext('2d');
