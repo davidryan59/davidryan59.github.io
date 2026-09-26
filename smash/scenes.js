@@ -1008,7 +1008,880 @@
     }
   }
 
+  /* ------------------------------------------------------- phone screens */
+
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function two(n) { return n < 10 ? '0' + n : String(n); }
+  function clock(d) { return two(d.getHours()) + ':' + two(d.getMinutes()); }
+  function longDate(d) { return DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()]; }
+  function shortDate(d) { return DAYS[d.getDay()].slice(0, 3) + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()].slice(0, 3); }
+
+  var APPS = {
+    Clock: ['#2b2b2e', '#111113'], Camera: ['#b4bec9', '#6b7580'], Maps: ['#f1f8f2', '#d4efdf'], Music: ['#ff5a73', '#f5294a'],
+    Weather: ['#58b4ff', '#2a7de1'], Messages: ['#62e27f', '#28c050'], Mail: ['#4aa8ff', '#1273e6'], Calendar: ['#ffffff', '#f1f1f1'],
+    Calculator: ['#3a3a3e', '#1c1c1e'], Settings: ['#b3b9c0', '#737a82'], Photos: ['#ffffff', '#eef2f6'], Notes: ['#fff6bf', '#ffe066'],
+    Games: ['#8d67ff', '#5f3dc4'], Books: ['#ffa94d', '#f76707'], Health: ['#ffffff', '#f3f3f3'], Files: ['#5ab8ff', '#1c7ed6'],
+    Podcasts: ['#c07bff', '#8e44ec'], Compass: ['#3a3a3e', '#1c1c1e'], Contacts: ['#c9ced6', '#98a0ab'], Browser: ['#ffffff', '#e3eeff']
+  };
+  var APP_NAMES = Object.keys(APPS);
+
+  // One app icon, s units square, with its top-left corner at x, y.
+  function appIcon(ctx, name, x, y, s, date) {
+    var bg = APPS[name] || APPS.Files, W = '#ffffff';
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    fillRound(ctx, 0, 0, 1, 1, 0.23, grad(ctx, 0, 0, 0, 1, bg));
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    switch (name) {
+      case 'Clock':
+        circle(ctx, 0.5, 0.5, 0.38, W);
+        ctx.strokeStyle = '#1c1c1e';
+        ctx.lineWidth = 0.05;
+        ctx.beginPath();
+        ctx.moveTo(0.5, 0.5); ctx.lineTo(0.5, 0.27);
+        ctx.moveTo(0.5, 0.5); ctx.lineTo(0.66, 0.58);
+        ctx.stroke();
+        ctx.strokeStyle = '#ff9500';
+        ctx.lineWidth = 0.025;
+        ctx.beginPath();
+        ctx.moveTo(0.5, 0.5); ctx.lineTo(0.37, 0.7);
+        ctx.stroke();
+        break;
+      case 'Camera':
+        fillRound(ctx, 0.16, 0.33, 0.68, 0.45, 0.08, '#2b2f36');
+        fillRound(ctx, 0.38, 0.25, 0.24, 0.12, 0.04, '#2b2f36');
+        circle(ctx, 0.5, 0.555, 0.15, '#9aa5b1');
+        circle(ctx, 0.5, 0.555, 0.1, '#1b1e23');
+        circle(ctx, 0.46, 0.515, 0.03, W);
+        break;
+      case 'Maps':
+        fillRound(ctx, 0.6, 0.06, 0.34, 0.26, 0.06, '#9ad8a7');
+        circle(ctx, 0.12, 0.9, 0.3, '#9fd3f5');
+        ctx.strokeStyle = W;
+        ctx.lineWidth = 0.08;
+        ctx.beginPath();
+        ctx.moveTo(0, 0.64); ctx.lineTo(1, 0.44);
+        ctx.moveTo(0.34, 0); ctx.lineTo(0.62, 1);
+        ctx.stroke();
+        ctx.fillStyle = '#ff3b30';
+        ctx.beginPath();
+        ctx.arc(0.46, 0.38, 0.13, Math.PI * 0.85, Math.PI * 2.15);
+        ctx.lineTo(0.46, 0.66);
+        ctx.closePath();
+        ctx.fill();
+        circle(ctx, 0.46, 0.38, 0.05, W);
+        break;
+      case 'Music':
+        circle(ctx, 0.36, 0.69, 0.09, W);
+        circle(ctx, 0.67, 0.63, 0.09, W);
+        ctx.fillStyle = W;
+        ctx.fillRect(0.405, 0.27, 0.05, 0.42);
+        ctx.fillRect(0.715, 0.21, 0.05, 0.42);
+        ctx.beginPath();
+        ctx.moveTo(0.405, 0.27); ctx.lineTo(0.765, 0.2); ctx.lineTo(0.765, 0.3); ctx.lineTo(0.405, 0.37);
+        ctx.fill();
+        break;
+      case 'Weather':
+        circle(ctx, 0.4, 0.4, 0.17, '#ffd43b');
+        circle(ctx, 0.5, 0.62, 0.14, W);
+        circle(ctx, 0.66, 0.58, 0.16, W);
+        circle(ctx, 0.34, 0.67, 0.1, W);
+        fillRound(ctx, 0.24, 0.64, 0.58, 0.13, 0.065, W);
+        break;
+      case 'Messages':
+        ctx.fillStyle = W;
+        ctx.beginPath();
+        ctx.ellipse(0.5, 0.47, 0.34, 0.28, 0, 0, TAU);
+        ctx.moveTo(0.3, 0.66); ctx.lineTo(0.22, 0.81); ctx.lineTo(0.44, 0.72);
+        ctx.fill();
+        break;
+      case 'Mail':
+        fillRound(ctx, 0.16, 0.28, 0.68, 0.46, 0.06, W);
+        ctx.strokeStyle = bg[1];
+        ctx.lineWidth = 0.045;
+        ctx.beginPath();
+        ctx.moveTo(0.19, 0.32); ctx.lineTo(0.5, 0.55); ctx.lineTo(0.81, 0.32);
+        ctx.stroke();
+        break;
+      case 'Calendar':
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ff3b30';
+        ctx.font = '600 0.15px ' + SANS;
+        ctx.fillText(DAYS[date.getDay()].slice(0, 3).toUpperCase(), 0.5, 0.27);
+        ctx.fillStyle = '#1c1c1e';
+        ctx.font = '300 0.48px ' + SANS;
+        ctx.fillText(String(date.getDate()), 0.5, 0.74);
+        break;
+      case 'Calculator':
+        for (var j = 0; j < 4; j++) {
+          for (var i = 0; i < 4; i++) circle(ctx, 0.2 + i * 0.2, 0.2 + j * 0.2, 0.075, i === 3 ? '#ff9f0a' : j === 0 ? '#d4d4d2' : '#5a5a5e');
+        }
+        break;
+      case 'Settings':
+        ctx.fillStyle = '#4a5058';
+        ctx.save();
+        ctx.translate(0.5, 0.5);
+        for (var k = 0; k < 8; k++) {
+          ctx.rotate(TAU / 8);
+          ctx.fillRect(-0.06, -0.37, 0.12, 0.14);
+        }
+        ctx.restore();
+        circle(ctx, 0.5, 0.5, 0.27, '#4a5058');
+        circle(ctx, 0.5, 0.5, 0.11, bg[0]);
+        break;
+      case 'Photos':
+        fillRound(ctx, 0.16, 0.2, 0.68, 0.6, 0.06, '#dbe9f7');
+        circle(ctx, 0.64, 0.38, 0.07, '#ffc53d');
+        ctx.fillStyle = '#34a853';
+        ctx.beginPath();
+        ctx.moveTo(0.16, 0.8); ctx.lineTo(0.4, 0.42); ctx.lineTo(0.58, 0.66); ctx.lineTo(0.68, 0.54); ctx.lineTo(0.84, 0.8);
+        ctx.fill();
+        break;
+      case 'Notes':
+        ctx.fillStyle = '#ffd43b';
+        ctx.fillRect(0, 0.08, 1, 0.2);
+        ctx.fillStyle = '#b3a37a';
+        for (var n = 0; n < 4; n++) ctx.fillRect(0.14, 0.42 + n * 0.13, n === 3 ? 0.42 : 0.72, 0.035);
+        break;
+      case 'Games':
+        ctx.fillStyle = W;
+        ctx.fillRect(0.17, 0.44, 0.3, 0.1);
+        ctx.fillRect(0.27, 0.34, 0.1, 0.3);
+        circle(ctx, 0.66, 0.4, 0.065, W);
+        circle(ctx, 0.78, 0.53, 0.065, W);
+        break;
+      case 'Books':
+        ctx.fillStyle = W;
+        ctx.beginPath();
+        ctx.moveTo(0.5, 0.33); ctx.quadraticCurveTo(0.33, 0.24, 0.16, 0.29); ctx.lineTo(0.16, 0.73);
+        ctx.quadraticCurveTo(0.33, 0.68, 0.5, 0.77);
+        ctx.quadraticCurveTo(0.67, 0.68, 0.84, 0.73); ctx.lineTo(0.84, 0.29); ctx.quadraticCurveTo(0.67, 0.24, 0.5, 0.33);
+        ctx.fill();
+        ctx.strokeStyle = bg[1];
+        ctx.lineWidth = 0.03;
+        ctx.beginPath();
+        ctx.moveTo(0.5, 0.34); ctx.lineTo(0.5, 0.75);
+        ctx.stroke();
+        break;
+      case 'Health':
+        ctx.fillStyle = '#ff2d55';
+        ctx.beginPath();
+        ctx.moveTo(0.5, 0.8);
+        ctx.bezierCurveTo(0.1, 0.52, 0.16, 0.2, 0.36, 0.22);
+        ctx.bezierCurveTo(0.44, 0.23, 0.48, 0.28, 0.5, 0.34);
+        ctx.bezierCurveTo(0.52, 0.28, 0.56, 0.23, 0.64, 0.22);
+        ctx.bezierCurveTo(0.84, 0.2, 0.9, 0.52, 0.5, 0.8);
+        ctx.fill();
+        break;
+      case 'Files':
+        fillRound(ctx, 0.16, 0.28, 0.3, 0.14, 0.04, W);
+        fillRound(ctx, 0.16, 0.34, 0.68, 0.42, 0.06, W);
+        break;
+      case 'Podcasts':
+        fillRound(ctx, 0.41, 0.2, 0.18, 0.36, 0.09, W);
+        ctx.strokeStyle = W;
+        ctx.lineWidth = 0.05;
+        ctx.beginPath();
+        ctx.arc(0.5, 0.42, 0.2, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.moveTo(0.5, 0.62); ctx.lineTo(0.5, 0.78);
+        ctx.stroke();
+        break;
+      case 'Compass':
+        ctx.strokeStyle = W;
+        ctx.lineWidth = 0.04;
+        ctx.beginPath();
+        ctx.arc(0.5, 0.5, 0.34, 0, TAU);
+        ctx.stroke();
+        ctx.fillStyle = '#ff3b30';
+        ctx.beginPath();
+        ctx.moveTo(0.5, 0.2); ctx.lineTo(0.57, 0.5); ctx.lineTo(0.43, 0.5);
+        ctx.fill();
+        ctx.fillStyle = W;
+        ctx.beginPath();
+        ctx.moveTo(0.5, 0.8); ctx.lineTo(0.57, 0.5); ctx.lineTo(0.43, 0.5);
+        ctx.fill();
+        break;
+      case 'Contacts':
+        circle(ctx, 0.5, 0.38, 0.14, W);
+        ctx.fillStyle = W;
+        ctx.beginPath();
+        ctx.ellipse(0.5, 0.78, 0.27, 0.2, 0, Math.PI, TAU);
+        ctx.fill();
+        break;
+      case 'Browser':
+        ctx.strokeStyle = '#1c7ed6';
+        ctx.lineWidth = 0.04;
+        ctx.beginPath();
+        ctx.arc(0.5, 0.5, 0.32, 0, TAU);
+        ctx.moveTo(0.18, 0.5); ctx.lineTo(0.82, 0.5);
+        ctx.moveTo(0.5, 0.18); ctx.lineTo(0.5, 0.82);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(0.5, 0.5, 0.15, 0.32, 0, 0, TAU);
+        ctx.stroke();
+        break;
+    }
+    ctx.restore();
+  }
+
+  function shuffled(r, list) {
+    var a = list.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(r() * (i + 1)), t = a[i];
+      a[i] = a[j];
+      a[j] = t;
+    }
+    return a;
+  }
+
+  var WAVES = [['#2b1055', '#7597de', '#d16ba5'], ['#0f2027', '#2c5364', '#79e0c5'], ['#ff9a8b', '#ff6a88', '#ffd1dc'],
+               ['#1a2a6c', '#b21f1f', '#fdbb2d'], ['#134e5e', '#71b280', '#e3f59a'], ['#232526', '#5b6f95', '#a1c4fd']];
+
+  function waves(ctx, W, H, r) {
+    var p = r.pick(WAVES), m = Math.min(W, H);
+    ctx.fillStyle = grad(ctx, 0, 0, W, H, [p[0], p[1]]);
+    ctx.fillRect(0, 0, W, H);
+    for (var k = 0; k < 4; k++) {
+      var y0 = H * (0.3 + k * 0.17), a = m * r.range(0.04, 0.1), f = r.range(1, 2.5) * TAU / W, ph = r.range(0, TAU);
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (var x = 0; x <= W; x += 10) ctx.lineTo(x, y0 + a * Math.sin(x * f + ph));
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fillStyle = rgba(p[2], (0.14 + k * 0.06).toFixed(2));
+      ctx.fill();
+    }
+  }
+
+  function label(ctx, text, x, y, size) {
+    ctx.font = '500 ' + size + 'px ' + SANS;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillText(text, x + size * 0.06, y + size * 0.08);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, x, y);
+  }
+
+  function homeScreen(ctx, W, H, r, info) {
+    waves(ctx, W, H, r);
+    var phone = info.device === 'phone', cols = phone ? 4 : H > W ? 5 : 6;
+    var s = W / cols * 0.6, gap = (W - cols * s) / (cols + 1), rowH = s * 1.65;
+    var y0 = phone ? W * 0.17 : Math.min(W, H) * 0.09, dockH = s * 1.45, dockY = H - dockH - gap * (phone ? 0.5 : 0.35);
+    var rows = Math.floor((dockY - y0 - s * 0.4) / rowH);
+    var names = shuffled(r, APP_NAMES), next = 0, widget = r.chance(0.6);
+    for (var j = 0; j < rows; j++) {
+      for (var i = 0; i < cols; i++) {
+        if (widget && j < 2 && i < 2) continue;
+        var x = gap + i * (s + gap), y = y0 + j * rowH, name = names[next++ % names.length];
+        appIcon(ctx, name, x, y, s, info.time);
+        label(ctx, name, x + s / 2, y + s * 1.08, s * 0.17);
+      }
+    }
+    if (widget) {
+      var ww = 2 * s + gap, wx = gap, wy = y0;
+      fillRound(ctx, wx, wy, ww, rowH + s, s * 0.23, grad(ctx, wx, wy, wx, wy + rowH + s, ['#4aa3ff', '#1d6fe0']));
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.font = '600 ' + s * 0.2 + 'px ' + SANS;
+      ctx.fillText(r.pick(['Da Nang', 'Oxford', 'Leeds', 'Brighton', 'Cardiff']), wx + s * 0.18, wy + s * 0.16);
+      ctx.font = '300 ' + s * 0.62 + 'px ' + SANS;
+      ctx.fillText(r.int(12, 31) + '°', wx + s * 0.14, wy + s * 0.42);
+      circle(ctx, wx + ww - s * 0.5, wy + s * 0.5, s * 0.2, '#ffd43b');
+      ctx.font = '500 ' + s * 0.17 + 'px ' + SANS;
+      ctx.fillText(r.pick(['Sunny', 'Sunny spells', 'Clear skies']), wx + s * 0.18, wy + rowH + s * 0.55);
+    }
+    for (var d = 0; d < 3; d++) circle(ctx, W / 2 + (d - 1) * s * 0.14, dockY - s * 0.2, s * 0.035, d ? 'rgba(255,255,255,0.45)' : '#ffffff');
+    fillRound(ctx, gap * 0.5, dockY, W - gap, dockH, s * 0.35, 'rgba(255,255,255,0.28)');
+    var dock = ['Contacts', 'Browser', 'Messages', 'Music', 'Mail', 'Photos'].slice(0, cols);
+    dock.forEach(function (name, k) { appIcon(ctx, name, gap + k * (s + gap), dockY + (dockH - s) / 2, s, info.time); });
+  }
+
+  var NOTES = [
+    ['Messages', 'Grandma', 'The cake was lovely, thank you!'],
+    ['Calendar', 'Football practice', 'Today at 4 pm. Bring water'],
+    ['Weather', 'Sunny spells', 'Clear skies by this afternoon'],
+    ['Health', 'Nice walk!', 'You passed 8,000 steps today'],
+    ['Notes', 'Shopping list', 'Bread, bananas, tea bags'],
+    ['Mail', 'Library', 'Your book is ready to collect'],
+    ['Podcasts', 'New episode', 'How glass is made'],
+    ['Clock', 'Reminder', 'Water the tomatoes'],
+    ['Photos', 'Memories', 'A day at the beach']
+  ];
+
+  function fitText(ctx, text, width) {
+    if (ctx.measureText(text).width <= width) return text;
+    while (text.length > 1 && ctx.measureText(text + '…').width > width) text = text.slice(0, -1);
+    return text + '…';
+  }
+
+  function lockScreen(ctx, W, H, r, info) {
+    r.pick([mountains, aurora, beach, space, synthwave])(ctx, W, H, r);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(0, 0, W, H);
+    var m = Math.min(W, H), portrait = H > W, top = portrait ? H * 0.1 : H * 0.12;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '600 ' + m * 0.05 + 'px ' + SANS;
+    ctx.fillText(longDate(info.time), W / 2, top + m * 0.06);
+    ctx.font = '300 ' + m * 0.24 + 'px ' + SANS;
+    ctx.fillText(clock(info.time), W / 2, top + m * 0.3);
+
+    var nw = Math.min(W * 0.9, m * 0.95), nh = m * 0.16, x = (W - nw) / 2, y = H * (portrait ? 0.5 : 0.56);
+    shuffled(r, NOTES).slice(0, r.int(1, portrait ? 3 : 2)).forEach(function (note, k) {
+      var ny = y + k * (nh + m * 0.02), ic = m * 0.08;
+      fillRound(ctx, x, ny, nw, nh, m * 0.045, 'rgba(246,246,250,0.8)');
+      appIcon(ctx, note[0], x + m * 0.035, ny + (nh - ic) / 2, ic, info.time);
+      var tx = x + m * 0.035 + ic + m * 0.03, tw = nw - (tx - x) - m * 0.035;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#1c1c1e';
+      ctx.font = '600 ' + m * 0.036 + 'px ' + SANS;
+      ctx.fillText(fitText(ctx, note[1], tw * 0.7), tx, ny + nh * 0.43);
+      ctx.font = '400 ' + m * 0.034 + 'px ' + SANS;
+      ctx.fillText(fitText(ctx, note[2], tw), tx, ny + nh * 0.78);
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#6b6b70';
+      ctx.font = '400 ' + m * 0.03 + 'px ' + SANS;
+      ctx.fillText(k ? k * 7 + 'm ago' : 'now', x + nw - m * 0.035, ny + nh * 0.43);
+    });
+
+    [0.16, 0.84].forEach(function (fx, k) {
+      var bx = W * fx, by = H - m * (portrait ? 0.2 : 0.14), br = m * 0.07;
+      circle(ctx, bx, by, br, 'rgba(0,0,0,0.3)');
+      ctx.fillStyle = '#ffffff';
+      if (k === 0) {
+        fillRound(ctx, bx - br * 0.18, by - br * 0.1, br * 0.36, br * 0.6, br * 0.08, '#ffffff');
+        ctx.beginPath();
+        ctx.moveTo(bx - br * 0.3, by - br * 0.5); ctx.lineTo(bx + br * 0.3, by - br * 0.5);
+        ctx.lineTo(bx + br * 0.18, by - br * 0.1); ctx.lineTo(bx - br * 0.18, by - br * 0.1);
+        ctx.fill();
+      } else {
+        fillRound(ctx, bx - br * 0.42, by - br * 0.25, br * 0.84, br * 0.58, br * 0.1, '#ffffff');
+        circle(ctx, bx, by + br * 0.04, br * 0.17, 'rgba(0,0,0,0.6)');
+      }
+    });
+    fillRound(ctx, W / 2 - m * 0.17, H - m * 0.035, m * 0.34, m * 0.012, m * 0.006, '#ffffff');
+  }
+
+  /* ---------------------------------------------------- desktop screens */
+
+  // Laptop and monitor screens are 1000 units tall, so these sizes are fixed.
+  function statusBar(ctx, W, H, info, color) {
+    var phone = info.device === 'phone', m = Math.min(W, H);
+    var u = phone ? W * 0.042 : m * 0.026, y = phone ? W * 0.075 : m * 0.035, k;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.font = '600 ' + u + 'px ' + SANS;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(phone ? clock(info.time) : clock(info.time) + '   ' + shortDate(info.time), phone ? W * 0.11 : m * 0.04, y);
+    var bx = W - (phone ? W * 0.09 : m * 0.04);
+    ctx.globalAlpha = 0.5;
+    ctx.lineWidth = u * 0.08;
+    ctx.beginPath();
+    roundRect(ctx, bx - u * 1.25, y - u * 0.33, u * 1.1, u * 0.66, u * 0.18);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    fillRound(ctx, bx - u * 1.15, y - u * 0.23, u * 0.75, u * 0.46, u * 0.1, color);
+    fillRound(ctx, bx - u * 0.1, y - u * 0.11, u * 0.08, u * 0.22, u * 0.04, color);
+    var wx = bx - u * 1.9;
+    ctx.lineWidth = u * 0.12;
+    ctx.lineCap = 'round';
+    for (k = 1; k <= 3; k++) {
+      ctx.beginPath();
+      ctx.arc(wx, y + u * 0.32, u * 0.2 * k, -Math.PI * 0.72, -Math.PI * 0.28);
+      ctx.stroke();
+    }
+    for (k = 0; k < 4; k++) ctx.fillRect(bx - u * 3.3 + k * u * 0.25, y + u * 0.3 - u * 0.16 * (k + 1), u * 0.16, u * 0.16 * (k + 1));
+  }
+
+  function menuBar(ctx, W, H, info, items) {
+    var h = 30, fs = 18, x = 22;
+    ctx.fillStyle = 'rgba(20,20,28,0.4)';
+    ctx.fillRect(0, 0, W, h);
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    circle(ctx, x, h / 2, 7, '#ffffff');
+    x += 24;
+    (items || ['Desktop', 'File', 'Edit', 'View', 'Go', 'Window', 'Help']).forEach(function (t, i) {
+      ctx.font = (i ? '400 ' : '600 ') + fs + 'px ' + SANS;
+      ctx.fillText(t, x, h / 2);
+      x += ctx.measureText(t).width + 24;
+    });
+    ctx.textAlign = 'right';
+    ctx.fillText(shortDate(info.time) + '   ' + clock(info.time), W - 22, h / 2);
+  }
+
+  function desktopDock(ctx, W, H, r, info) {
+    var s = 62, n = 9, gap = 14, dw = n * s + (n + 1) * gap, x0 = (W - dw) / 2, y0 = H - s - gap * 2;
+    fillRound(ctx, x0, y0 - gap, dw, s + 2 * gap, 22, 'rgba(255,255,255,0.3)');
+    shuffled(r, APP_NAMES).slice(0, n).forEach(function (name, k) { appIcon(ctx, name, x0 + gap + k * (s + gap), y0, s, info.time); });
+  }
+
+  // A window with its title bar. Returns the title bar's height; the caller
+  // clips to the window before drawing inside it.
+  function appWindow(ctx, x, y, w, h, title, dark) {
+    fillRound(ctx, x - 6, y + 4, w + 12, h + 12, 18, 'rgba(0,0,0,0.12)');
+    fillRound(ctx, x - 2, y + 1, w + 4, h + 4, 14, 'rgba(0,0,0,0.14)');
+    fillRound(ctx, x, y, w, h, 12, dark ? '#1e1e2e' : '#ffffff');
+    ctx.save();
+    ctx.beginPath();
+    roundRect(ctx, x, y, w, h, 12);
+    ctx.clip();
+    ctx.fillStyle = dark ? '#2a2a3a' : '#ececec';
+    ctx.fillRect(x, y, w, 38);
+    ctx.restore();
+    ['#ff5f57', '#febc2e', '#28c840'].forEach(function (c, i) { circle(ctx, x + 22 + i * 22, y + 19, 7, c); });
+    ctx.fillStyle = dark ? '#b8bcd0' : '#4a4a4a';
+    ctx.font = '500 16px ' + SANS;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(title, x + w / 2, y + 19);
+    return 38;
+  }
+
+  var CODE = [
+    [
+      '// hammer.js: swing, hit, repeat',
+      "import { growCrack } from './glass.js';",
+      '',
+      'export function swing(hammer, screen) {',
+      '  const energy = 0.5 * hammer.mass * hammer.speed ** 2;',
+      '  if (energy < screen.toughness) {',
+      "    return { cracked: false, note: 'Try harder' };",
+      '  }',
+      '  const cracks = [];',
+      '  for (let i = 0; i < 6; i++) {',
+      '    const angle = (i / 6) * Math.PI * 2;',
+      '    cracks.push(growCrack(screen, hammer.x, hammer.y, angle));',
+      '  }',
+      '  for (const row of screen.rows) {',
+      '    if (cracks.some((c) => c.crosses(row.y))) row.stuck = true;',
+      '  }',
+      '  return { cracked: true, cracks };',
+      '}',
+      '',
+      'export function inspect(screen) {',
+      '  const dead = screen.rows.filter((row) => row.stuck).length;',
+      '  return `${dead} of ${screen.rows.length} rows are stuck`;',
+      '}'
+    ],
+    [
+      '# pixels.py: find the rows that no longer change',
+      'from dataclasses import dataclass',
+      '',
+      '',
+      '@dataclass',
+      'class Row:',
+      '    y: int',
+      '    colour: tuple[int, int, int]',
+      '    stuck: bool = False',
+      '',
+      '',
+      'def stuck_rows(frames: list[list[Row]]) -> list[int]:',
+      '    """Rows that show the same colour in every frame."""',
+      '    first, *rest = frames',
+      '    return [',
+      '        row.y',
+      '        for row in first',
+      '        if all(f[row.y].colour == row.colour for f in rest)',
+      '    ]',
+      '',
+      '',
+      "if __name__ == '__main__':",
+      "    print(stuck_rows(load_frames('screen.raw')))"
+    ]
+  ];
+  var KEYWORDS = /^(const|let|var|function|return|if|else|for|of|in|new|export|import|from|while|true|false|null|class|def|and|or|not|is|with|as|pass|True|False|None|print|async|await)$/;
+  var SYNTAX = { comment: '#7f849c', string: '#a6e3a1', number: '#fab387', keyword: '#cba6f7', call: '#89b4fa', ident: '#cdd6f4', punct: '#9399b2' };
+
+  function tokens(line) {
+    var out = [], re = /(\/\/.*$|#.*$)|("""[^]*?"""|'[^']*'|"[^"]*"|`[^`]*`)|(\d+(?:\.\d+)?)|([A-Za-z_$@][\w$]*)|(\s+)|(.)/g, mt;
+    while ((mt = re.exec(line))) {
+      if (mt[1]) out.push([mt[1], 'comment']);
+      else if (mt[2]) out.push([mt[2], 'string']);
+      else if (mt[3]) out.push([mt[3], 'number']);
+      else if (mt[4]) out.push([mt[4], KEYWORDS.test(mt[4]) || mt[4].charAt(0) === '@' ? 'keyword' : line.charAt(re.lastIndex) === '(' ? 'call' : 'ident']);
+      else out.push([mt[0], 'punct']);
+    }
+    return out;
+  }
+
+  function codeEditor(ctx, W, H, r, info) {
+    waves(ctx, W, H, r);
+    menuBar(ctx, W, H, info, ['Code', 'File', 'Edit', 'Selection', 'View', 'Go', 'Run', 'Window', 'Help']);
+    var py = r.chance(0.35), lines = CODE[py ? 1 : 0], file = py ? 'pixels.py' : 'hammer.js';
+    var x = W * 0.05, y = 60, w = W * 0.9, h = H - 90, tb = appWindow(ctx, x, y, w, h, file + ' — smash', true);
+    var side = w * 0.19, fs = 19, lh = 29.5, status = 28, i;
+    ctx.save();
+    ctx.beginPath();
+    roundRect(ctx, x, y, w, h, 12);
+    ctx.clip();
+    ctx.fillStyle = '#181825';
+    ctx.fillRect(x, y + tb, side, h - tb);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = '600 15px ' + SANS;
+    ctx.fillStyle = '#a6adc8';
+    ctx.fillText('EXPLORER', x + 20, y + tb + 26);
+    ['▾ smash', '  ▾ src', '    glass.js', '    hammer.js', '    pixels.py', '    screen.js', '  ▸ tests', '  index.html', '  README.md'].forEach(function (f, k) {
+      var fy = y + tb + 64 + k * 32;
+      if (f.trim() === file) {
+        ctx.fillStyle = '#313244';
+        ctx.fillRect(x, fy - 15, side, 30);
+      }
+      ctx.fillStyle = f.trim() === file ? '#ffffff' : '#bac2de';
+      ctx.font = '400 17px ' + SANS;
+      ctx.fillText(f, x + 18, fy);
+    });
+
+    var ex = x + side, ey = y + tb;
+    ctx.fillStyle = '#11111b';
+    ctx.fillRect(ex, ey, w - side, 40);
+    ctx.fillStyle = '#1e1e2e';
+    ctx.fillRect(ex, ey, 170, 40);
+    ctx.fillStyle = '#cdd6f4';
+    ctx.font = '400 16px ' + SANS;
+    ctx.fillText(file, ex + 22, ey + 20);
+    ctx.fillStyle = '#7f849c';
+    ctx.fillText(py ? 'hammer.js' : 'glass.js', ex + 192, ey + 20);
+
+    var top = ey + 56, cur = r.int(3, lines.length - 2);
+    ctx.fillStyle = '#2a2b3c';
+    ctx.fillRect(ex, top + cur * lh - lh / 2, w - side, lh);
+    ctx.font = fs + 'px ' + MONO;
+    var cw = ctx.measureText('M').width;
+    for (i = 0; i < lines.length; i++) {
+      var ly = top + i * lh;
+      if (ly > y + h - status - 10) break;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = i === cur ? '#cdd6f4' : '#6c7086';
+      ctx.fillText(String(i + 1), ex + 52, ly);
+      ctx.textAlign = 'left';
+      var cx = ex + 76;
+      tokens(lines[i]).forEach(function (t) {
+        ctx.fillStyle = SYNTAX[t[1]];
+        ctx.fillText(t[0], cx, ly);
+        cx += t[0].length * cw;
+      });
+      if (i === cur) {
+        ctx.fillStyle = '#f5e0dc';
+        ctx.fillRect(ex + 76 + lines[i].length * cw + 2, ly - lh * 0.38, 2.5, lh * 0.76);
+      }
+    }
+    for (i = 0; i < lines.length; i++) {
+      ctx.fillStyle = 'rgba(205,214,244,0.25)';
+      ctx.fillRect(x + w - 90, top + i * 5, Math.min(70, lines[i].length * 1.3), 2.5);
+    }
+    ctx.fillStyle = '#6c5ce7';
+    ctx.fillRect(x, y + h - status, w, status);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '400 15px ' + SANS;
+    ctx.fillText('⎇ main    ✓ 0 problems', x + 16, y + h - status / 2);
+    ctx.textAlign = 'right';
+    ctx.fillText('Ln ' + (cur + 1) + ', Col ' + (lines[cur].length + 1) + '    Spaces: ' + (py ? 4 : 2) + '    UTF-8    ' + (py ? 'Python' : 'JavaScript'),
+                 x + w - 16, y + h - status / 2);
+    ctx.restore();
+  }
+
+  var MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function spreadsheet(ctx, W, H, r, info) {
+    waves(ctx, W, H, r);
+    menuBar(ctx, W, H, info, ['Sheets', 'File', 'Edit', 'View', 'Insert', 'Format', 'Data', 'Window', 'Help']);
+    var x = W * 0.035, y = 56, w = W * 0.93, h = H - 80, tb = appWindow(ctx, x, y, w, h, 'Snacks 2026', false);
+    var tool = 46, fbar = 36, headW = 52, colW = 146, rowH = 34, i, j;
+    ctx.save();
+    ctx.beginPath();
+    roundRect(ctx, x, y, w, h, 12);
+    ctx.clip();
+    var ty = y + tb;
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(x, ty, w, tool);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.font = '500 17px ' + SANS;
+    var tx = x + 20;
+    ['Home', 'Insert', 'Data', 'View'].forEach(function (t, k) {
+      ctx.fillStyle = k ? '#5f6368' : '#188038';
+      ctx.fillText(t, tx, ty + tool / 2);
+      tx += ctx.measureText(t).width + 30;
+    });
+    for (i = 0; i < 12; i++) fillRound(ctx, tx + 20 + i * 38, ty + 11, 26, 24, 5, i % 4 ? '#e3e6ea' : '#d2e3fc');
+    var fy = ty + tool;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x, fy, w, fbar);
+    ctx.strokeStyle = '#dadce0';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 10, fy + 5, 80, fbar - 10);
+    ctx.fillStyle = '#202124';
+    ctx.font = '400 16px ' + SANS;
+    ctx.fillText('F15', x + 22, fy + fbar / 2);
+    ctx.fillStyle = '#5f6368';
+    ctx.font = 'italic 17px ' + SERIF;
+    ctx.fillText('fx', x + 104, fy + fbar / 2);
+    ctx.fillStyle = '#202124';
+    ctx.font = '400 16px ' + MONO;
+    ctx.fillText('=SUM(F3:F14)', x + 136, fy + fbar / 2);
+
+    var gy = fy + fbar, cols = Math.floor((w - headW) / colW) + 1, rows = Math.floor((y + h - 40 - gy) / rowH);
+    ctx.fillStyle = '#f1f3f4';
+    ctx.fillRect(x, gy, w, rowH);
+    ctx.fillRect(x, gy, headW, h);
+    ctx.font = '400 15px ' + SANS;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#5f6368';
+    for (i = 0; i < cols; i++) ctx.fillText(String.fromCharCode(65 + i), x + headW + i * colW + colW / 2, gy + rowH / 2);
+    for (j = 1; j < rows; j++) ctx.fillText(String(j), x + headW / 2, gy + j * rowH + rowH / 2);
+
+    var head = ['Month', 'Tea', 'Coffee', 'Biscuits', 'Cake', 'Total'], sums = [0, 0, 0, 0, 0], data = [];
+    for (j = 0; j < 12; j++) {
+      var row = [r.int(120, 260), r.int(80, 200), r.int(40, 160), r.int(5, 40)];
+      row.push(row[0] + row[1] + row[2] + row[3]);
+      row.forEach(function (v, k) { sums[k] += v; });
+      data.push(row);
+    }
+    function cell(ci, rj) { return [x + headW + ci * colW, gy + rj * rowH]; }
+    ctx.fillStyle = '#d2e3fc';
+    var hc = cell(1, 2);
+    ctx.fillRect(hc[0], hc[1], colW * 6, rowH);
+    ctx.font = '600 16px ' + SANS;
+    ctx.fillStyle = '#202124';
+    head.forEach(function (t, k) {
+      var c = cell(1 + k, 2);
+      ctx.textAlign = k ? 'right' : 'left';
+      ctx.fillText(t, k ? c[0] + colW - 12 : c[0] + 12, c[1] + rowH / 2);
+    });
+    ctx.font = '400 16px ' + SANS;
+    data.forEach(function (row, rj) {
+      var c = cell(1, 3 + rj);
+      ctx.textAlign = 'left';
+      ctx.fillText(MONTH_SHORT[rj], c[0] + 12, c[1] + rowH / 2);
+      ctx.textAlign = 'right';
+      row.forEach(function (v, k) { ctx.fillText(String(v), c[0] + (k + 2) * colW - 12, c[1] + rowH / 2); });
+    });
+    ctx.font = '600 16px ' + SANS;
+    var tc = cell(1, 15);
+    ctx.textAlign = 'left';
+    ctx.fillText('Total', tc[0] + 12, tc[1] + rowH / 2);
+    ctx.textAlign = 'right';
+    sums.forEach(function (v, k) { ctx.fillText(String(v), tc[0] + (k + 2) * colW - 12, tc[1] + rowH / 2); });
+    ctx.fillStyle = '#202124';
+    ctx.fillRect(tc[0], tc[1], colW * 6, 1.5);
+
+    ctx.strokeStyle = '#e2e3e5';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (i = 0; i <= cols; i++) { ctx.moveTo(x + headW + i * colW, gy); ctx.lineTo(x + headW + i * colW, gy + rows * rowH); }
+    for (j = 0; j <= rows; j++) { ctx.moveTo(x, gy + j * rowH); ctx.lineTo(x + w, gy + j * rowH); }
+    ctx.stroke();
+
+    var sc = cell(6, 15);
+    ctx.strokeStyle = '#1a73e8';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(sc[0], sc[1], colW, rowH);
+    ctx.fillStyle = '#1a73e8';
+    ctx.fillRect(sc[0] + colW - 4, sc[1] + rowH - 4, 8, 8);
+
+    if (cols >= 10) {
+      var cx0 = cell(8, 2)[0] + 10, cy0 = cell(8, 2)[1], chW = colW * (cols - 8) - 30, chH = rowH * 12;
+      fillRound(ctx, cx0 - 2, cy0 + 3, chW + 4, chH + 4, 8, 'rgba(0,0,0,0.12)');
+      fillRound(ctx, cx0, cy0, chW, chH, 8, '#ffffff');
+      ctx.fillStyle = '#202124';
+      ctx.textAlign = 'left';
+      ctx.font = '600 18px ' + SANS;
+      ctx.fillText('Tea breaks by month', cx0 + 20, cy0 + 30);
+      var base = cy0 + chH - 40, bw = (chW - 60) / 12, maxV = 260;
+      data.forEach(function (row, k) {
+        var bh = (chH - 110) * row[0] / maxV;
+        ctx.fillStyle = k === 11 ? '#fbbc04' : '#4c8bf5';
+        ctx.fillRect(cx0 + 40 + k * bw + bw * 0.15, base - bh, bw * 0.7, bh);
+        ctx.fillStyle = '#5f6368';
+        ctx.font = '400 13px ' + SANS;
+        ctx.textAlign = 'center';
+        ctx.fillText(MONTH_SHORT[k].charAt(0), cx0 + 40 + k * bw + bw / 2, base + 18);
+      });
+      ctx.fillStyle = '#9aa0a6';
+      ctx.fillRect(cx0 + 36, base, chW - 56, 1.5);
+    }
+
+    ctx.fillStyle = '#f1f3f4';
+    ctx.fillRect(x, y + h - 40, w, 40);
+    fillRound(ctx, x + 70, y + h - 36, 130, 32, 6, '#ffffff');
+    ctx.textAlign = 'left';
+    ctx.font = '500 16px ' + SANS;
+    ctx.fillStyle = '#188038';
+    ctx.fillText('Snacks', x + 102, y + h - 20);
+    ctx.fillStyle = '#5f6368';
+    ctx.fillText('Budget', x + 226, y + h - 20);
+    ctx.fillText('+', x + 28, y + h - 20);
+    ctx.restore();
+  }
+
+  var ARTICLE = [
+    ['h1', 'Glass'],
+    ['p', 'Glass is a hard, brittle material that lets light through. It is usually made by melting sand with other minerals and cooling the melt quickly, so that its atoms have no time to line up into crystals.'],
+    ['p', 'Most windows, bottles and jars are soda-lime glass, made from silica sand, soda ash and limestone. It is cheap, easy to shape and can be recycled again and again.'],
+    ['h2', 'Screens'],
+    ['p', 'The screen of a phone or laptop sits behind a sheet of toughened glass. Chemical toughening swaps small sodium ions near the surface for larger potassium ions, which squeezes the surface and makes it much harder to crack.'],
+    ['p', 'Behind that glass, a liquid crystal display holds a thin layer of liquid crystal between two more sheets of glass. When those sheets break, the liquid crystal can spread into dark patches, and damaged wiring can light whole rows of pixels in a single colour.'],
+    ['h2', 'Cracks'],
+    ['p', 'A crack can run through glass at more than a kilometre per second. In 1921 the engineer A. A. Griffith showed why glass breaks so much more easily than the strength of its atomic bonds suggests: tiny flaws at the surface concentrate the stress.']
+  ];
+
+  function wrap(ctx, text, width) {
+    var lines = [], line = '';
+    text.split(' ').forEach(function (word) {
+      var t = line ? line + ' ' + word : word;
+      if (line && ctx.measureText(t).width > width) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = t;
+      }
+    });
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  function article(ctx, W, H, r, info) {
+    var m = Math.min(W, H), u = m / 1000, tabs = 44 * u, bar = 50 * u;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#dee1e6';
+    ctx.fillRect(0, 0, W, tabs);
+    fillRound(ctx, 90 * u, 7 * u, 260 * u, tabs, [10 * u, 10 * u, 0, 0], '#ffffff');
+    circle(ctx, 116 * u, tabs / 2 + 4 * u, 8 * u, '#8ab4f8');
+    ctx.fillStyle = '#202124';
+    ctx.font = '400 ' + 17 * u + 'px ' + SANS;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Glass', 134 * u, tabs / 2 + 4 * u);
+    ['#ff5f57', '#febc2e', '#28c840'].forEach(function (c, i) { circle(ctx, (22 + i * 22) * u, tabs / 2, 7 * u, c); });
+    fillRound(ctx, 120 * u, tabs + 8 * u, W - 240 * u, bar - 16 * u, (bar - 16 * u) / 2, '#f1f3f4');
+    ctx.fillStyle = '#5f6368';
+    ctx.fillText('reference.example/glass', 146 * u, tabs + bar / 2);
+    ctx.fillStyle = '#dadce0';
+    ctx.fillRect(0, tabs + bar - 1.5 * u, W, 1.5 * u);
+
+    var boxW = W > 1300 * u ? 330 * u : 0, left = 70 * u, textW = W - left * 2 - (boxW ? boxW + 50 * u : 0);
+    var y = tabs + bar + 60 * u;
+    if (boxW) {
+      var bx = W - left - boxW, by = y + 70 * u, bh = 470 * u;
+      ctx.fillStyle = '#f8f9fa';
+      ctx.fillRect(bx, by, boxW, bh);
+      ctx.strokeStyle = '#a2a9b1';
+      ctx.lineWidth = 1.5 * u;
+      ctx.strokeRect(bx, by, boxW, bh);
+      ctx.fillStyle = '#202122';
+      ctx.font = '600 ' + 22 * u + 'px ' + SANS;
+      ctx.textAlign = 'center';
+      ctx.fillText('Glass', bx + boxW / 2, by + 30 * u);
+      var gx = bx + boxW / 2, gy = by + 70 * u, gw = 90 * u, gh = 190 * u;
+      ctx.fillStyle = grad(ctx, 0, gy + gh * 0.35, 0, gy + gh, ['#bfe3ff', '#78bdf0']);
+      ctx.beginPath();
+      ctx.moveTo(gx - gw * 0.92, gy + gh * 0.35);
+      ctx.lineTo(gx + gw * 0.92, gy + gh * 0.35);
+      ctx.lineTo(gx + gw * 0.7, gy + gh);
+      ctx.lineTo(gx - gw * 0.7, gy + gh);
+      ctx.fill();
+      ctx.strokeStyle = '#7d8a96';
+      ctx.lineWidth = 3 * u;
+      ctx.beginPath();
+      ctx.moveTo(gx - gw, gy);
+      ctx.lineTo(gx - gw * 0.7, gy + gh);
+      ctx.lineTo(gx + gw * 0.7, gy + gh);
+      ctx.lineTo(gx + gw, gy);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.fillRect(gx - gw * 0.6, gy + gh * 0.45, 8 * u, gh * 0.4);
+      ctx.font = '400 ' + 17 * u + 'px ' + SANS;
+      [['Type', 'Amorphous solid'], ['Made from', 'Silica sand'], ['Brittle', 'Yes']].forEach(function (row, k) {
+        var ry = by + 320 * u + k * 44 * u;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#202122';
+        ctx.fillText(row[0], bx + 18 * u, ry);
+        ctx.fillText(row[1], bx + 140 * u, ry);
+      });
+    }
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ARTICLE.forEach(function (block) {
+      if (y > H) return;
+      if (block[0] === 'h1') {
+        ctx.fillStyle = '#000000';
+        ctx.font = '400 ' + 58 * u + 'px ' + SERIF;
+        ctx.fillText(block[1], left, y + 40 * u);
+        y += 62 * u;
+        ctx.fillStyle = '#a2a9b1';
+        ctx.fillRect(left, y, textW + (boxW ? boxW + 50 * u : 0), 1.5 * u);
+        y += 44 * u;
+      } else if (block[0] === 'h2') {
+        ctx.fillStyle = '#000000';
+        ctx.font = '400 ' + 36 * u + 'px ' + SERIF;
+        ctx.fillText(block[1], left, y + 22 * u);
+        y += 34 * u;
+        ctx.fillStyle = '#c8ccd1';
+        ctx.fillRect(left, y, textW, 1.2 * u);
+        y += 38 * u;
+      } else {
+        ctx.fillStyle = '#202122';
+        ctx.font = '400 ' + 23 * u + 'px ' + SERIF;
+        wrap(ctx, block[1], textW).forEach(function (line) {
+          ctx.fillText(line, left, y);
+          y += 37 * u;
+        });
+        y += 18 * u;
+      }
+    });
+  }
+
   /* ------------------------------------------------------------ registry */
+
+  // chrome: true gives a phone or tablet its status bar, and a laptop or
+  // monitor a menu bar and sometimes a dock. 'status' gives only the status
+  // bar. ink is the status bar's colour where white would not show.
+  var ALL = ['phone', 'tablet', 'laptop', 'monitor'];
+  Smash.scenes = [
+    { id: 'mountains', label: 'a mountain sunset', draw: mountains, fits: ALL, chrome: true },
+    { id: 'aurora', label: 'the northern lights', draw: aurora, fits: ALL, chrome: true },
+    { id: 'beach', label: 'a tropical beach', draw: beach, fits: ALL, chrome: true },
+    { id: 'reef', label: 'a coral reef', draw: underwater, fits: ALL, chrome: true },
+    { id: 'planet', label: 'a ringed planet', draw: space, fits: ALL, chrome: true },
+    { id: 'synthwave', label: 'a synthwave sunset', draw: synthwave, fits: ALL, chrome: true },
+    { id: 'game', label: 'a pixel-art game', draw: pixelGame, fits: ALL, chrome: false },
+    { id: 'cat', label: 'a cartoon cat', draw: cat, fits: ALL, chrome: 'status', ink: '#1c1c1e' },
+    { id: 'test-card', label: 'a TV test card', draw: testCard, fits: ALL, chrome: false },
+    { id: 'home', label: 'its home screen', draw: homeScreen, fits: ['phone', 'tablet'], chrome: 'status' },
+    { id: 'lock', label: 'its lock screen', draw: lockScreen, fits: ['phone', 'tablet'], chrome: 'status' },
+    { id: 'code', label: 'a code editor', draw: codeEditor, fits: ['laptop', 'monitor'], chrome: false },
+    { id: 'sheet', label: 'a spreadsheet', draw: spreadsheet, fits: ['laptop', 'monitor'], chrome: false },
+    { id: 'article', label: 'an article about glass', draw: article, fits: ['tablet', 'laptop', 'monitor'], chrome: false }
+  ];
+
+  // pic: { scene, seed, device, time }. Draws the whole picture, in screen
+  // units, into a context the caller has already clipped to the screen.
+  Smash.drawPicture = function (ctx, W, H, pic) {
+    var scene = pic.scene, info = { device: pic.device, time: pic.time };
+    ctx.save();
+    scene.draw(ctx, W, H, rng(pic.seed), info);
+    ctx.restore();
+    if (!scene.chrome) return;
+    ctx.save();
+    if (pic.device === 'phone' || pic.device === 'tablet') {
+      statusBar(ctx, W, H, info, scene.ink || '#ffffff');
+    } else if (scene.chrome === true) {
+      menuBar(ctx, W, H, info);
+      if (rng(pic.seed + 1)() < 0.6) desktopDock(ctx, W, H, rng(pic.seed + 2), info);
+    }
+    ctx.restore();
+  };
 
   Smash.rng = rng;
   Smash.draw = { roundRect: roundRect, fillRound: fillRound, circle: circle, grad: grad, glow: glow, rgba: rgba };

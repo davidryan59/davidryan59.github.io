@@ -1,4 +1,4 @@
-# Aperiodic pairs gallery
+# Aperiodic Pair Gallery
 
 ## Summary
 
