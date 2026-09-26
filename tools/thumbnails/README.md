@@ -22,7 +22,7 @@ Run any of them from anywhere, for example `node tools/thumbnails/dino-dash.js`.
 ## Notes
 
 - The page clips the tilings, ReTuner and Highlight Buffs to a circle, like
-  the NFT artworks. It shows the dice, Smash a Screen and the two games as rounded squares:
+  the NFT artworks. It shows the dice, Smash Screen and the two games as rounded squares:
   `.thumb-link.square` in `index.html`.
 - The game pictures use each game's own colours and sprites, ported from its
   repo. The ReTuner keys are measured from a screenshot of the live app.

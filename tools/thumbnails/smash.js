@@ -1,4 +1,4 @@
-/* Draws thumbs/smash.svg: the Smash a screen page in miniature. A monitor
+/* Draws thumbs/smash.svg: the Smash Screen page in miniature. A monitor
    shows a white web page. The hammer lifts and strikes, cracks run out from
    the blow, black ink spreads and bright lines of stuck pixels flicker on.
    The broken screen holds, then fades back to whole, on an 8 s loop.

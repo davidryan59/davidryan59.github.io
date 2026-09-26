@@ -1,4 +1,4 @@
-/* The Smash a screen page: a device, the picture on it, the hammer that
+/* The Smash Screen page: a device, the picture on it, the hammer that
    follows the pointer, the view, the sound and the controls. scenes.js
    draws the pictures and damage.js models each blow.
 

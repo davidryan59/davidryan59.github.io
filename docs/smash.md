@@ -1,4 +1,4 @@
-# Smash a screen
+# Smash Screen
 
 ## Summary
 

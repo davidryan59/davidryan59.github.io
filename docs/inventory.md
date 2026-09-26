@@ -155,7 +155,7 @@ not the release — the live Optimism deployment above is the one to publish.
 | Item | Link | Status |
 |---|---|---|
 | GitHub, public repos | [github.com/davidryan59](https://github.com/davidryan59) | Live |
-| Smash a Screen: take a hammer to a phone, tablet, laptop or monitor, and the screen cracks, bleeds black ink and lights lines of stuck pixels, built 2026-09-26. Listed on the page after dice-to-seed | [drbuild.uk/smash/](https://drbuild.uk/smash/) | Unchecked, not yet pushed |
+| Smash Screen: take a hammer to a phone, tablet, laptop or monitor, and the screen cracks, bleeds black ink and lights lines of stuck pixels, built 2026-09-26. Listed on the page after dice-to-seed | [drbuild.uk/smash/](https://drbuild.uk/smash/) | Unchecked, not yet pushed |
 | npm profile | [npmjs.com/~davidryan](https://www.npmjs.com/~davidryan) | Live, confirmed in browser 2026-08-14. Blocked to automated checks; the four packages below were confirmed instead via the npm registry's own search API, which has no such block |
 
 ### Maths demos
