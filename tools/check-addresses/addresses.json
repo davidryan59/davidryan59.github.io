@@ -22,7 +22,8 @@
     { "path": "/app/tiles/spectre/", "title": "Spectre tiling", "direct": true },
     { "path": "/app/tiles/hat-extended/", "title": "Hat tiling, extended", "direct": true },
     { "path": "/app/aperiodic-pairs/", "title": "Aperiodic Pair Gallery", "direct": true },
-    { "path": "/app/smash/", "title": "Smash Screen", "direct": true }
+    { "path": "/app/smash/", "title": "Smash Screen", "direct": true },
+    { "path": "/app/parfly/", "title": "Parfly – record a journey by GPS", "direct": true }
   ],
   "files": [
     "/favicon.svg",

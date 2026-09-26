@@ -18,8 +18,9 @@ address, `davidryan59.github.io`, redirects there.
   - `app/smash/` – a device with a random picture and a hammer that breaks its
     screen: cracks, spreading black ink and lines of stuck pixels. See
     [docs/smash.md](docs/smash.md).
-  - `app/parfly/` – the privacy policy of the Parfly Android app, served at
-    `drbuild.uk/parfly/privacy`, where the app's store listing holds it.
+  - `app/parfly/` – a placeholder page for the Parfly Android app, and its
+    privacy policy, which is served at `drbuild.uk/parfly/privacy`, where the
+    app's store listing holds it.
 - `merge-fractals/`, `moving-mondrian/` – mint pages for the two NFT
   collections, both still mintable onchain, each with its own artwork. See
   [docs/mint-pages.md](docs/mint-pages.md).
