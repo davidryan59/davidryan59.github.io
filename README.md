@@ -15,8 +15,8 @@ address, `davidryan59.github.io`, redirects there.
     drawn in the browser from its definition. `data.js` holds the two
     datasets built by `tools/aperiodic-pairs/build_data.py`. See
     [docs/aperiodic-pairs.md](docs/aperiodic-pairs.md).
-  - `app/smash/` – a device with a random picture and a hammer that breaks its
-    screen: cracks, spreading black ink and lines of stuck pixels. See
+  - `app/smash/` – Smash Screen, a game: break a device's screen with a hammer,
+    a fish, a bomb and more, in Fun Mode or against the clock in Anger Mode. See
     [docs/smash.md](docs/smash.md).
   - `app/parfly/` – a placeholder page for the Parfly Android app, and its
     privacy policy, which is served at `drbuild.uk/parfly/privacy`, where the
@@ -65,7 +65,7 @@ there first, then render it into `index.html`.
 - [docs/site-layout.md](docs/site-layout.md) – how the site is filed, and the addresses that must keep working
 - [docs/tiling-explorer.md](docs/tiling-explorer.md) – how the Hat and Spectre viewers work
 - [docs/aperiodic-pairs.md](docs/aperiodic-pairs.md) – how each gallery tiling is generated and checked
-- [docs/smash.md](docs/smash.md) – how the smash page breaks a screen, and what it costs to run
+- [docs/smash.md](docs/smash.md) – the rules of Smash Screen, how a blow breaks a screen, and what it costs to run
 - [docs/hat-edge-research.md](docs/hat-edge-research.md) – why curved edges make the Hat two tiles, and how that was checked
 - [docs/inventory.md](docs/inventory.md) – the source list the page renders
 - [docs/mint-pages.md](docs/mint-pages.md) – how the two mint pages work

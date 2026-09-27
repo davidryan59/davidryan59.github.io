@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Smash Screen &ndash; take a hammer to a device</title>
-<meta name="description" content="Swing a hammer at a phone, tablet, laptop or monitor and watch its screen break the way a real one does: cracks, spreading black ink and bright lines of stuck pixels.">
+<title>Smash Screen &ndash; a game of breaking screens</title>
+<meta name="description" content="Smash a phone, tablet, laptop or monitor with a hammer, a fist, a fish, a banana, a bomb or lightning. Destroy every pixel before the clock runs out, or just smash things in Fun Mode.">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../../favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://drbuild.uk/app/smash/">
-<meta property="og:title" content="Smash Screen &ndash; take a hammer to a device">
-<meta property="og:description" content="Swing a hammer at a phone, tablet, laptop or monitor and watch its screen crack, bleed black and light up with stuck pixels.">
+<meta property="og:title" content="Smash Screen &ndash; a game of breaking screens">
+<meta property="og:description" content="Take a hammer, a fish or a bomb to a phone, tablet, laptop or monitor, and destroy every pixel before the clock runs out.">
 <meta property="og:image" content="https://drbuild.uk/social/smash.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -28,7 +28,7 @@
   .back { margin: 0; font-size: 0.9rem; }
   h1 { margin: 0.3rem 0 0.15rem; }
   .tagline { margin: 0 0 0.8rem; font-size: 0.95rem; }
-  /* The new-device button sits at the right of the title and tagline. */
+  /* The Fun Mode buttons sit at the right of the title and tagline. */
   .title-row {
     display: flex;
     flex-wrap: wrap;
@@ -37,9 +37,9 @@
     gap: 0 1.25rem;
     margin-right: -3rem;
   }
-  .title-row > div { flex: 1 1 22rem; }
-  .new-device {
-    margin: 0 0 0.8rem;
+  .title-row > div:first-child { flex: 1 1 22rem; }
+  .fun-tools { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.8rem; }
+  .tool {
     font: 600 0.95rem system-ui, -apple-system, "Segoe UI", sans-serif;
     color: var(--h1);
     background: var(--panel);
@@ -49,17 +49,20 @@
     cursor: pointer;
     white-space: nowrap;
   }
-  .new-device:hover { border-color: var(--link); }
-  .new-device:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+  .tool:hover { border-color: var(--link); }
+  .tool:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
   .theme-toggle { top: 1rem; right: 1rem; }
 
   /* The stage fits the window with room for the text around it, so the
      device is never cropped and the page never scrolls on a laptop. */
+  /* clip, where supported, keeps the stage from scrolling to follow the
+     arm or a focused button. */
   .stage {
     position: relative;
     overflow: hidden;
-    height: clamp(300px, calc(100vh - 13.5rem), 780px);
-    height: clamp(300px, calc(100svh - 13.5rem), 780px);
+    overflow: clip;
+    height: clamp(320px, calc(100vh - 13.5rem), 800px);
+    height: clamp(320px, calc(100svh - 13.5rem), 800px);
     background: radial-gradient(ellipse at 50% 38%, var(--panel), var(--bg) 75%);
     border: 1px solid var(--rule);
     border-radius: 12px;
@@ -70,18 +73,293 @@
     cursor: none;
     outline: none;
   }
+  .stage.mode-title { cursor: default; }
+  .stage.drop { outline: 3px dashed var(--link); outline-offset: -3px; }
   .stage:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
   .stage canvas { display: block; width: 100%; height: 100%; }
-  #hammer {
+  #fx { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 1; }
+
+  /* The right hand and its weapon. The drawing runs past its box, down to
+     the arm, so the box does not clip it. */
+  #hand {
     position: absolute;
     left: 0;
     top: 0;
     width: 130px;
     height: 150px;
+    overflow: visible;
     transform-origin: 110px 140px;
     pointer-events: none;
     transition: opacity 0.15s;
-    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+    z-index: 2;
+  }
+  #hand .bones, #hand .sweat { display: none; }
+  #hand.sweat .sweat { display: inline; }
+  #hand.xray { filter: brightness(0.3) drop-shadow(0 0 10px #9fe8ff); }
+  #hand.xray .bones { display: inline; }
+  #hand .spark { animation: spark 0.12s infinite alternate; }
+  @keyframes spark { from { opacity: 1; } to { opacity: 0.4; } }
+
+  /* Anger Mode's bars, fighting-game style: your Health on the left, the
+     screen's on the right, each draining towards its own edge. */
+  .hud {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 8px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: start;
+    pointer-events: none;
+    font: italic 900 13px "Arial Black", "Helvetica Neue", Impact, sans-serif;
+    color: #fff;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.65);
+    z-index: 3;
+    letter-spacing: 0.03em;
+  }
+  .hud .lbl { display: flex; justify-content: space-between; gap: 6px; line-height: 1.3; }
+  .hud .bar {
+    height: 15px;
+    background: rgba(40, 8, 10, 0.85);
+    border: 2px solid #f4ead2;
+    border-radius: 3px;
+    overflow: hidden;
+    display: flex;
+    transform: skewX(-16deg);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  }
+  .hud .bar i { display: block; height: 100%; width: 100%; background: linear-gradient(#fff07a, #f5a800); transition: width 0.25s; }
+  .hud .bar i.low { background: linear-gradient(#ff8080, #c40000); }
+  .hud .power { height: 8px; margin-top: 5px; width: 70%; }
+  .hud .power i { background: linear-gradient(#cdbcff, #6a3dff); }
+  .hud .power i.full { background: linear-gradient(#f1ebff, #a27bff); animation: charged 0.5s infinite alternate; }
+  .hud .them .lbl { flex-direction: row-reverse; }
+  .hud .them .bar { justify-content: flex-end; transform: skewX(16deg); }
+  .hud .them .bar i { background: linear-gradient(#a5ecff, #1e88e5); }
+  .hud .mid { text-align: center; line-height: 1.1; min-width: 5.5rem; }
+  .hud .timer { font-size: 30px; color: #ffe14d; font-variant-numeric: tabular-nums; }
+  .hud .timer.low { color: #ff5a5a; animation: charged 0.5s infinite alternate; }
+  .hud .level { font-size: 11px; }
+  .hud .score { font-size: 13px; font-variant-numeric: tabular-nums; }
+  @keyframes charged { from { opacity: 1; } to { opacity: 0.55; } }
+
+  .weapons {
+    position: absolute;
+    left: 50%;
+    bottom: 6px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: rgba(14, 14, 18, 0.74);
+    border-radius: 12px;
+    z-index: 3;
+    cursor: default;
+  }
+  .wpn {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 9px;
+    border: 2px solid transparent;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 5px;
+    cursor: pointer;
+  }
+  .wpn svg { display: block; width: 100%; height: 100%; }
+  .wpn .k { position: absolute; right: 3px; bottom: 0; font: 700 10px system-ui, sans-serif; color: #cfd3dc; }
+  .wpn.on { border-color: #ffe14d; background: rgba(255, 225, 77, 0.2); }
+  .wpn.dim svg { opacity: 0.45; }
+  .wpn.locked svg { opacity: 0.2; filter: grayscale(1); }
+  .wpn .lock { display: none; }
+  .wpn.locked .lock {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 14px;
+    height: 11px;
+    margin: -2px 0 0 -7px;
+    background: #d7dbe3;
+    border-radius: 2px;
+  }
+  .wpn.locked .lock::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: -8px;
+    width: 8px;
+    height: 9px;
+    border: 2px solid #d7dbe3;
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
+    box-sizing: border-box;
+  }
+  .wpn.new { animation: fresh 0.45s 4; }
+  .wpn:focus-visible { outline: 2px solid #7aa6e0; outline-offset: 1px; }
+  @keyframes fresh { 50% { transform: translateY(-8px); border-color: #b9a2ff; } }
+
+  .announce {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 42%;
+    padding: 0 12px;
+    text-align: center;
+    font: italic 900 clamp(26px, 6vw, 64px) "Arial Black", "Helvetica Neue", Impact, sans-serif;
+    color: #ffe14d;
+    text-shadow: 3px 3px 0 #b3001b, 6px 6px 0 rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 4;
+  }
+  .announce.show { animation: land 0.32s ease-out forwards; }
+  .announce.ko { font-size: clamp(44px, 12vw, 120px); }
+  .announce.self { color: #fff; font-size: clamp(20px, 4.4vw, 44px); text-shadow: 3px 3px 0 #5b3927, 5px 5px 0 rgba(0, 0, 0, 0.5); }
+  .announce.bonus { color: #a5ecff; font-size: clamp(20px, 4.4vw, 40px); }
+  .announce.power { color: #d4c6ff; font-size: clamp(20px, 4.4vw, 40px); }
+  .announce.over { color: #ff4d4d; text-shadow: 3px 3px 0 #2a0000, 6px 6px 0 rgba(0, 0, 0, 0.55); }
+  @keyframes land {
+    from { opacity: 0; transform: translateY(-50%) scale(1.8); }
+    to { opacity: 1; transform: translateY(-50%) scale(1); }
+  }
+
+  /* Fun Mode's cheer, at the top of the stage so the wreck stays in view. */
+  .victory {
+    position: absolute;
+    left: 50%;
+    top: 10px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 12px;
+    width: max-content;
+    max-width: calc(100% - 20px);
+    padding: 8px 14px;
+    border-radius: 12px;
+    background: rgba(14, 14, 18, 0.8);
+    color: #f1eee6;
+    font: 14px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+    text-align: center;
+    cursor: default;
+    z-index: 4;
+  }
+  .victory b { font: italic 900 18px "Arial Black", "Helvetica Neue", Impact, sans-serif; color: #ffe14d; }
+  .victory button {
+    font: 700 14px system-ui, sans-serif;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 2px solid #ffce2e;
+    background: #ffce2e;
+    color: #1a1400;
+    cursor: pointer;
+  }
+  .victory button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+  .blur { position: absolute; top: 0; bottom: 0; width: 50%; pointer-events: none; z-index: 2; }
+  .blur.left { left: 0; }
+  .blur.right { right: 0; }
+  .blur.on { backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: rgba(255, 255, 255, 0.06); }
+
+  /* The title screen, the pause and game over sit over the stage. The
+     class is not called panel: site.css has a panel of its own. */
+  .sheet {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    text-align: center;
+    background: rgba(10, 8, 18, 0.6);
+    color: #f1eee6;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.4;
+    overflow: auto;
+    cursor: default;
+    z-index: 5;
+  }
+  .sheet h2 {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font: italic 900 clamp(30px, 7.5vw, 60px) "Arial Black", "Helvetica Neue", Impact, sans-serif;
+    color: #ffce2e;
+    text-shadow: 3px 3px 0 #b3001b, 6px 6px 0 rgba(0, 0, 0, 0.5);
+    line-height: 1.05;
+  }
+  .sheet p { margin: 0; max-width: 34rem; }
+  .strap {
+    display: inline-block;
+    padding: 4px 16px;
+    background: #e52521;
+    border: 3px solid #f4ead2;
+    transform: skewX(-12deg);
+    font: italic 900 clamp(13px, 2.6vw, 17px) "Arial Black", "Helvetica Neue", Impact, sans-serif;
+    color: #fff;
+    letter-spacing: 0.04em;
+  }
+  .modes { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+  .mode {
+    width: min(15.5rem, 84vw);
+    padding: 12px 14px;
+    border: 2px solid;
+    border-radius: 12px;
+    text-align: left;
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    cursor: pointer;
+    transition: transform 0.12s;
+  }
+  .mode b { display: block; margin-bottom: 3px; font: italic 900 21px "Arial Black", "Helvetica Neue", Impact, sans-serif; }
+  .mode.fun { background: #0f3447; border-color: #5fd0ff; color: #e8f7ff; }
+  .mode.anger { background: #4a1010; border-color: #ff5a4f; color: #ffecea; }
+  .mode:hover { transform: translateY(-2px); }
+  .mode:focus-visible, .sheet button:focus-visible { outline: 3px solid #ffe14d; outline-offset: 2px; }
+  .scores-title { font: 700 11px system-ui, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #bdb7a8; }
+  #title { background: rgba(10, 8, 18, 0.7); }
+  .scores {
+    list-style: none;
+    margin: 0;
+    padding: 6px 14px;
+    min-width: 13rem;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.4);
+    font: 700 14px ui-monospace, Menlo, Consolas, monospace;
+  }
+  .scores li { display: grid; grid-template-columns: 3.4em 1fr 3em; gap: 8px; margin: 0; padding: 1px 0; color: #e8e4da; }
+  .scores li.mine { color: #ffe14d; }
+  .scores li.none { display: block; color: #b8b2a4; font-weight: 400; font-family: system-ui, sans-serif; }
+  .big-score { font: italic 900 34px "Arial Black", "Helvetica Neue", Impact, sans-serif; color: #ffe14d; }
+  .btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .sheet button.plain, #initials button {
+    font: 700 15px system-ui, sans-serif;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 2px solid #f1eee6;
+    background: transparent;
+    color: #f1eee6;
+    cursor: pointer;
+  }
+  .sheet button.primary { background: #ffce2e; border-color: #ffce2e; color: #1a1400; }
+  #initials { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+  #initials input {
+    width: 4.4em;
+    padding: 4px;
+    border: 2px solid #ffce2e;
+    border-radius: 6px;
+    background: #111;
+    color: #ffe14d;
+    font: 700 22px ui-monospace, Menlo, Consolas, monospace;
+    letter-spacing: 0.2em;
+    text-align: center;
+    text-transform: uppercase;
   }
 
   .controls {
@@ -117,10 +395,20 @@
     body { padding: 0.8rem 0.75rem 0.8rem; }
     h1 { font-size: 1.5rem; }
     .tagline { font-size: 0.9rem; }
-    .stage { height: clamp(300px, calc(100svh - 20.5rem), 780px); }
+    .stage { height: clamp(320px, calc(100svh - 17rem), 800px); }
     .title-row { margin-right: 0; }
-    .new-device { margin-top: -0.2rem; font-size: 0.9rem; padding: 0.45rem 0.9rem; }
+    .tool { font-size: 0.9rem; padding: 0.45rem 0.9rem; }
     .caption { text-align: left; }
+    .wpn { width: 38px; height: 38px; padding: 4px; }
+    .hud { font-size: 11px; gap: 8px; left: 6px; right: 6px; }
+    .hud .lbl { white-space: nowrap; }
+    .hud .you .lbl span + span, .hud .them .lbl span:first-child { display: none; }
+    .hud .timer { font-size: 24px; }
+    .hud .bar { height: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .announce.show { animation: none; opacity: 1; }
+    .wpn.new, .hud .timer.low, .hud .power i.full, #hand .spark { animation: none; }
   }
 </style>
 </head>
@@ -141,60 +429,107 @@
   <div class="title-row">
     <div>
       <h1>Smash Screen</h1>
-      <p class="tagline" id="hint">Click to swing the hammer. Hold it back longer for a harder hit. Scroll or pinch to zoom in on the damage.</p>
+      <p class="tagline" id="hint">Pick a mode. Fun Mode is for smashing; Anger Mode is the game.</p>
     </div>
-    <button type="button" id="new-device" class="new-device">Help! Give me a new device</button>
+    <div class="fun-tools" id="fun-tools" hidden>
+      <button type="button" id="picture" class="tool" title="Smash a picture of your own. It stays in your browser: nothing is uploaded.">Smash your own picture</button>
+      <button type="button" id="new-device" class="tool">Help! Give me a new device</button>
+      <input type="file" id="picture-in" accept="image/*" hidden>
+    </div>
   </div>
 </header>
 
 <div class="stage" id="stage" tabindex="0" role="application"
-     aria-label="A device to smash. Click or tap to swing the hammer. Arrow keys aim, Space swings, plus and minus zoom.">
+     aria-label="A device to smash. Click or tap to swing. Arrow keys aim, Space swings, keys 1 to 7 pick a weapon.">
   <canvas id="screen"></canvas>
-  <svg id="hammer" viewBox="0 0 130 150" aria-hidden="true">
-    <defs>
-      <linearGradient id="h-wood" x1="0" x2="1">
-        <stop offset="0" stop-color="#8d5524"/>
-        <stop offset="0.45" stop-color="#c68642"/>
-        <stop offset="1" stop-color="#7a4a1f"/>
-      </linearGradient>
-      <linearGradient id="h-steel" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#f1f3f6"/>
-        <stop offset="0.45" stop-color="#aab1bb"/>
-        <stop offset="1" stop-color="#5d646e"/>
-      </linearGradient>
-      <linearGradient id="h-face" x1="0" x2="1">
-        <stop offset="0" stop-color="#6b727c"/>
-        <stop offset="1" stop-color="#d9dde3"/>
-      </linearGradient>
-    </defs>
-    <g transform="translate(110 140) rotate(-30)">
-      <rect x="-6" y="-112" width="12" height="112" rx="5" fill="url(#h-wood)"/>
-      <rect x="-7.5" y="-40" width="15" height="42" rx="6" fill="#23252b"/>
-      <path d="M-7.5 -32h15M-7.5 -24h15M-7.5 -16h15M-7.5 -8h15" stroke="#3a3d45" stroke-width="2"/>
-      <path d="M24 -130C40 -128 50 -118 54 -100C47 -110 38 -116 28 -118Z" fill="url(#h-steel)"/>
-      <path d="M24 -112C36 -110 44 -104 47 -92C41 -99 34 -104 26 -106Z" fill="#8e959f"/>
-      <path d="M-30 -131H22Q27 -131 29 -127L31 -110Q31 -106 26 -106H-30Z" fill="url(#h-steel)"/>
-      <rect x="-41" y="-134" width="12" height="32" rx="3" fill="url(#h-face)"/>
-      <rect x="-26" y="-128" width="46" height="4" rx="2" fill="#ffffff" opacity="0.55"/>
-    </g>
-  </svg>
+  <canvas id="fx"></canvas>
+  <div class="blur" id="blur"></div>
+  <svg id="hand" viewBox="0 0 130 150" aria-hidden="true"></svg>
+
+  <div class="hud" id="hud" hidden aria-hidden="true">
+    <div class="you">
+      <div class="lbl"><span>YOU</span><span>HEALTH</span></div>
+      <div class="bar"><i id="hp"></i></div>
+      <div class="bar power"><i id="pw" style="width:0%"></i></div>
+    </div>
+    <div class="mid">
+      <div class="timer" id="timer">90</div>
+      <div class="level" id="level">LEVEL 1</div>
+      <div class="score" id="score">000000</div>
+    </div>
+    <div class="them">
+      <div class="lbl"><span id="dev-name">PHONE</span><span id="dmg-text">DAMAGE 0%</span></div>
+      <div class="bar"><i id="dmg"></i></div>
+    </div>
+  </div>
+
+  <div class="weapons" id="weapons" role="toolbar" aria-label="Weapons" hidden></div>
+  <div class="victory" id="victory" hidden>
+    <b>SCREEN DESTROYED!</b>
+    <span id="victory-stats"></span>
+    <button type="button" id="next-device">Next device</button>
+  </div>
+  <div class="announce" id="announce" aria-hidden="true"></div>
+
+  <div class="sheet" id="title" hidden>
+    <h2>SMASH SCREEN</h2>
+    <span class="strap">BREAK EVERY LAST PIXEL</span>
+    <div class="modes">
+      <button type="button" class="mode fun" id="play-fun"><b>Fun Mode</b>Every weapon, no clock and no score. Smash any device, or a picture of your own.</button>
+      <button type="button" class="mode anger" id="play-anger"><b>Anger Mode</b>Destroy every pixel before the clock runs out. Earn your weapons, and mind your fingers.</button>
+    </div>
+    <div class="scores-title">High scores</div>
+    <ol class="scores" id="title-scores"></ol>
+  </div>
+
+  <div class="sheet" id="paused" hidden>
+    <h2>PAUSED</h2>
+    <div class="btns">
+      <button type="button" class="plain primary" id="resume">Resume</button>
+      <button type="button" class="plain" id="quit">Quit to the title screen</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="over" hidden>
+    <h2>GAME OVER</h2>
+    <p id="over-reason"></p>
+    <div class="big-score" id="over-score"></div>
+    <form id="initials" hidden>
+      <label for="initials-in">A high score! Your initials</label>
+      <input id="initials-in" maxlength="3" autocomplete="off" spellcheck="false">
+      <button type="submit">Save</button>
+    </form>
+    <div class="scores-title">High scores</div>
+    <ol class="scores" id="over-scores"></ol>
+    <div class="btns">
+      <button type="button" class="plain primary" id="again">Play again</button>
+      <button type="button" class="plain" id="to-title">Title screen</button>
+    </div>
+  </div>
 </div>
 
 <div class="controls">
-  <span class="zoom" role="group" aria-label="Zoom">
+  <span class="zoom" id="zoom" role="group" aria-label="Zoom" hidden>
     <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
     <button type="button" id="zoom-fit" aria-label="Show the whole device">1&times;</button>
     <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
   </span>
   <button type="button" id="sound" aria-pressed="true">Sound on</button>
+  <button type="button" id="voice" aria-pressed="true">Voice on</button>
+  <button type="button" id="pause" hidden>Pause</button>
+  <button type="button" id="menu" hidden>Menu</button>
   <span id="caption" class="caption"></span>
 </div>
-<p class="credit">Inspired by <a href="https://x.com/austingriffith/status/2103545545801556280">a photo of a shattered monitor</a> by Austin Griffith.<span class="keys">
-  Keys: N for a new device, M for sound, arrows and Space to aim and swing.</span></p>
+<p class="credit">Inspired by <a href="https://x.com/austingriffith/status/2103545545801556280">a photo of a shattered monitor</a> by Austin Griffith.
+  A picture of your own stays in your browser.<span class="keys">
+  Keys: 1&ndash;7 pick a weapon, arrows and Space aim and swing, P pauses, N gives a new device, M sound, V voice.</span></p>
 <p id="status" class="sr-only" aria-live="polite"></p>
 
 <script src="scenes.js"></script>
 <script src="damage.js"></script>
+<script src="hands.js"></script>
+<script src="sound.js"></script>
 <script src="smash.js"></script>
+<script src="game.js"></script>
 </body>
 </html>

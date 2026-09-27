@@ -23,7 +23,6 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 // The blows, as fractions of the screen, and the hammer over the second.
 const HITS = [[0.33, 0.34, SEEDS[0]], [0.64, 0.6, SEEDS[1]]];
-const hammer = fs.readFileSync(path.join(ROOT, 'app/smash/index.html'), 'utf8').match(/<svg id="hammer"[\s\S]*?<\/svg>/)[0];
 
 const CARD = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
   body { margin: 0; background: #000; }
@@ -32,10 +31,13 @@ const CARD = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
             filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5)); }
 </style></head><body>
 <canvas id="card" width="2400" height="1260"></canvas>
-${hammer}
+<svg id="hammer" viewBox="0 0 130 150"></svg>
 <script src="/app/smash/scenes.js"></script>
 <script src="/app/smash/damage.js"></script>
+<script src="/app/smash/hands.js"></script>
 <script>
+  // The page's hammer, without the hand that holds it on the page.
+  document.getElementById('hammer').innerHTML = Smash.Hands.BARE_HAMMER;
   var W = 1778, H = 1000, k = 1200 / W, oy = (630 - H * k) / 2, HITS = ${JSON.stringify(HITS)};
   var ctx = document.getElementById('card').getContext('2d');
   ctx.setTransform(2 * k, 0, 0, 2 * k, 0, 2 * oy);
@@ -43,9 +45,12 @@ ${hammer}
   Smash.drawPicture(ctx, W, H, { scene: scene, seed: 1, device: 'monitor', time: new Date(2026, 8, 26, 10, 42) });
   // Pixel-sized details are drawn about three times their size on the page,
   // so the lines still show when the card is shown small.
+  // Both blows break the same glass, so the second one's cracks stop at
+  // the first one's.
+  var glass = Smash.Damage.glass(W, H, { radius: 4 });
   var hits = HITS.map(function (h, i) {
     return Smash.Damage.make({ x: h[0] * W, y: h[1] * H, W: W, H: H, seed: h[2], t0: 0, device: 'monitor',
-                               px: 0.3, strength: 1, first: i === 0 });
+                               px: 0.3, strength: 1, first: i === 0, glass: glass });
   });
   var env = { k: k, dpr: 2, zoom: 1, still: true };
   Smash.Damage.drawLCD(ctx, hits, 30, env);
