@@ -27,6 +27,10 @@
   header { padding-right: 3rem; }
   .back { margin: 0; font-size: 0.9rem; }
   h1 { margin: 0.3rem 0 0.15rem; }
+  /* The title is a button back to the title screen, and looks like the title. */
+  .home { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: left; }
+  .home:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.15em; }
+  .home:focus-visible { outline: 3px solid #ffe14d; outline-offset: 3px; border-radius: 4px; }
   .tagline { margin: 0 0 0.8rem; font-size: 0.95rem; }
   /* The Fun Mode buttons sit at the right of the title and tagline. */
   .title-row {
@@ -428,7 +432,7 @@
   <a class="back" href="../../index.html">&larr; David Ryan's builder page</a>
   <div class="title-row">
     <div>
-      <h1>Smash Screen</h1>
+      <h1><button type="button" class="home" id="home" title="Back to the title screen">Smash Screen</button></h1>
       <p class="tagline" id="hint">Pick a mode. Fun Mode is for smashing; Anger Mode is the game.</p>
     </div>
     <div class="fun-tools" id="fun-tools" hidden>
@@ -490,6 +494,15 @@
     </div>
   </div>
 
+  <div class="sheet" id="leave" hidden>
+    <h2>LEAVE THIS RUN?</h2>
+    <p>The run ends here and its score is not kept.</p>
+    <div class="btns">
+      <button type="button" class="plain primary" id="stay">Keep playing</button>
+      <button type="button" class="plain" id="leave-run">Leave for the title screen</button>
+    </div>
+  </div>
+
   <div class="sheet" id="over" hidden>
     <h2>GAME OVER</h2>
     <p id="over-reason"></p>
@@ -531,6 +544,17 @@
 <script src="hands.js"></script>
 <script src="sound.js"></script>
 <script src="music.js"></script>
+<script src="music/title.js"></script>
+<script src="music/intro.js"></script>
+<script src="music/fun.js"></script>
+<script src="music/level1.js"></script>
+<script src="music/level2.js"></script>
+<script src="music/level3.js"></script>
+<script src="music/level4.js"></script>
+<script src="music/level5.js"></script>
+<script src="music/ko.js"></script>
+<script src="music/pause.js"></script>
+<script src="music/over.js"></script>
 <script src="smash.js"></script>
 <script src="game.js"></script>
 </body>

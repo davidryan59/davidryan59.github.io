@@ -141,15 +141,20 @@
 
   /* ------------------------------------------------------------ music */
 
-  // The title screen has its tune. The game's plays only while the player
-  // is smashing: not in a level's introduction, at a K.O., at the end of a
-  // run or while paused. Each level starts it from the top, a little
-  // faster each level; a pause resumes it where it stopped.
+  // Every part of the game has its tune, from music/. Fun Mode has its own,
+  // and levels 1 to 5 have one each, which levels 6 to 10 play again, and
+  // so on. Each level starts its tune from the top, a little faster each
+  // level, and a pause resumes it where it stopped. A level's introduction
+  // runs at the same speed, in the level's key, so it leads into it.
   function syncMusic() {
+    var bpm = Math.min(156, 138 + 3 * (G.level - 1)), tune = 'level' + ((G.level - 1) % 5 + 1), key = (Music.tune(tune) || {}).key;
     if (G.mode === 'title') Music.want('title', 'title');
-    else if (G.mode === 'anger' && G.phase === 'play' && !G.paused) Music.want('game', 'level-' + runs, Math.min(156, 138 + 3 * (G.level - 1)));
-    else if (G.mode === 'fun' && !G.fun.done) Music.want('game', 'fun-' + runs);
-    else Music.want(null);
+    else if (G.paused) Music.want('pause', 'pause');
+    else if (G.mode === 'fun') Music.want(G.fun.done ? 'ko' : 'fun', (G.fun.done ? 'win-' + G.fun.count + '-' : 'fun-') + runs);
+    else if (G.phase === 'intro') Music.want('intro', 'intro-' + runs, bpm, key);
+    else if (G.phase === 'play') Music.want(tune, 'level-' + runs, bpm);
+    else if (G.phase === 'ko') Music.want('ko', 'ko-' + runs);
+    else Music.want('over', 'over-' + runs);
   }
 
   /* ---------------------------------------------------------- weapons */
@@ -650,8 +655,10 @@
 
   /* ------------------------------------------------------------ modes */
 
-  var PANELS = ['title', 'over', 'paused'];
+  // leaving is set while the Leave this run? sheet is up.
+  var PANELS = ['title', 'over', 'paused', 'leave'], leaving = null;
   function show(name) {
+    if (name !== 'leave') leaving = null;
     PANELS.forEach(function (p) { $(p).hidden = p !== name; });
   }
 
@@ -668,6 +675,7 @@
     $('zoom').hidden = mode !== 'fun';
     $('pause').hidden = mode !== 'anger';
     $('menu').hidden = mode === 'title';
+    $('menu').textContent = mode === 'fun' ? 'Title screen' : 'Menu';
     E.zoomable = mode === 'fun';
     E.maxHits = mode === 'fun' ? 160 : mode === 'anger' ? 800 : 40;
     E.resetView();
@@ -737,6 +745,41 @@
     else stage.focus({ preventScroll: true });
     E.request();
   }
+
+  // The title at the top of the page goes back to the title screen. During
+  // a run of Anger Mode it pauses the game and asks first; on the game-over
+  // screen the run is already over.
+  function askLeave() {
+    if (G.mode === 'title') return;
+    if (G.mode !== 'anger' || G.phase === 'over') { showTitle(); return; }
+    if (leaving) return;
+    leaving = { wasPaused: G.paused };
+    G.paused = true;
+    E.locked = true;
+    E.lower();
+    show('leave');
+    syncMusic();
+    setTimeout(function () { $('stay').focus({ preventScroll: true }); }, 30);
+    E.request();
+  }
+  function stay() {
+    var was = leaving && leaving.wasPaused;
+    leaving = null;
+    if (was) {
+      show('paused');
+      setTimeout(function () { $('resume').focus({ preventScroll: true }); }, 30);
+    } else {
+      G.paused = false;
+      E.locked = G.phase !== 'play';
+      show(null);
+      stage.focus({ preventScroll: true });
+    }
+    syncMusic();
+    E.request();
+  }
+  $('home').addEventListener('click', askLeave);
+  $('stay').addEventListener('click', stay);
+  $('leave-run').addEventListener('click', function () { leaving = null; showTitle(); });
 
   /* ----------------------------------------------- Fun Mode's finish */
 
@@ -953,14 +996,16 @@
       c.rotate(p.rot);
       c.scale(p.sc, p.sc);
       if (s.kind === 'chip') {
+        // The picture of a piece carries its own bright edge. A piece with no
+        // picture is a pale rectangle, outlined.
         if (s.img) c.drawImage(s.img, -s.w / 2, -s.h / 2, s.w, s.h);
         else {
           c.fillStyle = 'rgba(210,228,255,0.7)';
           c.fillRect(-s.w / 2, -s.h / 2, s.w, s.h);
+          c.strokeStyle = 'rgba(255,255,255,0.5)';
+          c.lineWidth = 1 / p.sc;
+          c.strokeRect(-s.w / 2, -s.h / 2, s.w, s.h);
         }
-        c.strokeStyle = 'rgba(255,255,255,0.5)';
-        c.lineWidth = 1 / p.sc;
-        c.strokeRect(-s.w / 2, -s.h / 2, s.w, s.h);
       } else {
         // A keycap, from the side it flies at you on.
         c.fillStyle = '#202227';
@@ -1263,6 +1308,9 @@
       Music.refresh();
     } else if (k === 'v' || k === 'V') {
       voiceBtn.click();
+    } else if (leaving && (k === 'p' || k === 'P' || k === 'Escape')) {
+      e.preventDefault();
+      if (k === 'Escape') stay();
     } else if ((k === 'p' || k === 'P' || k === 'Escape') && G.mode === 'anger') {
       e.preventDefault();
       setPaused(!G.paused);

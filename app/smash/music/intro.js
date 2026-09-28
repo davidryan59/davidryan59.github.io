@@ -1,0 +1,93 @@
+/* A level's introduction, to FIGHT! Two bars on E7, looping. */
+Smash.Music.add('intro', {
+  bpm: 138, bars: 2, swing: 0.1, gain: 1.84,
+  tracks: {
+    keys: { voice: 'pulse12', gain: 0.028, pan: -0.35, reverb: 0.35, decay: 0.3 },
+    bass: { voice: 'triangle', gain: 0.16 },
+    drums: {}
+  }
+}, `
+bar,beat,track,note,length,vel
+1,1,bass,E2,0.25,1
+1,1,drums,hat,0.25,0.8
+1,1,drums,kick,0.25,1
+1,1.25,drums,hat,0.25,0.3
+1,1.5,bass,E2,0.25,0.6
+1,1.5,drums,hat,0.25,0.55
+1,1.75,keys,G#'3,0.25,0.7
+1,1.75,keys,B3,0.25,0.7
+1,1.75,keys,D[7]4,0.25,0.7
+1,1.75,drums,hat,0.25,0.3
+1,2,bass,E2,0.25,1
+1,2,drums,hat,0.25,0.8
+1,2,drums,kick,0.25,1
+1,2,drums,clap,0.25,0.9
+1,2.25,drums,hat,0.25,0.3
+1,2.5,keys,G#'3,0.25,1
+1,2.5,keys,B3,0.25,1
+1,2.5,keys,D[7]4,0.25,1
+1,2.5,bass,E3,0.25,0.6
+1,2.5,drums,hat,0.25,0.55
+1,2.75,drums,hat,0.25,0.3
+1,3,bass,E2,0.25,1
+1,3,drums,hat,0.25,0.8
+1,3,drums,kick,0.25,1
+1,3.25,drums,hat,0.25,0.3
+1,3.5,bass,E2,0.25,0.6
+1,3.5,drums,hat,0.25,0.55
+1,3.75,drums,hat,0.25,0.3
+1,4,keys,G#'3,0.25,0.8
+1,4,keys,B3,0.25,0.8
+1,4,keys,D[7]4,0.25,0.8
+1,4,bass,E2,0.25,1
+1,4,drums,hat,0.25,0.8
+1,4,drums,kick,0.25,1
+1,4,drums,clap,0.25,0.9
+1,4.25,drums,hat,0.25,0.3
+1,4.5,bass,E3,0.25,0.6
+1,4.5,drums,hat,0.25,0.55
+1,4.75,drums,hat,0.25,0.3
+2,1,bass,E2,0.25,1
+2,1,drums,hat,0.25,0.8
+2,1,drums,kick,0.25,1
+2,1.25,drums,hat,0.25,0.3
+2,1.5,bass,E2,0.25,0.6
+2,1.5,drums,hat,0.25,0.55
+2,1.75,keys,G#'3,0.25,0.7
+2,1.75,keys,B3,0.25,0.7
+2,1.75,keys,D[7]4,0.25,0.7
+2,1.75,drums,hat,0.25,0.3
+2,2,bass,E2,0.25,1
+2,2,drums,hat,0.25,0.8
+2,2,drums,kick,0.25,1
+2,2,drums,clap,0.25,0.9
+2,2.25,drums,hat,0.25,0.3
+2,2.5,keys,G#'3,0.25,1
+2,2.5,keys,B3,0.25,1
+2,2.5,keys,D[7]4,0.25,1
+2,2.5,bass,E3,0.25,0.6
+2,2.5,drums,hat,0.25,0.55
+2,2.75,drums,hat,0.25,0.3
+2,3,bass,E2,0.25,1
+2,3,drums,hat,0.25,0.8
+2,3,drums,kick,0.25,1
+2,3.25,drums,hat,0.25,0.3
+2,3.5,bass,E2,0.25,0.6
+2,3.5,drums,hat,0.25,0.55
+2,3.75,drums,hat,0.25,0.3
+2,4,keys,G#'3,0.25,0.8
+2,4,keys,B3,0.25,0.8
+2,4,keys,D[7]4,0.25,0.8
+2,4,bass,E2,0.25,1
+2,4,drums,hat,0.25,0.8
+2,4,drums,kick,0.25,1
+2,4,drums,clap,0.25,0.9
+2,4,drums,snare,0.25,0.4
+2,4.25,drums,hat,0.25,0.3
+2,4.25,drums,snare,0.25,0.55
+2,4.5,bass,E3,0.25,0.6
+2,4.5,drums,hat,0.25,0.55
+2,4.5,drums,snare,0.25,0.7
+2,4.75,drums,hat,0.25,0.3
+2,4.75,drums,snare,0.25,0.9
+`);

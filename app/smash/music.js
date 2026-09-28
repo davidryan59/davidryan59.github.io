@@ -1,69 +1,121 @@
-/* The background music: a short tune for the title screen, and a fuller
-   version of it for the game. Both are in A minor and in just intonation.
-   Every chord is tuned pure, from ratios of 2, 3 and 5, and the one E7
-   takes its seventh from the 7th harmonic. They play on chip sounds: a
-   pulse-wave lead, a triangle bass and noise drums, synthesised like every
-   other sound on the page, with no slides and no vibrato.
+/* The background music. Every part of the game has a tune: the title
+   screen, a level's introduction, the smashing, the K.O., the pause and the
+   end of a run.
 
-   The game says which tune it wants. The music plays only while that is
-   set, the Sound and Music buttons are on and the tab is showing. A tune
-   stopped part way picks up where it stopped, if the game asks for the
-   same one again. */
+   The tunes are sequence files in music/, one per tune. Each gives the
+   tune's tempo, length and swing, each track's sound, level, pan and
+   reverb, and then the notes as CSV rows. The notes are in Rational Comma
+   Notation, the just intonation notation of justsynth (Ryan 2016,
+   arXiv:1612.01860). A letter is Pythagorean; ' multiplies it by 80/81, .
+   by 81/80 and [7] by 63/64. So with A4 at 440 Hz, C.5 is a pure minor
+   third over A4, and D[7]5 the 7th harmonic of E3. The files are scripts,
+   so the page reads them from a server or straight from the disk.
+
+   The sounds are chip sounds, synthesised like every other sound on the
+   page: pulse and triangle waves and noise drums, with no slides and no
+   vibrato. The game says which tune it wants. A tune plays while the Sound
+   and Music buttons are on and the tab is showing. One stopped part way
+   picks up where it stopped when the game asks for the same run again. */
 (function (global) {
   'use strict';
 
   var Smash = global.Smash, Sound = Smash.Sound;
   var LEVEL = 0.7;
+  // Each drum's level at vel 1.
+  var DRUMS = { kick: 0.2, snare: 0.08, hat: 0.03, open: 0.03, rim: 0.07, clap: 0.07, shaker: 0.025 };
 
-  // Each note as a ratio over A. G# is for E major, and Dh, the 7th
-  // harmonic of E, is the seventh of E7.
-  var RATIO = { A: 1, B: 9 / 8, C: 6 / 5, D: 4 / 3, Dh: 21 / 16, E: 3 / 2, F: 8 / 5, G: 9 / 5, 'G#': 15 / 8 };
-  // 'C5' or 'G#4' in hertz, with A4 = 440. An octave starts at C, so A and
-  // B sit above the C of their own octave.
-  function hz(name) {
-    var m = /^([A-G][h#]?)(\d)$/.exec(name), o = +m[2] - (m[1][0] === 'A' || m[1][0] === 'B' ? 4 : 5);
-    return 440 * RATIO[m[1]] * Math.pow(2, o);
+  /* ------------------------------------------- Rational Comma Notation */
+
+  // As justsynth's parse_rcn: a note as a ratio over C4 = 1/1.
+  var PYTH = { C: 1, D: 9 / 8, E: 81 / 64, F: 4 / 3, G: 3 / 2, A: 27 / 16, B: 243 / 128 };
+  var MOD = { b: 2048 / 2187, '#': 2187 / 2048, x: (2187 * 2187) / (2048 * 2048), "'": 80 / 81, '.': 81 / 80,
+              p: 531441 / 524288, d: 524288 / 531441 };
+  var RCN = /^([CDEFGAB])((?:[#bx'.pd]|\[[^\]]*\])*)(-?\d+)((?:\[[^\]]*\]|~\d+|_\d+)*)$/;
+
+  function lg(x, b) { return Math.log(x) / Math.log(b); }
+  // The DR prime comma: p times the powers of 2 and 3 that bring it nearest
+  // 1/1, by the paper's comma measure. 5 gives 80/81, 7 gives 63/64.
+  var commas = {};
+  function primeComma(p) {
+    if (commas[p]) return commas[p];
+    var bMid = -0.5 * lg(p, 3), bMin = Math.min(Math.round(bMid - 5.5), Math.ceil(-lg(p, 3) - 1 / (2 * lg(3, 2))));
+    var bMax = Math.max(Math.round(bMid + 5.5), 0), best = Infinity, out = 1;
+    for (var b = bMin; b <= bMax; b++) {
+      var a = Math.round(-lg(p, 2) - b * lg(3, 2));
+      var cm = Math.abs(a + b * lg(3, 2) + lg(p, 2)) * (Math.abs(a) + Math.abs(b) * lg(3, 2) + lg(p, 2));
+      if (cm < best) { best = cm; out = p * Math.pow(2, a) * Math.pow(3, b); }
+    }
+    return (commas[p] = out);
   }
-  var CHORD = { Am: ['A', 'C', 'E'], F: ['F', 'A', 'C'], Dm: ['D', 'F', 'A'], E: ['E', 'G#', 'B'], E7: ['E', 'G#', 'B', 'Dh'] };
-  // A chord's notes upwards from its root in octave o, each one pure
-  // against the root.
-  function voicing(chord, o) {
-    var out = [];
-    CHORD[chord].forEach(function (n) {
-      var f = hz(n + o);
-      while (out.length && f <= out[out.length - 1]) f *= 2;
-      out.push(f);
+  // One side of a bracket, such as 5*7: the commas of its primes from 5 up.
+  function side(text) {
+    var r = 1;
+    if (!text.trim()) return r;
+    text.split('*').forEach(function (tk) {
+      var n = Math.abs(parseInt(tk, 10) || 1);
+      while (n % 2 === 0) n /= 2;
+      while (n % 3 === 0) n /= 3;
+      for (var d = 5; d * d <= n; d += 2) while (n % d === 0) { r *= primeComma(d); n /= d; }
+      if (n > 1) r *= primeComma(n);
     });
-    return out;
+    return r;
+  }
+  function mods(text) {
+    var r = 1, i = 0;
+    while (i < text.length) {
+      var c = text[i];
+      if (MOD[c]) { r *= MOD[c]; i++; }
+      else if (c === '[') {
+        var j = text.indexOf(']', i), parts = text.slice(i + 1, j).split('/');
+        r *= side(parts[0]) / (parts.length > 1 ? side(parts[1]) : 1);
+        i = j + 1;
+      } else {
+        var k = i + 1;
+        while (k < text.length && /\d/.test(text[k])) k++;
+        r *= c === '~' ? side(text.slice(i + 1, k)) : 1 / side(text.slice(i + 1, k));
+        i = k;
+      }
+    }
+    return r;
+  }
+  function rcn(text) {
+    var m = RCN.exec(text);
+    if (!m) throw new Error('Not a note: ' + text);
+    return PYTH[m[1]] * Math.pow(2, +m[3] - 4) * mods(m[2]) * mods(m[4]);
   }
 
-  /* The tunes, one eighth note to a token: a note starts, '-' holds it and
-     '.' rests. The game tune plays the title's eight bars, then eight more
-     that climb through D minor to E and E7. */
-  var TITLE = ['A4 - C5 - E5 - D5 C5', 'E5 - - - . . . .', 'F5 - E5 - C5 - A4 -', 'B4 - - - G#4 - - -',
-               'A4 - C5 - E5 - A5 -', 'G5 - E5 - . . . .', 'F5 - E5 - D5 - C5 -', 'B4 - G#4 - E4 - - -'];
-  var CLIMB = ['D5 - F5 - A5 - F5 -', 'E5 - D5 - . . . .', 'C5 - E5 - A5 - E5 -', 'B4 - C5 - . . . .',
-               'D5 - F5 - A5 - F5 E5', 'F5 - - - D5 - - -', 'E5 - G#5 - B5 - G#5 -', 'Dh5 - B4 - G#4 - E4 -'];
-  function lead(bars) {
-    var tokens = bars.join(' ').split(/\s+/), out = [];
-    tokens.forEach(function (tk, i) {
-      if (tk === '-' || tk === '.') { out.push(null); return; }
-      var n = 1;
-      while (tokens[i + n] === '-') n++;
-      out.push({ f: hz(tk), n: n });
+  /* ----------------------------------------------------- the sequences */
+
+  var TUNES = {}, C4 = 440 / rcn('A4');
+
+  // CSV rows of bar, beat, track, note, length in beats and vel, with bars
+  // and beats counted from 1. A track that loops every few bars repeats through
+  // the tune. Swing delays the second and fourth sixteenths of each beat by
+  // that share of a sixteenth.
+  function compile(name, def, text) {
+    var per = def.beats || 4, len = def.bars * per, events = [];
+    text.split(/\r?\n/).forEach(function (line) {
+      var c = line.split(',').map(function (x) { return x.trim(); });
+      if (!c[0] || c[0][0] === '#' || c[0] === 'bar') return;
+      var track = def.tracks[c[2]];
+      if (!track) throw new Error('music/' + name + '.js: no track ' + c[2]);
+      var at = (+c[0] - 1) * per + (+c[1] - 1), loop = (track.loop || def.bars) * per;
+      var swung = at + (Math.round((at % 1) * 4) % 2 ? (def.swing || 0) * 0.25 : 0);
+      var drum = DRUMS[c[3]] !== undefined, f = drum ? 0 : C4 * rcn(c[3]);
+      for (var t = swung; t < len; t += loop) {
+        events.push({ at: t, track: c[2], drum: drum ? c[3] : null, f: f, len: +c[4] || 0.25,
+                      vel: c[5] === undefined || c[5] === '' ? 1 : +c[5] });
+      }
     });
-    return out;
+    events.sort(function (a, b) { return a.at - b.at; });
+    return { def: def, len: len, events: events };
   }
-  var TUNES = {
-    title: { bpm: 100, chords: ['Am', 'Am', 'F', 'E', 'Am', 'Am', 'F', 'E'], lead: lead(TITLE), gain: 0.075, band: titleBand },
-    game: { bpm: 138, chords: ['Am', 'Am', 'F', 'E', 'Am', 'Am', 'F', 'E', 'Dm', 'Dm', 'Am', 'Am', 'Dm', 'Dm', 'E', 'E7'],
-            lead: lead(TITLE.concat(CLIMB)), gain: 0.06, band: gameBand }
-  };
 
   /* ------------------------------------------------------------ sounds */
 
-  // Pulse waves for the lead and the arpeggio, noise for the drums and a
-  // small room for the reverb, made once for each audio context.
+  // Pulse waves, noise and a small room for the reverb, made once for each
+  // audio context. Everything passes a low-pass at 7 kHz, so the music
+  // stays soft under the smashing.
   function kit(ac) {
     if (ac.smashMusic) return ac.smashMusic;
     function pulse(duty) {
@@ -78,8 +130,6 @@
       d = room.getChannelData(c);
       for (i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-4 * i / sr);
     }
-    // Everything passes a low-pass at 7 kHz, so the music stays soft
-    // under the smashing.
     var out = ac.createGain(), lp = ac.createBiquadFilter(), verb = ac.createConvolver(), wet = ac.createGain();
     lp.type = 'lowpass';
     lp.frequency.value = 7000;
@@ -90,120 +140,139 @@
     verb.connect(wet);
     wet.connect(lp);
     lp.connect(out);
-    ac.smashMusic = { pulse25: pulse(0.25), pulse12: pulse(0.125), noise: noise, lp: lp, verb: verb, out: out, dest: null };
+    ac.smashMusic = { waves: { pulse50: pulse(0.5), pulse25: pulse(0.25), pulse12: pulse(0.125) }, noise: noise,
+                      lp: lp, verb: verb, out: out, dest: null };
     return ac.smashMusic;
   }
 
-  // A session is one run of a tune. Its notes go through its own two
-  // gains, dry and to the reverb, so stopping it silences the notes
-  // already on their way.
-  function session(ac, dest) {
-    var k = kit(ac), dry = ac.createGain(), send = ac.createGain();
+  // A session is one run of a tune. Each track has its own level, pan and
+  // reverb send, and all of them pass the session's two gains, so stopping
+  // it silences the notes already on their way.
+  function session(ac, dest, T) {
+    var k = kit(ac), dry = ac.createGain(), send = ac.createGain(), tracks = {};
     if (k.dest !== dest) { k.out.connect(dest); k.dest = dest; }
     dry.connect(k.lp);
     send.connect(k.verb);
-    return { ac: ac, k: k, dry: dry, send: send };
+    Object.keys(T.def.tracks).forEach(function (name) {
+      var tr = T.def.tracks[name], g = ac.createGain(), rev = ac.createGain(), pan = ac.createStereoPanner ? ac.createStereoPanner() : null;
+      g.gain.value = (tr.gain === undefined ? 1 : tr.gain) * (T.def.gain || 1);
+      rev.gain.value = tr.reverb || 0;
+      if (pan) {
+        pan.pan.value = tr.pan || 0;
+        g.connect(pan);
+        pan.connect(dry);
+      } else g.connect(dry);
+      g.connect(rev);
+      rev.connect(send);
+      tracks[name] = { def: tr, in: g };
+    });
+    return { ac: ac, k: k, dry: dry, send: send, tracks: tracks, ratio: 1 };
   }
 
-  // One flat note, as a chip plays it: a quick start, a slight fall, and a
-  // quick end so that it does not click.
-  function note(s, t, f, dur, gain, wave, wet, attack) {
-    var ac = s.ac, o = ac.createOscillator(), g = ac.createGain(), a = attack || 0.005, end = t + dur;
-    if (typeof wave === 'string') o.type = wave; else o.setPeriodicWave(wave);
+  // One flat note, as a chip plays it: a quick start, a fall to decay times
+  // its level, and a quick end so that it does not click.
+  function tone(s, dest, t, f, dur, gain, wave, decay, attack) {
+    var o = s.ac.createOscillator(), g = s.ac.createGain(), a = attack || 0.005, end = t + dur;
+    // A gain holds 1 until its first change, and a note that starts between
+    // two samples can sound a sample early. Starting at 0 stops that click.
+    g.gain.value = 0;
+    if (s.k.waves[wave]) o.setPeriodicWave(s.k.waves[wave]); else o.type = wave;
     o.frequency.setValueAtTime(f, t);
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(gain, t + a);
-    g.gain.linearRampToValueAtTime(gain * 0.65, Math.max(t + a, end - 0.025));
+    g.gain.linearRampToValueAtTime(gain * decay, Math.max(t + a, end - 0.025));
     g.gain.linearRampToValueAtTime(0, end);
     o.connect(g);
-    g.connect(s.dry);
-    if (wet) g.connect(s.send);
+    g.connect(dest);
     o.start(t);
     o.stop(end + 0.02);
   }
-  function hiss(s, t, dur, type, freq, gain) {
-    var ac = s.ac, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  function hiss(s, dest, t, dur, type, freq, q, gain, attack) {
+    var src = s.ac.createBufferSource(), f = s.ac.createBiquadFilter(), g = s.ac.createGain();
+    g.gain.value = 0;
     src.buffer = s.k.noise;
     f.type = type;
     f.frequency.value = freq;
-    g.gain.setValueAtTime(gain, t);
+    f.Q.value = q;
+    g.gain.setValueAtTime(attack ? 0.0001 : gain, t);
+    if (attack) g.gain.exponentialRampToValueAtTime(gain, t + attack);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     src.connect(f);
     f.connect(g);
-    g.connect(s.dry);
+    g.connect(dest);
     src.start(t, Math.random() * 0.5, dur + 0.02);
   }
-  function kick(s, t, gain) {
-    var ac = s.ac, o = ac.createOscillator(), g = ac.createGain();
-    o.frequency.setValueAtTime(140, t);
-    o.frequency.exponentialRampToValueAtTime(45, t + 0.11);
-    g.gain.setValueAtTime(gain, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-    o.connect(g);
-    g.connect(s.dry);
-    o.start(t);
-    o.stop(t + 0.2);
-  }
-  function snare(s, t, gain) {
-    hiss(s, t, 0.13, 'bandpass', 1900, gain);
-    note(s, t, 196, 0.06, gain * 0.8, 'triangle', false, 0.002);
-  }
+  // The drum kit. The kick falls in pitch, as a drum does; no note does.
+  var KIT = {
+    kick: function (s, d, t, g) {
+      var o = s.ac.createOscillator(), e = s.ac.createGain();
+      e.gain.value = 0;
+      o.frequency.setValueAtTime(140, t);
+      o.frequency.exponentialRampToValueAtTime(45, t + 0.11);
+      e.gain.setValueAtTime(g, t);
+      e.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      o.connect(e);
+      e.connect(d);
+      o.start(t);
+      o.stop(t + 0.2);
+    },
+    snare: function (s, d, t, g) {
+      hiss(s, d, t, 0.13, 'bandpass', 1900, 1, g);
+      tone(s, d, t, 196, 0.06, g * 0.8, 'triangle', 0.65, 0.002);
+    },
+    hat: function (s, d, t, g) { hiss(s, d, t, 0.03, 'highpass', 6000, 0.7, g); },
+    open: function (s, d, t, g) { hiss(s, d, t, 0.22, 'highpass', 5200, 0.7, g); },
+    rim: function (s, d, t, g) {
+      hiss(s, d, t, 0.03, 'bandpass', 2600, 3, g);
+      tone(s, d, t, 820, 0.025, g * 0.6, 'triangle', 0.5, 0.001);
+    },
+    clap: function (s, d, t, g) {
+      for (var i = 0; i < 3; i++) hiss(s, d, t + i * 0.011, 0.02, 'bandpass', 1300, 1.5, g * 0.8);
+      hiss(s, d, t + 0.033, 0.12, 'bandpass', 1300, 1.2, g);
+    },
+    shaker: function (s, d, t, g) { hiss(s, d, t, 0.06, 'highpass', 4500, 0.8, g, 0.012); }
+  };
 
-  /* The parts under the lead, for eighth i of a bar, at time t, with an
-     eighth lasting e seconds. */
-  function titleBand(s, chord, bar, i, t, e) {
-    var b = voicing(chord, 2), pad = voicing(chord, 3);
-    if (i === 0) pad.slice(1).forEach(function (f) { note(s, t, f, 8 * e, 0.016, 'triangle', true, 0.12); });
-    if (i === 0) note(s, t, b[0], 2.8 * e, 0.16, 'triangle');
-    if (i === 3) note(s, t, b[0], 0.9 * e, 0.16, 'triangle');
-    if (i === 4) note(s, t, b[2], 1.8 * e, 0.16, 'triangle');
-    if (i === 6) note(s, t, b[0] * 2, 1.8 * e, 0.14, 'triangle');
-  }
-  var ARP = [0, 1, 2, 1, 2, 1, 0, 2], ARP7 = [0, 1, 2, 3, 2, 1, 3, 2];
-  function gameBand(s, chord, bar, i, t, e) {
-    var b = voicing(chord, 2), arp = voicing(chord, 3), fill = bar % 8 === 7;
-    note(s, t, b[0] * (i % 2 ? 2 : 1), 0.85 * e, 0.15, 'triangle');
-    note(s, t, arp[(arp.length > 3 ? ARP7 : ARP)[i]], 0.8 * e, 0.024, s.k.pulse12, true);
-    if (i === 0 || (i === 4 && !fill) || (i === 5 && bar % 2 && !fill)) kick(s, t, 0.24);
-    if (i === 2 || i === 6 || (fill && i > 3)) snare(s, t, fill && i > 3 ? 0.04 + 0.015 * (i - 4) : 0.07);
-    if (i % 2) hiss(s, t, 0.03, 'highpass', 6000, 0.03);
-  }
-
-  // Everything that starts on eighth n of a tune.
-  function play(s, T, n, t, e) {
-    var bar = Math.floor(n / 8) % T.chords.length, L = T.lead[n % T.lead.length];
-    if (L) note(s, t, L.f, L.n * e - 0.02, T.gain, s.k.pulse25, true);
-    T.band(s, T.chords[bar], bar, n % 8, t, e);
+  function play(s, ev, t, spb) {
+    var tr = s.tracks[ev.track];
+    if (ev.drum) KIT[ev.drum](s, tr.in, t, ev.vel * DRUMS[ev.drum]);
+    else tone(s, tr.in, t, ev.f * s.ratio, Math.max(0.03, ev.len * spb - 0.02), ev.vel, tr.def.voice || 'pulse25',
+              tr.def.decay === undefined ? 0.65 : tr.def.decay, tr.def.attack);
   }
 
   /* ------------------------------------------------------------ player */
 
-  var on = true, want = null, cur = null, saved = { id: null, step: 0 };
+  var on = true, want = null, cur = null, saved = {};
   try { on = localStorage.getItem('smash-music') !== '0'; } catch (e) {}
 
+  // Queues every note due in the next 0.15 seconds.
   function pump() {
-    var ac = cur.s.ac, len = cur.T.chords.length * 8;
-    while (cur.next < ac.currentTime + 0.15) {
-      play(cur.s, cur.T, cur.step, cur.next, cur.e);
-      cur.next += cur.e;
-      cur.step = (cur.step + 1) % len;
+    var ac = cur.s.ac, T = cur.T, n = T.events.length;
+    while (n) {
+      var ev = T.events[cur.i], t = cur.t0 + (ev.at + cur.loop * T.len - cur.b0) * cur.spb;
+      if (t >= ac.currentTime + 0.15) break;
+      play(cur.s, ev, t, cur.spb);
+      if (++cur.i === n) { cur.i = 0; cur.loop++; }
     }
   }
   function start(w, a) {
-    var T = TUNES[w.tune], s = session(a.ctx, a.out), t = a.ctx.currentTime;
-    s.dry.gain.setValueAtTime(0, t);
-    s.dry.gain.linearRampToValueAtTime(1, t + 0.05);
-    cur = { id: w.id, T: T, s: s, e: 30 / (w.bpm || T.bpm), next: t + 0.05, step: saved.id === w.id ? saved.step : 0 };
+    var T = TUNES[w.tune], s = session(a.ctx, a.out, T), t = a.ctx.currentTime + 0.05, from = saved[w.id] || 0, i = 0;
+    s.ratio = w.ratio || 1;
+    s.dry.gain.setValueAtTime(0, t - 0.05);
+    s.dry.gain.linearRampToValueAtTime(1, t);
+    while (i < T.events.length && T.events[i].at < from) i++;
+    cur = { id: w.id, tune: w.tune, T: T, s: s, spb: 60 / (w.bpm || T.def.bpm), t0: t, b0: from, i: i < T.events.length ? i : 0,
+            loop: i < T.events.length ? 0 : 1 };
     cur.timer = setInterval(pump, 25);
     pump();
   }
-  // Stops at once, and remembers the eighth now sounding, not the ones
+  // Stops at once, and remembers the beat now sounding, not the notes
   // already queued ahead of it.
   function stop() {
     if (!cur) return;
-    var ac = cur.s.ac, t = ac.currentTime, len = cur.T.chords.length * 8, s = cur.s;
+    var t = cur.s.ac.currentTime, s = cur.s, len = cur.T.len;
     clearInterval(cur.timer);
-    saved = { id: cur.id, step: ((cur.step - Math.ceil((cur.next - t) / cur.e)) % len + len) % len };
+    saved[cur.id] = (((cur.b0 + (t - cur.t0) / cur.spb) % len) + len) % len;
     [s.dry, s.send].forEach(function (g) {
       g.gain.cancelScheduledValues(t);
       g.gain.setValueAtTime(g.gain.value, t);
@@ -218,7 +287,10 @@
       a.musicHooked = true;
       a.ctx.addEventListener('statechange', apply);
     }
-    if (!(on && want && a && !Sound.muted() && a.ctx.state === 'running' && !document.hidden)) { stop(); return; }
+    if (!(on && want && TUNES[want.tune] && a && !Sound.muted() && a.ctx.state === 'running' && !document.hidden)) {
+      stop();
+      return;
+    }
     if (cur && cur.id === want.id) return;
     stop();
     start(want, a);
@@ -226,32 +298,46 @@
   document.addEventListener('visibilitychange', apply);
 
   Smash.Music = {
-    // tune: 'title', 'game' or null. id names this run of it: the same id
-    // again resumes, a new one starts from the top. bpm is optional.
-    want: function (tune, id, bpm) {
+    // tune: the name of a tune in music/, or null. id names this run of it:
+    // the same id again resumes, a new one starts from the top. bpm and
+    // ratio are optional: ratio transposes every note, 4 / 3 up a fourth.
+    want: function (tune, id, bpm, ratio) {
       if (!tune) {
         if (want) { want = null; apply(); }
         return;
       }
-      if (!want || want.id !== id) want = { tune: tune, id: id, bpm: bpm };
+      if (!want || want.id !== id) want = { tune: tune, id: id, bpm: bpm, ratio: ratio };
       if (!cur || cur.id !== id) apply();
     },
     refresh: apply,
-    // The id of the run now playing, or null.
-    playing: function () { return cur ? cur.id : null; },
+    // The tune and run now playing, as 'tune/id', or null.
+    playing: function () { return cur ? cur.tune + '/' + cur.id : null; },
     on: function () { return on; },
     setOn: function (v) {
       on = v;
       try { localStorage.setItem('smash-music', v ? '1' : '0'); } catch (e) {}
       apply();
     },
-    // Plays a tune from the top into any audio context, such as an offline
-    // one, for secs seconds. For tools that record it.
-    render: function (ac, dest, tune, secs, bpm) {
-      var T = TUNES[tune], s = session(ac, dest), e = 30 / (bpm || T.bpm);
-      for (var n = 0; n * e < secs; n++) play(s, T, n % (T.chords.length * 8), n * e, e);
+    // A tune's settings and its CSV rows: what each file in music/ calls.
+    add: function (name, def, csv) { TUNES[name] = compile(name, def, csv); },
+    // For tools and the game: the note parser, a tune's tempo, length and
+    // key (its ratio to A minor), and a render of
+    // a tune from the top into any audio context, such as an offline one,
+    // for secs seconds.
+    rcn: rcn,
+    tune: function (name) {
+      var T = TUNES[name];
+      return T ? { bpm: T.def.bpm, beats: T.len, key: T.def.key || 1 } : null;
     },
-    bars: function (tune) { return TUNES[tune].chords.length; },
-    bpm: function (tune) { return TUNES[tune].bpm; }
+    render: function (ac, dest, tune, secs, bpm, ratio) {
+      var T = TUNES[tune], s = session(ac, dest, T), spb = 60 / (bpm || T.def.bpm);
+      s.ratio = ratio || 1;
+      for (var loop = 0; loop * T.len * spb < secs; loop++) {
+        T.events.forEach(function (ev) {
+          var t = (ev.at + loop * T.len) * spb;
+          if (t < secs) play(s, ev, t, spb);
+        });
+      }
+    }
   };
 })(this);

@@ -255,34 +255,100 @@ there.
 
 ## Music
 
-`music.js` plays two tunes, synthesised in the browser like every other
-sound. Both are in A minor and in just intonation: each chord is tuned pure
-from ratios of 2, 3 and 5, and the E7 takes its seventh from the 7th
-harmonic, 7/4. The lead is a pulse wave, the bass a triangle and the drums
-noise, all through a low-pass filter at 7 kHz and a little reverb. No note
-slides or wavers.
+Every part of the game has a tune. `music.js` plays them, synthesised in
+the browser like every other sound: pulse and triangle waves and noise
+drums, through a low-pass filter at 7 kHz and a little reverb. No note
+slides or wavers. All are funky, swung and full of minor sevenths, and in
+just intonation.
 
-| Tune | Tempo | Bars | Chords | Parts |
+| Tune | Plays | Key | Tempo | What makes it different |
 |---|---|---|---|---|
-| Title | 100 BPM | 8 | Am Am F E, twice | Lead, bass and a quiet held chord |
-| Game | 138 BPM, 3 more a level up to 156 | 16 | The title's eight bars, then Dm Dm Am Am Dm Dm E E7 | Lead, an eighth-note octave bass, an arpeggio, and kick, snare and hat, with a snare fill every eighth bar |
+| `title` | The title screen | A minor | 96 BPM | The game tune's first half, laid back |
+| `fun` | Fun Mode's smashing | A minor | 124 BPM | The game tune, bouncy and short-noted, with a light kit |
+| `level1` | Levels 1, 6, 11… | A minor | 138 BPM | The game tune, with a syncopated bass and off-beat stabs |
+| `level2` | Levels 2, 7, 12… | D minor | as the level | Disco funk: octave bass, four on the floor, off-beat stabs, a pushed melody |
+| `level3` | Levels 3, 8, 13… | E minor | as the level | Slap funk: popped octaves, ghost notes, ninth chords, a breakbeat |
+| `level4` | Levels 4, 9, 14… | C minor | as the level | Half-time: long bass notes, held chords, snare on 3, the melody in octaves |
+| `level5` | Levels 5, 10, 15… | A minor | as the level | The boss: sixteenth-note bass, a dub echo on the lead, E7#9 to finish |
+| `intro` | A level's introduction, up to FIGHT! | The level's | as the level | Two bars on the level's dominant seventh, leading into its tune |
+| `ko` | The K.O. and its bonuses, and Fun Mode's SCREEN DESTROYED! | C major | 112 BPM | Cmaj7 Fmaj7 Dm7 E7, with a rising lead |
+| `pause` | The pause screen | – | 88 BPM | Drums only |
+| `over` | Death, time up and the game-over screen | A minor | 76 BPM | Am9 Dm9 Fmaj7 E7, slow |
 
-The game tune starts the title's tune again and adds a second half that
-climbs through D minor to E and E7.
+The five level tunes share the game tune's melody and its 16 bars: Am7 Am7
+Fmaj7 E7 twice, then Dm7 Dm7 Am7 Am7 Dm7 Dm7 E7 E7, moved to each tune's
+key. Levels never run out, so the five repeat from level 6. The tempo is
+138 BPM at level 1, 3 more each level, up to 156 from level 7.
 
-- **When it plays.** The title tune plays on the title screen. The game
-  tune plays in Anger Mode only while the player is smashing: from FIGHT!
-  to the K.O., the time-out or death. It is silent through a level's
-  introduction, the bonuses, the endings, the game-over screen and a pause.
-  In Fun Mode it plays until SCREEN DESTROYED! and starts again with the
-  next device.
-- **Where it restarts.** A pause stops the tune, and resuming picks it up
-  at the same eighth note. Each new level starts the tune from the top.
+- **Where it restarts.** A pause stops a level's tune, and resuming picks
+  it up at the same beat. Each new level starts its tune from the top.
 - **On and off.** The Music button turns it on and off, and the browser
-  keeps the choice. Sound off silences it too. Hiding the tab stops it.
-- **Level.** Before the page's compressor the game tune peaks at −15 dBFS
-  and the title tune at −18 dBFS, well below the smashing. Rendered through
-  the compressor, both measure about −23 LUFS.
+  keeps the choice. Sound off silences it too. Hiding the tab stops it. The
+  title tune starts at the visitor's first click or key.
+- **Level.** Rendered through the page's compressor, the tunes measure −24
+  to −26 LUFS and the pause loop −30 LUFS, 5 dB quieter. Before the
+  compressor no tune peaks above −14 dBFS, its threshold. Each note's gain
+  starts at 0: a gain holds 1 until its first change, and a note that
+  starts between two samples, as swung notes do, would otherwise click.
+
+### Sequence files
+
+Each tune is one file in `app/smash/music/`, such as `title.js`. The file
+gives the tune's settings, then its notes as CSV rows, a row per note, between
+backticks. Edit a row and reload the page to hear it. The files are scripts,
+so the page reads them whether it is opened from the disk or from a server.
+
+```js
+Smash.Music.add('title', {
+  bpm: 96, bars: 8, swing: 0.2, gain: 1.45,
+  tracks: {
+    lead: { voice: 'pulse25', gain: 0.075, pan: 0.15, reverb: 0.4 },
+    drums: { loop: 2 }
+  }
+}, `
+bar,beat,track,note,length,vel
+1,1,lead,A4,1,1
+1,2,drums,rim,0.25,0.8
+1,2.5,keys,C.4,0.25,1
+`);
+```
+
+The rows:
+
+- **bar** and **beat** count from 1. Beat 2.5 is the "and" of 2, and 2.25
+  and 2.75 the sixteenths either side.
+- **track** names one of the tune's tracks.
+- **note** is in Rational Comma Notation, as justsynth writes it: a
+  Pythagorean letter and octave, with `'` for 80/81, `.` for 81/80 and
+  `[7]` for 63/64, and any other DR prime comma in brackets. A4 is 440 Hz,
+  so C.5 is a pure minor third above it, G#'4 a pure major third above E4,
+  and D[7]5 the 7th harmonic of E3. On a drum track the note is a drum:
+  `kick`, `snare`, `hat`, `open`, `rim`, `clap` or `shaker`.
+- **length** is in beats. A drum ignores it.
+- **vel** runs from 0 to 1, and is 1 if left out. A drum at 1 plays at a
+  level set for that drum.
+- Lines starting `#` are comments.
+
+The settings:
+
+- **bpm**, **bars** and **swing**. Swing delays the second and fourth
+  sixteenths of each beat by that share of a sixteenth.
+- **gain** scales the whole tune.
+- **key**, on a level tune, is its ratio to A minor, such as `4 / 3` for D
+  minor. The level's introduction is moved by the same ratio.
+- Each track sets its sound (`voice`: `pulse50`, `pulse25`, `pulse12`,
+  `triangle` or `sine`; drums need none), `gain`, `pan` from −1 to 1,
+  `reverb` send, `attack` in seconds and `decay`, the share of its level a
+  note falls to by its end.
+- A track with `loop` repeats its first bars through the tune: the drums in
+  `play` are two bars, looping.
+
+Every note, including every hat, is written out; nothing is generated. A
+new tune needs a file in `music/`, a `<script>` line for it in `index.html`,
+and a line in `syncMusic()` in `game.js` saying when it plays.
+
+`music.js` parses the notes with a port of justsynth's `parse_rcn`, and
+gives the same ratio as justsynth for every note in the files.
 
 ## Drawing and cost
 
@@ -323,8 +389,11 @@ crossings.
   in Fun Mode, M turns sound on and off, V turns the voice on and off.
 - Fun Mode only: scroll, pinch, or − and + zoom towards the last blow;
   drag moves the view when zoomed in; 0 shows the whole device.
-- The Menu button pauses Anger Mode, with a choice to quit, and leaves Fun
-  Mode for the title screen. Hiding the tab pauses Anger Mode too.
+- The Menu button pauses Anger Mode, with a choice to quit. In Fun Mode the
+  same button reads Title screen, and goes there.
+- The Smash Screen title at the top of the page goes back to the title
+  screen too. During a run of Anger Mode it pauses and asks first, with Keep
+  playing as the default and Escape to back out. Hiding the tab pauses Anger Mode too.
 - Sound and music are synthesised in the browser. The Music button turns
   the music on and off. The announcer uses the browser's own speech voice,
   as Dino Dash does. The choices for sound, voice and music, the high scores
@@ -352,7 +421,8 @@ Scene ids are listed at the end of `scenes.js`.
 | `app/smash/damage.js` | The crack network, what one blow does to a screen, the damage measure, and how to draw it all |
 | `app/smash/hands.js` | The seven weapons, the right hand that holds them, the left hand, and the weapon icons |
 | `app/smash/sound.js` | Every sound, synthesised |
-| `app/smash/music.js` | The title and game tunes, synthesised, and when they play |
+| `app/smash/music.js` | The music player: reads the sequence files and synthesises them |
+| `app/smash/music/` | The tunes, one sequence file each |
 | `app/smash/smash.js` | The engine: devices, the view, input, the swing, contact with the device, and drawing |
 | `app/smash/game.js` | The rules: the title screen, both modes, the HUD, scoring, flying glass and keys, the left hand, self-hits, endings, high scores and the voice |
 | `tools/smash/card.js` | Draws `social/smash.jpg`, the share card |
