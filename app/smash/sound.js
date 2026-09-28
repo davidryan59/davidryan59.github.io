@@ -65,6 +65,8 @@
 
   var S = {
     ensure: ensure,
+    // The audio context and the output every sound goes to, once made.
+    audio: function () { return audio; },
     muted: function () { return muted; },
     setMuted: function (m) {
       muted = m;

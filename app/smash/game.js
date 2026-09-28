@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var S = window.Smash, E = S.engine, D = S.Damage, Sound = S.Sound, Hands = S.Hands;
+  var S = window.Smash, E = S.engine, D = S.Damage, Sound = S.Sound, Music = S.Music, Hands = S.Hands;
   var TAU = 2 * Math.PI;
   function $(id) { return document.getElementById(id); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -65,7 +65,7 @@
   };
   var gt = 0, lastT = 0, timers = [], shots = [], pending = [], pops = [], effects = [];
   var pointer = { x: -999, y: -999, shown: false };
-  var fw = 0, fh = 0, fdpr = 1, lastSecond = -1, hintAt = 0, nearly = false, attract = { next: 0, blows: 0 };
+  var fw = 0, fh = 0, fdpr = 1, lastSecond = -1, hintAt = 0, nearly = false, attract = { next: 0, blows: 0 }, runs = 0;
 
   function later(sec, fn) { timers.push({ at: gt + sec, fn: fn }); }
 
@@ -137,6 +137,19 @@
     el.textContent = s;
     el.className = 'timer' + (s <= 10 && G.phase === 'play' ? ' low' : '');
     if (s <= 10 && s > 0 && G.phase === 'play') Sound.tick();
+  }
+
+  /* ------------------------------------------------------------ music */
+
+  // The title screen has its tune. The game's plays only while the player
+  // is smashing: not in a level's introduction, at a K.O., at the end of a
+  // run or while paused. Each level starts it from the top, a little
+  // faster each level; a pause resumes it where it stopped.
+  function syncMusic() {
+    if (G.mode === 'title') Music.want('title', 'title');
+    else if (G.mode === 'anger' && G.phase === 'play' && !G.paused) Music.want('game', 'level-' + runs, Math.min(156, 138 + 3 * (G.level - 1)));
+    else if (G.mode === 'fun' && !G.fun.done) Music.want('game', 'fun-' + runs);
+    else Music.want(null);
   }
 
   /* ---------------------------------------------------------- weapons */
@@ -469,6 +482,7 @@
 
   function startLevel(L) {
     G.level = L;
+    runs++;
     G.phase = 'intro';
     G.lost = false;
     G.weapons = {};
@@ -683,6 +697,7 @@
 
   function startFun(want) {
     setMode('fun');
+    runs++;
     clearFx();
     show(null);
     E.locked = false;
@@ -713,6 +728,7 @@
   function setPaused(on) {
     if (G.mode !== 'anger' || (G.phase !== 'play' && G.phase !== 'intro' && !G.paused)) return;
     G.paused = on;
+    syncMusic();
     E.locked = on || G.phase !== 'play';
     if (on) E.lower();
     show(on ? 'paused' : null);
@@ -737,6 +753,7 @@
     $('victory-stats').textContent = 'In ' + secs + ' seconds and ' + f.blows + (f.blows === 1 ? ' blow' : ' blows') + '. ' +
       (f.count === 1 ? 'Your first screen today.' : 'Screens destroyed today: ' + f.count + '.');
     $('victory').hidden = false;
+    syncMusic();
     tell('Screen destroyed, in ' + secs + ' seconds and ' + f.blows + ' blows.');
   }
   E.hooks.device = function () {
@@ -810,6 +827,7 @@
     var dt = Math.min(0.1, Math.max(0, t - lastT));
     lastT = t;
     if (!G.paused) gt += dt;
+    syncMusic();
     var i;
     for (i = timers.length - 1; i >= 0; i--) {
       if (gt >= timers[i].at) {
@@ -1207,14 +1225,22 @@
   });
   $('new-device').addEventListener('click', function () { if (G.mode === 'fun') E.newDevice(); });
 
-  var soundBtn = $('sound'), voiceBtn = $('voice');
+  var soundBtn = $('sound'), voiceBtn = $('voice'), musicBtn = $('music');
   function syncButtons() {
+    musicBtn.setAttribute('aria-pressed', Music.on() ? 'true' : 'false');
+    musicBtn.textContent = Music.on() ? 'Music on' : 'Music off';
     soundBtn.setAttribute('aria-pressed', Sound.muted() ? 'false' : 'true');
     soundBtn.textContent = Sound.muted() ? 'Sound off' : 'Sound on';
     voiceBtn.setAttribute('aria-pressed', voiceOn ? 'true' : 'false');
     voiceBtn.textContent = voiceOn ? 'Voice on' : 'Voice off';
   }
-  soundBtn.addEventListener('click', function () { Sound.ensure(); Sound.setMuted(!Sound.muted()); syncButtons(); });
+  soundBtn.addEventListener('click', function () { Sound.ensure(); Sound.setMuted(!Sound.muted()); syncButtons(); Music.refresh(); });
+  musicBtn.addEventListener('click', function () {
+    Sound.ensure();
+    Music.setOn(!Music.on());
+    syncButtons();
+    syncMusic();
+  });
   voiceBtn.addEventListener('click', function () {
     voiceOn = !voiceOn;
     save('smash-voice', voiceOn);
@@ -1234,6 +1260,7 @@
       Sound.ensure();
       Sound.setMuted(!Sound.muted());
       syncButtons();
+      Music.refresh();
     } else if (k === 'v' || k === 'V') {
       voiceBtn.click();
     } else if ((k === 'p' || k === 'P' || k === 'Escape') && G.mode === 'anger') {
@@ -1251,6 +1278,11 @@
   // button; keep it at the top.
   stage.addEventListener('scroll', function () { stage.scrollTop = 0; stage.scrollLeft = 0; });
   syncButtons();
+  // The browser starts audio only after a click or a key. The first one
+  // anywhere on the page starts it, and with it the title screen's tune.
+  function wake() { Sound.ensure(); syncMusic(); }
+  document.addEventListener('click', wake, { once: true });
+  document.addEventListener('keydown', wake, { once: true });
   // The address can ask for a mode, or for a device, picture, orientation
   // and seed, as in #device=laptop&scene=synthwave&seed=42, which opens
   // Fun Mode. #mode=anger&level=12 starts Anger Mode at level 12, as

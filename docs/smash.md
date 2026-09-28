@@ -43,8 +43,9 @@ drbuild.uk/smash redirects there.
 ### Title screen
 
 SMASH SCREEN over a device that a hand smashes by itself, two buttons for
-the modes, and the top five high scores. The title screen makes no sound:
-the browser starts audio only after the visitor clicks or presses a key.
+the modes, and the top five high scores. The title screen's tune starts at
+the visitor's first click or key anywhere on the page: the browser starts
+audio only after one.
 
 ### Fun Mode
 
@@ -252,6 +253,37 @@ not count. So the Damage shown rises as the ink spreads. The screen is
 K.O. when 99% of the points are dead, and the bar is scaled to read 100%
 there.
 
+## Music
+
+`music.js` plays two tunes, synthesised in the browser like every other
+sound. Both are in A minor and in just intonation: each chord is tuned pure
+from ratios of 2, 3 and 5, and the E7 takes its seventh from the 7th
+harmonic, 7/4. The lead is a pulse wave, the bass a triangle and the drums
+noise, all through a low-pass filter at 7 kHz and a little reverb. No note
+slides or wavers.
+
+| Tune | Tempo | Bars | Chords | Parts |
+|---|---|---|---|---|
+| Title | 100 BPM | 8 | Am Am F E, twice | Lead, bass and a quiet held chord |
+| Game | 138 BPM, 3 more a level up to 156 | 16 | The title's eight bars, then Dm Dm Am Am Dm Dm E E7 | Lead, an eighth-note octave bass, an arpeggio, and kick, snare and hat, with a snare fill every eighth bar |
+
+The game tune starts the title's tune again and adds a second half that
+climbs through D minor to E and E7.
+
+- **When it plays.** The title tune plays on the title screen. The game
+  tune plays in Anger Mode only while the player is smashing: from FIGHT!
+  to the K.O., the time-out or death. It is silent through a level's
+  introduction, the bonuses, the endings, the game-over screen and a pause.
+  In Fun Mode it plays until SCREEN DESTROYED! and starts again with the
+  next device.
+- **Where it restarts.** A pause stops the tune, and resuming picks it up
+  at the same eighth note. Each new level starts the tune from the top.
+- **On and off.** The Music button turns it on and off, and the browser
+  keeps the choice. Sound off silences it too. Hiding the tab stops it.
+- **Level.** Before the page's compressor the game tune peaks at −15 dBFS
+  and the title tune at −18 dBFS, well below the smashing. Rendered through
+  the compressor, both measure about −23 LUFS.
+
 ## Drawing and cost
 
 Everything is vector and drawn in screen units, where the short side of the
@@ -293,9 +325,10 @@ crossings.
   drag moves the view when zoomed in; 0 shows the whole device.
 - The Menu button pauses Anger Mode, with a choice to quit, and leaves Fun
   Mode for the title screen. Hiding the tab pauses Anger Mode too.
-- Sound is synthesised in the browser. The announcer uses the browser's own
-  speech voice, as Dino Dash does. The choices for sound and voice, the high
-  scores and the last initials are kept in this browser.
+- Sound and music are synthesised in the browser. The Music button turns
+  the music on and off. The announcer uses the browser's own speech voice,
+  as Dino Dash does. The choices for sound, voice and music, the high scores
+  and the last initials are kept in this browser.
 - With reduced motion set, the device does not shake, the impact and the
   lightning do not flash, and the announcer does not zoom.
 
@@ -319,6 +352,7 @@ Scene ids are listed at the end of `scenes.js`.
 | `app/smash/damage.js` | The crack network, what one blow does to a screen, the damage measure, and how to draw it all |
 | `app/smash/hands.js` | The seven weapons, the right hand that holds them, the left hand, and the weapon icons |
 | `app/smash/sound.js` | Every sound, synthesised |
+| `app/smash/music.js` | The title and game tunes, synthesised, and when they play |
 | `app/smash/smash.js` | The engine: devices, the view, input, the swing, contact with the device, and drawing |
 | `app/smash/game.js` | The rules: the title screen, both modes, the HUD, scoring, flying glass and keys, the left hand, self-hits, endings, high scores and the voice |
 | `tools/smash/card.js` | Draws `social/smash.jpg`, the share card |
