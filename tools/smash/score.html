@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smash Score</title>
+<!-- A Smash Screen tune drawn as a score, from its file in app/smash/music/.
+     Open it from the disk or a server; ?tune=level2 draws another tune.
+     The notation is David Ryan's for Just Intonation on a staff: the staff is
+     Pythagorean, and each prime from 5 up is a small fraction before the note
+     and before any sharp or flat, so 5 is x80/81, 1/5 is x81/80 and 7 is
+     x63/64. -->
+<style>
+  :root { --ink: #1d1d1f; --muted: #5f6368; --paper: #ffffff; --page: #eceae4; --comma: #c62828; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
+  main { max-width: 1840px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p { margin: 0 0 6px; }
+  .meta { color: var(--muted); }
+  .legend b { color: var(--comma); }
+  #score { margin-top: 14px; background: var(--paper); border-radius: 6px; padding: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+  #score svg { display: block; width: 100%; height: auto; }
+  #error { color: #b00020; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Smash Screen score</h1>
+  <p class="meta" id="meta"></p>
+  <p class="legend">Tuning is JI using RCN<sub>DR</sub>, A4 = 440 Hz. The staff is Pythagorean, so a plain note is its
+    Pythagorean pitch. The red numbers are prime commas: <b>5</b> is ×80/81, <b>1/5</b> is ×81/80 and <b>7</b> is ×63/64.
+    A comma holds to the end of the bar, and <b>1/1</b> cancels it. Swung notes are written straight.</p>
+  <div id="score"></div>
+  <pre id="error"></pre>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.5/build/cjs/vexflow.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var VF = Vex.Flow, TUNES = {};
+  var COMMA = getComputedStyle(document.documentElement).getPropertyValue('--comma').trim();
+  window.Smash = { Music: { add: function (name, def, text) { TUNES[name] = { def: def, text: text }; } } };
+
+  var NAMES = { title: 'Title screen', fun: 'Fun Mode', level1: 'Level 1 (and 6, 11…)', level2: 'Level 2 (and 7, 12…)',
+                level3: 'Level 3 (and 8, 13…)', level4: 'Level 4 (and 9, 14…)', level5: 'Level 5 (and 10, 15…)',
+                intro: 'Level introduction', ko: 'K.O.', pause: 'Pause', over: 'Game over' };
+  var KEYS = { title: 'A minor', fun: 'A minor', level1: 'A minor', level2: 'D minor', level3: 'E minor',
+               level4: 'C minor', level5: 'A minor', ko: 'C major', over: 'A minor' };
+
+  function fail(e) { document.getElementById('error').textContent = (e && e.stack) || String(e); }
+  window.addEventListener('error', function (ev) { fail(ev.error || ev.message); });
+
+  /* ------------------------------------------- Rational Comma Notation */
+
+  // As music.js reads a note, but kept apart: the letter, octave and
+  // Pythagorean sharps and flats go on the staff, and the primes from 5 up
+  // become the fraction written before the note.
+  var RCN = /^([CDEFGAB])((?:[#bx'.pd]|\[[^\]]*\])*)(-?\d+)((?:\[[^\]]*\]|~\d+|_\d+)*)$/;
+  var STEP = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+  function primes(text, sign, into) {
+    if (!text.trim()) return;
+    text.split('*').forEach(function (tk) {
+      var n = Math.abs(parseInt(tk, 10) || 1);
+      while (n % 2 === 0) n /= 2;
+      while (n % 3 === 0) n /= 3;
+      for (var d = 5; d * d <= n; d += 2) while (n % d === 0) { into[d] = (into[d] || 0) + sign; n /= d; }
+      if (n > 1) into[n] = (into[n] || 0) + sign;
+    });
+  }
+  // The sharps less the flats, with each prime's power added to into.
+  function mods(text, into) {
+    var alter = 0, i = 0;
+    while (i < text.length) {
+      var c = text[i];
+      if (c === '#') { alter++; i++; }
+      else if (c === 'b') { alter--; i++; }
+      else if (c === 'x') { alter += 2; i++; }
+      else if (c === "'") { into[5] = (into[5] || 0) + 1; i++; }
+      else if (c === '.') { into[5] = (into[5] || 0) - 1; i++; }
+      else if (c === 'p' || c === 'd') throw new Error('No staff mark for the Pythagorean comma yet: ' + text);
+      else if (c === '[') {
+        var j = text.indexOf(']', i), parts = text.slice(i + 1, j).split('/');
+        primes(parts[0], 1, into);
+        if (parts.length > 1) primes(parts[1], -1, into);
+        i = j + 1;
+      } else {
+        var k = i + 1;
+        while (k < text.length && /\d/.test(text[k])) k++;
+        primes(text.slice(i + 1, k), c === '~' ? 1 : -1, into);
+        i = k;
+      }
+    }
+    return alter;
+  }
+  function fraction(pw) {
+    var num = 1, den = 1;
+    Object.keys(pw).forEach(function (p) {
+      if (pw[p] > 0) num *= Math.pow(+p, pw[p]);
+      if (pw[p] < 0) den *= Math.pow(+p, -pw[p]);
+    });
+    if (num === 1 && den === 1) return '';
+    return den === 1 ? String(num) : num + '/' + den;
+  }
+  function pitch(text) {
+    var m = RCN.exec(text);
+    if (!m) throw new Error('Not a note: ' + text);
+    var pw = {}, alter = mods(m[2], pw);
+    mods(m[4], pw);
+    var acc = new Array(Math.abs(alter) + 1).join(alter > 0 ? '#' : 'b');
+    return { alter: alter, acc: acc, comma: fraction(pw), key: m[1].toLowerCase() + acc + '/' + m[3],
+             pos: m[1] + m[3], line: +m[3] * 7 + 'CDEFGAB'.indexOf(m[1]), midi: 12 * (+m[3] + 1) + STEP[m[1]] + alter };
+  }
+
+  // Each drum's place on a percussion staff. The kick goes on the stems-down
+  // voice, everything else on the stems-up voice.
+  var DRUMS = {
+    kick: { key: 'f/4', line: 0, feet: true },
+    snare: { key: 'c/5', line: 1 },
+    rim: { key: 'c/5/x3', line: 1 },
+    clap: { key: 'd/5/x2', line: 2 },
+    hat: { key: 'g/5/x2', line: 3 },
+    open: { key: 'g/5/x2', line: 3, open: true },
+    shaker: { key: 'a/5/x2', line: 4 }
+  };
+
+  /* ------------------------------------------------------- the tune */
+
+  // Every note in sixteenths from the start, with looped tracks repeated
+  // through the tune, as music.js plays them.
+  function load(name) {
+    var T = TUNES[name], def = T.def, per = def.beats || 4, S = per * 4, total = def.bars * S, tracks = {};
+    T.text.split(/\r?\n/).forEach(function (line) {
+      var c = line.split(',').map(function (x) { return x.trim(); });
+      if (!c[0] || c[0][0] === '#' || c[0] === 'bar') return;
+      var tr = def.tracks[c[2]];
+      if (!tr) throw new Error('No track ' + c[2]);
+      var at = ((+c[0] - 1) * per + (+c[1] - 1)) * 4, len = (+c[4] || 0.25) * 4;
+      if (at % 1 || len % 1) throw new Error('Off the sixteenth grid: ' + line);
+      for (var t = at; t < total; t += (tr.loop || def.bars) * S) {
+        (tracks[c[2]] = tracks[c[2]] || []).push({ at: t, len: Math.max(1, len), note: c[3] });
+      }
+    });
+    return { name: name, def: def, S: S, bars: def.bars, total: total, tracks: tracks };
+  }
+
+  // One staff per pitched track, in the tune's order, and one staff for all
+  // the drum tracks together.
+  function staffs(tune) {
+    var out = [], drums = null;
+    Object.keys(tune.def.tracks).forEach(function (name) {
+      var ev = tune.tracks[name];
+      if (!ev) return;
+      if (!tune.def.tracks[name].voice) {
+        if (!drums) out.push(drums = { name: 'Drums', drum: true, events: [] });
+        drums.events = drums.events.concat(ev);
+        return;
+      }
+      var mids = ev.map(function (e) { return pitch(e.note).midi; }).sort(function (a, b) { return a - b; });
+      out.push({ name: name[0].toUpperCase() + name.slice(1), events: ev, clef: mids[mids.length >> 1] >= 55 ? 'treble' : 'bass' });
+    });
+    return out;
+  }
+
+  /* ---------------------------------------------------------- rhythm */
+
+  // Lengths in sixteenths, and where in a 4/4 bar each may start without
+  // hiding a beat: a half on beat 1 or 3, a quarter on a beat or the "and"
+  // of 1 or 3, and so on. Anything else is tied.
+  var DUR = { 16: 'w', 12: 'hd', 8: 'h', 6: 'qd', 4: 'q', 3: '8d', 2: '8', 1: '16' };
+  function fits(s, d) {
+    switch (d) {
+      case 16: case 12: return s === 0;
+      case 8: return s % 8 === 0;
+      case 6: return s % 8 === 0 || s % 8 === 2;
+      case 4: return s % 4 === 0 || s % 8 === 2;
+      case 3: return s % 4 === 0 || s % 4 === 1;
+      case 2: return s % 2 === 0;
+      default: return true;
+    }
+  }
+  function pieces(s, e) {
+    var out = [];
+    while (s < e) {
+      var d = [16, 12, 8, 6, 4, 3, 2, 1].filter(function (d) { return s + d <= e && fits(s, d); })[0];
+      out.push({ s: s, d: d });
+      s += d;
+    }
+    return out;
+  }
+
+  // A pitched track as items per bar. A chord lasts until its longest note
+  // ends or the next chord starts, and is tied over beats and bar lines.
+  function pitched(st, tune) {
+    var S = tune.S, bars = [], groups = {}, segs = [], t = 0;
+    for (var b = 0; b < tune.bars; b++) bars.push([]);
+    st.events.forEach(function (e) { (groups[e.at] = groups[e.at] || []).push(e); });
+    var starts = Object.keys(groups).map(Number).sort(function (a, b) { return a - b; });
+    starts.forEach(function (at, k) {
+      var g = groups[at], next = k + 1 < starts.length ? starts[k + 1] : tune.total;
+      var end = Math.min(at + Math.max.apply(null, g.map(function (e) { return e.len; })), next, tune.total);
+      if (at > t) segs.push({ a: t, b: at, rest: true });
+      segs.push({ a: at, b: end, notes: g.map(function (e) { return pitch(e.note); }).sort(function (x, y) { return x.line - y.line; }) });
+      t = end;
+    });
+    if (t < tune.total) segs.push({ a: t, b: tune.total, rest: true });
+    segs.forEach(function (sg) {
+      var list = [];
+      for (var bar = Math.floor(sg.a / S); bar * S < sg.b; bar++) {
+        pieces(Math.max(sg.a, bar * S) - bar * S, Math.min(sg.b, (bar + 1) * S) - bar * S).forEach(function (p) {
+          var it = { bar: bar, s: p.s, d: p.d, rest: !!sg.rest, notes: sg.notes };
+          list.push(it);
+          bars[bar].push(it);
+        });
+      }
+      if (!sg.rest) list.forEach(function (it, j) { it.tied = j > 0; it.next = list[j + 1]; });
+    });
+    return bars;
+  }
+
+  // The drums as two voices per bar. A hit is written no longer than a
+  // quarter, with rests to the next hit, since a drum does not sustain.
+  function drummed(st, tune) {
+    var S = tune.S, bars = [];
+    for (var b = 0; b < tune.bars; b++) bars.push({ up: [], down: [] });
+    ['up', 'down'].forEach(function (v) {
+      var groups = {};
+      st.events.forEach(function (e) {
+        var dr = DRUMS[e.note];
+        if (!dr) throw new Error('Unknown drum ' + e.note);
+        if (!!dr.feet === (v === 'down')) (groups[e.at] = groups[e.at] || []).push(dr);
+      });
+      bars.forEach(function (bar, n) {
+        var list = bar[v], t = 0;
+        function rest(a, z) { pieces(a, z).forEach(function (p) { list.push({ s: p.s, d: p.d, rest: true }); }); }
+        var starts = Object.keys(groups).map(Number).filter(function (a) { return a >= n * S && a < (n + 1) * S; })
+                           .sort(function (a, b) { return a - b; });
+        starts.forEach(function (at, k) {
+          var s = at - n * S, e = k + 1 < starts.length ? starts[k + 1] - n * S : S, d = pieces(s, Math.min(e, s + 4))[0].d;
+          var seen = {}, hits = groups[at].filter(function (dr) { return !seen[dr.key] && (seen[dr.key] = true); });
+          if (s > t) rest(t, s);
+          list.push({ s: s, d: d, drums: hits.sort(function (x, y) { return x.line - y.line; }) });
+          rest(s + d, e);
+          t = e;
+        });
+        rest(t, S);
+      });
+    });
+    return bars;
+  }
+
+  /* ------------------------------------------------------------ notes */
+
+  function staveNote(clef, keys, d, rest, stem) {
+    var opts = { clef: clef, keys: keys, duration: DUR[d] + (rest ? 'r' : '') };
+    if (stem) opts.stem_direction = stem; else opts.auto_stem = true;
+    var n = new VF.StaveNote(opts);
+    if (/d/.test(DUR[d])) VF.Dot.buildAndAttach([n], { all: true });
+    return n;
+  }
+  // The comma goes before the sharp or flat, as 17/5C#4 is written. VexFlow
+  // lays out string numbers outside the accidentals, so the mark takes that
+  // slot, reserves the fraction's measured width, and draws plain red text
+  // in place of a circled number.
+  var measure = document.createElement('canvas').getContext('2d');
+  measure.font = 'bold 12px Arial';
+  class CommaMark extends VF.StringNumber {
+    constructor(text) {
+      super(text);
+      this.text = text;
+      this.setPosition(VF.Modifier.Position.LEFT);
+      this.setWidth(Math.ceil(measure.measureText(text).width) + 3);
+    }
+    draw() {
+      var ctx = this.checkContext(), note = this.checkAttachedNote();
+      this.setRendered();
+      var start = note.getModifierStartXY(this.position, this.index);
+      ctx.save();
+      ctx.setFont({ family: 'Arial', size: '12px', weight: 'bold' });
+      ctx.setFillStyle(COMMA);
+      ctx.fillText(this.text, start.x + this.x_shift - this.getWidth(), start.y + 4);
+      ctx.restore();
+    }
+  }
+  function commaMark(text) { return new CommaMark(text); }
+
+  // A bar of a pitched staff. Sharps, flats and commas each hold to the end
+  // of the bar, so a mark shows only when the note's pitch on that line
+  // changes. A note tied in from before shows no mark.
+  function pitchedNotes(items, clef) {
+    var alter = {}, comma = {};
+    return items.sort(function (a, b) { return a.s - b.s; }).map(function (it) {
+      if (it.rest) return (it.vf = staveNote(clef, [clef === 'bass' ? 'd/3' : 'b/4'], it.d, true));
+      var n = staveNote(clef, it.notes.map(function (p) { return p.key; }), it.d, false);
+      if (!it.tied) it.notes.forEach(function (p, i) {
+        if ((alter[p.pos] || 0) !== p.alter) n.addModifier(new VF.Accidental(p.alter ? p.acc : 'n'), i);
+        if ((comma[p.pos] || '') !== p.comma) n.addModifier(commaMark(p.comma || '1/1'), i);
+        alter[p.pos] = p.alter;
+        comma[p.pos] = p.comma;
+      });
+      return (it.vf = n);
+    });
+  }
+  function drumNotes(items, stem) {
+    return items.map(function (it) {
+      if (it.rest) return staveNote('percussion', [stem > 0 ? 'e/5' : 'e/4'], it.d, true, stem);
+      var n = staveNote('percussion', it.drums.map(function (d) { return d.key; }), it.d, false, stem);
+      it.drums.forEach(function (d, i) {
+        if (d.open) n.addModifier(new VF.Annotation('o').setVerticalJustification(VF.Annotation.VerticalJustify.TOP), i);
+      });
+      return n;
+    });
+  }
+  // Beamed by the beat. A pitched staff beams over a rest inside a beat, so
+  // 8th, 16th rest, 16th reads as one figure.
+  function beams(notes, stem) {
+    var cfg = { groups: [new VF.Fraction(1, 4)] };
+    if (stem) cfg.stem_direction = stem;
+    else { cfg.beam_rests = true; cfg.beam_middle_only = true; }
+    return VF.Beam.generateBeams(notes, cfg);
+  }
+
+  /* ----------------------------------------------------------- layout */
+
+  // A bar needs about 420 px for sixteenths, so the number of bars on a line
+  // follows the window, up to four. The drum staff sits lower, clear of the
+  // bass staff, since its beams rise well above it.
+  var LEFT = 70, OTHER = 420, FIRST = OTHER + 90, GAP = 115, DRUM_GAP = 30, SYS_GAP = 40, TOP = 30, PER = 4;
+
+  function perLine() {
+    var w = document.getElementById('score').clientWidth - 24;
+    return Math.max(1, Math.min(4, Math.floor((w - LEFT - 20 - (FIRST - OTHER)) / OTHER)));
+  }
+  function staffY(sts, i) { return i * GAP + (sts[i].drum ? DRUM_GAP : 0); }
+
+  function render(tune) {
+    var sts = staffs(tune), per = tune.def.beats || 4, ties = [];
+    PER = perLine();
+    sts.forEach(function (st) { st.bars = st.drum ? drummed(st, tune) : pitched(st, tune); });
+    var systems = Math.ceil(tune.bars / PER), sysH = staffY(sts, sts.length - 1) + GAP + SYS_GAP;
+    var W = LEFT + FIRST + OTHER * (PER - 1) + 20, H = TOP + systems * sysH;
+    var div = document.getElementById('score');
+    div.innerHTML = '';
+    var renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+    renderer.resize(W, H);
+    var ctx = renderer.getContext(), marks = [];
+
+    for (var sy = 0; sy < systems; sy++) {
+      var y0 = TOP + sy * sysH, x = LEFT;
+      for (var b = sy * PER; b < Math.min(tune.bars, (sy + 1) * PER); b++) {
+        var first = b % PER === 0, w = first ? FIRST : OTHER;
+        var row = sts.map(function (st, i) {
+          var s = new VF.Stave(x, y0 + staffY(sts, i), w);
+          if (first) s.addClef(st.drum ? 'percussion' : st.clef);
+          if (b === 0) s.addTimeSignature(per + '/4');
+          if (b === 0 && i === 0) s.setTempo({ duration: 'q', bpm: tune.def.bpm }, 0);
+          return s.setContext(ctx);
+        });
+        var startX = Math.max.apply(null, row.map(function (s) { return s.getNoteStartX(); }));
+        row.forEach(function (s) { s.setNoteStartX(startX); });
+
+        var fmt = new VF.Formatter(), all = [], draws = [];
+        sts.forEach(function (st, i) {
+          var voices = [], bms = [];
+          function add(notes) {
+            notes.forEach(function (n) { n.setStave(row[i]); });
+            var v = new VF.Voice({ num_beats: per, beat_value: 4 });
+            v.addTickables(notes);
+            voices.push(v);
+          }
+          if (st.drum) {
+            [['up', 1], ['down', -1]].forEach(function (v) {
+              var items = st.bars[b][v[0]];
+              if (items.every(function (it) { return it.rest; }) && voices.length) return;
+              var notes = drumNotes(items, v[1]);
+              bms = bms.concat(beams(notes, v[1]));
+              add(notes);
+            });
+          } else {
+            var notes = pitchedNotes(st.bars[b], st.clef);
+            bms = beams(notes);
+            add(notes);
+            st.bars[b].forEach(function (it) { it.sys = sy; if (it.next) ties.push(it); });
+          }
+          fmt.joinVoices(voices);
+          all = all.concat(voices);
+          draws.push({ stave: row[i], voices: voices, beams: bms });
+        });
+        fmt.format(all, row[0].getNoteEndX() - startX - 12);
+        draws.forEach(function (d) {
+          d.stave.draw();
+          d.voices.forEach(function (v) { v.draw(ctx, d.stave); });
+          d.beams.forEach(function (bm) { bm.setContext(ctx).draw(); });
+        });
+        if (first) {
+          new VF.StaveConnector(row[0], row[row.length - 1]).setType('singleLeft').setContext(ctx).draw();
+          if (b > 0) marks.push({ x: x + 2, y: y0 + 32, text: String(b + 1), cls: 'bar' });
+          sts.forEach(function (st, i) { marks.push({ x: LEFT - 8, y: y0 + staffY(sts, i) + 64, text: st.name, cls: 'name' }); });
+        }
+        x += w;
+      }
+    }
+
+    // Ties, split in two where a note carries over the end of a line.
+    ties.forEach(function (it) {
+      var idx = it.notes.map(function (_, i) { return i; }), nx = it.next;
+      var pairs = it.sys === nx.sys ? [[it.vf, nx.vf]] : [[it.vf, null], [null, nx.vf]];
+      pairs.forEach(function (p) {
+        new VF.StaveTie({ first_note: p[0], last_note: p[1], first_indices: idx, last_indices: idx }).setContext(ctx).draw();
+      });
+    });
+
+    var svg = div.querySelector('svg'), NS = 'http://www.w3.org/2000/svg';
+    // VexFlow writes the commas as plain text; colour them as the paper does.
+    Array.prototype.forEach.call(svg.querySelectorAll('text'), function (el) {
+      if (/^\d+(\/\d+)?$/.test(el.textContent.trim())) el.setAttribute('fill', COMMA);
+    });
+    marks.forEach(function (m) {
+      var el = document.createElementNS(NS, 'text');
+      el.setAttribute('x', m.x);
+      el.setAttribute('y', m.y);
+      el.setAttribute('font-family', 'system-ui, sans-serif');
+      el.setAttribute('font-size', m.cls === 'name' ? 13 : 11);
+      el.setAttribute('font-style', m.cls === 'bar' ? 'italic' : 'normal');
+      el.setAttribute('text-anchor', m.cls === 'name' ? 'end' : 'start');
+      el.setAttribute('fill', '#1d1d1f');
+      el.textContent = m.text;
+      svg.appendChild(el);
+    });
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', '100%');
+    svg.removeAttribute('height');
+    svg.style.width = '100%';
+    svg.style.maxWidth = W + 'px';
+    svg.style.height = 'auto';
+  }
+
+  function show(name) {
+    var tune = load(name), def = tune.def;
+    document.getElementById('title').textContent = 'Smash Screen · ' + (NAMES[name] || name);
+    document.getElementById('meta').textContent = [
+      KEYS[name],
+      def.bpm + ' BPM' + (/^level/.test(name) ? ' at level 1, 3 more each level up to 156' : ''),
+      def.bars + ' bars',
+      def.swing ? 'swing ' + def.swing : ''
+    ].filter(Boolean).join(' · ');
+    render(tune);
+    // Redraw when the window change alters how many bars fit on a line.
+    var timer;
+    window.addEventListener('resize', function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { if (perLine() !== PER) try { render(tune); } catch (e) { fail(e); } }, 150);
+    });
+  }
+
+  var name = new URLSearchParams(location.search).get('tune') || 'level1';
+  if (!/^[a-z0-9]+$/.test(name)) name = 'level1';
+  var tag = document.createElement('script');
+  tag.src = '../../app/smash/music/' + name + '.js';
+  tag.onload = function () { try { show(name); } catch (e) { fail(e); } };
+  tag.onerror = function () { fail('Could not load ' + tag.src); };
+  document.body.appendChild(tag);
+})();
+</script>
+</body>
+</html>

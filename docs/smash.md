@@ -350,6 +350,22 @@ and a line in `syncMusic()` in `game.js` saying when it plays.
 `music.js` parses the notes with a port of justsynth's `parse_rcn`, and
 gives the same ratio as justsynth for every note in the files.
 
+`tools/smash/score.html` draws a tune as a score, straight from its file in
+`music/`. Open it from the disk: it draws `level1`, and `?tune=level2` on its
+address draws another tune. It fetches VexFlow from jsDelivr, and the number
+of bars on a line follows the window.
+
+- **The staff is Pythagorean**, as RCN's letters are. A plain note is its
+  Pythagorean pitch, and C# and Db are different notes.
+- **Each prime from 5 up is a red fraction** before the note, and before any
+  sharp or flat. `'` shows as 5, `.` as 1/5 and `[7]` as 7, and they
+  combine, so C#.[17]4 would show as 17/5 before the sharp.
+- **A fraction holds to the end of the bar**, as a sharp does, and 1/1
+  cancels it.
+- One staff per pitched track, clef chosen by its middle note, and one
+  percussion staff for every drum track. Looped tracks are written out in
+  every bar, and swung notes are written straight.
+
 ## Drawing and cost
 
 Everything is vector and drawn in screen units, where the short side of the
