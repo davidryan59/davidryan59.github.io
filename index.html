@@ -453,6 +453,14 @@
         each drawn from its mathematical definition. Pan and zoom every patch.
   </li>
   <li class="thumb-item">
+    <a class="thumb-link square" href="app/sieve/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/sieve.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="app/sieve/index.html">Sieve of Eratosthenes</a>
+    – an interactive educational app to demonstrate finding the prime numbers using a sieve technique discovered in ancient Greece.
+    You have the choice of choosing your primes wisely or foolishly!
+  </li>
+  <li class="thumb-item">
     <a class="thumb-link square" target="_blank" rel="noopener" href="https://github.com/davidryan59/dice-to-seed" tabindex="-1" aria-hidden="true">
       <img class="thumb" src="assets/thumbs/dice-to-seed.svg" width="120" height="120" alt="" loading="lazy">
     </a>
@@ -625,6 +633,14 @@
     The main risk is that the wrong person calls `mint`, so this audit traces it through 16.9 million blocks of chain history.
     <br><b>Summary</b>: no exploitable vulnerability, the mint authority proven closed to a single address since 2019,
     and two medium findings in a signed-approval function that predates the EIP-2612 standard.
+  </li>
+  <li>
+    <a href="audits/permit2/index.html">Permit2</a>
+    – the contract Uniswap deployed in Nov 2022 so that apps can take token allowances from a signature rather than a transaction.
+    Uniswap's own router spends through it, and it has received over 700,000 transactions on Ethereum mainnet.
+    Since 2025, EIP-7702 has let ordinary accounts carry code, which Permit2 was not designed for.
+    <br><b>Summary</b>: no exploitable vulnerability, deployed code identical to the verified source,
+    and four medium findings, one of them caused by EIP-7702, which moved a quarter of Permit2's signers onto the signature check written for smart contract wallets.
   </li>
 </ul>
 

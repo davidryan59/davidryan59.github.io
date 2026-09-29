@@ -18,13 +18,17 @@ address, `davidryan59.github.io`, redirects there.
   - `app/smash/` – Smash Screen, a game: break a device's screen with a hammer,
     a fish, a bomb and more, in Fun Mode or against the clock in Anger Mode. See
     [docs/smash.md](docs/smash.md).
+  - `app/sieve/` – the Sieve of Eratosthenes as a toy: choose any numbers as
+    primes, and each colours its multiples, on a grid of any width, in bases
+    from 2 to 60. See [docs/sieve.md](docs/sieve.md).
   - `app/parfly/` – a placeholder page for the Parfly Android app, and its
     privacy policy, which is served at `drbuild.uk/parfly/privacy`, where the
     app's store listing holds it.
 - `merge-fractals/`, `moving-mondrian/` – mint pages for the two NFT
   collections, both still mintable onchain, each with its own artwork. See
   [docs/mint-pages.md](docs/mint-pages.md).
-- `audits/` – three published security audits: WETH9, Uniswap V2 and DAI.
+- `audits/` – four published security audits: WETH9, Uniswap V2, DAI and
+  Permit2.
 - `assets/` – files the pages share: `site.css` and `theme.js` for the
   document pages, `mint.css` and `mint.js` for the mint pages, the headshot,
   and `thumbs/`, the animated pictures beside the builder page's entries,
@@ -66,6 +70,8 @@ there first, then render it into `index.html`.
 - [docs/tiling-explorer.md](docs/tiling-explorer.md) – how the Hat and Spectre viewers work
 - [docs/aperiodic-pairs.md](docs/aperiodic-pairs.md) – how each gallery tiling is generated and checked
 - [docs/smash.md](docs/smash.md) – the rules of Smash Screen, how a blow breaks a screen, and what it costs to run
+- [docs/sieve.md](docs/sieve.md) – the rules of the sieve, how the grid is drawn, and why it stops at 10¹⁵
+- [docs/sieve/original-prompt.md](docs/sieve/original-prompt.md) – the prompt that started the sieve, word for word
 - [docs/hat-edge-research.md](docs/hat-edge-research.md) – why curved edges make the Hat two tiles, and how that was checked
 - [docs/inventory.md](docs/inventory.md) – the source list the page renders
 - [docs/mint-pages.md](docs/mint-pages.md) – how the two mint pages work

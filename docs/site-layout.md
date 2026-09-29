@@ -13,9 +13,9 @@ addresses other people hold, and how a redirect keeps an old address alive.
 ```
 index.html                       the builder page
 app/<name>/                      one folder for each app a visitor can run
-    tiles/  aperiodic-pairs/  smash/  parfly/
+    tiles/  aperiodic-pairs/  smash/  sieve/  parfly/
 assets/                          files the pages share
-    site.css  theme.js           the document pages: audits, gallery, Smash Screen, 404
+    site.css  theme.js           the document pages: audits, gallery, Smash Screen, sieve, 404
     mint.css  mint.js            the two mint pages
     david-headshot.jpg  thumbs/  the builder page's pictures
 audits/  papers/                 published reports and papers
@@ -55,14 +55,15 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/parfly/privacy` | The Parfly store listing. No redirect: a store reads it directly | `app/parfly/privacy.html`, with a `permalink` |
 | `/moving-mondrian/?token=N` | The `external_url` of every token, recorded onchain. It cannot change once the contract owner gives up ownership | `moving-mondrian/index.html` |
 | `/merge-fractals/` | Links to the mint page | `merge-fractals/index.html` |
-| `/audits/weth9/`, `/audits/uniswap-v2/`, `/audits/dai/` | Posts and CVs that cite an audit | `audits/<name>/index.html` |
+| `/audits/weth9/`, `/audits/uniswap-v2/`, `/audits/dai/`, `/audits/permit2/` | Posts and CVs that cite an audit | `audits/<name>/index.html` |
 | `/papers/polygonal-spectre.pdf` | Posts about the paper | `papers/` |
 | `/tiles` | The paper, and the corner label of the tiling video | `redirects/tiles.html` |
 | `/demos/hat/`, `/demos/spectre/`, `/demos/hat-extended/` | Shared links to the explorer, each with its settings after the `#`. The `index.html` form of each is a link too | `redirects/demos-*.html` |
 | `/aperiodic-pairs/` | The builder page's first link to the gallery | `redirects/aperiodic-pairs.html` |
 | `/smash` | A short address to share. The first address, `/smash/`, also works | `redirects/smash.html` |
+| `/sieve` | A short address to share | `redirects/sieve.html` |
 | `/social/*.jpg` | Share cards that social sites have cached. An image cannot redirect, so these stay put | `social/` |
-| `/app/tiles/`, `/app/tiles/hat/`, `/app/tiles/spectre/`, `/app/tiles/hat-extended/`, `/app/aperiodic-pairs/`, `/app/smash/`, `/app/parfly/` | The real addresses of the apps. Apple's listing for Parfly takes `/app/parfly/` as its support address | `app/` |
+| `/app/tiles/`, `/app/tiles/hat/`, `/app/tiles/spectre/`, `/app/tiles/hat-extended/`, `/app/aperiodic-pairs/`, `/app/smash/`, `/app/sieve/`, `/app/parfly/` | The real addresses of the apps. Apple's listing for Parfly takes `/app/parfly/` as its support address | `app/` |
 
 `tools/check-addresses/addresses.json` holds this list in a form the checker
 reads. Add an address there when you publish one.

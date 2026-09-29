@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sieve of Eratosthenes – choose your own primes</title>
+<meta name="description" content="The Sieve of Eratosthenes as a toy. Choose any numbers as your primes, and each one colours its multiples. Change the row width, or write the numbers in any base from binary to sexagesimal.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/app/sieve/">
+<meta property="og:title" content="Sieve of Eratosthenes – choose your own primes">
+<meta property="og:description" content="Choose any numbers as your primes, and each one colours its multiples. Choose 2, 3, 5, 7 and so on, and only the true primes stay grey.">
+<meta property="og:image" content="https://drbuild.uk/social/sieve.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A grid of numbers 30 wide. The multiples of 2, 3, 5, 7, 11, 13, 17 and 19 are pale colours, and the primes left stand grey in eight columns">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="A grid of numbers 30 wide. The multiples of 2, 3, 5, 7, 11, 13, 17 and 19 are pale colours, and the primes left stand grey in eight columns">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../../assets/site.css">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+<style>
+  body { max-width: 1200px; padding: 1.1rem 1rem 4rem; }
+  header { padding-right: 3rem; }
+  .back { margin: 0; font-size: 0.9rem; }
+  h1 { margin: 0.3rem 0 0.15rem; }
+  .tagline { margin: 0 0 0.9rem; font-size: 0.95rem; }
+  .theme-toggle { top: 1rem; right: 1rem; }
+
+  /* Pitman's dozenal digits for the text boxes, where the page cannot draw
+     them turned as it does elsewhere: two glyphs made from DejaVu Sans Mono
+     by tools/sieve/pitman-font.py. unicode-range keeps the font to those two
+     characters, so it loads only when they appear. */
+  @font-face {
+    font-family: "Sieve Pitman Digits";
+    src: url("pitman.woff") format("woff");
+    unicode-range: U+218A-218B;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem 1.2rem;
+    margin: 0 0 0.7rem;
+    font: 0.92rem "Sieve Pitman Digits", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--muted);
+  }
+  .field { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin: 0; }
+  .field label { white-space: nowrap; }
+  .controls input,
+  .controls select,
+  .controls button {
+    font: inherit;
+    color: var(--h1);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 0.4rem 0.6rem;
+    min-height: 2.3rem;
+  }
+  .controls select { padding-right: 0.3rem; cursor: pointer; }
+  .controls button { cursor: pointer; }
+  .controls input:focus-visible,
+  .controls select:focus-visible,
+  .controls button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+  .controls button:hover:not(:disabled),
+  .controls select:hover { border-color: var(--link); }
+  .controls button:disabled { opacity: 0.45; cursor: default; }
+  .stepper { display: inline-flex; }
+  .stepper button { width: 2.3rem; padding: 0; font-size: 1.1rem; line-height: 1; }
+  .stepper button:first-child { border-radius: 8px 0 0 8px; }
+  .stepper button:last-child { border-radius: 0 8px 8px 0; }
+  .stepper input {
+    width: 7.5ch;
+    text-align: center;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+  #goto { width: 12ch; }
+  /* The options explain themselves, so the closed menu is kept to its label. */
+  #preset { width: 7.6rem; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-left: auto; }
+  .actions button { font-weight: 600; padding: 0.4rem 1rem; }
+
+  /* The board fills the width and most of the window, and leaves room
+     above it to scroll the page on a phone, where a drag on the board
+     moves the grid. */
+  .stage {
+    position: relative;
+    height: clamp(320px, calc(100vh - 17rem), 1000px);
+    height: clamp(320px, calc(100svh - 17rem), 1000px);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--panel);
+  }
+  .stage canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: pointer;
+  }
+  .stage canvas.dragging { cursor: grabbing; }
+  .stage canvas:focus { outline: none; }
+  .stage canvas:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+
+  .status {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.2rem 1.5rem;
+    min-height: 2.9em;
+    margin: 0.55rem 0 0.35rem;
+    font: 0.95rem/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .status p { margin: 0; }
+  #info { flex: 1 1 30rem; color: var(--h2); }
+  .view { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; }
+  #range { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+  /* Below the board, not over it, so they never hide a tile. */
+  .zoom { display: inline-flex; }
+  .zoom button {
+    min-width: 2.2rem;
+    height: 2rem;
+    padding: 0 0.55rem;
+    font: 600 1rem system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--h1);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-left-width: 0;
+    cursor: pointer;
+  }
+  .zoom button:first-child { border-left-width: 1px; border-radius: 8px 0 0 8px; }
+  .zoom button:last-child { border-radius: 0 8px 8px 0; font-size: 0.8rem; }
+  .zoom button:hover { border-color: var(--link); border-left-width: 1px; margin-left: -1px; }
+  .zoom button:first-child:hover { margin-left: 0; }
+  .zoom button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; position: relative; }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    max-height: 7.8rem;
+    overflow-y: auto;
+    margin: 0 0 var(--gap-para);
+    font: 0.85rem system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .chips-label { color: var(--muted); margin-right: 0.3rem; }
+  .chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    font: 700 0.85rem ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    border: 0;
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+  }
+  .chip small { font-weight: 400; font-size: 0.72rem; opacity: 0.8; }
+  .chip .x { font-weight: 400; opacity: 0.65; }
+  .chip:hover .x { opacity: 1; }
+  .chip:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+  /* Pitman's dozenal digits, drawn as a 2 and a 3 turned upside down, since
+     few fonts carry the characters themselves. */
+  .turned { display: inline-block; transform: rotate(180deg); }
+
+  .prose { max-width: 720px; }
+  .prose h2:first-child { margin-top: var(--gap-group); }
+  @media (max-width: 640px) {
+    h1 { font-size: 1.55rem; }
+    .actions { margin-left: 0; }
+    .controls { gap: 0.5rem 0.9rem; }
+  }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<header>
+  <a class="back" href="../../index.html">← David Ryan's builder page</a>
+  <h1>Sieve of Eratosthenes</h1>
+  <p class="tagline">Choose any numbers as your primes, and each one colours its multiples</p>
+</header>
+
+<div class="controls">
+  <div class="field">
+    <label for="base">Base</label>
+    <select id="base"></select>
+  </div>
+  <div class="field">
+    <label for="width">Row width</label>
+    <span class="stepper">
+      <button type="button" id="narrower" aria-label="One number fewer in each row">−</button>
+      <input id="width" type="text" value="10" inputmode="numeric" autocomplete="off" spellcheck="false"
+             title="The number of numbers in each row, written in the chosen base">
+      <button type="button" id="wider" aria-label="One number more in each row">+</button>
+    </span>
+    <select id="preset" aria-label="Row width presets"></select>
+  </div>
+  <form class="field" id="goto-form">
+    <label for="goto">Go to</label>
+    <input id="goto" type="text" inputmode="numeric" placeholder="any number" autocomplete="off" enterkeyhint="go">
+  </form>
+  <div class="actions">
+    <button type="button" id="next" title="Choose the smallest grey number (N)">Next prime</button>
+    <button type="button" id="undo" title="Undo the last change (Ctrl+Z)" disabled>Undo</button>
+    <button type="button" id="clear" title="Remove every prime" disabled>Clear</button>
+  </div>
+</div>
+
+<div class="stage">
+  <canvas id="board" tabindex="0" role="application" aria-roledescription="number grid"
+          aria-label="The grid of numbers. The arrow keys move a cursor, and Enter chooses or removes its number."></canvas>
+</div>
+
+<div class="status">
+  <p id="info"></p>
+  <div class="view">
+    <span id="range"></span>
+    <span class="zoom" role="group" aria-label="Zoom">
+      <button type="button" id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+      <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+      <button type="button" id="fit" title="Zoom to fit a whole row">Fit</button>
+    </span>
+  </div>
+</div>
+<p id="say" class="visually-hidden" aria-live="polite"></p>
+<div id="chips" class="chips" hidden></div>
+
+<section class="prose">
+  <h2>Rules</h2>
+  <p>
+    Every number from 0 up is a tile, in rows. At the start every tile is grey, except 0 and 1,
+    which are black and white and never change.
+  </p>
+  <p>
+    Click a grey number to choose it as a prime. It turns a bright colour, and all its multiples
+    turn a pale shade of the same colour. A multiple cannot be chosen. A number with several of
+    your primes as factors takes the colour of the one you chose first.
+  </p>
+  <p>
+    Click a prime again to remove it, in any order. Its multiples go back to grey, or take the
+    colour of another of your primes that divides them. Undo reverses the last change, and Clear
+    removes every prime.
+  </p>
+
+  <h2>The real sieve</h2>
+  <p>
+    Eratosthenes, a Greek scholar of the 3rd century BC, found prime numbers this way. Choose 2,
+    then 3, 5, 7 and so on, each time the smallest grey number. Next prime does this for you.
+  </p>
+  <p>
+    The smallest grey number is always a true prime, whatever you chose before it. Any smaller
+    factor of it is already coloured, so one of your primes divides that factor. That prime would
+    divide the number too, and colour it.
+  </p>
+  <p>
+    After 2, 3, 5 and 7, every grey number below 121 is prime. 121 = 11 × 11 is the first grey
+    number that is not, and 11 is the next prime to choose. Once you have chosen every prime up to
+    one prime, the grey numbers below the square of the next are all prime.
+  </p>
+  <p>
+    Choose your own primes, and the sieve leaves a different set of grey numbers. Choose 4 before
+    2, and 4 keeps its own colour, although 2 divides it.
+  </p>
+
+  <h2>Base and width</h2>
+  <p>
+    The base writes every number in another base, from binary to sexagesimal. Most bases show
+    the decimal value in smaller figures under each number. Dozenal shows none, and writes every
+    number on the page in dozenal. For ten and eleven it uses Pitman's digits:
+    <span class="turned" role="img" aria-label="&#x218A;">2</span>, a turned 2, and
+    <span class="turned" role="img" aria-label="&#x218B;">3</span>, a turned 3. To type them,
+    use X and E. The other bases past 10 use letters, so in hexadecimal f is fifteen. Base 60
+    writes each place as two decimal digits, as a clock does: 1:05 is sixty-five.
+  </p>
+  <p>
+    The row width sets how many numbers sit in each row, and it is written in the base too. A new
+    base keeps the width's digits, so a width of 10 always gives one column for each last digit,
+    and 100 one for each last two. The multiples of a number that divides the width fall in
+    straight columns, and other multiples run in diagonals. With six in a row, every prime after
+    three sits under 1 or 5. With thirty, the primes after five sit in eight of the thirty columns,
+    and with two hundred and ten, in forty-eight of them.
+  </p>
+
+  <h2>Limits</h2>
+  <p>
+    The grid runs from 0 to 999,999,999,999,999, one less than 10<sup>15</sup>, and a row holds up
+    to a billion numbers. The page never factorises a number to colour it. It divides the number by
+    each prime you have chosen, and a division costs the same at any size. The limit comes from
+    JavaScript, which holds whole numbers exactly only up to 2<sup>53</sup>, about 9 × 10<sup>15</sup>.
+  </p>
+
+  <h2>Controls</h2>
+  <ul>
+    <li>Click or tap a grey number to choose it, and a chosen one to remove it. The line under the
+      grid describes the number under the pointer.</li>
+    <li>Point at a chosen prime, or at its button under the grid, to ring its multiples.</li>
+    <li>Drag or scroll to move. Pinch, Ctrl + scroll or the + and − buttons under the grid zoom,
+      and Fit sizes the tiles so that a whole row fits.</li>
+    <li>The row width and Go to take numbers in the chosen base. In the width box, the up and
+      down arrow keys add or take away one.</li>
+    <li>With the grid focused, the arrow keys move a cursor, Enter chooses or removes its number,
+      and + and − zoom. Anywhere on the page, N is Next prime and Ctrl+Z is Undo.</li>
+    <li>The address bar keeps the width, the base, your primes and the view, so a copied link
+      opens the same grid.</li>
+  </ul>
+</section>
+
+<script src="model.js"></script>
+<script src="board.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var Sieve = window.Sieve, LIMIT = Sieve.LIMIT, g = Sieve.grouped;
+  function $(id) { return document.getElementById(id); }
+  var canvas = $('board'), info = $('info'), say = $('say'), rangeOut = $('range'), chips = $('chips');
+  var widthIn = $('width'), preset = $('preset'), baseIn = $('base'), gotoIn = $('goto');
+  var touch = matchMedia('(hover: none)').matches, verb = touch ? 'Tap' : 'Click';
+  var model = new Sieve.Model();
+  var shown = null, smallest = null, ready = false, saveTimer = 0;
+
+  var board = new Sieve.Board(canvas, model, {
+    onTap: tap,
+    onHover: function (n) { point(n, false); },
+    onCursor: function (n) { point(n, true); },
+    onView: function () {
+      showRange();
+      if (ready) saveSoon();
+    }
+  });
+
+  Sieve.BASES.forEach(function (b) {
+    var o = document.createElement('option');
+    o.value = b[0];
+    o.textContent = b[0] + ' – ' + b[1];
+    baseIn.appendChild(o);
+  });
+
+  // Width presets. The first two follow the base: 10 is one column for each
+  // last digit, and 100 one for each last two. The rest are fixed widths,
+  // named in words, so that they read the same in every base.
+  var PRESETS = [
+    [6, 'Six: every prime after three in two columns'],
+    [30, 'Thirty: every prime after five in eight columns'],
+    [210, 'Two hundred and ten: every prime after seven in forty-eight columns'],
+    [12, 'Twelve: a dozen'],
+    [24, 'Twenty-four: hours in a day'],
+    [60, 'Sixty: minutes in an hour'],
+    [1000, 'A thousand'],
+    [1e9, 'A billion']
+  ];
+
+  function buildPresets() {
+    var b = board.base;
+    preset.textContent = '';
+    [['', 'Presets'],
+     [b, Sieve.write(b, b) + ': one column for each last digit'],
+     [b * b, Sieve.write(b * b, b) + ': one column for each last two digits']
+    ].concat(PRESETS).forEach(function (p) {
+      var o = document.createElement('option');
+      o.value = p[0];
+      o.textContent = p[1];
+      preset.appendChild(o);
+    });
+  }
+
+  function isDark() {
+    var t = document.documentElement.dataset.theme;
+    return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  // What each number is -------------------------------------------------------
+
+  // Whether n is a true prime, with its smallest factor when trial division
+  // finds one. Trial division settles every number below 4 × 10^10. Above
+  // that, Miller–Rabin with the primes up to 23 as bases settles every number
+  // below 3.8 × 10^18, which covers the grid.
+  var truths = new Map();
+  function truth(n) {
+    var t = truths.get(n);
+    if (t) return t;
+    t = { prime: true, factor: null };
+    if (n % 2 === 0) { if (n !== 2) t = { prime: false, factor: 2 }; }
+    else if (n % 3 === 0) { if (n !== 3) t = { prime: false, factor: 3 }; }
+    else {
+      var d = 5;
+      for (; d <= 200000 && d * d <= n; d += 6) {
+        if (n % d === 0) { t = { prime: false, factor: d }; break; }
+        if (n % (d + 2) === 0) { t = { prime: false, factor: d + 2 }; break; }
+      }
+      if (t.prime && d * d <= n) t = { prime: millerRabin(n), factor: null };
+    }
+    truths.set(n, t);
+    return t;
+  }
+
+  function millerRabin(n) {
+    var N = BigInt(n), one = BigInt(1), two = BigInt(2), d = N - one, s = 0;
+    while (d % two === BigInt(0)) { d /= two; s++; }
+    var bases = [2, 3, 5, 7, 11, 13, 17, 19, 23];
+    next: for (var i = 0; i < bases.length; i++) {
+      var x = power(BigInt(bases[i]), d, N);
+      if (x === one || x === N - one) continue;
+      for (var r = 1; r < s; r++) {
+        x = x * x % N;
+        if (x === N - one) continue next;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  function power(b, e, m) {
+    var r = BigInt(1), zero = BigInt(0), two = BigInt(2);
+    b %= m;
+    while (e > zero) {
+      if (e % two !== zero) r = r * b % m;
+      b = b * b % m;
+      e /= two;
+    }
+    return r;
+  }
+
+  function smallestGrey() {
+    if (smallest === null) smallest = model.nextGrey();
+    return smallest;
+  }
+
+  // A number as the text under the grid writes it: in dozenal when the base
+  // is dozenal, and otherwise in decimal, grouped by thousands.
+  function num(n) {
+    return board.base === 12 ? Sieve.write(n, 12) : g(n);
+  }
+
+  function ordinal(i) {
+    var s = num(i), t = s.slice(-2), u = s.slice(-1);
+    return s + (t.length === 2 && t[0] === '1' ? 'th' : u === '1' ? 'st' : u === '2' ? 'nd' : u === '3' ? 'rd' : 'th');
+  }
+
+  function andList(items) {
+    if (items.length > 8) items = items.slice(0, 7).concat([num(items.length - 7) + ' more']);
+    return items.length < 2 ? items.join('') : items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1];
+  }
+
+  // A number's name: in the base, with its decimal value too wherever the
+  // tiles show one.
+  function name(n) {
+    if (!Sieve.showsDecimal(board.base)) return num(n);
+    return Sieve.write(n, board.base) + Sieve.subscript(board.base) + ' = ' + g(n);
+  }
+
+  function notPrime(n) {
+    var t = truth(n);
+    return 'not a true prime' + (t.factor ? ': ' + num(n) + ' = ' + num(t.factor) + ' × ' + num(n / t.factor) : '');
+  }
+
+  function describe(n) {
+    if (n == null) {
+      return touch
+        ? 'Tap a grey number to choose it as a prime, and tap it again to remove it.'
+        : 'Click a grey number to choose it as a prime, and click it again to remove it. Point at any number to read about it.';
+    }
+    var k = model.kindOf(n);
+    if (k.kind === 'zero') return name(n) + ' is a multiple of every number, so it can never be a prime.';
+    if (k.kind === 'one') return name(n) + ' divides every number, and is not a prime.';
+    if (k.kind === 'grey') {
+      if (n === smallestGrey()) return name(n) + ' is the smallest grey number, so it is a true prime. ' + verb + ' it to choose it.';
+      return name(n) + ' is still grey, and ' + (truth(n).prime ? 'a true prime' : notPrime(n)) + '. ' + verb + ' it to choose it.';
+    }
+    if (k.kind === 'chosen') {
+      return name(n) + ' is your ' + ordinal(k.index + 1) + ' prime, ' +
+        (truth(n).prime ? 'and a true prime' : 'though ' + notPrime(n)) + '. ' + verb + ' it to remove it.';
+    }
+    var p = k.entry.n, all = model.divisors(n);
+    var text = name(n) + ' = ' + num(p) + ' × ' + num(n / p);
+    if (all.length === 1) return text + ', a multiple of your prime ' + num(p) + '.';
+    return text + '. Your primes ' + andList(all.map(function (e) { return num(e.n); })) +
+      ' all divide it, and ' + num(p) + ', chosen first, gives it its colour.';
+  }
+
+  // Appends text to el, with each of Pitman's digits drawn as its digit, 2
+  // or 3, turned upside down, since few fonts carry the digits themselves. A
+  // screen reader gets the digit's own character.
+  function appendText(el, text) {
+    text.split(/([\u218A\u218B])/).forEach(function (part) {
+      if (!part) return;
+      var digit = Sieve.TURNED[part];
+      if (!digit) {
+        el.appendChild(document.createTextNode(part));
+        return;
+      }
+      var s = document.createElement('span');
+      s.className = 'turned';
+      s.setAttribute('role', 'img');
+      s.setAttribute('aria-label', part);
+      s.textContent = digit;
+      el.appendChild(s);
+    });
+  }
+
+  // Shows text under the grid. aloud also reads it to a screen reader, for
+  // changes and keyboard moves but not for the pointer passing over.
+  function tell(text, aloud) {
+    info.textContent = '';
+    appendText(info, text);
+    if (aloud) say.textContent = text;
+  }
+
+  function showRange() {
+    var r = board.range();
+    rangeOut.textContent = '';
+    appendText(rangeOut, 'Showing ' + num(r.first) + ' to ' + num(r.last));
+  }
+
+  function point(n, aloud) {
+    shown = n;
+    board.highlight = n != null && model.byNumber.has(n) ? n : null;
+    board.draw();
+    tell(describe(n), aloud);
+  }
+
+  // Changes ----------------------------------------------------------------------
+
+  function changed() {
+    smallest = null;
+    board.draw();
+    renderChips();
+    $('undo').disabled = !model.past.length;
+    $('clear').disabled = !model.list.length;
+    saveSoon();
+  }
+
+  function tap(n) {
+    var k = model.kindOf(n), before = '';
+    if (k.kind === 'grey') model.choose(n);
+    else if (k.kind === 'chosen') { model.remove(n); before = 'Removed ' + num(n) + '. '; }
+    if (k.kind === 'grey' || k.kind === 'chosen') changed();
+    shown = n;
+    tell(before + describe(n), true);
+  }
+
+  function next() {
+    var n = model.nextGrey();
+    if (n == null) return;
+    model.choose(n);
+    changed();
+    shown = n;
+    tell(describe(n), true);
+  }
+
+  function undo() {
+    var step = model.undo();
+    if (!step) return;
+    changed();
+    tell(step.add ? 'Took back ' + num(step.add.n) + '.'
+      : step.remove ? 'Brought back ' + num(step.remove.n) + '.'
+      : 'Brought back all ' + num(step.clear.length) + ' of your primes.', true);
+  }
+
+  function clearAll() {
+    if (!model.clear()) return;
+    changed();
+    tell('Cleared. Every number from 2 up is grey again, and Undo brings your primes back.', true);
+  }
+
+  function highlight(n) {
+    board.highlight = n;
+    board.draw();
+    if (n != null) tell(describe(n), false);
+  }
+
+  function renderChips() {
+    var focused = chips.contains(document.activeElement) ? [].indexOf.call(chips.querySelectorAll('.chip'), document.activeElement) : -1;
+    chips.textContent = '';
+    chips.hidden = !model.list.length;
+    if (!model.list.length) return;
+    var label = document.createElement('span');
+    label.className = 'chips-label';
+    label.textContent = 'Your primes, in the order chosen:';
+    chips.appendChild(label);
+    var dark = isDark();
+    model.list.forEach(function (e) {
+      var c = Sieve.slotColours(e.slot, dark), b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.style.background = Sieve.css(c.bright);
+      b.style.color = Sieve.css(c.brightText);
+      // The number goes in one span, so the chip's gap falls only between
+      // the number, its decimal value and the ×.
+      var figures = document.createElement('span');
+      appendText(figures, Sieve.write(e.n, board.base));
+      b.appendChild(figures);
+      if (Sieve.showsDecimal(board.base)) {
+        var dec = document.createElement('small');
+        dec.textContent = g(e.n);
+        b.appendChild(dec);
+      }
+      var x = document.createElement('span');
+      x.className = 'x';
+      x.setAttribute('aria-hidden', 'true');
+      x.textContent = '×';
+      b.appendChild(x);
+      // A tooltip cannot draw Pitman's digits, so it names no number.
+      b.title = 'Remove this prime';
+      b.setAttribute('aria-label', 'Remove ' + num(e.n));
+      b.addEventListener('click', function () {
+        model.remove(e.n);
+        changed();
+        tell('Removed ' + num(e.n) + '.', true);
+      });
+      b.addEventListener('pointerenter', function () { highlight(e.n); });
+      b.addEventListener('pointerleave', function () { highlight(null); });
+      b.addEventListener('focus', function () { highlight(e.n); });
+      b.addEventListener('blur', function () { highlight(null); });
+      chips.appendChild(b);
+    });
+    // After a removal from the keyboard, focus stays in the row of chips.
+    var all = chips.querySelectorAll('.chip');
+    if (focused >= 0 && all.length) all[Math.min(focused, all.length - 1)].focus();
+  }
+
+  // The address ------------------------------------------------------------------
+  // #w=30&b=12&p=2,3,5:4&at=120&z=24 holds the width, the base, the primes in
+  // the order chosen, the first number in view and the tile size. A prime's
+  // colour slot follows a colon when it is not the prime's place in the list.
+
+  function save() {
+    var parts = [];
+    if (board.width !== 10) parts.push('w=' + board.width);
+    if (board.base !== 10) parts.push('b=' + board.base);
+    if (model.list.length) {
+      parts.push('p=' + model.list.map(function (e, i) { return e.slot === i ? e.n : e.n + ':' + e.slot; }).join(','));
+    }
+    var at = board.topLeft();
+    if (at) parts.push('at=' + at);
+    parts.push('z=' + Math.round(board.zoom * 10) / 10);
+    var hash = '#' + parts.join('&');
+    if (location.hash !== hash) history.replaceState(null, '', hash);
+  }
+
+  function saveSoon() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 400);
+  }
+
+  function load() {
+    var q = new URLSearchParams(location.hash.slice(1));
+    var w = Number(q.get('w')), b = Number(q.get('b')), at = Number(q.get('at')), z = Number(q.get('z'));
+    board.width = Number.isInteger(w) && w >= 1 && w <= Sieve.MAX_WIDTH ? w : 10;
+    board.base = Sieve.BASES.some(function (x) { return x[0] === b; }) ? b : 10;
+    var numbers = [], slots = [];
+    (q.get('p') || '').split(',').forEach(function (s) {
+      var m = /^(\d{1,16})(?::(\d{1,4}))?$/.exec(s.trim());
+      if (!m) return;
+      numbers.push(Number(m[1]));
+      slots.push(m[2] == null ? null : Number(m[2]));
+    });
+    model.load(numbers, slots);
+    baseIn.value = board.base;
+    showWidth();
+    buildPresets();
+    setInputModes();
+    if (z > 0) {
+      board.zoom = z;
+      board.size = board.snap(z);
+    } else {
+      board.fit(10);
+    }
+    board.showAtTopLeft(Number.isInteger(at) && at >= 0 && at < LIMIT ? at : 0);
+    smallest = null;
+    renderChips();
+    $('undo').disabled = true;
+    $('clear').disabled = !model.list.length;
+    shown = null;
+    tell(describe(null), false);
+    board.draw();
+  }
+
+  // Controls ---------------------------------------------------------------------
+
+  // The row width is written in the chosen base, in its box and as typed.
+  // The box widens for a long width, as binary writes one.
+  function showWidth() {
+    widthIn.value = Sieve.write(board.width, board.base);
+    widthIn.style.width = Math.min(22, Math.max(7.5, widthIn.value.length + 2.5)) + 'ch';
+  }
+
+  function setInputModes() {
+    var mode = board.base <= 10 ? 'numeric' : 'text';
+    widthIn.inputMode = mode;
+    gotoIn.inputMode = mode;
+  }
+
+  function setWidth(w) {
+    w = Math.max(1, Math.min(Sieve.MAX_WIDTH, Math.round(w)));
+    if (w !== board.width) board.setWidth(w);
+    showWidth();
+  }
+
+  // What a visitor may type in the chosen base.
+  function howToType() {
+    var b = board.base;
+    if (b === 10) return 'Type a whole number, such as 1000.';
+    if (b === 12) return 'Type a whole number in dozenal. For \u218A and \u218B, type X and E.';
+    if (b === 60) return 'Type a whole number in base 60, with colons between the places, such as 1:02:05.';
+    if (b < 10) return 'Type a whole number in base ' + b + ', with the digits 0 to ' + (b - 1) + '.';
+    return 'Type a whole number in base ' + b + ', with the digits 0 to 9 and ' +
+      (b === 11 ? 'a' : 'a to ' + String.fromCharCode(86 + b)) + '.';
+  }
+
+  widthIn.addEventListener('input', function () {
+    var v = Sieve.read(widthIn.value, board.base);
+    if (v != null && v >= 1 && v <= Sieve.MAX_WIDTH && v !== board.width) board.setWidth(v);
+  });
+  // On leaving the box, it shows the width as the page writes it, so X
+  // becomes a Pitman digit and a width it could not read goes back.
+  widthIn.addEventListener('change', showWidth);
+  widthIn.addEventListener('keydown', function (e) {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    setWidth(board.width + (e.key === 'ArrowUp' ? 1 : -1));
+  });
+  $('narrower').addEventListener('click', function () { setWidth(board.width - 1); });
+  $('wider').addEventListener('click', function () { setWidth(board.width + 1); });
+  preset.addEventListener('change', function () {
+    if (preset.value) setWidth(Number(preset.value));
+    preset.value = '';
+  });
+
+  // A new base keeps the row width's digits, so 10 stays one column for each
+  // last digit and 100 one for each last two. A width with a digit the new
+  // base lacks becomes 10 in it.
+  baseIn.addEventListener('change', function () {
+    var to = Number(baseIn.value), digits = Sieve.digitsOf(board.width, board.base);
+    var w = digits.every(function (d) { return d < to; }) ? Sieve.fromDigits(digits, to) : to;
+    board.setBase(to);
+    setWidth(w <= Sieve.MAX_WIDTH ? w : to);
+    buildPresets();
+    setInputModes();
+    renderChips();
+    showRange();
+    if (shown != null) tell(describe(shown), false);
+    saveSoon();
+  });
+
+  $('goto-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var n = Sieve.read(gotoIn.value, board.base);
+    if (n == null) { tell(howToType(), true); return; }
+    if (n >= LIMIT) { tell('The grid ends at ' + num(LIMIT - 1) + '.', true); return; }
+    // The box then shows the number as the page writes it, so X0 becomes
+    // a Pitman digit and a 0.
+    gotoIn.value = Sieve.write(n, board.base);
+    board.goTo(n);
+    shown = n;
+    tell(describe(n), true);
+  });
+
+  $('next').addEventListener('click', next);
+  $('undo').addEventListener('click', undo);
+  $('clear').addEventListener('click', clearAll);
+  $('zoom-in').addEventListener('click', function () { board.zoomBy(1.25); });
+  $('zoom-out').addEventListener('click', function () { board.zoomBy(0.8); });
+  $('fit').addEventListener('click', function () { board.fit(); });
+
+  document.addEventListener('keydown', function (e) {
+    var tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault();
+      undo();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'n' || e.key === 'N') next();
+  });
+
+  // The theme toggle sets data-theme, and the board and chips follow it.
+  new MutationObserver(function () {
+    board.setTheme(isDark());
+    renderChips();
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  window.addEventListener('hashchange', load);
+
+  board.setTheme(isDark());
+  board.resize();
+  load();
+  new ResizeObserver(function () { board.resize(); }).observe(canvas);
+  ready = true;
+})();
+</script>
+<script>Theme.wireThemeToggle();</script>
+</body>
+</html>

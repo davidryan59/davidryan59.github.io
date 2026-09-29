@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Permit2 security audit – Ethereum mainnet</title>
+<meta name="description" content="A security audit of Uniswap's Permit2 on Ethereum mainnet, from the deployed runtime bytecode. No exploitable vulnerability. Four medium findings, one of them caused by EIP-7702, which changed how Permit2 checks a quarter of the signatures it receives.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://drbuild.uk/audits/permit2/">
+<meta property="og:title" content="Permit2 security audit – Ethereum mainnet">
+<meta property="og:description" content="Read from the deployed runtime bytecode. No exploitable vulnerability. EIP-7702 moved a quarter of Permit2's signers onto the signature check written for smart contract wallets.">
+<meta property="og:image" content="https://drbuild.uk/social/permit2.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A signer branching to ecrecover or to ERC-1271, over Permit2's deployed bytecode">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="A signer branching to ecrecover or to ERC-1271, over Permit2's deployed bytecode">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../../assets/site.css">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../../index.html">← David Ryan's builder page</a>
+
+<h1>Permit2 security audit</h1>
+<p class="tagline">Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/address/0x000000000022D473030F116dDEE9F6B43aC78BA3"><code>0x000000000022D473030F116dDEE9F6B43aC78BA3</code></a><br>Reviewed 2026&#8209;09&#8209;22 against block 26,032,914</p>
+
+<p>
+  An ERC-20 token moves only when its owner sends it, or when a contract the
+  owner has approved moves it for them. Each approval is a transaction, and it
+  costs gas. To save users that cost, most applications ask for an unlimited
+  approval that never expires. Those approvals outlive the reason for them. A flaw in any contract that holds one can let an attacker take the owner's whole balance of that token.
+</p>
+<p>
+  Uniswap Labs deployed Permit2 in November 2022 to change that pattern. A user
+  approves Permit2 once for each token. After that, an application asks the user for a signature instead of a transaction. Permit2 turns the signature into an allowance with an amount and an expiry date. Signing costs
+  the user no gas.
+</p>
+<p>
+  Uniswap's own router spends tokens through Permit2, and so do other
+  applications. The contract has received 712,764 transactions on Ethereum
+  mainnet, and it sits at the same address on every chain where it is deployed.
+  It never takes custody of a user's tokens. Each transfer goes straight from
+  the owner to the recipient.
+</p>
+<p>
+  Permit2 is immutable. It has no owner, no upgrade path and no pause switch,
+  so nobody can change what it does. Its deployed code matches the verified
+  source byte for byte.
+</p>
+<p>
+  This review found no exploitable vulnerability. The four medium findings
+  describe what a wallet or an integrator can get wrong. One of them did not
+  exist when Permit2 was deployed. EIP-7702, live since May 2025, lets an ordinary account carry code. Permit2 picks its signature check by asking whether the signer has code. A quarter of the accounts now signing permits
+  carry code this way, so Permit2 checks them as though they were smart
+  contract wallets.
+</p>
+
+<h2>Audit summary</h2>
+<p>
+  Permit2 has no exploitable vulnerability. The contract is immutable, gives no one a privileged role, and answers exactly the 15 selectors its interface
+  declares. Its runtime bytecode matches the verified source byte for byte. It contains one <code>CALL</code>, and that call always uses the <code>transferFrom</code> selector. The contract can therefore move tokens only for an owner who authorised the move.
+</p>
+<p>
+  Four findings rated Medium describe what an integrator or a user can get
+  wrong. Three concern a gap between what Permit2 appears to do and what it does. <code>lockdown</code> looks like a panic button, but it does not cancel a signature the spender already holds. A permit's <code>expiration</code> is independent of the <code>sigDeadline</code> on the signature that created it. In the sample of live permits, 70.5% grant an unlimited allowance, and the median allowance lasts 30 days. A transfer of a token address that holds no code reports success and still reduces the allowance.
+</p>
+<p>
+  The fourth arose after Permit2 was deployed. Permit2 chooses between
+  <code>ecrecover</code> and ERC-1271 by reading one <code>EXTCODESIZE</code>.
+  In November 2022, that test sorted externally owned accounts from contract wallets for good. EIP-7702 ended that. An
+  account can now gain or drop code in a single transaction. Of the addresses
+  that signed a Permit2 permit in the sampled window, 25.1% carry a delegation.
+  The section <a href="#how-permit2-decides-who-signed">How Permit2 decides who
+  signed</a> gives the proof, along with a signature that <code>ecrecover</code>
+  verifies correctly and Permit2 refuses.
+</p>
+<p>
+  Nothing here can be patched, because the contract is immutable and has no
+  owner. The <a href="#integration-checklist">integration checklist</a> is the
+  part of this document most worth acting on.
+</p>
+
+<h2>Findings at a glance</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>ID</th><th>Severity</th><th>Finding</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="id"><a href="#m-1">M-1</a></td><td><span class="sev sev-medium">Medium</span></td><td><code>lockdown</code> does not cancel a signature the spender already holds</td></tr>
+    <tr><td class="id"><a href="#m-2">M-2</a></td><td><span class="sev sev-medium">Medium</span></td><td><code>expiration</code> carries no relation to <code>sigDeadline</code></td></tr>
+    <tr><td class="id"><a href="#m-3">M-3</a></td><td><span class="sev sev-medium">Medium</span></td><td>Signature verification branches on <code>EXTCODESIZE</code>, which EIP-7702 made mutable</td></tr>
+    <tr><td class="id"><a href="#m-4">M-4</a></td><td><span class="sev sev-medium">Medium</span></td><td><code>transferFrom</code> reports success for a token address that holds no code</td></tr>
+    <tr><td class="id"><a href="#l-1">L-1</a></td><td><span class="sev sev-low">Low</span></td><td>One permit has three valid signature encodings</td></tr>
+    <tr><td class="id"><a href="#l-2">L-2</a></td><td><span class="sev sev-low">Low</span></td><td>Tokens sent to Permit2 can never be recovered, and $133,147 is already stranded</td></tr>
+    <tr><td class="id"><a href="#l-3">L-3</a></td><td><span class="sev sev-low">Low</span></td><td><code>expiration = 0</code> means the current block only</td></tr>
+    <tr><td class="id"><a href="#l-4">L-4</a></td><td><span class="sev sev-low">Low</span></td><td>The zero-address recipient behaviour in the documentation is not implemented</td></tr>
+    <tr><td class="id"><a href="#i-1">I-1</a></td><td><span class="sev sev-info">Info</span></td><td>A partial spend consumes the whole unordered nonce</td></tr>
+    <tr><td class="id"><a href="#i-2">I-2</a></td><td><span class="sev sev-info">Info</span></td><td>The EIP-712 domain omits <code>version</code>, and the contract answers no <code>eip712Domain()</code></td></tr>
+    <tr><td class="id"><a href="#i-3">I-3</a></td><td><span class="sev sev-info">Info</span></td><td><code>invalidateNonces</code> advances a nonce by at most 65,535 per call</td></tr>
+    <tr><td class="id"><a href="#i-4">I-4</a></td><td><span class="sev sev-info">Info</span></td><td>The caller supplies the witness type string unchecked</td></tr>
+  </tbody>
+</table>
+</div>
+<p>Counts: 0 critical, 0 high, 4 medium, 4 low, 4 informational.</p>
+
+<h2>Verified onchain facts</h2>
+<div class="table-wrap">
+<table class="facts">
+  <tbody>
+    <tr><th>Address</th><td><code>0x000000000022D473030F116dDEE9F6B43aC78BA3</code></td></tr>
+    <tr><th>Deployed</th><td>Block 15,986,406, 2022-11-17 01:17:59 UTC, 3.85 years before this review</td></tr>
+    <tr><th>Creation tx</th><td><code>0xf2f1fe96c16ee674bb7fcee166be52465a418927d124f5f1d231b36eae65d377</code></td></tr>
+    <tr><th>Transaction sender</th><td><code>0xd32ff78579352ca78f416120a9f68b65c410871b</code>, an externally owned account</td></tr>
+    <tr><th>Actual deployer</th><td><code>0x4e59b44847b379578588920cA78FbF26c0B4956C</code>, the deterministic deployment proxy, by <code>CREATE2</code></td></tr>
+    <tr><th><code>CREATE2</code> salt</th><td><code>0x0000000000000000000000000000000000000000d3af2663da51c10215000000</code></td></tr>
+    <tr><th>Compiler</th><td>solc 0.8.17+commit.8df45f5f, optimiser enabled at 1,000,000 runs, EVM target london</td></tr>
+    <tr><th>Runtime code</th><td>9,152 bytes: 9,140 executable plus a 12-byte metadata trailer</td></tr>
+    <tr><th>Metadata trailer</th><td><code>a164736f6c6343000811000a</code>, the compiler version only. The build set <code>bytecodeHash</code> to <code>none</code></td></tr>
+    <tr><th>Against verified source</th><td>Identical, all 9,152 bytes</td></tr>
+    <tr><th>Instructions</th><td>4,278 decoded, zero unknown opcodes</td></tr>
+    <tr><th>Dispatch table</th><td>15 selectors, matching the declared interface exactly</td></tr>
+    <tr><th>Upgrade-shaped opcodes</th><td>None. 0 <code>DELEGATECALL</code>, 0 <code>CALLCODE</code>, 0 <code>SELFDESTRUCT</code>, 0 <code>CREATE</code>, 0 <code>CREATE2</code></td></tr>
+    <tr><th>External calls</th><td>1 <code>CALL</code> at offset 6392, 2 <code>STATICCALL</code> at offsets 8478 and 8902</td></tr>
+    <tr><th>Proxy slots</th><td>EIP-1967 implementation, EIP-1967 admin and the OpenZeppelin legacy slot all read zero</td></tr>
+    <tr><th>Authority</th><td>None. No <code>owner</code>, <code>admin</code>, <code>authority</code>, <code>wards</code>, <code>paused</code> or <code>live</code> getter responds</td></tr>
+    <tr><th>Storage slots</th><td>0 <code>nonceBitmap</code>, 1 <code>allowance</code>. Both confirmed against the public getters</td></tr>
+    <tr><th><code>DOMAIN_SEPARATOR()</code></th><td><code>0x866a5aba21966af95d6c7ab78eb2b2fc913915c28be3b9aa07cc04ff903e3f28</code></td></tr>
+    <tr><th>ETH held</th><td>0. No function is payable</td></tr>
+    <tr><th>Tokens held</th><td>35 token contracts hold a balance for this address, $133,147 at 2026-09-22 prices</td></tr>
+    <tr><th>Transactions received</th><td>712,764</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The EIP-712 domain separator and the chain ID that produced it are
+  <code>immutable</code>, so both sit in the code rather than in storage.
+</p>
+
+<h2>Method</h2>
+<p>
+  I read the runtime bytecode from mainnet over JSON-RPC and disassembled it
+  with an opcode walker that skips <code>PUSH</code> immediates. Claims about
+  what the contract cannot do rest on that disassembly rather than on reading
+  the source. Every figure in the table above came from one batched request
+  pinned to block 26,032,914, so the numbers reconcile with each other.
+</p>
+<p>Four points of method affected the results.</p>
+<p>
+  <strong>The deployed code and the verified source agree exactly.</strong>
+  This match often fails, so it is worth stating. I did not recompile the source. I compared
+  the 9,152 bytes returned by <code>eth_getCode</code> against the deployed
+  bytecode recorded with the verified source, and every byte matched.
+</p>
+<p>
+  <strong>Behavioural findings were proved by running them.</strong> Where a finding says that Permit2 writes a value or accepts a signature, I ran the call against live mainnet state. Each run used <code>eth_call</code> with a state override. The override places a small probe contract at an unused address. The probe calls Permit2 and returns what Permit2 wrote. Nothing was broadcast and no transaction was signed. Each result below gives the value returned.
+</p>
+<p>
+  <strong>ECDSA signatures were generated locally.</strong> Findings
+  <a href="#l-1">L-1</a> and <a href="#m-3">M-3</a> need real signatures over
+  real EIP-712 digests. I wrote secp256k1 signing in about forty lines, and checked each signature with the <code>ecrecover</code> precompile at <code>0x01</code> before I used it.
+</p>
+<p>
+  <strong>One test key exposed the EIP-7702 problem by accident.</strong> My
+  first signing key was the well-known test value <code>0x1111…1111</code>,
+  whose address is <code>0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a</code>.
+  Permit2 rejected every signature it made, but the precompile at <code>0x01</code> recovered the correct signer from the same inputs. The address carries a 23-byte EIP-7702 delegation designator on mainnet, so
+  Permit2 never reached <code>ecrecover</code>. The section
+  <a href="#how-permit2-decides-who-signed">How Permit2 decides who signed</a>
+  sets out what follows. Two further well-known test keys carry a delegation to
+  the same contract.
+</p>
+
+<h2 id="the-two-systems">The two systems inside Permit2</h2>
+<p>
+  The contract holds two independent systems that do not interact.
+</p>
+<p>
+  <strong>AllowanceTransfer</strong> stores an allowance per owner, token and
+  spender, packed into one word as a <code>uint160</code> amount, a
+  <code>uint48</code> expiration and a <code>uint48</code> nonce. A spender
+  draws against it repeatedly until the amount runs out or the expiration
+  passes. Nonces here run in strict sequence.
+</p>
+<p>
+  <strong>SignatureTransfer</strong> stores no allowance at all. Each signature
+  authorises one transfer and is spent by setting a bit in a per-owner bitmap.
+  Nonces here are unordered, so a user can sign many permits and spend them in
+  any order.
+</p>
+<p>
+  Permit2 never holds a token on a user's behalf. Every transfer it performs is
+  <code>token.transferFrom(owner, recipient, amount)</code>, which moves value
+  directly between two other accounts.
+</p>
+
+<h2 id="how-permit2-decides-who-signed">How Permit2 decides who signed</h2>
+<p>
+  Everything Permit2 does rests on one function.
+  <code>SignatureVerification.verify</code> takes a signature, a digest and a
+  claimed signer, and it reverts unless the signature belongs to that signer.
+  It chooses between two methods, and this choice is the subject of finding <a href="#m-3">M-3</a>.
+</p>
+
+<h3>The branch in the source</h3>
+<pre><code>if (claimedSigner.code.length == 0) {
+    // 65-byte or 64-byte ECDSA, then ecrecover
+} else {
+    bytes4 magicValue = IERC1271(claimedSigner).isValidSignature(hash, signature);
+    if (magicValue != IERC1271.isValidSignature.selector) revert InvalidContractSignature();
+}</code></pre>
+
+<h3>The branch in the bytecode</h3>
+<p>
+  The disassembly has the same shape, and it shows that no other path exists.
+</p>
+<pre><code> 8394  DUP5
+ 8395  EXTCODESIZE            &lt;- claimedSigner.code.length
+ 8396  PUSH2 0x222e
+ 8399  JUMPI                  &lt;- non-zero jumps to the ERC-1271 branch
+ 8401  PUSH1 0x41
+ 8404  SUB                    &lt;- signature.length - 65
+ 8405  PUSH2 0x21ac
+ 8408  JUMPI                  &lt;- not 65, try the 64-byte compact form
+ ...
+ 8475  PUSH1 0x01
+ 8477  GAS
+ 8478  STATICCALL             &lt;- the ecrecover precompile at 0x01
+ ...
+ 8901  GAS
+ 8902  STATICCALL             &lt;- isValidSignature on the claimed signer
+ 8918  PUSH32 0xffffffff00…   &lt;- mask for the magic value comparison</code></pre>
+<p>
+  The contract holds exactly one <code>EXTCODESIZE</code> and exactly two
+  <code>STATICCALL</code>s. One reaches the precompile. The other reaches the
+  claimed signer. No third route into signature validation exists.
+</p>
+
+<h3>What that test meant in 2022, and what it means now</h3>
+<p>
+  When Permit2 shipped, an address either held code forever or held none
+  forever. <code>EXTCODESIZE</code> therefore sorted accounts into two permanent
+  classes, and the branch was a correct and cheap way to support contract
+  wallets.
+</p>
+<p>
+  EIP-7702 made that sorting temporary. An account can now install a 23-byte
+  delegation designator with one transaction, and remove it with another. The account keeps its private key and keeps signing. But <code>EXTCODESIZE</code> no longer returns zero, so Permit2 stops using <code>ecrecover</code> for it.
+</p>
+<p>
+  I measured how common this has become. Over 541 blocks, about 1.8 hours
+  ending at block 26,032,944, Permit2 emitted 400 <code>Permit</code> events
+  from 267 distinct signers.
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Account shape at verification time</th><th class="num">Signers</th><th class="num">Share</th><th>Branch taken</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>No code</td><td class="num">200</td><td class="num">74.9%</td><td><code>ecrecover</code></td></tr>
+    <tr><td>EIP-7702 delegation designator</td><td class="num">67</td><td class="num">25.1%</td><td>ERC-1271</td></tr>
+    <tr><td>Deployed contract</td><td class="num">0</td><td class="num">0.0%</td><td>ERC-1271</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  A quarter of live Permit2 signature checks now take the branch written for
+  smart contract wallets. None of them is a smart contract wallet.
+</p>
+<p>
+  The <code>Approval</code> event records a direct <code>approve</code> call, with no signature. Measured the same way, it shows 155 distinct callers, and 66.5% of them carry a delegation. The share is higher because these accounts send their own transactions.
+</p>
+
+<h3>Whether this is currently exploitable</h3>
+<p>
+  It is not. I called <code>isValidSignature(bytes32,bytes)</code> on all 154
+  delegated Permit2 users across both samples, passing a 65-byte signature of
+  arbitrary bytes. Eighty-one rejected it by reverting, and 73 returned a value
+  other than the ERC-1271 magic value. None accepted it. Every delegate
+  contract in the sample validates signatures properly.
+</p>
+<p>
+  The risk lies in what an integrator may assume about an account. <a href="#m-3">M-3</a> states it.
+</p>
+
+<h2>Findings</h2>
+
+<h3 id="m-1">M-1 · <code>lockdown</code> does not cancel a signature the spender already holds <span class="sev sev-medium">Medium</span></h3>
+<p class="muted">Affects users who revoke with <code>lockdown</code> alone, and wallets that offer it as a revoke button.</p>
+<p>
+  <code>lockdown</code> is documented as "a 'lockdown' of the sender's Permit2
+  identity by batch revoking approvals". In practice it writes one field.
+</p>
+<pre><code>allowance[owner][token][spender].amount = 0;
+emit Lockdown(owner, token, spender);</code></pre>
+<p>
+  The expiration and the nonce stay as they were. A spender holding a signed but
+  unsubmitted <code>PermitSingle</code> at the current nonce can submit it
+  after the lockdown. Permit2 then restores the allowance in full.
+</p>
+<p>
+  <strong>Evidence.</strong> Two runs against mainnet state at block
+  26,032,914. The first shows what <code>lockdown</code> writes. A probe contract, acting as the owner, approved a spender, called <code>lockdown</code>, and read the allowance back.
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Step</th><th class="num">amount</th><th class="num">expiration</th><th class="num">nonce</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>After <code>approve(token, spender, 1000, max)</code></td><td class="num">1000</td><td class="num">281474976710655</td><td class="num">0</td></tr>
+    <tr><td>After <code>lockdown([(token, spender)])</code></td><td class="num">0</td><td class="num">281474976710655</td><td class="num">0</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The second shows the consequence. Starting from a locked-down allowance whose
+  owner had already used nonces 0 to 2, a spender submitted a permit signed at
+  nonce 3.
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Step</th><th class="num">amount</th><th class="num">expiration</th><th class="num">nonce</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Locked-down state</td><td class="num">0</td><td class="num">281474976710655</td><td class="num">3</td></tr>
+    <tr><td>After the held permit is submitted</td><td class="num">1000</td><td class="num">281474976710655</td><td class="num">4</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  <strong>Impact.</strong> A user who believes they have revoked a spender's
+  access has revoked only the stored amount. Any signature they issued and did
+  not see spent remains live. The exposure is the full amount of that
+  signature.
+</p>
+<p>
+  <strong>Mitigation.</strong> A full revocation needs two calls. Call
+  <code>lockdown</code> to clear the stored amounts, then call
+  <code>invalidateNonces(token, spender, nonce + 1)</code> for every pair whose signatures must stop working. <code>invalidateNonces</code> takes one pair per call and advances the nonce by at most 65,535 each time. A user with many outstanding pairs pays for each one. A wallet offering a revoke button should
+  send both.
+</p>
+
+<h3 id="m-2">M-2 · <code>expiration</code> carries no relation to <code>sigDeadline</code> <span class="sev sev-medium">Medium</span></h3>
+<p class="muted">Affects users who read <code>sigDeadline</code> as the life of the approval, and wallets that display it that way.</p>
+<p>
+  <code>permit</code> reads two deadlines that look alike and mean different
+  things. <code>sigDeadline</code> bounds how long the signature may be
+  submitted. <code>expiration</code> bounds how long the resulting allowance
+  lives. The contract checks the first and stores the second, and it never
+  compares them.
+</p>
+<pre><code>if (block.timestamp &gt; permitSingle.sigDeadline) revert SignatureExpired(permitSingle.sigDeadline);
+signature.verify(_hashTypedData(permitSingle.hash()), owner);
+_updateApproval(permitSingle.details, owner, permitSingle.spender);</code></pre>
+<p>
+  A signature valid for 30 minutes can therefore install an allowance valid for 30 days. It can even install one that lasts until the largest time a <code>uint48</code> can hold, in the year 8,921,556.
+</p>
+<p><strong>Evidence.</strong> Across the 400 signature-based permits in the sampled window:</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Property of the granted allowance</th><th class="num">Count</th><th class="num">Share</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Unlimited amount, <code>type(uint160).max</code></td><td class="num">282</td><td class="num">70.5%</td></tr>
+    <tr><td>Lifetime of 1 hour to 30 days</td><td class="num">321</td><td class="num">80.3%</td></tr>
+    <tr><td>Lifetime of <code>type(uint48).max</code></td><td class="num">23</td><td class="num">5.8%</td></tr>
+    <tr><td>Unlimited amount and <code>type(uint48).max</code> lifetime</td><td class="num">3</td><td class="num">0.8%</td></tr>
+  </tbody>
+</table>
+</div>
+<p>The median granted lifetime is 30.0 days, and so is the 90th percentile.</p>
+<p>
+  <strong>Impact.</strong> The typical Permit2 permit is an unlimited allowance that lasts 30 days, created by a signature that may look short-lived to the user. A wallet that displays <code>sigDeadline</code> as "this approval
+  expires in 30 minutes" tells the user the wrong thing. The two values are
+  independent, and only <code>expiration</code> governs the spender's access.
+</p>
+<p>
+  <strong>Mitigation.</strong> A wallet must display
+  <code>details.expiration</code> and <code>details.amount</code>, and should
+  warn when <code>details.amount</code> equals <code>type(uint160).max</code>.
+  An integrator requesting a permit should set <code>expiration</code> to the
+  shortest window that works, and should not simply copy <code>sigDeadline</code> into it. Uniswap's own Universal Router at
+  <code>0x66a9893cc07d91d95644aedd05d03f95e1dba8af</code> takes the
+  single-block form described in <a href="#l-3">L-3</a>, and received 97 of the
+  146 single-block approvals in the sampled window.
+</p>
+
+<h3 id="m-3">M-3 · Signature verification branches on <code>EXTCODESIZE</code>, which EIP-7702 made mutable <span class="sev sev-medium">Medium</span></h3>
+<p class="muted">Affects integrators who cache whether an address signs with ECDSA, and accounts that delegate under EIP-7702.</p>
+<p>
+  The section <a href="#how-permit2-decides-who-signed">How Permit2 decides who
+  signed</a> gives the bytecode evidence and the measurements behind this finding.
+</p>
+<p>
+  Permit2 reads <code>claimedSigner.code.length</code> at the moment of
+  verification. Since EIP-7702 activated, that value is under the account
+  holder's control and can change between one block and the next. Three
+  consequences follow.
+</p>
+<p>
+  <strong>A signature scheme is no longer a property of an address.</strong> An
+  integrator may record that an address is externally owned, and therefore
+  signs with ECDSA. That record can be wrong by the next block. Of the
+  addresses signing Permit2 permits in the sampled window, 25.1% would be
+  classified wrongly by that rule.
+</p>
+<p>
+  <strong>Delegation can silently disable permit signing.</strong> An account
+  that delegates to a contract without a working <code>isValidSignature</code>
+  cannot issue Permit2 permits at all. Existing allowances stay live and stay
+  spendable, so the account loses the ability to grant access while keeping
+  the access it already granted.
+</p>
+<p>
+  <strong>Verification authority becomes revocable and replaceable.</strong> A
+  delegate contract decides what counts as that account's signature. The
+  account holder can change the delegate at any time. A counterparty who
+  validated a signature at one block cannot assume the same key would validate
+  it at the next.
+</p>
+<p>
+  <strong>Evidence.</strong> Permit2 rejects a signature over a Permit2 digest made with the key <code>0x1111…1111</code>, although the <code>ecrecover</code> precompile confirms that the signature is correct. The owner address
+  <code>0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a</code> carries
+  <code>0xef01008a67b5020ee254ef48e3b6a04927f39baf7e408a</code>, a delegation to
+  a 717-byte contract. Permit2 called that contract instead and reverted.
+</p>
+<p>
+  A second demonstration runs the other way. Calling Permit2's
+  <code>permit</code> with an arbitrary signature for
+  <code>0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045</code> returns
+  <code>Error(string)</code> carrying <code>SV_ZERO_SIG</code>, a message from
+  that account's delegate. No ECDSA recovery took place.
+</p>
+<p>
+  <strong>Impact.</strong> The impact is bounded, because no delegate in the sample accepts
+  an arbitrary signature. The risk is that an integrator caches a
+  signature-scheme assumption that the chain no longer guarantees.
+</p>
+<p>
+  <strong>Mitigation.</strong> Treat the result of <code>Permit2.permit</code>
+  or <code>Permit2.permitTransferFrom</code> as the only proof that a signature
+  was valid. Re-read <code>code.length</code> at the moment it matters rather
+  than caching it. Where an application needs a signature to remain
+  attributable after the fact, record the verifying contract's address
+  alongside the signature.
+</p>
+
+<h3 id="m-4">M-4 · <code>transferFrom</code> reports success for a token address that holds no code <span class="sev sev-medium">Medium</span></h3>
+<p class="muted">Affects applications that accept a token address from their caller and credit the caller when the transfer succeeds.</p>
+<p>
+  Permit2 moves tokens through Solmate's <code>SafeTransferLib</code>. That
+  library's own header says "none of the functions in this library check that a
+  token has code at all! That responsibility is delegated to the caller."
+  Permit2 does not make that check.
+</p>
+<p>
+  The library treats an empty return as success, which is correct for tokens
+  that return nothing. A call to an address with no code also returns nothing
+  and succeeds.
+</p>
+<p>
+  <strong>Evidence.</strong> A probe contract approved the codeless address
+  <code>0x00000000000000000000000000000000deadbeef</code> as a token, then
+  called <code>Permit2.transferFrom(from, to, 500, 0x…deadbeef)</code>. The call
+  returned success, and the stored allowance fell from 1000 to 500. Nothing was
+  transferred, because there was nothing to call. The same holds for
+  <code>permitTransferFrom</code>, which reaches the same library.
+</p>
+<p>
+  <strong>Impact.</strong> Consider an application that takes a token address
+  from its caller, routes a transfer through Permit2, and credits the caller on
+  success. The caller can be credited for a transfer that never happened. The attacker
+  supplies an address with no code and signs a valid permit over it. Every signature check passes, because the signature is genuine, but no tokens move.
+</p>
+<p>
+  <strong>Mitigation.</strong> Confirm that a caller-supplied token address
+  holds code before trusting a Permit2 transfer. Checking the recipient's
+  balance before and after works too. An allowlist of known tokens removes the
+  problem entirely.
+</p>
+
+<h3 id="l-1">L-1 · One permit has three valid signature encodings <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects offchain systems that identify a signature by its bytes.</p>
+<p>
+  <code>SignatureVerification</code> accepts a 65-byte <code>(r, s, v)</code>
+  signature and a 64-byte EIP-2098 compact signature. It does not bound
+  <code>s</code> to the lower half of the curve order. The runtime code does not contain the constant for that bound, <code>0x7fff…5d576e7357a4501ddfe92f46681b20a0</code>.
+</p>
+<p><strong>Evidence.</strong> One permit, signed once, submitted in six encodings against mainnet state.</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Encoding</th><th>Accepted</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Canonical 65-byte <code>(r, s, v)</code></td><td>yes</td></tr>
+    <tr><td>Malleated 65-byte <code>(r, n − s, v ^ 1)</code></td><td>yes</td></tr>
+    <tr><td>EIP-2098 64-byte <code>(r, vs)</code></td><td>yes</td></tr>
+    <tr><td>EIP-2098 64-byte, malleated</td><td>no, <code>InvalidSigner</code></td></tr>
+    <tr><td>66 bytes, canonical plus a trailing zero</td><td>no, <code>InvalidSignatureLength</code></td></tr>
+    <tr><td>65 bytes of arbitrary data</td><td>no, <code>InvalidSignature</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The malleated compact form fails because the compact encoding has only 255 bits for <code>s</code>, and the malleated <code>s</code> here does not fit. The three accepted encodings all set the same allowance.
+</p>
+<p>
+  <strong>Impact.</strong> The nonce prevents replay on chain, so an attacker gains nothing against Permit2. The risk falls on offchain systems that treat a signature's bytes as its identity. Examples are a relayer that deduplicates by signature hash, and an order book that cancels by signature.
+  Either can be fed a second encoding of an order it believes it has already
+  handled.
+</p>
+<p>
+  On the other side, Permit2's strict length check deserves credit. Many
+  implementations accept a longer signature and ignore the tail. Permit2
+  rejects 66 bytes, which removes a whole family of malleability.
+</p>
+<p>
+  <strong>Mitigation.</strong> Key off the permit's <code>(owner, nonce)</code>
+  pair or the EIP-712 digest, never off the signature bytes.
+</p>
+
+<h3 id="l-2">L-2 · Tokens sent to Permit2 can never be recovered, and $133,147 is already stranded <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects anyone who sends tokens to the Permit2 address.</p>
+<p>
+  Permit2 has no owner, no sweep function and no rescue path. Its single
+  <code>CALL</code> site carries a hard-coded <code>transferFrom</code>
+  selector, written as an immediate in the assembly. The contract therefore cannot make a <code>transfer</code> or <code>approve</code> call, whatever its input. Moving its own balance would need an allowance from Permit2 to some
+  spender, and no code path can create one.
+</p>
+<p>
+  <strong>Evidence.</strong> At block 26,032,914 the address holds balances in
+  35 token contracts, worth $133,147 at 2026-09-22 prices. USDC accounts for
+  $133,075 of that. The full history of USDC arriving at the address:
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Date</th><th>Block</th><th class="num">USDC</th><th>From</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>2023-03-24</td><td>16,899,860</td><td class="num">100,000.00</td><td><code>0x9f9FAA1270F807E0Cbd025558E65dd453f152617</code></td></tr>
+    <tr><td>2023-12-24</td><td>18,856,001</td><td class="num">3.81</td><td><code>0xE5bec8FC570D864a928C7aa2552C28403053953D</code></td></tr>
+    <tr><td>2024-01-20</td><td>19,045,220</td><td class="num">33,088.07</td><td><code>0x23DB6667bc525da15c7fC46474f5e85cb22E075F</code></td></tr>
+    <tr><td>2025-11-29</td><td>23,906,699</td><td class="num">below 0.005</td><td>one address</td></tr>
+    <tr><td>2026-01-20</td><td>24,278,275 to 24,278,294</td><td class="num">4.00 across four transfers</td><td>three addresses</td></tr>
+    <tr><td>2026-03-22</td><td>24,713,904</td><td class="num">below 0.005</td><td>one address</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  Nine transfers in, totalling 133,095.87 USDC. None out, ever. The balance
+  reconciles to the last decimal.
+</p>
+<p>
+  <strong>Impact.</strong> The loss falls only on whoever misdirects a transfer. No attacker can steer it, and no user following the interface is exposed, so the severity is Low. The dollar figure is quoted because the loss has already happened, and it will keep growing.
+</p>
+<p>
+  <strong>Mitigation.</strong> Nothing on chain can fix this. An interface that lets a user
+  type a recipient should reject this address, and any other contract that
+  declares no way to return a token.
+</p>
+
+<h3 id="l-3">L-3 · <code>expiration = 0</code> means the current block only <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects integrators who carry a "zero means no expiry" convention across from other contracts.</p>
+<p>
+  Permit2 gives an expiration of zero its own meaning. <code>Allowance.updateAll</code> and <code>updateAmountAndExpiration</code> both replace it with the current timestamp.
+</p>
+<pre><code>allowed.expiration = expiration == 0 ? uint48(block.timestamp) : expiration;</code></pre>
+<p>
+  <code>_transfer</code> then rejects when
+  <code>block.timestamp &gt; allowed.expiration</code>. The comparison is strict,
+  so the allowance lasts until the end of the block that created it, and expires in the next.
+</p>
+<p><strong>Evidence.</strong> Three runs against mainnet state, reading the stored word back after the write.</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Input expiration</th><th class="num">Stored expiration</th><th class="num">Block timestamp</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>0</td><td class="num">1790077811</td><td class="num">1790077811</td></tr>
+    <tr><td>1</td><td class="num">1</td><td class="num">1790077811</td></tr>
+    <tr><td><code>type(uint48).max</code></td><td class="num">281474976710655</td><td class="num">1790077811</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  <strong>Impact.</strong> The convention runs the other way in several widely
+  used contracts, where a zero deadline means the approval never expires. A
+  reader carrying that assumption across inverts the meaning. They either grant
+  far more than intended, or write an integration whose allowances die
+  immediately.
+</p>
+<p>
+  The behaviour is deliberate and useful. It is the correct choice for a swap
+  that spends the allowance in the same transaction. In the sampled window,
+  36.5% of direct <code>approve</code> calls use it.
+</p>
+<p>
+  <strong>Mitigation.</strong> Read the stored expiration through the
+  <code>allowance</code> getter after any approval, and never assume what zero
+  means in a contract you have not read.
+</p>
+
+<h3 id="l-4">L-4 · The zero-address recipient behaviour in the documentation is not implemented <span class="sev sev-low">Low</span></h3>
+<p class="muted">Affects integrators who follow the source comment on a zero-address recipient.</p>
+<p>
+  <code>SignatureTransfer._permitTransferFrom</code> carries this note on both
+  the single and the batch form:
+</p>
+<pre><code>/// @dev If to is the zero address, the tokens are sent to the spender.</code></pre>
+<p>No such branch exists. The recipient is passed to the token unchanged.</p>
+<p>
+  <strong>Evidence.</strong> A mock token was installed that accepts
+  <code>transferFrom</code> only when its <code>to</code> argument is zero, and
+  reverts otherwise. Permit2 was then asked to transfer with
+  <code>transferDetails.to</code> set to the zero address.
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Caller passes</th><th>Result</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>to = 0x0</code></td><td>succeeded, so zero reached the token unchanged</td></tr>
+    <tr><td><code>to = 0xdead…</code></td><td>reverted, confirming the mock discriminates</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  <strong>Impact.</strong> An integrator who trusts the note sends tokens to the
+  zero address. Most tokens reject that and revert, which turns the mistake into
+  a failed transaction. Tokens that allow it burn the amount, and the nonce is
+  consumed either way.
+</p>
+<p>
+  <strong>Mitigation.</strong> Always set an explicit recipient. Never rely on a
+  zero-address shorthand in this contract.
+</p>
+
+<h3 id="i-1">I-1 · A partial spend consumes the whole unordered nonce <span class="sev sev-info">Info</span></h3>
+<p>
+  <code>_permitTransferFrom</code> requires
+  <code>requestedAmount &lt;= permit.permitted.amount</code> and spends the nonce
+  regardless of how much is taken. A spender who draws one wei against a permit
+  for a thousand tokens has used the permit completely.
+</p>
+<p>
+  The batch form goes further. Passing <code>requestedAmount = 0</code> for an
+  entry skips its transfer, and the single nonce covering the whole batch is
+  still spent.
+</p>
+<p>
+  This behaviour is intended and documented, and it suits a system where one signature authorises one action. It is recorded here because an integrator who expects a reusable allowance will build the wrong flow.
+</p>
+
+<h3 id="i-2">I-2 · The EIP-712 domain omits <code>version</code>, and the contract answers no <code>eip712Domain()</code> <span class="sev sev-info">Info</span></h3>
+<p>The domain type has three fields.</p>
+<pre><code>keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)")</code></pre>
+<p>
+  EIP-712 permits this, and the separator is well formed. Two things follow. A
+  library that assumes the four-field default and inserts a
+  <code>version</code> computes a different separator, and every signature it
+  produces is rejected. Also, the contract has no <code>eip712Domain()</code> view, so a wallet cannot discover the domain on
+  chain and must be told it.
+</p>
+<p>
+  The separator is <code>immutable</code> but not frozen.
+  <code>DOMAIN_SEPARATOR()</code> compares the current chain ID against the one
+  cached at construction, and rebuilds the value when they differ. A chain split
+  therefore does not make old signatures valid on the new chain.
+</p>
+
+<h3 id="i-3">I-3 · <code>invalidateNonces</code> advances a nonce by at most 65,535 per call <span class="sev sev-info">Info</span></h3>
+<pre><code>uint48 delta = newNonce - oldNonce;
+if (delta &gt; type(uint16).max) revert ExcessiveInvalidation();</code></pre>
+<p>
+  The cap is documented and bounds the gas an owner can force. It matters
+  alongside <a href="#m-1">M-1</a>. Invalidating nonces is the only way to cancel an outstanding signature, and it works on one <code>(token, spender)</code>
+  pair at a time. A user with fifty outstanding pairs sends fifty transactions.
+</p>
+<p>
+  <code>invalidateUnorderedNonces(wordPos, mask)</code> on the
+  SignatureTransfer side is cheaper. It sets up to 256 bits in one word with a
+  single call, and the bits it sets can never be cleared.
+</p>
+
+<h3 id="i-4">I-4 · The caller supplies the witness type string unchecked <span class="sev sev-info">Info</span></h3>
+<p>
+  <code>permitWitnessTransferFrom</code> lets an application bind extra data to
+  a permit. The application passes a <code>witness</code> hash and the EIP-712
+  type string that describes it. Permit2 concatenates that string onto a fixed
+  stub and hashes the result.
+</p>
+<pre><code>bytes32 typeHash = keccak256(abi.encodePacked(_PERMIT_TRANSFER_FROM_WITNESS_TYPEHASH_STUB, witnessTypeString));</code></pre>
+<p>
+  The stub is a partial type declaration ending in a comma. It sits in the
+  runtime code at offset 4,410, split across <code>PUSH32</code> immediates by
+  the optimiser. Permit2 does not check what follows it, so the caller decides what the user's signature covers.
+</p>
+<p>
+  The vendor documents the obligation: "The witness type string must follow
+  EIP712 ordering of nested structs and must include the TokenPermissions type
+  definition." It is recorded here because the cost of ignoring it is severe. An
+  application that lets an untrusted party choose the type string lets that
+  party decide what a signature means. A signature collected for one purpose
+  can then be made to authorise another.
+</p>
+<p>
+  Build the witness type string from a constant in the application, never from
+  input.
+</p>
+
+<h2>What the contract does correctly</h2>
+<p>
+  Each item below was tested and held. They carry the security of the design, and they show a reader what was examined.
+</p>
+<ul>
+  <li><strong>Immutability is real.</strong> No <code>DELEGATECALL</code>, no
+    <code>CALLCODE</code>, no <code>SELFDESTRUCT</code>, no <code>CREATE</code>
+    and no <code>CREATE2</code> appear anywhere in 4,278 decoded instructions.
+    All three proxy slots read zero. No admin getter responds. The code at this
+    address cannot change and cannot be removed.</li>
+  <li><strong>The interface is exactly what it claims.</strong> Fifteen
+    selectors appear in the dispatcher. I derived all fifteen from the declared
+    function signatures and every one matched. No undocumented function is
+    reachable, and no declared function is missing.</li>
+  <li><strong>Permit2 never holds custody.</strong> Every transfer is
+    <code>token.transferFrom(owner, recipient, amount)</code> between two other
+    accounts. A user's tokens stay in the user's account until a spender draws
+    them.</li>
+  <li><strong>Nonce handling is sound in both systems.</strong> The unordered
+    bitmap flips its bit with <code>^=</code> and reverts when the bit was
+    already set, so a nonce cannot be spent twice. The sequential nonce is
+    compared for exact equality before use, so a permit cannot be applied out
+    of order or skipped.</li>
+  <li><strong>Arithmetic is safe.</strong> The contract compiles under solc
+    0.8.17, which reverts on overflow. The two <code>unchecked</code> blocks
+    that matter are correct. The allowance debit sits behind an explicit
+    <code>amount &gt; maxAmount</code> check, and the nonce increment in
+    <code>updateAll</code> cannot overflow a <code>uint48</code> within any
+    reachable sequence.</li>
+  <li><strong>Unlimited allowances are handled deliberately.</strong> An amount
+    of <code>type(uint160).max</code> is a sentinel and skips the debit, so an
+    unlimited approval does not decay through repeated partial spends.</li>
+  <li><strong>Cross-chain replay protection works.</strong> The chain ID sits
+    inside the domain separator. Permit2 rebuilds the separator whenever the
+    chain ID moves away from the cached value.</li>
+</ul>
+
+<h2>What the contract cannot do</h2>
+<p>Each item below rests on the disassembly, not on the source.</p>
+<ul>
+  <li>It cannot be upgraded, paused or destroyed.</li>
+  <li>It cannot move a token except through <code>transferFrom</code>, and only
+    with the owner's stored allowance or valid signature.</li>
+  <li>It cannot move its own token balance to anyone.</li>
+  <li>It cannot hold or move ETH. No function is payable, and the balance is
+    zero.</li>
+  <li>It cannot deploy another contract.</li>
+  <li>It cannot call an arbitrary address with arbitrary calldata. Its one
+    <code>CALL</code> carries a fixed selector and a fixed argument layout.</li>
+  <li>It cannot grant an allowance to itself or to anyone the owner did not
+    name.</li>
+</ul>
+
+<h2 id="other-deployments">Other deployments</h2>
+<p>
+  Permit2 was deployed through the deterministic deployment proxy with a fixed
+  salt, so it occupies the same address on every chain that has it. I read the
+  runtime code at this address on six chains. All six return 9,152 bytes.
+</p>
+<p>Mainnet and OP Mainnet differ in exactly 33 bytes.</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th class="num">Offset</th><th class="num">Length</th><th>Mainnet</th><th>OP Mainnet</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="num">6,976</td><td class="num">1</td><td><code>01</code></td><td><code>0a</code></td><td>cached chain ID</td></tr>
+    <tr><td class="num">6,983</td><td class="num">32</td><td><code>866a5aba…903e3f28</code></td><td><code>3c1b4b06…f9cbd92d</code></td><td>cached domain separator</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  Both values can be recomputed from
+  <code>keccak256(typeHash, nameHash, chainId, address)</code> for their own
+  chain. The other 9,119 bytes are identical, which means the executable logic
+  on those chains is the same code this review examined. Every finding here
+  applies to them.
+</p>
+<p>
+  Apart from this bytecode comparison, the review read Ethereum mainnet only. A chain where a different contract occupies this address is outside its scope.
+</p>
+
+<h2>Compiler risk</h2>
+<p>
+  The contract was built with solc 0.8.17, released 2022-09-08. I checked the
+  version against the published Solidity bug list and against the features this
+  contract uses.
+</p>
+<p>
+  Two known issues affect 0.8.17.
+  <code>AbiReencodingHeadOverflowWithStaticArrayCleanup</code> needs a
+  re-encode of a static array from calldata.
+  <code>StorageWriteRemovalBeforeConditionalTermination</code> needs a storage
+  write inside an inline assembly block, followed by a conditional revert.
+  Permit2 re-encodes no static calldata array. Its one inline assembly write,
+  the packed <code>sstore</code> in <code>Allowance.updateAll</code>, is the
+  last statement of its function and is followed by no conditional
+  termination.
+</p>
+<p>
+  The optimiser ran at 1,000,000 runs. That is an aggressive setting, and it shows in the disassembly. The single <code>EXTCODESIZE</code> is an example. Solidity
+  normally emits a code-size check before an external call that decodes a
+  return value. Here the optimiser reused the branch condition instead, because
+  that branch has already proved the code size is non-zero.
+</p>
+<p>No known compiler bug affects this contract.</p>
+
+<h2 id="integration-checklist">Integration checklist</h2>
+<p>
+  The contract cannot be changed, so this is the part of the review that can be
+  acted on. Every item corresponds to a finding above.
+</p>
+<ol>
+  <li>Revoke with two calls. <code>lockdown</code> clears stored
+    amounts, and <code>invalidateNonces</code> kills outstanding signatures. A
+    revoke button that sends only the first leaves the user exposed.
+    (<a href="#m-1">M-1</a>)</li>
+  <li>Show the user <code>expiration</code> and <code>amount</code>, not
+    <code>sigDeadline</code>. The signature deadline says nothing about how long
+    the allowance lives. Warn when the amount is
+    <code>type(uint160).max</code>. (<a href="#m-2">M-2</a>)</li>
+  <li>Request the shortest expiration that works. For a swap settled in the same
+    transaction, pass zero and get a single-block allowance.
+    (<a href="#m-2">M-2</a>, <a href="#l-3">L-3</a>)</li>
+  <li>Never cache "this address is an externally owned account". Read
+    <code>code.length</code> when it matters. An address can move between the
+    ECDSA and ERC-1271 branches in one transaction. (<a href="#m-3">M-3</a>)</li>
+  <li>Check that a caller-supplied token holds code. A Permit2 transfer of a
+    codeless address succeeds, debits the allowance and moves nothing. Use an
+    allowlist where you can, and a balance comparison where you cannot.
+    (<a href="#m-4">M-4</a>)</li>
+  <li>Key off <code>(owner, nonce)</code> or the EIP-712 digest, never the
+    signature bytes. One permit has three valid encodings.
+    (<a href="#l-1">L-1</a>)</li>
+  <li>Reject this address as a transfer recipient in any interface. Tokens sent
+    here are unrecoverable. (<a href="#l-2">L-2</a>)</li>
+  <li>Read back the stored allowance after any approval. Confirm the expiration
+    is what you meant, particularly when you passed zero.
+    (<a href="#l-3">L-3</a>)</li>
+  <li>Always set an explicit recipient. The documented zero-address shorthand
+    does not exist in the code. (<a href="#l-4">L-4</a>)</li>
+  <li>Treat every permit as single-use on the SignatureTransfer side. A partial
+    draw spends the whole nonce. (<a href="#i-1">I-1</a>)</li>
+  <li>Build the EIP-712 domain with three fields: name, chain ID and verifying
+    contract. A <code>version</code> field produces signatures Permit2 rejects.
+    (<a href="#i-2">I-2</a>)</li>
+  <li>Build the witness type string from a constant, never from input.
+    <code>permitWitnessTransferFrom</code> concatenates the caller's type string
+    onto a fixed stub with no checking, so whoever supplies it decides what the
+    signature means. (<a href="#i-4">I-4</a>)</li>
+</ol>
+
+<h2>Limits of this review</h2>
+<p>State these alongside the findings whenever this audit is quoted.</p>
+<ul>
+  <li><strong>Ethereum mainnet only.</strong> Other chains were read for
+    bytecode identity and nothing more.</li>
+  <li><strong>No historical state.</strong> The endpoint used serves current
+    state. Figures describing the past, such as the USDC arriving at the
+    address, came from event history rather than from state at an earlier
+    block.</li>
+  <li><strong>The measurements come from a sample.</strong> The 267
+    signers and 400 permits cover about 1.8 hours ending at block 26,032,944.
+    The shares quoted from them describe that window. Repeating the pull over a
+    shifted window moved the delegation share by 0.1 points, so the figures are
+    stable enough to support the findings. They should not be read as exact
+    long-run figures.</li>
+  <li><strong>Delegate contracts were tested for one behaviour only.</strong> The check
+    that no delegate accepts an arbitrary signature covers the 154 accounts in
+    the samples at one block. It says nothing about delegates outside them, and
+    nothing about how those contracts behave otherwise.</li>
+  <li><strong>Token behaviour is out of scope.</strong> Permit2 calls
+    <code>transferFrom</code> and trusts the result within the limits described
+    in <a href="#m-4">M-4</a>. Tokens that take a fee on transfer, that rebase,
+    or that revert on a zero-value transfer will behave accordingly, and an
+    integrator must handle them.</li>
+  <li><strong>No transaction was broadcast.</strong> Every result came from a
+    read or from <code>eth_call</code>. Nothing was signed on chain and no state
+    was changed.</li>
+</ul>
+
+<h2>Links</h2>
+<ul class="links">
+  <li><a target="_blank" rel="noopener" href="https://etherscan.io/address/0x000000000022D473030F116dDEE9F6B43aC78BA3#code">Permit2's verified source on Etherscan, as deployed</a></li>
+  <li><a target="_blank" rel="noopener" href="https://github.com/Uniswap/permit2">Uniswap's Permit2 repository</a></li>
+  <li><a target="_blank" rel="noopener" href="https://docs.uniswap.org/contracts/permit2/overview">Uniswap's Permit2 documentation</a></li>
+  <li><a target="_blank" rel="noopener" href="https://eips.ethereum.org/EIPS/eip-712">EIP-712, typed structured data hashing</a></li>
+  <li><a target="_blank" rel="noopener" href="https://eips.ethereum.org/EIPS/eip-1271">EIP-1271, contract signature validation</a></li>
+  <li><a target="_blank" rel="noopener" href="https://eips.ethereum.org/EIPS/eip-2098">EIP-2098, compact signatures</a></li>
+  <li><a target="_blank" rel="noopener" href="https://eips.ethereum.org/EIPS/eip-7702">EIP-7702, which lets an ordinary account carry code</a></li>
+  <li><a target="_blank" rel="noopener" href="https://github.com/ethereum/solidity/blob/develop/docs/bugs_by_version.json">Solidity bug list by version</a></li>
+  <li><a href="../../index.html">David Ryan's builder page</a></li>
+</ul>
+
+<script>Theme.wireThemeToggle();</script>
+
+</body>
+</html>

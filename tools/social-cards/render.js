@@ -6,7 +6,7 @@
    With no arguments it renders every card. It needs Playwright and its
    Chromium (npm install playwright, then npx playwright install chromium),
    and a network connection: it screenshots Dino Dash and ReTuner live, and
-   reads the three audited contracts' bytecode from a public Ethereum RPC.
+   reads the four audited contracts' bytecode from a public Ethereum RPC.
 
    Stage 1 draws the pictures the cards are made from into a temporary
    folder: the tiling tabs with their panels hidden, the Merge Fractals
@@ -21,7 +21,7 @@ const OUT = path.join(ROOT, 'social');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'social-cards-'));
 const MAX_BYTES = 300 * 1024;
 const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'merge-fractals', 'moving-mondrian',
-               'weth9', 'uniswap-v2', 'dai', 'parfly'];
+               'weth9', 'uniswap-v2', 'dai', 'permit2', 'parfly'];
 
 // The tiling views, as each tab's address bar holds them.
 const TILINGS = {
@@ -43,7 +43,8 @@ const SITES = {
 const CONTRACTS = {
   weth9: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
   'uniswap-v2': '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc',
-  dai: '0x6B175474E89094C44Da98b954EedeAC495271d0F'
+  dai: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+  permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3'
 };
 const RPC = 'https://ethereum-rpc.publicnode.com';
 
@@ -79,7 +80,7 @@ async function stageOne(browser, base) {
   const art = await browser.newContext({ viewport: { width: 400, height: 400 }, deviceScaleFactor: 2 });
   for (const [id, t] of Object.entries(FRACTALS)) {
     const page = await art.newPage();
-    await page.goto(base + '/merge-fractal-' + id + '.svg');
+    await page.goto(base + '/merge-fractals/merge-fractal-' + id + '.svg');
     await page.evaluate(t => { const svg = document.documentElement; svg.pauseAnimations(); svg.setCurrentTime(t); }, t);
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(TMP, 'merge-fractal-' + id + '.png'), omitBackground: true });

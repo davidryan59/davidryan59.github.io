@@ -1,7 +1,7 @@
 # Thumbnails
 
 The builder page shows a 120 px picture beside most of its entries. The two
-NFT pictures are the artworks themselves. The other eight live in `assets/thumbs/`,
+NFT pictures are the artworks themselves. The other nine live in `assets/thumbs/`,
 and one script here draws each of them. The scripts need only Node. Each
 prints the file it wrote and the file's size. Rerun a script after you change
 it, then check the result with `frames.js`.
@@ -12,6 +12,7 @@ it, then check the result with `frames.js`.
 | `assets/thumbs/aperiodic-pairs.svg` | `aperiodic-pairs.js` | Penrose kites and darts in the gallery's light colours, zooming in and out about the central sun over 7 s |
 | `assets/thumbs/dice-to-seed.svg` | `dice-to-seed.js` | Six red dice thrown into the corner of a craps table. They settle, rest and fade on an 11 s loop |
 | `assets/thumbs/smash.svg` | `smash.js` | A monitor showing a white web page takes a hammer blow: cracks, black ink, then lines of stuck pixels, and back to whole on an 8 s loop. The damage is the page's own, from `app/smash/damage.js` with seed 7 |
+| `assets/thumbs/sieve.svg` | `sieve.js` | A hundred square, 0 to 99. 2, 3, 5 and 7 are chosen in turn and their multiples turn pale, until only primes stay grey, then it fades back on an 8 s loop. The rules and colours are the page's own, from `app/sieve/model.js` |
 | `assets/thumbs/retuner.svg` | `retuner.js` | The left half of ReTuner's keyboard. The note keys breathe and the octave rings turn, slowly |
 | `assets/thumbs/dino-dash.svg` | `dino-dash.js` | A lap of a Dino Dash maze on a 6.4 s loop: coins, the "Yay!" at the tenth, a dinosaur, a cat and an eagle |
 | `assets/thumbs/sonic-asteroids.svg` | `sonic-asteroids.js` | Sonic fires rings at a Mario head, which bursts into two Luigis, on a 6 s loop |
@@ -22,7 +23,7 @@ Run any of them from anywhere, for example `node tools/thumbnails/dino-dash.js`.
 ## Notes
 
 - The page clips the tilings, ReTuner and Highlight Buffs to a circle, like
-  the NFT artworks. It shows the dice, Smash Screen and the two games as rounded squares:
+  the NFT artworks. It shows the dice, Smash Screen, the sieve and the two games as rounded squares:
   `.thumb-link.square` in `index.html`.
 - The game pictures use each game's own colours and sprites, ported from its
   repo. The ReTuner keys are measured from a screenshot of the live app.
