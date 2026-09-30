@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pentrys look</title>
+<!-- A still frame of the look in docs/pentrys.md, for choosing the look
+     before the build. It is not the game. The well holds a stack from a
+     simulated game under the spec's rules, with a glass square added. Add
+     ?theme=light for the light theme, and narrow the window below 640 px
+     for the phone layout. colours.html shows all 21 colours. -->
+<style>
+  :root { color-scheme: dark; --bg: #16161a; --text: #c8c4b9; --head: #f5f3ec; --muted: #918c80;
+          --panel: rgba(22, 24, 36, 0.86); --edge: rgba(255, 255, 255, 0.09); --gold: #ffd66b;
+          --glow: 0 0 18px rgba(150, 200, 255, 0.75); }
+  :root[data-theme="light"] { color-scheme: light; --bg: #f6f3ec; --text: #46443d; --head: #1a1a1a;
+          --muted: #7c786d; --panel: rgba(255, 253, 248, 0.9); --edge: rgba(0, 0, 0, 0.1); --gold: #a86f00;
+          --glow: 0 1px 0 rgba(255, 255, 255, 0.8); }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
+               font: 15px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #wall { position: fixed; inset: 0; width: 100%; height: 100%; }
+  .game { position: relative; height: 100%; box-sizing: border-box; display: flex; justify-content: center;
+          align-items: flex-start; gap: 20px; }
+  .left { width: 236px; position: relative; display: flex; flex-direction: column; }
+  .hud { box-sizing: border-box; padding: 18px 18px 16px; border-radius: 16px; background: var(--panel);
+         border: 1px solid var(--edge); }
+  .mode { color: var(--muted); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; margin: 12px 0; }
+  .stat { display: flex; justify-content: space-between; align-items: baseline; margin: 5px 0; }
+  .stat span { color: var(--muted); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .stat b { color: var(--head); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat.score b { font-size: 28px; }
+  .callout { position: absolute; right: 2px; text-align: right; color: var(--head); text-shadow: var(--glow);
+             font: 800 30px/1.05 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.06em; }
+  .callout b { color: var(--gold); }
+  .callout small { display: block; font-size: 13px; letter-spacing: 0.14em; color: var(--muted); text-shadow: none; }
+  .keys { margin: auto 0 0; color: var(--muted); font-size: 12px; line-height: 2; }
+  kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px solid var(--edge);
+        border-radius: 4px; padding: 2px 5px; color: var(--text); }
+  .board { display: flex; gap: 20px; align-items: flex-start; }
+  .pad { display: none; }
+  @media (max-width: 640px) {
+    .game { flex-direction: column; justify-content: flex-start; gap: 8px; padding: 10px 0 14px; }
+    .left { width: auto; align-self: stretch; margin: 0 16px; }
+    .mode, .keys, .stat.time, .stat.best { display: none; }
+    .hud { display: flex; align-items: center; gap: 18px; padding: 8px 14px; }
+    .hud canvas { margin-right: auto; }
+    .left.celebrating .hud canvas { visibility: hidden; }
+    .callout { left: 14px; right: auto; top: 50% !important; transform: translateY(-50%); text-align: left; font-size: 21px; }
+    .callout small { display: none; }
+    .stat { flex-direction: column; align-items: flex-end; margin: 0; }
+    .stat span { font-size: 10px; }
+    .stat b { font-size: 16px; } .stat.score b { font-size: 19px; }
+    .board { gap: 4px; }
+    .board.top { flex-direction: column-reverse; align-items: flex-start; gap: 2px; }
+    .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-self: stretch; margin: auto 16px 0; }
+    .pad button { height: 58px; border-radius: 16px; border: 1px solid var(--edge); background: var(--panel);
+                  color: var(--head); font: 22px/1 system-ui, sans-serif; }
+    .pad button.word { font-size: 15px; font-weight: 700; letter-spacing: 0.05em; }
+  }
+</style>
+</head>
+<body>
+<canvas id="wall"></canvas>
+<main class="game">
+  <aside class="left celebrating">
+    <section class="hud">
+      <canvas id="title"></canvas>
+      <div class="mode">Marathon · 12 wide</div>
+      <div class="stat score"><span>Score</span><b>1,284</b></div>
+      <div class="stat"><span>Level</span><b>7</b></div>
+      <div class="stat"><span>Rows</span><b>64</b></div>
+      <div class="stat time"><span>Time</span><b>6:12</b></div>
+      <div class="stat best"><span>Best</span><b>2,806</b></div>
+    </section>
+    <div class="callout" id="callout">DOUBLE <b>×2</b><small>+42</small></div>
+    <p class="keys"><kbd>←</kbd> <kbd>→</kbd> move &nbsp; <kbd>↓</kbd> soft drop<br>
+      <kbd>Space</kbd> hard drop &nbsp; <kbd>A</kbd> flip<br>
+      <kbd>Z</kbd> <kbd>X</kbd> <kbd>↑</kbd> rotate &nbsp; <kbd>C</kbd> cycle</p>
+  </aside>
+  <div class="board"><canvas id="well"></canvas><canvas id="next"></canvas></div>
+  <nav class="pad">
+    <button>▼</button><button>⤓</button><button>⇆</button><button class="word">Cycle</button>
+    <button>◀</button><button>▶</button><button>↺</button><button>↻</button>
+  </nav>
+</main>
+<script src="look.js"></script>
+<script>
+'use strict';
+const W = 12, ROWS = 20;
+const TOP = 1;       // cells of room above the well, where pieces enter
+const GAUGE = 1.3;   // cells of room left of the well, for the row gauge
+
+// The stack, from a simulated game: [column, row, piece, shape, value]. Value 0 is glass.
+const STACK = [[4,10,60,"Z5",1],[5,10,60,"Z5",1],[8,10,61,"X5",1],[4,11,55,"I4",1],[5,11,60,"Z5",1],[7,11,61,"X5",1],[8,11,61,"X5",1],[9,11,61,"X5",2],[10,11,58,"L5",1],[11,11,58,"L5",1],[1,12,57,"W5",2],[2,12,57,"W5",1],[4,12,55,"I4",1],[5,12,60,"Z5",1],[6,12,60,"Z5",1],[7,12,56,"Y5",1],[8,12,61,"X5",1],[11,12,58,"L5",1],[0,13,57,"W5",1],[1,13,57,"W5",1],[2,13,45,"O4",1],[3,13,45,"O4",1],[4,13,55,"I4",1],[5,13,59,"1",1],[6,13,56,"Y5",1],[7,13,56,"Y5",1],[11,13,58,"L5",1],[0,14,39,"O4",1],[1,14,39,"O4",1],[2,14,37,"P5",1],[3,14,43,"I4",1],[4,14,46,"1",1],[5,14,41,"Z5",1],[7,14,56,"Y5",1],[8,14,48,"P5",1],[9,14,48,"P5",1],[10,14,36,"L5",1],[11,14,49,"I5",1],[0,15,32,"I4",1],[1,15,37,"P5",1],[2,15,37,"P5",1],[3,15,43,"I4",1],[4,15,38,"F5",1],[5,15,38,"F5",0],[7,15,41,"Z5",1],[8,15,40,"Y5",1],[9,15,36,"L5",1],[10,15,36,"L5",1],[11,15,49,"I5",1],[0,16,32,"I4",1],[1,16,27,"T4",1],[2,16,26,"V5",1],[3,16,29,"2",1],[5,16,33,"Z5",1],[6,16,31,"S4",1],[7,16,31,"S4",1],[8,16,40,"Y5",1],[9,16,34,"L3",1],[10,16,28,"I4",1],[11,16,49,"I5",1],[0,17,24,"I5",1],[1,17,23,"F5",1],[3,17,17,"F5",1],[4,17,17,"F5",1],[5,17,25,"S4",1],[6,17,15,"V5",1],[7,17,15,"V5",1],[8,17,15,"V5",1],[9,17,21,"T5",1],[10,17,28,"I4",1],[11,17,30,"I5",1],[0,18,24,"I5",1],[2,18,23,"F5",1],[3,18,16,"N5",1],[4,18,17,"F5",1],[5,18,13,"W5",1],[6,18,13,"W5",1],[7,18,12,"N5",1],[8,18,15,"V5",1],[9,18,14,"Y5",1],[10,18,28,"I4",1],[11,18,30,"I5",1],[0,19,24,"I5",1],[2,19,16,"N5",1],[3,19,16,"N5",1],[4,19,11,"S4",1],[5,19,13,"W5",1],[6,19,12,"N5",1],[7,19,12,"N5",1],[8,19,14,"Y5",1],[9,19,14,"Y5",1],[10,19,22,"Y5",1],[11,19,30,"I5",1]];
+// The falling piece, F5 carrying a 3, just in; its landing outline is worked out below.
+const FALLING = { shape: 'F5', cells: Look.cellsOf(Look.REF.F5), special: [1, 3], x: 5, y: 0 };
+const QUEUE = [
+  { shape: 'I5', cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
+  { shape: 'P5', cells: [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2]], special: [2, 2] },
+  { shape: 'N5', cells: Look.cellsOf(Look.REF.N5), special: [2, 'flood'] },
+  { shape: 'L3', cells: [[0, 0], [0, 1], [1, 1]] }
+];
+
+function drawWell(cv, s) {
+  const ctx = Look.setup(cv, Math.round((GAUGE + W) * s + s * 0.2), Math.round((TOP + ROWS) * s + s * 0.4));
+  const ox = GAUGE * s, oy = TOP * s, st = Look.wellStyle();
+  Look.well(ctx, ox, oy, W, ROWS, s);
+  const pieces = new Map();
+  for (const [x, y, id, shape] of STACK) { if (!pieces.has(id)) pieces.set(id, { shape, cells: [] }); pieces.get(id).cells.push([x, y]); }
+  for (const { shape, cells } of pieces.values()) Look.piece(ctx, cells, shape, ox, oy, s, false);
+  for (const [x, y, , shape, v] of STACK) if (v !== 1) Look.special(ctx, x, y, v, shape, ox, oy, s);
+
+  // The row gauge: a hollow gold square for each gap a row may keep, a glass square for each point it lacks.
+  const balance = new Map();
+  for (const [, y, , , v] of STACK) if (v !== 1) balance.set(y, (balance.get(y) || 0) + v - 1);
+  for (const [y, n] of balance) {
+    const q = s * 0.3, gap = s * 0.1;
+    for (let i = 0; i < Math.abs(n); i++) {
+      const px = ox - s * 0.2 - (i + 1) * q - i * gap, py = oy + (y + 0.5) * s - q / 2;
+      ctx.beginPath(); ctx.roundRect(px, py, q, q, q * 0.25); ctx.lineWidth = Math.max(1.2, s * 0.06);
+      if (n > 0) { ctx.strokeStyle = Look.GOLD_ON_PAGE; ctx.stroke(); }
+      else { ctx.fillStyle = Look.PAGE_LIGHT ? 'rgba(90,110,160,0.25)' : 'rgba(200,215,255,0.22)'; ctx.fill();
+             ctx.strokeStyle = Look.PAGE_LIGHT ? 'rgba(60,80,140,0.8)' : 'rgba(230,238,255,0.85)'; ctx.stroke(); }
+    }
+  }
+
+  const occupied = new Set(STACK.map(([x, y]) => x + ',' + y));
+  let drop = 0;
+  while (FALLING.cells.every(([cx, cy]) => { const y = FALLING.y + cy + drop + 1; return y < ROWS && !occupied.has((FALLING.x + cx) + ',' + y); })) drop++;
+  Look.ghost(ctx, FALLING.cells.map(([cx, cy]) => [FALLING.x + cx, FALLING.y + cy + drop]), FALLING.shape, ox, oy, s);
+  const cells = FALLING.cells.map(([cx, cy]) => [FALLING.x + cx, FALLING.y + cy]);
+  Look.piece(ctx, cells, FALLING.shape, ox, oy, s, true);
+  const [si, sk] = FALLING.special; Look.special(ctx, cells[si][0], cells[si][1], sk, FALLING.shape, ox, oy, s);
+}
+
+// The queue: a column of four slots beside the well, or on a tall phone a row above it.
+function drawNext(cv, q, o) {
+  const slot = 5 * q, m = q * 0.14, st = Look.wellStyle();
+  const ctx = o.row ? Look.setup(cv, o.width, Math.round(slot + o.label)) : Look.setup(cv, Math.round(slot + q * 0.7), o.height);
+  ctx.font = `700 ${o.row ? 10 : Math.max(10, Math.round(q * 0.36))}px ${Look.FONT}`;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0.14em';
+  ctx.fillStyle = Look.PAGE_LIGHT ? '#7c786d' : '#918c80'; ctx.textBaseline = 'middle';
+  ctx.fillText('NEXT', o.row ? o.left + 2 : q * 0.55, o.label / 2 + 1);
+  QUEUE.forEach((p, i) => {
+    const x0 = o.row ? o.left + i * slot : q * 0.35, y0 = o.row ? o.label : o.label + i * slot, s = q;
+    ctx.beginPath(); ctx.roundRect(x0 + m, y0 + m, slot - 2 * m, slot - 2 * m, s * 0.45);
+    ctx.fillStyle = i === 0 ? st.slotFront : st.slot; ctx.fill();
+    ctx.strokeStyle = i === 0 ? st.slotEdgeFront : st.slotEdge; ctx.lineWidth = i === 0 ? 1.5 : 1; ctx.stroke();
+    const w = Math.max(...p.cells.map(c => c[0])) + 1, h = Math.max(...p.cells.map(c => c[1])) + 1;
+    const ox = x0 + (5 - w) / 2 * s, oy = y0 + (5 - h) / 2 * s;
+    Look.piece(ctx, p.cells, p.shape, ox, oy, s, false);
+    if (p.special) Look.special(ctx, p.cells[p.special[0]][0], p.cells[p.special[0]][1], p.special[1], p.shape, ox, oy, s);
+  });
+}
+
+function render() {
+  const phone = matchMedia('(max-width: 640px)').matches;
+  const game = document.querySelector('.game'), left = document.querySelector('.left'), board = document.querySelector('.board');
+  Look.wall(document.getElementById('wall'));
+  Look.title(document.getElementById('title'), phone ? 4 : 7);
+  const wellCols = GAUGE + W + 0.2, wellRows = TOP + ROWS + 0.4;
+  let s, row = false;
+  if (phone) {
+    game.style.paddingTop = ''; left.style.height = '';
+    const availW = innerWidth - 32, availH = innerHeight - left.getBoundingClientRect().height - (58 * 2 + 8) - 10 - 14 - 16 - 8;
+    const side = Math.floor(Math.min((availW - 4) / (wellCols + 0.6 * 5.7), availH / wellRows));
+    const top = Math.floor(Math.min(availW / wellCols, (availH - 16 - 2) / (wellRows + 0.6 * 5)));
+    row = top > side; s = Math.max(side, top);
+  } else {
+    s = Math.floor(Math.min((innerHeight - 40) / wellRows, (innerWidth - 236 - 60) / (wellCols + 5.7), 42));
+  }
+  board.classList.toggle('top', row);
+  const wellH = Math.round(wellRows * s);
+  drawWell(document.getElementById('well'), s);
+  if (!phone) {
+    game.style.paddingTop = Math.max(0, (innerHeight - wellH) / 2) + 'px';
+    left.style.height = wellH + 'px';
+    // The last clear's name sits beside the rows it cleared, outside the well.
+    document.getElementById('callout').style.top = Math.round((TOP + 15.4) * s) + 'px';
+  }
+  if (row) drawNext(document.getElementById('next'), Math.round(s * 0.6), { row: true, width: Math.round(wellCols * s), left: GAUGE * s, label: 16 });
+  else drawNext(document.getElementById('next'), phone ? Math.round(s * 0.6) : s, { row: false, height: wellH, label: phone ? 16 : TOP * s });
+}
+render();
+addEventListener('resize', render);
+</script>
+</body>
+</html>

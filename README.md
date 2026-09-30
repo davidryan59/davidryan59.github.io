@@ -18,6 +18,9 @@ address, `davidryan59.github.io`, redirects there.
   - `app/smash/` – Smash Screen, a game: break a device's screen with a hammer,
     a fish, a bomb and more, in Fun Mode or against the clock in Anger Mode. See
     [docs/smash.md](docs/smash.md).
+  - `app/pentrys/` – Pentrys, a falling-block game with all 21 shapes of one
+    to five squares, special squares worth 0, 2 or 3, a flood square, a queue
+    that cycles, and a tutorial. See [docs/pentrys.md](docs/pentrys.md).
   - `app/sieve/` – the Sieve of Eratosthenes as a toy: choose any numbers as
     primes, and each colours its multiples, on a grid of any width, in bases
     from 2 to 60. See [docs/sieve.md](docs/sieve.md).
@@ -50,7 +53,9 @@ address, `davidryan59.github.io`, redirects there.
   explorer, with captions and a just-intonation soundtrack. See its
   [README](tools/tiling-video/README.md). `tools/sieve-video/` renders a
   30-second looping video of the sieve, with captions. See its
-  [README](tools/sieve-video/README.md).
+  [README](tools/sieve-video/README.md). `tools/pentrys/` holds Pentrys's
+  tests and simulated player, run in Node, and the still frame and colour
+  sheet the game's look was chosen from.
 
 How the site is filed, and which addresses must never stop working, is in
 [docs/site-layout.md](docs/site-layout.md).
@@ -74,6 +79,8 @@ there first, then render it into `index.html`.
 - [docs/smash.md](docs/smash.md) – the rules of Smash Screen, how a blow breaks a screen, and what it costs to run
 - [docs/sieve.md](docs/sieve.md) – the rules of the sieve, how the grid is drawn, and why it stops at 10¹⁵
 - [docs/sieve/original-prompt.md](docs/sieve/original-prompt.md) – the prompt that started the sieve, word for word
+- [docs/pentrys.md](docs/pentrys.md) – the rules and look of Pentrys, how it is built and measured, and the games like it
+- [docs/pentrys/original-prompt.md](docs/pentrys/original-prompt.md) – the messages that started Pentrys, word for word
 - [docs/hat-edge-research.md](docs/hat-edge-research.md) – why curved edges make the Hat two tiles, and how that was checked
 - [docs/inventory.md](docs/inventory.md) – the source list the page renders
 - [docs/mint-pages.md](docs/mint-pages.md) – how the two mint pages work

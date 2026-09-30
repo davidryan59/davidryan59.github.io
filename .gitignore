@@ -1,0 +1,36 @@
+# Repo-wide ignores. A tool that renders its own output keeps a .gitignore
+# beside it, as tools/tiling-video and tools/sieve-video do.
+
+# Operating system files
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+
+# Editor and agent settings
+.vscode/
+.idea/
+*.swp
+*~
+.claude/settings.local.json
+
+# Local Jekyll preview
+_site/
+.jekyll-cache/
+.jekyll-metadata
+.sass-cache/
+
+# Node and Python working files
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+
+# Logs and scratch output
+*.log
+*.tmp
+
+# Local config and secrets. Commit the matching *.example.json template.
+.env
+.env.*
+*.local.json

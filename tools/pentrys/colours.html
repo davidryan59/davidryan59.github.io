@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pentrys colours</title>
+<!-- All 21 shapes in their colours, by family, on the dark well and the
+     light well, with the four special squares. A reference for the build,
+     drawn with the same code as look.html. -->
+<style>
+  :root { color-scheme: dark; --bg: #16161a; --head: #f5f3ec; --muted: #918c80; }
+  :root[data-theme="light"] { color-scheme: light; --bg: #f6f3ec; --head: #1a1a1a; --muted: #7c786d; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); font: 15px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #wall { position: fixed; inset: 0; width: 100%; height: 100%; }
+  main { position: relative; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 24px; padding: 28px 16px; }
+  h1 { position: relative; margin: 26px 0 0; text-align: center; color: var(--head); font-size: 20px; font-weight: 700; letter-spacing: 0.04em; }
+  h1 span { color: var(--muted); font-weight: 400; }
+</style>
+</head>
+<body>
+<canvas id="wall"></canvas>
+<h1>Pentrys colours <span>· 21 shapes, 5 families</span></h1>
+<main><canvas id="dark"></canvas><canvas id="light"></canvas></main>
+<script src="look.js"></script>
+<script>
+'use strict';
+const S = 22, LABEL = 104, GAP = 1.3, PAD = 22;
+const SPECIALS = [['T4', 1, 2, '2'], ['O4', 2, 3, '3'], ['S4', 1, 0, 'glass'], ['I3', 1, 'flood', 'flood']];
+
+function rowsOf() {
+  const rows = Look.FAMILIES.map(([name, shapes]) => ({ name, items: shapes.map(sh => ({ shape: sh, cells: Look.cellsOf(Look.REF[sh]), label: sh })) }));
+  rows.push({ name: 'Special', items: SPECIALS.map(([sh, i, kind, label]) => ({ shape: sh, cells: Look.cellsOf(Look.REF[sh]), special: [i, kind], label })) });
+  return rows;
+}
+function size(item) { return [Math.max(...item.cells.map(c => c[0])) + 1, Math.max(...item.cells.map(c => c[1])) + 1]; }
+
+function panel(cv, light) {
+  Look.useTheme(light);
+  const st = Look.wellStyle(), rows = rowsOf();
+  const width = LABEL + Math.max(...rows.map(r => r.items.reduce((w, it) => w + size(it)[0] + GAP, -GAP))) * S + PAD * 2;
+  const heights = rows.map(r => Math.max(...r.items.map(it => size(it)[1])));
+  const height = 58 + heights.reduce((h, rh) => h + rh * S + 30, 0) + PAD;
+  const ctx = Look.setup(cv, Math.round(width), Math.round(height));
+  ctx.save(); ctx.shadowColor = st.shadow; ctx.shadowBlur = 20; ctx.shadowOffsetY = 3;
+  ctx.beginPath(); ctx.roundRect(4, 4, width - 8, height - 8, 16);
+  const g = ctx.createLinearGradient(0, 0, 0, height); g.addColorStop(0, st.top); g.addColorStop(1, st.bottom);
+  ctx.fillStyle = g; ctx.fill(); ctx.restore();
+  ctx.fillStyle = st.ink; ctx.font = `700 15px ${Look.FONT}`; ctx.textBaseline = 'middle';
+  ctx.fillText(light ? 'On the light well' : 'On the dark well', PAD, 32);
+  let y = 58;
+  rows.forEach((r, k) => {
+    const rh = heights[k] * S;
+    ctx.fillStyle = st.muted; ctx.font = `700 11px ${Look.FONT}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0.12em';
+    ctx.fillText(r.name.toUpperCase(), PAD, y + rh / 2);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    let x = PAD + LABEL;
+    for (const it of r.items) {
+      const [w, h] = size(it), oy = y + rh - h * S;
+      Look.piece(ctx, it.cells, it.shape, x, oy, S, false);
+      if (it.special) { const [i, kind] = it.special; Look.special(ctx, it.cells[i][0], it.cells[i][1], kind, it.shape, x, oy, S); }
+      ctx.fillStyle = st.ink; ctx.globalAlpha = 0.75; ctx.font = `600 11px ${Look.FONT}`; ctx.textAlign = 'center';
+      ctx.fillText(it.label, x + w * S / 2, y + rh + 12); ctx.globalAlpha = 1; ctx.textAlign = 'left';
+      x += (w + GAP) * S;
+    }
+    y += rh + 30;
+  });
+}
+Look.wall(document.getElementById('wall'));
+panel(document.getElementById('dark'), false);
+panel(document.getElementById('light'), true);
+</script>
+</body>
+</html>
