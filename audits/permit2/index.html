@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Permit2 security audit – Ethereum mainnet</title>
-<meta name="description" content="A security audit of Uniswap's Permit2 on Ethereum mainnet, from the deployed runtime bytecode. No exploitable vulnerability. Four medium findings, one of them caused by EIP-7702, which changed how Permit2 checks a quarter of the signatures it receives.">
+<meta name="description" content="A security audit of Uniswap's Permit2 on Ethereum mainnet, from the deployed runtime bytecode. No exploitable vulnerability. Four medium findings, one of them caused by EIP-7702, which changed how Permit2 checks about one in six of the signatures it receives.">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../../favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://drbuild.uk/audits/permit2/">
 <meta property="og:title" content="Permit2 security audit – Ethereum mainnet">
-<meta property="og:description" content="Read from the deployed runtime bytecode. No exploitable vulnerability. EIP-7702 moved a quarter of Permit2's signers onto the signature check written for smart contract wallets.">
+<meta property="og:description" content="Read from the deployed runtime bytecode. No exploitable vulnerability. EIP-7702 moved about one in six of Permit2's signers onto the signature check written for smart contract wallets.">
 <meta property="og:image" content="https://drbuild.uk/social/permit2.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -66,7 +66,7 @@
 <p>
   <strong>This review found no exploitable vulnerability.</strong> The four medium findings
   describe what a wallet or an integrator can get wrong. One of them did not
-  exist when Permit2 was deployed. EIP-7702, live since May 2025, lets an ordinary account carry code. Permit2 picks its signature check by asking whether the signer has code. A quarter of the accounts now signing permits
+  exist when Permit2 was deployed. EIP-7702, live since May 2025, lets an ordinary account carry code. Permit2 picks its signature check by asking whether the signer has code. About one in six of the accounts now signing permits
   carry code this way, so Permit2 checks them as though they were smart
   contract wallets.
 </p>
@@ -85,7 +85,7 @@
   <code>ecrecover</code> and ERC-1271 by reading one <code>EXTCODESIZE</code>.
   In November 2022, that test sorted externally owned accounts from contract wallets for good. EIP-7702 ended that. An
   account can now gain or drop code in a single transaction. Of the addresses
-  that signed a Permit2 permit in the sampled window, 25.1% carry a delegation.
+  that signed a Permit2 permit over 24 hours, 16.6% carry a delegation, about one in six.
   The section <a href="#how-permit2-decides-who-signed">How Permit2 decides who
   signed</a> gives the proof, along with a signature that <code>ecrecover</code>
   verifies correctly and Permit2 refuses.
@@ -264,40 +264,101 @@
   delegation designator with one transaction, and remove it with another. The account keeps its private key and keeps signing. But <code>EXTCODESIZE</code> no longer returns zero, so Permit2 stops using <code>ecrecover</code> for it.
 </p>
 <p>
-  I measured how common this has become. Over 541 blocks, about 1.8 hours
-  ending at block 26,032,944, Permit2 emitted 400 <code>Permit</code> events
-  from 267 distinct signers.
+  I measured how common this has become. Over 7,200 blocks, about 24 hours
+  ending at block 26,087,917, 3,155 distinct addresses signed a Permit2
+  permit. I read each address's code at the last block of the window.
 </p>
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th>Account shape at verification time</th><th class="num">Signers</th><th class="num">Share</th><th>Branch taken</th></tr>
+    <tr><th>Account shape at the end of the window</th><th class="num">Signers</th><th class="num">Share</th><th>Branch taken</th></tr>
   </thead>
   <tbody>
-    <tr><td>No code</td><td class="num">200</td><td class="num">74.9%</td><td><code>ecrecover</code></td></tr>
-    <tr><td>EIP-7702 delegation designator</td><td class="num">67</td><td class="num">25.1%</td><td>ERC-1271</td></tr>
-    <tr><td>Deployed contract</td><td class="num">0</td><td class="num">0.0%</td><td>ERC-1271</td></tr>
+    <tr><td>No code</td><td class="num">2,627</td><td class="num">83.3%</td><td><code>ecrecover</code></td></tr>
+    <tr><td>EIP-7702 delegation designator</td><td class="num">524</td><td class="num">16.6%</td><td>ERC-1271</td></tr>
+    <tr><td>Deployed contract</td><td class="num">4</td><td class="num">0.1%</td><td>ERC-1271</td></tr>
   </tbody>
 </table>
 </div>
 <p>
-  A quarter of live Permit2 signature checks now take the branch written for
-  smart contract wallets. None of them is a smart contract wallet.
+  About one in six live Permit2 signers now takes the branch written for smart
+  contract wallets. None of those 524 is a deployed contract wallet.
 </p>
 <p>
-  The <code>Approval</code> event records a direct <code>approve</code> call, with no signature. Measured the same way, it shows 155 distinct callers, and 66.5% of them carry a delegation. The share is higher because these accounts send their own transactions.
+  The share moves with the window. The first measurement, over 541 blocks
+  ending at block 26,032,944, found 67 of 267 signers delegated, or 25.1%. Two
+  12-hour windows on 2026-09-30 found 14.4% and 20.6%. The 24-hour figure is
+  the one to quote.
+</p>
+<p>
+  The <code>Approval</code> event records a direct <code>approve</code> call, with no signature. Over the same 24 hours it shows 1,327 distinct callers, and 74.7% of them carry a delegation. The share is higher because these accounts send their own transactions.
 </p>
 
 <h3>Whether this is currently exploitable</h3>
 <p>
-  It is not. I called <code>isValidSignature(bytes32,bytes)</code> on all 154
-  delegated Permit2 users across both samples, passing a 65-byte signature of
-  arbitrary bytes. Eighty-one rejected it by reverting, and 73 returned a value
-  other than the ERC-1271 magic value. None accepted it. Every delegate
-  contract in the sample validates signatures properly.
+  It is not. I called <code>isValidSignature(bytes32,bytes)</code> on all 1,489
+  delegated Permit2 users in the 24-hour window, <code>Permit</code> and
+  <code>Approval</code> together, passing a 65-byte signature of arbitrary
+  bytes. 816 rejected it by reverting, and 673 returned a value other than the
+  ERC-1271 magic value. None accepted it.
 </p>
 <p>
   The risk lies in what an integrator may assume about an account. <a href="#m-3">M-3</a> states it.
+</p>
+
+<h3 id="permit-signed-before-delegation">What happens to a permit signed before delegation</h3>
+<p>
+  A spender may hold a permit that the owner signed as a plain EOA. If the
+  owner then delegates, Permit2 sends that old signature to the delegate
+  contract. Whether it still works depends on the delegate.
+</p>
+<p>
+  I tested every delegate contract used by the <code>Permit</code> signers in
+  the 24-hour window, 18 in all. A fresh key signed a <code>PermitSingle</code>
+  as a plain EOA. I submitted it by <code>eth_call</code>, first with no code
+  at the signer, then with each delegate's designator placed there by state
+  override. Each delegate saw one signature whose recovery byte <code>v</code>
+  is 27 and one where it is 28. A signature from a different key was also
+  submitted, and every delegate rejected it, so an accept means the delegate
+  checked the account's own key.
+</p>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Delegate behaviour</th><th class="num">Delegates</th><th class="num">Delegated signers</th><th class="num">Share</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Accepts the plain signature</td><td class="num">13</td><td class="num">507</td><td class="num">96.8%</td></tr>
+    <tr><td>Accepts it only when <code>v</code> is 27</td><td class="num">2</td><td class="num">10</td><td class="num">1.9%</td></tr>
+    <tr><td>Rejects it</td><td class="num">3</td><td class="num">7</td><td class="num">1.3%</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  The 13 that accept include MetaMask's <code>EIP7702StatelessDeleGator</code>
+  (382 signers), Uniswap's Calibur, Coinbase's <code>EIP7702Proxy</code> and
+  <code>Simple7702Account</code>. Each checks that the account's own key made
+  the signature, which is the question <code>ecrecover</code> answered before.
+</p>
+<p>
+  The three that reject are <code>Biz</code>, ZeroDev's <code>Kernel</code> and
+  one version of Alchemy's <code>SemiModularAccount7702</code>. Each wraps the
+  hash in its own EIP-712 domain or expects its own signature format.
+  <code>Biz</code> shows the effect in both directions. The plain signature
+  fails under <code>Biz</code>. A signature over the <code>Biz</code>-wrapped
+  hash passes under <code>Biz</code>, then fails once the delegation is gone.
+  For these accounts, delegating cancels every permit signed before it, and
+  removing the delegation revives them. The <code>Kernel</code> result rests on
+  its source, where every path wraps the hash. The Alchemy result rests on its
+  revert, <code>ValidationSignatureSegmentMissing</code>. Neither was tested
+  with a real account's storage.
+</p>
+<p>
+  The two that accept only <code>v</code> = 27 are unverified contracts at
+  <code>0x490aac77c960b0569c8e446ac7e12490bd44ca1d</code> and
+  <code>0xa845c74344fc9405b1fcf712f04668979573c1bf</code>. Each rejects every
+  valid signature with <code>v</code> = 28, which is half of all signatures.
+  The defect sits in those delegates.
 </p>
 
 <h2>Findings</h2>
@@ -421,15 +482,20 @@ _updateApproval(permitSingle.details, owner, permitSingle.spender);</code></pre>
   <strong>A signature scheme is no longer a property of an address.</strong> An
   integrator may record that an address is externally owned, and therefore
   signs with ECDSA. That record can be wrong by the next block. Of the
-  addresses signing Permit2 permits in the sampled window, 25.1% would be
-  classified wrongly by that rule.
+  addresses signing Permit2 permits over 24 hours, 16.6% would be classified
+  wrongly by that rule.
 </p>
 <p>
   <strong>Delegation can silently disable permit signing.</strong> An account
   that delegates to a contract without a working <code>isValidSignature</code>
   cannot issue Permit2 permits at all. Existing allowances stay live and stay
   spendable, so the account loses the ability to grant access while keeping
-  the access it already granted.
+  the access it already granted. The same delegation can cancel permits signed
+  before it. Of the delegated <code>Permit</code> signers over 24 hours, 1.3%
+  use a delegate that rejects a plain signature, and 1.9% use one that rejects
+  half of them. The section
+  <a href="#permit-signed-before-delegation">What happens to a permit signed
+  before delegation</a> gives the test.
 </p>
 <p>
   <strong>Verification authority becomes revocable and replaceable.</strong> A
@@ -893,16 +959,19 @@ if (delta &gt; type(uint16).max) revert ExcessiveInvalidation();</code></pre>
     state. Figures describing the past, such as the USDC arriving at the
     address, came from event history rather than from state at an earlier
     block.</li>
-  <li><strong>The measurements come from a sample.</strong> The 267
-    signers and 400 permits cover about 1.8 hours ending at block 26,032,944.
-    The shares quoted from them describe that window. Repeating the pull over a
-    shifted window moved the delegation share by 0.1 points, so the figures are
-    stable enough to support the findings. They should not be read as exact
-    long-run figures.</li>
-  <li><strong>Delegate contracts were tested for one behaviour only.</strong> The check
-    that no delegate accepts an arbitrary signature covers the 154 accounts in
-    the samples at one block. It says nothing about delegates outside them, and
-    nothing about how those contracts behave otherwise.</li>
+  <li><strong>The measurements come from samples.</strong> The permit
+    figures in <a href="#m-2">M-2</a> and <a href="#l-3">L-3</a> come from 400
+    permits over about 1.8 hours ending at block 26,032,944, and describe that
+    window. The EIP-7702 figures come from 24 hours ending at block 26,087,917.
+    The delegation share ranged from 14.4% to 25.1% across windows of 1.8 to 12
+    hours, so read the 24-hour 16.6% as a typical level rather than an exact
+    long-run figure.</li>
+  <li><strong>Delegate contracts were tested for two behaviours only.</strong>
+    The junk-signature check covers the 1,489 delegated accounts in the 24-hour
+    window. The survival test covers the 18 delegates used by its
+    <code>Permit</code> signers, run on an empty account. Both say nothing about
+    delegates outside them, and nothing about how those contracts behave
+    otherwise.</li>
   <li><strong>Token behaviour is out of scope.</strong> Permit2 calls
     <code>transferFrom</code> and trusts the result within the limits described
     in <a href="#m-4">M-4</a>. Tokens that take a fee on transfer, that rebase,

@@ -48,7 +48,9 @@ address, `davidryan59.github.io`, redirects there.
   checks that every published address still works.
   `tools/tiling-video/` renders a 45-second looping video of the tiling
   explorer, with captions and a just-intonation soundtrack. See its
-  [README](tools/tiling-video/README.md).
+  [README](tools/tiling-video/README.md). `tools/sieve-video/` renders a
+  30-second looping video of the sieve, with captions. See its
+  [README](tools/sieve-video/README.md).
 
 How the site is filed, and which addresses must never stop working, is in
 [docs/site-layout.md](docs/site-layout.md).

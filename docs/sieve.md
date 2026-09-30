@@ -294,6 +294,7 @@ dropped one frame in 90.
 | `tools/sieve/pitman-font.py` | Builds `app/sieve/pitman.woff` from DejaVu Sans Mono, with fontTools |
 | `tools/sieve/check-model.js` | Checks the rules in `model.js` against brute force, over random lists, widths and blocks, some near 10¹⁵. Run it after any change to `model.js` |
 | `tools/thumbnails/sieve.js` | Draws `assets/thumbs/sieve.svg`, the builder page's animated picture |
+| `tools/sieve-video/` | Renders a 30-second looping video of the app for social media, from the page's own board. See its README |
 
 ## Share card and builder picture
 

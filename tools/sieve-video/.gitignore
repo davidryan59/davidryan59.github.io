@@ -1,0 +1,3 @@
+# Everything the script renders. It all rebuilds from the files here.
+stills/
+*.mp4

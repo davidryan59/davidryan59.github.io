@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>Sieve video stage</title>
+<!-- The stage for the sieve video. render.js calls frame(0), frame(1) and
+     so on, in order, and screenshots the page after each one. The board is
+     the app's own, app/sieve/model.js and board.js, in dark mode. It reads
+     the time from performance.now(), so the page sets that clock for each
+     frame and draws the board itself, instead of on the browser's animation
+     frames. The toolbar, the pointer and the captions are drawn here, from
+     timeline.js. Colours are the site's dark theme (assets/site.css). -->
+<style>
+  :root {
+    --bg: #16161a;
+    --panel: #1e1e23;
+    --h1: #f5f3ec;
+    --ink: #e4e0d5;
+    /* A little lighter than the site's #918c80, as in the tiling video,
+       since small text shows at about 9 px on a phone. */
+    --muted: #a9a498;
+    --link: #7aa6e0;
+    --rule: #3a3a3a;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 540px; height: 540px; overflow: hidden; background: var(--bg); }
+  body {
+    position: relative;
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  #board { position: absolute; left: 0; top: 0; width: 540px; height: 540px; display: block; }
+
+  /* The grid runs on past the foot of the frame, and fades out there. */
+  .foot {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 26px;
+    background: linear-gradient(rgba(22, 22, 26, 0), rgba(22, 22, 26, 0.85));
+  }
+
+  .card {
+    position: absolute;
+    background: rgba(30, 30, 35, 0.92);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    box-shadow: 0 2px 13px rgba(0, 0, 0, 0.55);
+  }
+
+  /* The toolbar, top left: the two controls the video uses, drawn as the
+     app draws them. The label is small capitals in the monospace, and the
+     width a visitor types is monospace too. */
+  .bar { position: absolute; left: 20px; top: 20px; display: flex; align-items: center; gap: 8px; }
+  .label {
+    font: 600 8.5px/1 var(--mono);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .ctl {
+    position: relative;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--h1);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 7px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  }
+  #width { width: 46px; overflow: hidden; font: 12.5px/1 var(--mono); }
+  #width span { position: absolute; left: 0; right: 0; top: 0; line-height: 24px; text-align: center; }
+  #clear { padding: 0 11px; font: 600 11.5px/1 system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+  /* The address, top right, clear of the badges X puts in the bottom corners. */
+  .wm {
+    right: 20px;
+    top: 20px;
+    height: 26px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    line-height: 24px;
+    white-space: nowrap;
+  }
+
+  /* Captions, top centre, above the grid. */
+  .cap { top: 58px; max-width: 500px; padding: 8px 18px 10px; text-align: center; visibility: hidden; }
+  .cap .main { font-size: 19px; line-height: 1.26; color: var(--ink); text-wrap: balance; }
+  .cap .sub { font-size: 12.5px; line-height: 1.3; color: var(--muted); margin-top: 3px; text-wrap: balance; }
+  .cap.title .main { font-size: 23px; color: var(--h1); }
+
+  #pointer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 3px 3px;
+    filter: drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.6));
+  }
+  .ripple {
+    position: absolute;
+    border: 1.5px solid rgba(245, 243, 236, 0.9);
+    border-radius: 50%;
+    visibility: hidden;
+  }
+</style>
+</head>
+<body>
+<canvas id="board"></canvas>
+<div class="foot"></div>
+<div class="bar">
+  <span class="label">Row width</span>
+  <span class="ctl" id="width"><span id="w-old"></span><span id="w-new">10</span></span>
+  <span class="ctl" id="clear">Clear</span>
+</div>
+<div class="card wm">drbuild.uk/sieve</div>
+<div id="caps"></div>
+<div class="ripple" id="ripple-a"></div>
+<div class="ripple" id="ripple-b"></div>
+<svg id="pointer" width="26" height="34" viewBox="0 0 26 34" aria-hidden="true">
+  <path d="M3 3 V26.5 L9.2 20.6 L13.4 30.4 L17.6 28.6 L13.5 19 H21.8 Z"
+        fill="#fbfaf6" stroke="#0e0e10" stroke-width="1.7" stroke-linejoin="round"/>
+</svg>
+
+<script>
+  // The video owns the clock. The board asks performance.now() for the time
+  // on every frame, and frame(n) sets it. The board asks for animation
+  // frames to draw on, and frame(n) draws it instead.
+  window.__now = 0;
+  performance.now = function () { return window.__now; };
+  window.requestAnimationFrame = function () { return 0; };
+</script>
+<script src="/app/sieve/model.js"></script>
+<script src="/app/sieve/board.js"></script>
+<script src="timeline.js"></script>
+<script>
+(function () {
+  'use strict';
+  var T = window.Timeline, FPS = T.FPS, SPB = T.SEC_PER_BEAT;
+  var PRESS = T.PRESS / SPB;           // beats a button is down before its click
+  var ROLL = 0.16 / SPB;               // a new width rolls in over 0.16 s
+  var FOCUS = 0.9 / SPB;               // the width field keeps its focus ring 0.9 s
+  var RIPPLE = 0.42 / SPB;             // the ring a click sends out lasts 0.42 s
+  var REST = [505, 430];               // the pointer's rest, in the right margin
+
+  // Three changes to the board for the video, all to how it draws, none to
+  // what it draws. The camera places the view exactly, so the view is never
+  // held inside the grid. Tiles under 6 px keep their exact size rather than
+  // snapping to whole pixels. And those tiles are scaled up by the next whole
+  // number of pixels without smoothing, then down to their size with it, so
+  // a zoom through them glides instead of stepping.
+  var P = Sieve.Board.prototype;
+  P.clamp = function () {
+    var k = Math.floor(this.fy);
+    this.row += k;
+    this.fy -= k;
+  };
+  P.snap = function (z) { return Math.min(240, Math.max(1, z)); };
+  P.renderPixels = function () {
+    var w = this.win, codes = this.codes, last = -1, packed = 0;
+    if (!this.img || this.off.width !== w.cols || this.off.height !== w.rows) {
+      this.off.width = w.cols;
+      this.off.height = w.rows;
+      this.img = this.offCtx.createImageData(w.cols, w.rows);
+    }
+    var px = new Uint32Array(this.img.data.buffer);
+    for (var i = 0; i < w.count; i++) {
+      var code = codes[i];
+      if (code !== last) { last = code; packed = code === Sieve.CODES.NONE ? 0 : this.paint(code).packed; }
+      px[i] = packed;
+    }
+    this.offCtx.putImageData(this.img, 0, 0);
+    var k = Math.max(1, Math.ceil(w.sd - 1e-6)), mid = this.mid || (this.mid = document.createElement('canvas'));
+    if (mid.width !== w.cols * k || mid.height !== w.rows * k) {
+      mid.width = w.cols * k;
+      mid.height = w.rows * k;
+    }
+    var m = mid.getContext('2d');
+    m.imageSmoothingEnabled = false;
+    m.clearRect(0, 0, mid.width, mid.height);
+    m.drawImage(this.off, 0, 0, mid.width, mid.height);
+    var ctx = this.ctx;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(mid, w.X0, w.Y0, w.cols * w.sd, w.rows * w.sd);
+  };
+
+  var model = new Sieve.Model();
+  var board = new Sieve.Board(document.getElementById('board'), model, {
+    // As the page does: pointing at a chosen number dims the board round it.
+    onHover: function (n) { board.highlight = n != null && model.byNumber.has(n) ? n : null; }
+  });
+  board.setTheme(true);
+  board.resize();
+
+  // Camera -----------------------------------------------------------------
+
+  function placeCamera(b) {
+    var v = T.view(b), top = -v.y / v.s, r = Math.floor(top);
+    board.zoom = board.size = v.s;
+    board.x = -v.x / v.s;
+    board.row = r;
+    board.fy = top - r;
+    board.anchor = null;
+  }
+
+  // Clicks -----------------------------------------------------------------
+
+  function down(c) {
+    if (c[1] === 'tile') board.pressOn(c[2]);
+  }
+
+  function up(c) {
+    if (c[1] === 'tile') {
+      board.release();
+      if (model.kindOf(c[2]).kind !== 'grey') throw new Error(c[2] + ' is not grey at beat ' + c[0]);
+      model.choose(c[2]);
+      board.changed({ n: c[2], add: true });
+    } else if (c[1] === 'width') {
+      board.setWidth(c[2]);
+    } else if (c[1] === 'clear') {
+      if (model.clear()) board.changed({});
+    }
+  }
+
+  // Pointer ----------------------------------------------------------------
+
+  var spots = {}, paths = [];
+
+  // Where the pointer's tip goes for a target at beat b: a little above and
+  // left of a tile's middle, as a hand clicks.
+  function targetPoint(target, b) {
+    if (spots[target]) return spots[target];
+    var v = T.view(b), w = T.widthAt(b), c = target % w, r = (target - c) / w;
+    return [v.x + (c + 0.45) * v.s, v.y + (r + 0.45) * v.s];
+  }
+
+  // Each move is a curve: bent towards a named tile, or in a gentle upward
+  // arc of at most 6 px.
+  function buildPaths() {
+    var at = REST;
+    T.MOVES.forEach(function (m) {
+      var end = targetPoint(m[2], m[1]), ctrl;
+      if (m[3] != null) ctrl = targetPoint(m[3], m[1]);
+      else {
+        var dx = end[0] - at[0], dy = end[1] - at[1], len = Math.hypot(dx, dy) || 1;
+        var nx = -dy / len, ny = dx / len, h = Math.min(0.12 * len, 12);
+        if (ny > 0) { nx = -nx; ny = -ny; }
+        ctrl = [(at[0] + end[0]) / 2 + nx * h, (at[1] + end[1]) / 2 + ny * h];
+      }
+      paths.push({ b0: m[0], b1: m[1], p0: at, c: ctrl, p1: end });
+      at = end;
+    });
+  }
+
+  function pointerAt(b) {
+    var p = REST;
+    for (var i = 0; i < paths.length; i++) {
+      var q = paths[i];
+      if (b < q.b0) break;
+      if (b >= q.b1) { p = q.p1; continue; }
+      var u = T.smooth((b - q.b0) / (q.b1 - q.b0)), a = 1 - u;
+      return [a * a * q.p0[0] + 2 * a * u * q.c[0] + u * u * q.p1[0],
+              a * a * q.p0[1] + 2 * a * u * q.c[1] + u * u * q.p1[1]];
+    }
+    return p;
+  }
+
+  // Overlay ----------------------------------------------------------------
+
+  var capEls = [];
+  var pointerEl = document.getElementById('pointer');
+  var widthEl = document.getElementById('width'), wOld = document.getElementById('w-old'), wNew = document.getElementById('w-new');
+  var clearEl = document.getElementById('clear');
+  var ripples = [document.getElementById('ripple-a'), document.getElementById('ripple-b')];
+  var widthClicks = T.CLICKS.filter(function (c) { return c[1] === 'width'; });
+
+  function makeCaptions() {
+    var box = document.getElementById('caps');
+    T.CAPTIONS.forEach(function (c, i) {
+      var el = document.createElement('div');
+      el.className = 'card cap' + (i === 0 ? ' title' : '');
+      var main = document.createElement('div');
+      main.className = 'main';
+      main.textContent = c[2];
+      el.appendChild(main);
+      if (c[3]) {
+        var sub = document.createElement('div');
+        sub.className = 'sub';
+        sub.textContent = c[3];
+        el.appendChild(sub);
+      }
+      box.appendChild(el);
+      capEls.push(el);
+    });
+  }
+
+  // Each card hugs its widest balanced line, and sits in the middle.
+  function sizeCaptions() {
+    capEls.forEach(function (el) {
+      var w = 0;
+      Array.prototype.forEach.call(el.children, function (block) {
+        var r = document.createRange();
+        r.selectNodeContents(block);
+        Array.prototype.forEach.call(r.getClientRects(), function (rect) { w = Math.max(w, rect.width); });
+      });
+      // Padding 18 and border 1 each side, and 3 px spare so the balanced
+      // lines keep their breaks.
+      var width = Math.min(500, Math.ceil(w) + 38 + 3);
+      el.style.width = width + 'px';
+      el.style.left = Math.round((540 - width) / 2) + 'px';
+    });
+  }
+
+  function captionAlpha(c, b) {
+    var F = T.FADE / SPB, a = 0;
+    [b - T.BEATS, b, b + T.BEATS].forEach(function (x) {
+      if (x < c[0] || x > c[1]) return;
+      a = Math.max(a, T.smooth(Math.min(1, (x - c[0]) / F, (c[1] - x) / F)));
+    });
+    return a;
+  }
+
+  function inside(el, p) {
+    var r = el.getBoundingClientRect();
+    return p[0] >= r.left && p[0] <= r.right && p[1] >= r.top && p[1] <= r.bottom;
+  }
+
+  function lastClick(list, b) {
+    var found = null;
+    list.forEach(function (c) { if (c[0] - PRESS <= b) found = c; });
+    return found;
+  }
+
+  function overlay(b, p) {
+    T.CAPTIONS.forEach(function (c, i) {
+      var a = captionAlpha(c, b);
+      capEls[i].style.visibility = a > 0 ? 'visible' : 'hidden';
+      capEls[i].style.opacity = a.toFixed(3);
+    });
+
+    // The Row width field: a new width rolls up into place, and the field
+    // keeps a focus ring for a moment after the click.
+    var k = -1;
+    widthClicks.forEach(function (c, i) { if (c[0] <= b) k = i; });
+    var shown = k < 0 ? T.FIRST_WIDTH : widthClicks[k][2];
+    var before = k < 1 ? T.FIRST_WIDTH : widthClicks[k - 1][2];
+    var since = k < 0 ? Infinity : b - widthClicks[k][0];
+    var roll = T.smooth(since / ROLL);
+    wNew.textContent = String(shown);
+    wOld.textContent = String(before);
+    wNew.style.transform = 'translateY(' + ((1 - roll) * 22).toFixed(2) + 'px)';
+    wOld.style.transform = 'translateY(' + (-roll * 22).toFixed(2) + 'px)';
+    wOld.style.visibility = roll < 1 ? 'visible' : 'hidden';
+    var focus = since < FOCUS ? 1 : since < FOCUS + 0.4 ? 1 - (since - FOCUS) / 0.4 : 0;
+    widthEl.style.boxShadow = '0 1px 0 rgba(0, 0, 0, 0.4)' +
+      (focus > 0 ? ', 0 0 0 2px rgba(122, 166, 224, ' + focus.toFixed(3) + ')' : '');
+    widthEl.style.borderColor = focus > 0 || inside(widthEl, p) ? 'var(--link)' : 'var(--rule)';
+
+    // Clear: its border lights under the pointer, and it sinks while pressed.
+    var cc = lastClick(T.CLICKS.filter(function (c) { return c[1] === 'clear'; }), b);
+    var held = cc && b < cc[0];
+    clearEl.style.borderColor = inside(clearEl, p) ? 'var(--link)' : 'var(--rule)';
+    clearEl.style.transform = held ? 'translateY(1px)' : '';
+    clearEl.style.boxShadow = held ? 'none' : '0 1px 0 rgba(0, 0, 0, 0.4)';
+
+    // The pointer shrinks a little while its button is down.
+    var c = lastClick(T.CLICKS, b), squeeze = 1;
+    if (c) {
+      var d = b - (c[0] - PRESS);
+      if (b < c[0]) squeeze = 1 - 0.1 * T.smooth(d / PRESS);
+      else squeeze = 1 - 0.1 * (1 - T.smooth((b - c[0]) / (0.12 / SPB)));
+    }
+    pointerEl.style.transform = 'translate(' + (p[0] - 3).toFixed(2) + 'px, ' + (p[1] - 3).toFixed(2) + 'px) scale(' + squeeze.toFixed(4) + ')';
+
+    // Each click sends out a ring from the tip.
+    var live = T.CLICKS.filter(function (c) { return b >= c[0] && b - c[0] < RIPPLE; }).slice(-2);
+    ripples.forEach(function (el, i) {
+      var c = live[i];
+      if (!c) { el.style.visibility = 'hidden'; return; }
+      var u = (b - c[0]) / RIPPLE, at = pointerAt(c[0]);
+      var r = 3 + 13 * (1 - Math.pow(1 - u, 3));
+      el.style.visibility = 'visible';
+      el.style.opacity = (0.85 * (1 - u) * (1 - u)).toFixed(3);
+      el.style.left = (at[0] - r).toFixed(2) + 'px';
+      el.style.top = (at[1] - r).toFixed(2) + 'px';
+      el.style.width = el.style.height = (2 * r).toFixed(2) + 'px';
+    });
+  }
+
+  // Frames -----------------------------------------------------------------
+
+  var next = 0, clickAt = 0, downs = {}, lastP = null, lit = null;
+  var pointed = [];     // every change of the number pointed at, if chosen
+
+  window.frame = function (n) {
+    if (n !== next) throw new Error('frame ' + n + ' drawn out of order: expected ' + next);
+    next++;
+    var sec = n / FPS, b = sec / SPB;
+    window.__now = sec * 1000;
+    // Clicks due by now, in order: each button goes down, then comes up on
+    // its beat.
+    while (clickAt < T.CLICKS.length) {
+      var c = T.CLICKS[clickAt];
+      if (!downs[clickAt] && c[0] - PRESS <= b) { downs[clickAt] = true; down(c); }
+      if (c[0] > b) break;
+      up(c);
+      clickAt++;
+    }
+    placeCamera(b);
+    // The board hears the pointer only when it moves, as the page does.
+    var p = pointerAt(b);
+    if (!lastP || Math.abs(p[0] - lastP[0]) + Math.abs(p[1] - lastP[1]) > 0.01) board.setHover(board.numberAt(p[0], p[1]));
+    lastP = p;
+    board.render();
+    if (board.highlight !== lit) {
+      lit = board.highlight;
+      pointed.push([+b.toFixed(2), lit]);
+    }
+    overlay(b, p);
+  };
+
+  window.stageInfo = { frames: T.FRAMES, fps: FPS, pointed: pointed };
+  makeCaptions();
+  window.stageReady = document.fonts.ready.then(function () {
+    sizeCaptions();
+    [['width', widthEl], ['clear', clearEl]].forEach(function (e) {
+      var r = e[1].getBoundingClientRect();
+      spots[e[0]] = [r.left + r.width * 0.55, r.top + r.height * 0.5];
+    });
+    spots.rest = REST;
+    buildPaths();
+    return true;
+  });
+})();
+</script>
+</body>
+</html>
