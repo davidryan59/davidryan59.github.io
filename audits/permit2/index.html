@@ -38,7 +38,7 @@
 <a class="back" href="../../index.html">← David Ryan's builder page</a>
 
 <h1>Permit2 security audit</h1>
-<p class="tagline">Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/address/0x000000000022D473030F116dDEE9F6B43aC78BA3"><code>0x000000000022D473030F116dDEE9F6B43aC78BA3</code></a><br>Reviewed 2026&#8209;09&#8209;22 against block 26,032,914</p>
+<p class="tagline">Audit by David Ryan using Claude (Opus 5) on 2026&#8209;09&#8209;22 against block 26,032,914<br>Contract on Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/address/0x000000000022D473030F116dDEE9F6B43aC78BA3#code"><code>Permit2</code></a></p>
 
 <p>
   An ERC-20 token moves only when its owner sends it, or when a contract the
@@ -49,7 +49,7 @@
 <p>
   Uniswap Labs deployed Permit2 in November 2022 to change that pattern. A user
   approves Permit2 once for each token. After that, an application asks the user for a signature instead of a transaction. Permit2 turns the signature into an allowance with an amount and an expiry date. Signing costs
-  the user no gas.
+  the user no gas. The user pays for one approval per token, and each application loses access when its allowance expires.
 </p>
 <p>
   Uniswap's own router spends tokens through Permit2, and so do other
@@ -64,7 +64,7 @@
   source byte for byte.
 </p>
 <p>
-  This review found no exploitable vulnerability. The four medium findings
+  <strong>This review found no exploitable vulnerability.</strong> The four medium findings
   describe what a wallet or an integrator can get wrong. One of them did not
   exist when Permit2 was deployed. EIP-7702, live since May 2025, lets an ordinary account carry code. Permit2 picks its signature check by asking whether the signer has code. A quarter of the accounts now signing permits
   carry code this way, so Permit2 checks them as though they were smart

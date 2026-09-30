@@ -38,7 +38,7 @@
 <a class="back" href="../../index.html">← David Ryan's builder page</a>
 
 <h1>WETH9 security audit</h1>
-<p class="tagline">Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/token/0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"><code>0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2</code></a><br>Reviewed 2026&#8209;08&#8209;19 against block 25,787,146</p>
+<p class="tagline">Audit by David Ryan using Claude (Opus 5) on 2026&#8209;08&#8209;19 against block 25,787,146<br>Contract on Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/address/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2#code"><code>WETH9</code></a></p>
 
 <p>
   Ether is the native currency of Ethereum, and ETH transfers are controlled by the chain itself.
@@ -74,8 +74,8 @@
   evacuate by hand. So a clean result here is critical to the ongoing operation of DeFi.
 </p>
 <p>
-  This review found no exploitable
-  vulnerability. The hazards it did find sit at the boundary where other
+  <strong>This review found no exploitable
+  vulnerability.</strong> The hazards it did find sit at the boundary where other
   contracts call WETH, which is where an integrator can act on them.
 </p>
 
