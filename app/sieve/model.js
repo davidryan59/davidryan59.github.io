@@ -357,15 +357,26 @@
   // The colours that belong to no slot. Grey sits between the pale
   // multiples and the background in light mode and above them in dark, so
   // the numbers still in the sieve stand out in both.
+  //
+  // The board shades from its middle to boardEdge at the corners, and dot
+  // marks the corners of the squares round the grid. A chosen tile glows
+  // with its own colour at glow opacity, blurred by glowBlur of its size and
+  // dropped below it by glowDrop: a wide halo in dark mode, a close shadow
+  // in light. Its sheen runs from sheen white at the top to shade black at
+  // the foot. veil dims the board round a prime under the pointer.
   function theme(dark) {
     return dark ? {
-      board: [30, 30, 35], grey: oklch(0.47, 0.006, 85), greyText: [236, 233, 225],
+      board: [30, 30, 35], boardEdge: [22, 22, 26], dot: 'rgba(255, 255, 255, 0.1)',
+      grey: oklch(0.47, 0.006, 85), greyText: [236, 233, 225],
       zero: [8, 8, 10], zeroText: [245, 243, 236], one: [245, 243, 236], oneText: INK,
-      edge: 'rgba(255, 255, 255, 0.4)', ring: 'rgb(245, 243, 236)', focus: 'rgb(122, 166, 224)'
+      edge: 'rgba(255, 255, 255, 0.4)', ring: 'rgb(245, 243, 236)', focus: 'rgb(122, 166, 224)',
+      glow: 0.75, glowBlur: 0.55, glowDrop: 0, sheen: 0.2, shade: 0.16, veil: 0.62
     } : {
-      board: [255, 253, 248], grey: oklch(0.85, 0.008, 85), greyText: [52, 50, 45],
+      board: [255, 253, 248], boardEdge: [246, 242, 233], dot: 'rgba(70, 60, 40, 0.2)',
+      grey: oklch(0.85, 0.008, 85), greyText: [52, 50, 45],
       zero: [26, 26, 26], zeroText: [255, 255, 255], one: [255, 255, 255], oneText: INK,
-      edge: 'rgba(0, 0, 0, 0.3)', ring: 'rgb(26, 26, 26)', focus: 'rgb(21, 82, 161)'
+      edge: 'rgba(0, 0, 0, 0.3)', ring: 'rgb(26, 26, 26)', focus: 'rgb(21, 82, 161)',
+      glow: 0.5, glowBlur: 0.2, glowDrop: 0.1, sheen: 0.3, shade: 0.1, veil: 0.55
     };
   }
 

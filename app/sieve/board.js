@@ -11,7 +11,13 @@
    corners and its number. Smaller tiles go into an image, one pixel per
    tile, which the canvas scales up without smoothing. Below 12 device pixels
    the tile size snaps to a whole number of pixels, so every tile is the same
-   size. */
+   size.
+
+   The board draws only when something changes, and runs frames only while
+   something moves. A new prime springs out of its tile, and its multiples
+   light up one after another, in the order the sieve reaches them, then
+   settle to their pale colour. A visitor who asks the system for reduced
+   motion sees every change at once. */
 (function (global) {
   'use strict';
 
@@ -25,6 +31,34 @@
   var FONT = 'ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
   var MIN_FONT = 7, MIN_SUB = 5.5;   // CSS px
   var LINE = 1.08, SUB_LINE = 1.35;  // line heights, as multiples of the font size
+
+  // Motion, in milliseconds. A change of more tiles in view than MAX_ANIMS,
+  // or any change while the tiles are too small to draw one by one, spreads
+  // over the board as one wave instead of tile by tile.
+  var MAX_ANIMS = 2500;
+  var DUR = { pop: 320, strike: 250, drop: 170, shift: 160 };
+  var INTRO = 230;           // each tile's part of the opening
+  var FADE = 120;            // a jump of the view or the theme fades across
+  var WIPE = 320;            // the wave that carries a large change
+  var GLIDE = 22;            // how fast the pointer's ring catches up
+  var FLING = 325;           // how fast a flung grid slows
+  var EASE_ZOOM = 35;        // how fast the zoom buttons reach their size
+  var GLOW = 128, CORE = 48; // the glow picture, and the tile inside it
+
+  var motion = global.matchMedia ? global.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  function still() { return !!(motion && motion.matches); }
+  function clock() { return global.performance.now(); }
+  function clamp01(u) { return u < 0 ? 0 : u > 1 ? 1 : u; }
+  function easeOut(u) { u = 1 - u; return 1 - u * u * u; }
+  function easeInOut(u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(2 - 2 * u, 3) / 2; }
+  // Runs past 1 and settles back, as a thing thrown into place.
+  function backOut(u) { u -= 1; return 1 + 2.7 * u * u * u + 1.7 * u * u; }
+  function mix(a, b, u) { return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u]; }
+  function rgb(c, alpha) {
+    var s = Math.round(c[0]) + ', ' + Math.round(c[1]) + ', ' + Math.round(c[2]);
+    return alpha == null ? 'rgb(' + s + ')' : 'rgba(' + s + ', ' + alpha + ')';
+  }
+  function isBright(code) { return code >= 5 && (code & 1) === 1; }
 
   function norm(row, f) { var k = Math.floor(f); return [row + k, f - k]; }
   function before(a, b) { return a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]); }
@@ -40,6 +74,52 @@
     }
     return out;
   }
+
+  // A ring that follows a tile, as the pointer's ring does. It glides to a
+  // near tile, jumps to a far one, and fades in and out. Its offset from the
+  // tile is in tiles, so it holds still on the grid while the grid scrolls.
+  function Glide() {
+    this.n = null;
+    this.ox = 0;
+    this.oy = 0;
+    this.t0 = 0;
+    this.a0 = 0;
+    this.ta = 0;
+    this.dir = -1;
+  }
+
+  Glide.prototype.alpha = function (t) {
+    if (still()) return this.dir > 0 ? 1 : 0;
+    return clamp01(this.a0 + this.dir * (t - this.ta) / (this.dir > 0 ? 45 : 90));
+  };
+
+  Glide.prototype.offset = function (t) {
+    var e = still() ? 0 : Math.exp(-(t - this.t0) / GLIDE);
+    return [this.ox * e, this.oy * e];
+  };
+
+  Glide.prototype.to = function (n, width, t) {
+    var a = this.alpha(t), o = this.offset(t), dc = 0, dr = 0;
+    if (n != null && this.n != null && a > 0) {
+      dc = this.n % width - n % width + o[0];
+      dr = (this.n - this.n % width) / width - (n - n % width) / width + o[1];
+      if (Math.abs(dc) + Math.abs(dr) > 12) dc = dr = 0;
+    }
+    this.ox = dc;
+    this.oy = dr;
+    this.t0 = t;
+    this.a0 = a;
+    this.ta = t;
+    this.dir = n != null ? 1 : -1;
+    if (n != null) this.n = n;
+  };
+
+  Glide.prototype.settle = function () { this.ox = this.oy = 0; };
+
+  Glide.prototype.moving = function (t) {
+    var a = this.alpha(t), o = this.offset(t);
+    return a > 0 && (a < 1 || Math.abs(o[0]) + Math.abs(o[1]) > 0.004);
+  };
 
   function Board(canvas, model, opts) {
     this.canvas = canvas;
@@ -68,6 +148,7 @@
     // row, and stepping the width would drift down the grid.
     this.anchor = null;
     this.codes = new Int32Array(0);
+    this.vis = new Int32Array(0);   // each tile's code as drawn this frame
     this.off = document.createElement('canvas');
     this.offCtx = this.off.getContext('2d');
     this.img = null;
@@ -76,33 +157,62 @@
     this.turns = new Map();  // where each turned digit's centre sits, by font
     this.ctx.font = '100px ' + FONT;
     this.adv = this.ctx.measureText('0').width / 100 || 0.6;
+
+    // Motion.
+    this.anims = new Map();  // number: its tile's animation, while it lasts
+    this.animEnd = 0;
+    this.pending = false;
+    this.busy = false;
+    this.changes = null;     // the codes drawn before a change of the primes
+    this.intro0 = null;      // when the opening started
+    this.fade = null;        // the last frame, fading or wiped away
+    this.shot = document.createElement('canvas');
+    this.shotCtx = this.shot.getContext('2d');
+    this.fling = null;
+    this.zooming = null;
+    this.press = null;
+    this.hoverGlide = new Glide();
+    this.cursorGlide = new Glide();
+    this.spot = { p: null, target: null, slot: 0, a0: 0, ta: 0, dir: -1, t0: 0 };
+    this.glows = new Map();
+    this.vignette = null;
+    this.layouts = new Map();
+    this.font = '';
+    this.ink = '';
+
     this.setTheme(false);
     this.listen();
   }
 
   Board.prototype.setTheme = function (dark) {
+    if (dark !== this.dark) this.fadeOut();
     this.dark = dark;
     this.theme = Sieve.theme(dark);
     this.paints = [];
+    this.glows = new Map();
+    this.vignette = null;
     this.draw();
   };
 
-  // The fill and text colours of a tile code.
+  // The fill and text colours of a tile code, as CSS and as numbers.
   Board.prototype.paint = function (code) {
     var p = this.paints[code];
     if (p) return p;
-    var t = this.theme, fill, text, bold = false, ring = t.ring;
+    var t = this.theme, fill, text, bold = false, ring = t.ring, c = null, slot = -1;
     if (code === ZERO) { fill = t.zero; text = t.zeroText; }
     else if (code === ONE) { fill = t.one; text = t.oneText; }
     else if (code === GREY) { fill = t.grey; text = t.greyText; }
     else {
-      var c = Sieve.slotColours((code - 4) >> 1, this.dark);
+      slot = (code - 4) >> 1;
+      c = Sieve.slotColours(slot, this.dark);
       if (code & 1) { fill = c.bright; text = c.brightText; bold = true; }
       else { fill = c.pale; text = c.paleText; }
       ring = Sieve.css(c.paleText);
     }
     p = {
-      fill: Sieve.css(fill), text: Sieve.css(text), bold: bold, ring: ring,
+      fill: Sieve.css(fill), text: Sieve.css(text), bold: bold, ring: ring, slot: slot,
+      rgb: fill, textRgb: text,
+      brightRgb: c ? c.bright : fill, brightTextRgb: c ? c.brightText : text,
       packed: ((255 << 24) | (fill[2] << 16) | (fill[1] << 8) | fill[0]) >>> 0
     };
     this.paints[code] = p;
@@ -120,6 +230,8 @@
     this.dpr = dpr;
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
+    this.fade = null;
+    this.vignette = null;
     this.size = this.snap(this.zoom);
     this.clamp();
     this.moved();
@@ -162,6 +274,12 @@
     return n < LIMIT ? n : null;
   };
 
+  // The number on tile i of this frame's window.
+  Board.prototype.numberOf = function (i) {
+    var w = this.win, cc = i % w.cols;
+    return (w.r0 + (i - cc) / w.cols) * this.width + w.c0 + cc;
+  };
+
   // The first tile wholly in view. The address keeps it.
   Board.prototype.topLeft = function () {
     var c = Math.min(this.width - 1, Math.max(0, Math.ceil(this.x - 1e-6)));
@@ -193,7 +311,14 @@
     if (this.opts.onView) this.opts.onView();
   };
 
+  // A move by the visitor: a drag, a scroll or a pinch. It ends any fade,
+  // whose picture would no longer line up with the grid.
   Board.prototype.scrollBy = function (dx, dy) {
+    this.fade = null;
+    this.pan(dx, dy);
+  };
+
+  Board.prototype.pan = function (dx, dy) {
     this.anchor = null;
     this.x += dx / this.size;
     this.fy += dy / this.size;
@@ -203,6 +328,12 @@
 
   // Zooms to tiles z pixels wide, holding the point (px, py) of the board still.
   Board.prototype.zoomTo = function (z, px, py) {
+    this.zooming = null;
+    this.fade = null;
+    this.scale(z, px, py);
+  };
+
+  Board.prototype.scale = function (z, px, py) {
     if (px == null) { px = this.cssW / 2; py = this.cssH / 2; }
     this.anchor = null;
     this.zoom = Math.min(MAX_SIZE, Math.max(MIN_SIZE, z));
@@ -215,6 +346,16 @@
   };
 
   Board.prototype.zoomBy = function (k, px, py) { this.zoomTo(this.zoom * k, px, py); };
+
+  // Zooms by k over a few frames, about the middle of the board, as the zoom
+  // buttons and keys do. A second press before the first ends adds to it.
+  Board.prototype.zoomSmooth = function (k) {
+    var goal = Math.min(MAX_SIZE, Math.max(MIN_SIZE, (this.zooming ? this.zooming.goal : this.zoom) * k));
+    if (still()) { this.zoomTo(goal); return; }
+    this.fade = null;
+    this.zooming = { from: this.zoom, goal: goal, t0: clock() };
+    this.draw();
+  };
 
   Board.prototype.showAtTopLeft = function (n) {
     var c = n % this.width, r = (n - c) / this.width, s = this.size;
@@ -248,12 +389,16 @@
 
   Board.prototype.setWidth = function (width) {
     var n = this.anchor != null ? this.anchor : this.topLeft();
+    this.fadeOut();
     this.width = width;
+    this.hoverGlide.settle();
+    this.cursorGlide.settle();
     this.showAtTopLeft(n);
     this.anchor = n;
   };
 
   Board.prototype.setBase = function (base) {
+    this.fadeOut();
     this.base = base;
     this.draw();
   };
@@ -263,6 +408,8 @@
   Board.prototype.fit = function (rows) {
     var n = this.anchor != null ? this.anchor : this.topLeft(), z = Math.min(FIT_MAX, (this.cssW - 2 * PAD) / this.width);
     if (rows) z = Math.min(z, (this.cssH - 2 * PAD) / rows);
+    this.fadeOut();
+    this.zooming = null;
     this.zoom = Math.min(MAX_SIZE, Math.max(MIN_SIZE, z));
     this.size = this.snap(this.zoom);
     this.showAtTopLeft(n);
@@ -270,23 +417,296 @@
   };
 
   Board.prototype.goTo = function (n) {
+    this.fadeOut();
     this.reveal(n, true);
-    this.flash = { n: n, t0: global.performance.now() };
+    this.flash = { n: n, t0: clock() };
     this.draw();
   };
 
   Board.prototype.setHover = function (n) {
     if (n === this.hover) return;
     this.hover = n;
+    this.hoverGlide.to(n, this.width, clock());
     this.draw();
     if (this.opts.onHover) this.opts.onHover(n);
   };
 
   Board.prototype.setCursor = function (n) {
     this.cursor = n;
+    this.cursorGlide.to(n, this.width, clock());
     if (n != null) this.reveal(n, false);
     this.draw();
     if (this.opts.onCursor) this.opts.onCursor(n);
+  };
+
+  // Motion ---------------------------------------------------------------------
+
+  // Called after each change of the primes, with what changed: { n, add }
+  // for one number, or {} for several at once. The next frame compares the
+  // tiles with the ones drawn now, and moves the ones that changed.
+  Board.prototype.changed = function (info) {
+    if (this.win && !still()) {
+      var w = this.win;
+      if (!this.changes) {
+        this.changes = {
+          codes: this.codes.slice(0, w.count), r0: w.r0, c0: w.c0, cols: w.cols, rows: w.rows, width: this.width
+        };
+      }
+      this.changes.info = info || {};
+    }
+    this.draw();
+  };
+
+  // Drops every motion, as a new grid from the address does.
+  Board.prototype.reset = function () {
+    this.anims.clear();
+    this.changes = null;
+    this.intro0 = null;
+    this.fade = null;
+    this.fling = null;
+    this.zooming = null;
+    this.press = null;
+    this.draw();
+  };
+
+  // The opening: the tiles come in from the top left corner, one diagonal
+  // after another. Tiles too small to draw one by one fade in together.
+  Board.prototype.intro = function () {
+    if (still() || !this.cssW) return;
+    if (this.size * this.dpr >= 12) this.intro0 = clock();
+    else {
+      this.sizeShot();
+      this.shotCtx.fillStyle = Sieve.css(this.theme.board);
+      this.shotCtx.fillRect(0, 0, this.shot.width, this.shot.height);
+      this.fade = { t0: clock(), dur: 2 * FADE, wipe: null };
+    }
+    this.draw();
+  };
+
+  Board.prototype.sizeShot = function () {
+    var W = this.canvas.width, H = this.canvas.height;
+    if (this.shot.width !== W || this.shot.height !== H) {
+      this.shot.width = W;
+      this.shot.height = H;
+    }
+  };
+
+  // Keeps a copy of the board as drawn last.
+  Board.prototype.snapshot = function () {
+    this.sizeShot();
+    this.shotCtx.clearRect(0, 0, this.shot.width, this.shot.height);
+    this.shotCtx.drawImage(this.canvas, 0, 0);
+  };
+
+  // Keeps the board as it is now, and fades it out over the next frames,
+  // for a jump of the view or a new theme.
+  Board.prototype.fadeOut = function () {
+    if (still() || !this.win || !this.canvas.width) return;
+    this.snapshot();
+    this.fade = { t0: clock(), dur: FADE, wipe: null };
+    this.draw();
+  };
+
+  Board.prototype.pressOn = function (n) {
+    if (n == null || still()) return;
+    this.press = { n: n, t0: clock(), up: 0 };
+    this.draw();
+  };
+
+  Board.prototype.release = function () {
+    if (this.press && !this.press.up) {
+      this.press.up = clock();
+      this.draw();
+    }
+  };
+
+  // A pressed tile sinks a little, and rises again when let go.
+  Board.prototype.pressScale = function (t) {
+    var p = this.press, held = 1 - 0.07 * easeOut(clamp01(((p.up || t) - p.t0) / 55));
+    if (!p.up) {
+      if (t - p.t0 < 55) this.busy = true;
+      return held;
+    }
+    var u = (t - p.up) / 85;
+    if (u >= 1) { this.press = null; return 1; }
+    this.busy = true;
+    return held + (1 - held) * easeOut(u);
+  };
+
+  // A drag let go while moving carries on, slowing, as a flicked page does.
+  Board.prototype.flingFrom = function (q) {
+    var s = q.samples, t = clock();
+    if (still() || s.length < 2) return;
+    var last = s[s.length - 1];
+    if (t - last[0] > 60) return;
+    for (var k = 0; k < s.length - 2 && last[0] - s[k][0] > 100; k++);
+    var first = s[k], dt = last[0] - first[0];
+    if (dt < 8) return;
+    var vx = (last[1] - first[1]) / dt, vy = (last[2] - first[2]) / dt, v = Math.hypot(vx, vy);
+    if (v < 0.3) return;
+    if (v > 6) { vx *= 6 / v; vy *= 6 / v; }
+    this.fling = { vx: -vx, vy: -vy, t0: t, X: 0, Y: 0 };
+    this.draw();
+  };
+
+  // Moves the view on by one frame of a fling or a smooth zoom. Each follows
+  // the time since it began, not the frame count, so it runs at one speed
+  // at any frame rate.
+  Board.prototype.step = function (t) {
+    var f = this.fling;
+    if (f) {
+      var e = Math.exp(-(t - f.t0) / FLING), X = f.vx * FLING * (1 - e), Y = f.vy * FLING * (1 - e);
+      var x = this.x, row = this.row, fy = this.fy;
+      this.pan(X - f.X, Y - f.Y);
+      f.X = X;
+      f.Y = Y;
+      if (Math.hypot(f.vx, f.vy) * e < 0.02 || (x === this.x && row === this.row && fy === this.fy)) this.fling = null;
+      else this.busy = true;
+    }
+    var z = this.zooming;
+    if (z) {
+      var ez = Math.exp(-(t - z.t0) / EASE_ZOOM);
+      if (ez < 0.02) {
+        this.zooming = null;
+        this.scale(z.goal);
+      } else {
+        this.scale(z.goal * Math.pow(z.from / z.goal, ez));
+        this.busy = true;
+      }
+    }
+    if (this.anims.size && t > this.animEnd) this.anims.clear();
+  };
+
+  // After a change of the primes: compares the codes drawn before it with
+  // the codes now, and starts the tiles that changed.
+  Board.prototype.animate = function (t) {
+    var b = this.changes;
+    this.changes = null;
+    if (!b || b.width !== this.width || still()) return;
+    var w = this.win, codes = this.codes, changed = [];
+    for (var i = 0; i < w.count; i++) {
+      var cc = i % w.cols, dr = w.r0 + (i - cc) / w.cols - b.r0, dc = w.c0 + cc - b.c0;
+      if (dr < 0 || dr >= b.rows || dc < 0 || dc >= b.cols) continue;
+      var old = b.codes[dr * b.cols + dc];
+      if (old !== codes[i] && old !== NONE && codes[i] !== NONE) changed.push(i, old);
+    }
+    if (!changed.length) return;
+    if (w.sd >= 12 && changed.length / 2 <= MAX_ANIMS) this.cascade(changed, b.info, t);
+    else this.sweep(b.info, t);
+  };
+
+  // Each changed tile waits its turn, in the order of its number, so a new
+  // prime reaches its multiples in the order the sieve would. A new prime
+  // runs its multiples out over 0.35 s at most, a removal over 0.21 s, and
+  // several changes at once over 0.3 s.
+  Board.prototype.cascade = function (changed, info, t) {
+    var codes = this.codes, p = info.n, add = info.add, others = changed.length / 2, k;
+    for (k = 0; k < changed.length; k += 2) if (this.numberOf(changed[k]) === p) others--;
+    var budget = add === true ? 350 : add === false ? 210 : 300;
+    var most = add === true ? 20 : add === false ? 12 : 15;
+    var step = others ? Math.min(most, budget / others) : 0, lead = add === true ? 55 : 0, rank = 0;
+    if (!this.anims.size) this.animEnd = 0;
+    for (k = 0; k < changed.length; k += 2) {
+      var i = changed[k], old = changed[k + 1], code = codes[i], n = this.numberOf(i);
+      var kind = isBright(code) ? 'pop' : isBright(old) ? 'drop' : old === GREY && code >= 4 ? 'strike' : 'shift';
+      var a = { kind: kind, start: t + (n === p ? 0 : lead + step * rank++), dur: DUR[kind], from: null, fromCode: null };
+      this.startFrom(a, n, old, t);
+      this.anims.set(n, a);
+      this.animEnd = Math.max(this.animEnd, a.start + a.dur);
+    }
+  };
+
+  // A tile starts from the colours it shows now, even part way through a
+  // move of its own.
+  Board.prototype.startFrom = function (a, n, old, t) {
+    var prev = this.anims.get(n);
+    if (prev) {
+      var u = (t - prev.start) / prev.dur;
+      if (u <= 0) {
+        a.from = prev.from;
+        a.fromCode = prev.fromCode;
+        return;
+      }
+      if (u < 1) {
+        var s = this.animState(prev, old, u);
+        a.from = { rgb: s.rgb, text: s.text, bold: s.bold };
+        return;
+      }
+    }
+    var p = this.paint(old);
+    a.from = { rgb: p.rgb, text: p.textRgb, bold: p.bold };
+    a.fromCode = old;
+  };
+
+  // A large change spreads over the board as a wave from the number that
+  // made it, or from the middle.
+  Board.prototype.sweep = function (info, t) {
+    var W = this.canvas.width, H = this.canvas.height, b = info.n != null ? this.box(info.n) : null;
+    var x = b ? b.x + b.s / 2 : W / 2, y = b ? b.y + b.s / 2 : H / 2;
+    var entry = info.add ? this.model.byNumber.get(info.n) : null;
+    this.snapshot();
+    this.fade = {
+      t0: t, dur: WIPE, wipe: {
+        x: x, y: y, colour: entry ? this.paint(5 + 2 * entry.slot).fill : this.theme.ring,
+        reach: Math.max(Math.hypot(x, y), Math.hypot(W - x, y), Math.hypot(x, H - y), Math.hypot(W - x, H - y))
+      }
+    };
+  };
+
+  // How a moving tile looks at u, from 0 to 1 through its move.
+  //   pop: a new prime springs past its size and back, and sends out a ring.
+  //   strike: a multiple flashes its prime's bright colour, sinks a little,
+  //     and settles to the pale colour.
+  //   drop: a removed prime sinks and greys.
+  //   shift: any other change of colour.
+  Board.prototype.animState = function (a, code, u) {
+    var to = this.paint(code), f = a.from, k;
+    var st = {
+      rgb: null, text: null, bold: u < 0.5 ? f.bold : to.bold, scale: 1, alpha: 1,
+      ring: 0, grow: 0, ringRgb: null, glow: 0, sheen: false,
+      edge: code === ZERO || code === ONE, slot: to.slot
+    };
+    if (a.kind === 'pop') {
+      k = easeOut(clamp01(u / 0.3));
+      st.rgb = mix(f.rgb, to.rgb, k);
+      st.text = mix(f.text, to.textRgb, k);
+      st.bold = true;
+      st.scale = 1 + 0.5 * Math.exp(-5 * u) * Math.sin(Math.PI * 2.2 * u);
+      st.ring = 0.9 * (1 - u) * (1 - u);
+      st.grow = 0.1 + 1.3 * easeOut(u);
+      st.ringRgb = to.rgb;
+      st.glow = k;
+      st.sheen = k > 0.5;
+    } else if (a.kind === 'strike') {
+      if (u < 0.2) {
+        k = easeOut(u / 0.2);
+        st.rgb = mix(f.rgb, to.brightRgb, k);
+        st.text = mix(f.text, to.brightTextRgb, k);
+      } else {
+        k = easeOut((u - 0.2) / 0.8);
+        st.rgb = mix(to.brightRgb, to.rgb, k);
+        st.text = mix(to.brightTextRgb, to.textRgb, k);
+      }
+      st.scale = 1 - 0.12 * Math.sin(Math.PI * clamp01(u / 0.5));
+      st.ring = 0.55 * (1 - u) * (1 - u);
+      st.grow = 0.35 * easeOut(u);
+      st.ringRgb = to.brightRgb;
+    } else {
+      k = easeOut(u);
+      st.rgb = mix(f.rgb, to.rgb, k);
+      st.text = mix(f.text, to.textRgb, k);
+      st.scale = 1 - (a.kind === 'drop' ? 0.16 : 0.07) * Math.sin(Math.PI * u);
+    }
+    return st;
+  };
+
+  // A tile at rest, as drawn one by one.
+  Board.prototype.plain = function (code) {
+    var p = this.paint(code), bright = isBright(code);
+    return {
+      rgb: p.rgb, text: p.textRgb, bold: p.bold, scale: 1, alpha: 1, ring: 0, grow: 0, ringRgb: null,
+      glow: bright ? 1 : 0, sheen: bright, edge: code === ZERO || code === ONE, slot: p.slot
+    };
   };
 
   // Drawing ------------------------------------------------------------------
@@ -299,14 +719,19 @@
   };
 
   Board.prototype.render = function () {
-    var ctx = this.ctx, s = this.size, sd = s * this.dpr, width = this.width;
+    var ctx = this.ctx, t = clock(), width = this.width;
+    this.busy = false;
+    this.step(t);
+    var s = this.size, sd = s * this.dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = Sieve.css(this.theme.board);
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.globalAlpha = 1;
     this.win = null;
     var r0 = Math.max(0, this.row), r1 = Math.min(this.lastRow(), this.row + Math.floor(this.fy + this.cssH / s));
     var c0 = Math.max(0, Math.floor(this.x)), c1 = Math.min(width - 1, Math.floor(this.x + this.cssW / s));
-    if (r1 < r0 || c1 < c0) return;
+    if (r1 < r0 || c1 < c0) {
+      this.renderBoard();
+      return;
+    }
     var cols = c1 - c0 + 1, rows = r1 - r0 + 1, count = cols * rows;
     if (this.codes.length < count) this.codes = new Int32Array(Math.ceil(count * 1.25));
     this.model.fill(width, r0, r1, c0, c1, this.codes);
@@ -314,9 +739,53 @@
       r0: r0, c0: c0, cols: cols, rows: rows, count: count, sd: sd,
       X0: (c0 - this.x) * sd, Y0: ((r0 - this.row) - this.fy) * sd
     };
+    // Before the board is painted, so that a wave can copy the last frame.
+    this.animate(t);
+    this.renderBoard();
     if (sd < 12) this.renderPixels();
-    else this.renderTiles();
-    this.renderRings();
+    else this.renderTiles(t);
+    this.renderFade(t);
+    this.renderOverlays(t);
+    if (this.busy) this.draw();
+  };
+
+  // The board under the grid: a little lighter in the middle, with dots
+  // round the grid at the corners its squares would have if it ran on, so
+  // the grid reads as laid on squared paper.
+  Board.prototype.renderBoard = function () {
+    var ctx = this.ctx, W = this.canvas.width, H = this.canvas.height, t = this.theme;
+    if (!this.vignette) {
+      var g = ctx.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, Math.hypot(W, H) * 0.62);
+      g.addColorStop(0, Sieve.css(t.board));
+      g.addColorStop(1, Sieve.css(t.boardEdge));
+      this.vignette = g;
+    }
+    ctx.fillStyle = this.vignette;
+    ctx.fillRect(0, 0, W, H);
+    if (this.win) this.renderDots();
+  };
+
+  Board.prototype.renderDots = function () {
+    var s = this.size, dpr = this.dpr, sd = s * dpr, k = Math.max(1, Math.ceil(16 * dpr / sd));
+    var g = sd >= 12 ? this.gap() : 0, d = Math.max(1, Math.round(1.25 * dpr)), ctx = this.ctx;
+    var width = this.width, last = this.lastRow() + 1, skip = Math.ceil((width + 1) / k) * k - k;
+    var cA = Math.ceil(this.x / k) * k, cB = Math.floor((this.x + this.cssW / s) / k) * k;
+    var fA = Math.ceil(this.fy), fB = Math.floor(this.fy + this.cssH / s), any = false;
+    ctx.beginPath();
+    for (var f = fA; f <= fB; f++) {
+      var r = this.row + f;
+      if (((r % k) + k) % k) continue;
+      var y = Math.round((f - this.fy) * sd - g / 2 - d / 2), inRows = r >= 0 && r <= last;
+      for (var c = cA; c <= cB; c += k) {
+        // The grid itself has no dots.
+        if (inRows && c >= 0 && c <= width) { c = Math.max(c, skip); continue; }
+        ctx.rect(Math.round((c - this.x) * sd - g / 2 - d / 2), y, d, d);
+        any = true;
+      }
+    }
+    if (!any) return;
+    ctx.fillStyle = this.theme.dot;
+    ctx.fill();
   };
 
   Board.prototype.renderPixels = function () {
@@ -356,41 +825,202 @@
     return s >= 20 && typeof this.ctx.roundRect === 'function' ? Math.min(8, s * 0.13) * this.dpr : 0;
   };
 
-  Board.prototype.renderTiles = function () {
+  Board.prototype.shape = function (b, rad) {
+    if (rad) this.ctx.roundRect(b[0], b[1], b[2], b[3], rad);
+    else this.ctx.rect(b[0], b[1], b[2], b[3]);
+  };
+
+  // Tiles at rest go in one path per colour, so the canvas changes colour a
+  // few times, not once a tile. Moving tiles are drawn one by one, after
+  // the rest, so a tile that springs up lies over its neighbours.
+  Board.prototype.renderTiles = function (t) {
     var ctx = this.ctx, w = this.win, codes = this.codes, g = this.gap(), rad = this.radius(), self = this;
-    var groups = new Map(), i, k, b;
+    var anims = this.anims.size ? this.anims : null, intro = this.intro0, press = this.press;
+    var moving = anims || intro != null || press;
+    var pressK = press ? this.pressScale(t) : 1;
+    var istep = intro != null ? Math.min(12, 260 / (w.rows + w.cols)) : 0, opening = false;
+    var numbers = w.sd * 0.42 >= MIN_FONT * this.dpr;
+    if (this.vis.length < this.codes.length) this.vis = new Int32Array(this.codes.length);
+    var vis = this.vis, groups = new Map(), special = [], chosen = [], i, code, list;
+    this.layouts = new Map();
+    this.withDecimal = Sieve.showsDecimal(this.base);
+    this.sheenFill = null;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
     for (i = 0; i < w.count; i++) {
-      var code = codes[i];
+      code = codes[i];
+      vis[i] = code;
       if (code === NONE) continue;
-      var list = groups.get(code);
+      if (moving) {
+        var n = this.numberOf(i), st = null;
+        if (intro != null) {
+          var cc = i % w.cols, u = (t - intro - (cc + (i - cc) / w.cols) * istep) / INTRO;
+          if (u < 1) {
+            opening = true;
+            if (u <= 0) { vis[i] = -1; continue; }
+            st = this.plain(code);
+            st.alpha = easeOut(u);
+            st.scale = 0.55 + 0.45 * backOut(u);
+          }
+        }
+        var a = !st && anims ? anims.get(n) : null;
+        if (a) {
+          var ua = (t - a.start) / a.dur;
+          if (ua >= 1) anims.delete(n);
+          else if (ua > 0) st = this.animState(a, code, ua);
+          else if (a.fromCode != null) vis[i] = a.fromCode;
+          else st = { rgb: a.from.rgb, text: a.from.text, bold: a.from.bold, scale: 1, alpha: 1, ring: 0, glow: 0, sheen: false, edge: false };
+        }
+        if (press && press.n === n && pressK !== 1) {
+          st = st || this.plain(vis[i]);
+          st.scale *= pressK;
+        }
+        if (st) {
+          vis[i] = -1;
+          special.push(i, n, st);
+          continue;
+        }
+        code = vis[i];
+      }
+      if (isBright(code)) chosen.push(i);
+      list = groups.get(code);
       if (!list) groups.set(code, list = []);
       list.push(i);
     }
-    // One path per colour, so the canvas changes colour a few times, not
-    // once a tile.
+    if (intro != null && !opening) this.intro0 = null;
+    if (opening || (anims && anims.size)) this.busy = true;
+
+    var bright = [];
     groups.forEach(function (list, code) {
-      ctx.fillStyle = self.paint(code).fill;
-      ctx.beginPath();
-      for (k = 0; k < list.length; k++) {
-        b = self.tileBox(list[k], g);
-        if (rad) ctx.roundRect(b[0], b[1], b[2], b[3], rad);
-        else ctx.rect(b[0], b[1], b[2], b[3]);
-      }
-      ctx.fill();
+      if (isBright(code)) bright.push(code);
+      else self.fillGroup(code, list, g, rad);
     });
+    this.renderGlow(chosen, g);
+    bright.forEach(function (code) { self.fillGroup(code, groups.get(code), g, rad); });
+    this.renderSheen(chosen, g, rad);
     // 0 is black and 1 is white, so each gets an edge to show on any board.
     ctx.strokeStyle = this.theme.edge;
     ctx.lineWidth = this.dpr;
     [ZERO, ONE].forEach(function (code) {
-      (groups.get(code) || []).forEach(function (i) {
-        b = self.tileBox(i, g);
-        ctx.beginPath();
-        if (rad) ctx.roundRect(b[0] + 0.5 * self.dpr, b[1] + 0.5 * self.dpr, b[2] - self.dpr, b[3] - self.dpr, rad);
-        else ctx.rect(b[0] + 0.5 * self.dpr, b[1] + 0.5 * self.dpr, b[2] - self.dpr, b[3] - self.dpr);
-        ctx.stroke();
-      });
+      (groups.get(code) || []).forEach(function (i) { self.edge(self.tileBox(i, g), rad); });
     });
-    this.renderNumbers(g);
+    if (numbers) this.renderNumbers(g, vis);
+    for (var k = 0; k < special.length; k += 3) this.drawSpecial(special[k], special[k + 1], special[k + 2], g, rad, numbers);
+  };
+
+  Board.prototype.fillGroup = function (code, list, g, rad) {
+    var ctx = this.ctx;
+    ctx.fillStyle = this.paint(code).fill;
+    ctx.beginPath();
+    for (var k = 0; k < list.length; k++) this.shape(this.tileBox(list[k], g), rad);
+    ctx.fill();
+  };
+
+  Board.prototype.edge = function (b, rad) {
+    var ctx = this.ctx, h = 0.5 * this.dpr;
+    ctx.beginPath();
+    this.shape([b[0] + h, b[1] + h, b[2] - this.dpr, b[3] - this.dpr], rad);
+    ctx.stroke();
+  };
+
+  // A chosen tile glows with its own colour: a soft halo in dark mode, a
+  // coloured shadow in light. The glow is one blurred picture for each
+  // colour, drawn at the tile's size.
+  Board.prototype.glowOf = function (slot) {
+    var img = this.glows.get(slot);
+    if (img) return img;
+    img = document.createElement('canvas');
+    img.width = img.height = GLOW;
+    var c = img.getContext('2d'), m = GLOW / 2 - CORE / 2;
+    c.shadowColor = Sieve.css(this.paint(5 + 2 * slot).rgb);
+    c.shadowBlur = CORE * this.theme.glowBlur;
+    // Only the shadow lands on the picture: the shape itself is off it.
+    c.shadowOffsetX = GLOW;
+    c.fillStyle = '#000';
+    c.beginPath();
+    if (typeof c.roundRect === 'function') c.roundRect(m - GLOW, m, CORE, CORE, 8);
+    else c.rect(m - GLOW, m, CORE, CORE);
+    c.fill();
+    this.glows.set(slot, img);
+    return img;
+  };
+
+  Board.prototype.glow = function (b, slot, alpha) {
+    var ctx = this.ctx, S = GLOW * b[2] / CORE;
+    var cx = b[0] + b[2] / 2, cy = b[1] + b[3] / 2 + b[3] * this.theme.glowDrop;
+    ctx.globalAlpha = alpha * this.theme.glow;
+    if (this.dark) ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(this.glowOf(slot), cx - S / 2, cy - S / 2, S, S);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  };
+
+  Board.prototype.renderGlow = function (list, g) {
+    if (!list.length || this.win.sd < 14 || list.length > 600) return;
+    for (var k = 0; k < list.length; k++) {
+      var i = list[k];
+      this.glow(this.tileBox(i, g), (this.vis[i] - 5) >> 1, 1);
+    }
+  };
+
+  // A chosen tile is lit from above: lighter at the top, darker at the foot.
+  // One gradient serves every tile, moved down to each in turn.
+  Board.prototype.sheen = function (g) {
+    if (this.sheenFill) return this.sheenFill;
+    var t = this.theme, h = Math.round(this.win.sd) - g, gr = this.ctx.createLinearGradient(0, 0, 0, h);
+    gr.addColorStop(0, 'rgba(255, 255, 255, ' + t.sheen + ')');
+    gr.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+    gr.addColorStop(1, 'rgba(0, 0, 0, ' + t.shade + ')');
+    return (this.sheenFill = gr);
+  };
+
+  Board.prototype.renderSheen = function (list, g, rad) {
+    if (!list.length || this.win.sd < 14 || list.length > 1500) return;
+    var ctx = this.ctx;
+    ctx.fillStyle = this.sheen(g);
+    for (var k = 0; k < list.length; k++) {
+      var b = this.tileBox(list[k], g);
+      ctx.setTransform(1, 0, 0, 1, 0, b[1]);
+      ctx.beginPath();
+      this.shape([b[0], 0, b[2], b[3]], rad);
+      ctx.fill();
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  };
+
+  // Draws a moving tile: in its own colours, at its own scale, with the
+  // ring that spreads from it.
+  Board.prototype.drawSpecial = function (i, n, st, g, rad, numbers) {
+    var ctx = this.ctx, b = this.tileBox(i, g), cx = b[0] + b[2] / 2, cy = b[1] + b[3] / 2, s = st.scale;
+    if (st.ring > 0.01) {
+      var size = b[2] * (1 + st.grow);
+      this.ringAt(cx - size / 2, cy - size / 2, size, rgb(st.ringRgb), 2 * this.dpr * (1 - st.grow / 3), st.ring, rad * (1 + st.grow));
+    }
+    if (s !== 1) ctx.setTransform(s, 0, 0, s, cx * (1 - s), cy * (1 - s));
+    if (st.glow > 0 && this.win.sd >= 14) this.glow(b, st.slot, st.glow * st.alpha);
+    ctx.globalAlpha = st.alpha;
+    ctx.fillStyle = rgb(st.rgb);
+    ctx.beginPath();
+    this.shape(b, rad);
+    ctx.fill();
+    if (st.sheen && this.win.sd >= 14) {
+      ctx.setTransform(s, 0, 0, s, cx * (1 - s), cy * (1 - s) + s * b[1]);
+      ctx.fillStyle = this.sheen(g);
+      ctx.beginPath();
+      this.shape([b[0], 0, b[2], b[3]], rad);
+      ctx.fill();
+      ctx.setTransform(s, 0, 0, s, cx * (1 - s), cy * (1 - s));
+    }
+    if (st.edge) {
+      ctx.strokeStyle = this.theme.edge;
+      ctx.lineWidth = this.dpr;
+      this.edge(b, rad);
+    }
+    this.ink = '';
+    if (numbers) this.writeNumber(n, b, rgb(st.text), st.bold, st.alpha);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
   };
 
   // The largest font that fits a tile sd device pixels wide, with the number
@@ -416,36 +1046,37 @@
     return best && best.F >= MIN_FONT * dpr ? best : null;
   };
 
-  Board.prototype.renderNumbers = function (g) {
-    var ctx = this.ctx, w = this.win, codes = this.codes;
-    if (w.sd * 0.42 < MIN_FONT * this.dpr) return;
-    var base = this.base, withDecimal = Sieve.showsDecimal(base), layouts = new Map(), font = '', fill = '';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+  Board.prototype.renderNumbers = function (g, vis) {
+    var w = this.win;
+    this.font = '';
+    this.ink = '';
     for (var i = 0; i < w.count; i++) {
-      var code = codes[i];
-      if (code === NONE) continue;
-      var cc = i % w.cols, rr = (i - cc) / w.cols, n = (w.r0 + rr) * this.width + w.c0 + cc;
-      var places = Sieve.places(n, base), dec = withDecimal ? String(n) : '';
-      var key = places.length + ',' + places[0].length + ',' + dec.length;
-      var lay = layouts.get(key);
-      if (lay === undefined) layouts.set(key, lay = this.layout(places, dec.length, w.sd));
-      if (!lay) continue;
-      var p = this.paint(code), b = this.tileBox(i, g);
-      var lines = split(places, lay.L);
-      var height = lines.length * lay.F * LINE + lay.subF * SUB_LINE;
-      var cx = b[0] + b[2] / 2, top = b[1] + (b[3] - height) / 2;
-      var f = (p.bold ? '700 ' : '400 ') + lay.F.toFixed(1) + 'px ' + FONT;
-      if (f !== font) ctx.font = font = f;
-      if (p.text !== fill) ctx.fillStyle = fill = p.text;
-      for (var k = 0; k < lines.length; k++) this.fillLine(lines[k], cx, top + lay.F * LINE * (k + 0.5), lay.F);
-      if (lay.subF) {
-        f = '400 ' + lay.subF.toFixed(1) + 'px ' + FONT;
-        if (f !== font) ctx.font = font = f;
-        ctx.globalAlpha = 0.75;
-        ctx.fillText(dec, cx, top + lines.length * lay.F * LINE + lay.subF * SUB_LINE / 2);
-        ctx.globalAlpha = 1;
-      }
+      var code = vis[i];
+      if (code <= 0) continue;
+      var p = this.paint(code);
+      this.writeNumber(this.numberOf(i), this.tileBox(i, g), p.text, p.bold, 1);
+    }
+  };
+
+  // Writes n in the tile b, in the colour ink, over any transform set.
+  Board.prototype.writeNumber = function (n, b, ink, bold, alpha) {
+    var ctx = this.ctx, places = Sieve.places(n, this.base), dec = this.withDecimal ? String(n) : '';
+    var key = places.length + ',' + places[0].length + ',' + dec.length, lay = this.layouts.get(key);
+    if (lay === undefined) this.layouts.set(key, lay = this.layout(places, dec.length, this.win.sd));
+    if (!lay) return;
+    var lines = split(places, lay.L);
+    var height = lines.length * lay.F * LINE + lay.subF * SUB_LINE;
+    var cx = b[0] + b[2] / 2, top = b[1] + (b[3] - height) / 2;
+    var f = (bold ? '700 ' : '400 ') + lay.F.toFixed(1) + 'px ' + FONT;
+    if (f !== this.font) ctx.font = this.font = f;
+    if (ink !== this.ink) ctx.fillStyle = this.ink = ink;
+    for (var k = 0; k < lines.length; k++) this.fillLine(lines[k], cx, top + lay.F * LINE * (k + 0.5), lay.F);
+    if (lay.subF) {
+      f = '400 ' + lay.subF.toFixed(1) + 'px ' + FONT;
+      if (f !== this.font) ctx.font = this.font = f;
+      ctx.globalAlpha = 0.75 * alpha;
+      ctx.fillText(dec, cx, top + lines.length * lay.F * LINE + lay.subF * SUB_LINE / 2);
+      ctx.globalAlpha = alpha;
     }
   };
 
@@ -455,7 +1086,7 @@
   // gives every character the same advance, adv times the font size.
   Board.prototype.fillLine = function (line, cx, y, size) {
     var ctx = this.ctx;
-    if (!/[\u218A\u218B]/.test(line)) {
+    if (!/[↊↋]/.test(line)) {
       ctx.fillText(line, cx, y);
       return;
     }
@@ -481,46 +1112,167 @@
     }
   };
 
-  // A ring round tile n. Round a tile too small to ring, it rings a box 8
-  // pixels wide, centred on the tile.
-  Board.prototype.ring = function (n, colour, lw, alpha) {
-    var b = this.box(n);
-    if (!b) return;
-    var ctx = this.ctx, dpr = this.dpr, g = this.win && b.s >= 12 ? this.gap() : 0;
-    var size = Math.max(b.s - g, 8 * dpr), x = Math.round(b.x) + (b.s - g - size) / 2, y = Math.round(b.y) + (b.s - g - size) / 2;
-    var line = lw * dpr, rad = this.radius();
+  // The last frame, fading out, or wiped away by a widening circle whose
+  // edge carries the colour of the change.
+  Board.prototype.renderFade = function (t) {
+    var f = this.fade;
+    if (!f) return;
+    var u = (t - f.t0) / f.dur;
+    if (u >= 1) { this.fade = null; return; }
+    this.busy = true;
+    var ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
+    if (!f.wipe) {
+      ctx.globalAlpha = 1 - easeOut(clamp01(u));
+      ctx.drawImage(this.shot, 0, 0);
+      ctx.globalAlpha = 1;
+      return;
+    }
+    var wp = f.wipe, R = wp.reach * easeInOut(clamp01(u));
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.arc(wp.x, wp.y, R, 0, 2 * Math.PI);
+    ctx.clip('evenodd');
+    ctx.drawImage(this.shot, 0, 0);
+    ctx.restore();
+    ctx.globalAlpha = 0.7 * (1 - u);
+    ctx.strokeStyle = wp.colour;
+    ctx.lineWidth = 3 * this.dpr;
+    ctx.beginPath();
+    ctx.arc(wp.x, wp.y, R, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  };
+
+  // A rounded square outline of the given size, its line inside the edge.
+  Board.prototype.ringAt = function (x, y, size, colour, line, alpha, rad) {
+    var ctx = this.ctx;
     ctx.globalAlpha = alpha == null ? 1 : alpha;
     ctx.lineWidth = line;
     ctx.strokeStyle = colour;
     ctx.beginPath();
-    if (rad) ctx.roundRect(x + line / 2, y + line / 2, size - line, size - line, Math.max(0, rad - line / 2));
+    if (rad && typeof ctx.roundRect === 'function') ctx.roundRect(x + line / 2, y + line / 2, size - line, size - line, Math.max(0, rad - line / 2));
     else ctx.rect(x + line / 2, y + line / 2, size - line, size - line);
     ctx.stroke();
     ctx.globalAlpha = 1;
   };
 
-  Board.prototype.renderRings = function () {
-    var t = this.theme, w = this.win, s = this.size;
-    // Every multiple of the prime under the pointer, or of its button.
-    var p = this.highlight, entry = p != null && this.model.byNumber.get(p);
-    if (entry && w && s >= 6) {
-      var colour = this.paint(4 + 2 * entry.slot).ring, lw = Math.max(1, Math.min(2, s * 0.045));
-      for (var i = 0; i < w.count; i++) {
-        var cc = i % w.cols, rr = (i - cc) / w.cols, n = (w.r0 + rr) * this.width + w.c0 + cc;
-        if (n > p && n < LIMIT && n % p === 0) this.ring(n, colour, lw);
-      }
-      this.ring(p, t.ring, lw + 1);
+  // A ring round the tile whose box starts at (x, y), s device pixels wide.
+  // Round a tile too small to ring, it rings a box 8 pixels wide, centred
+  // on the tile.
+  Board.prototype.ringBox = function (x, y, s, colour, lw, alpha) {
+    var dpr = this.dpr, g = this.win && s >= 12 ? this.gap() : 0;
+    var size = Math.max(s - g, 8 * dpr);
+    this.ringAt(Math.round(x) + (s - g - size) / 2, Math.round(y) + (s - g - size) / 2, size, colour, lw * dpr, alpha, this.radius());
+  };
+
+  Board.prototype.ring = function (n, colour, lw, alpha) {
+    var b = this.box(n);
+    if (b) this.ringBox(b.x, b.y, b.s, colour, lw, alpha);
+  };
+
+  Board.prototype.glideRing = function (gl, t, colour, lw) {
+    var a = gl.alpha(t);
+    if (!a || gl.n == null) return;
+    var b = this.box(gl.n);
+    if (!b) return;
+    var o = gl.offset(t);
+    this.ringBox(b.x + o[0] * b.s, b.y + o[1] * b.s, b.s, colour, lw, a);
+    if (gl.moving(t)) this.busy = true;
+  };
+
+  Board.prototype.renderOverlays = function (t) {
+    var th = this.theme;
+    this.renderSpot(t);
+    this.glideRing(this.hoverGlide, t, th.ring, 2);
+    if (this.cursor != null && this.focused && this.keyboard) this.glideRing(this.cursorGlide, t, th.focus, 3);
+    if (this.flash) this.renderFlash(t);
+  };
+
+  // Go to: the tile pulses, and rings spread from it, as sonar does.
+  Board.prototype.renderFlash = function (t) {
+    var age = t - this.flash.t0, b = this.box(this.flash.n), th = this.theme;
+    if (age > 900) { this.flash = null; return; }
+    this.busy = true;
+    if (!b) return;
+    if (still()) { this.ring(this.flash.n, th.focus, 4, 1); return; }
+    this.ring(this.flash.n, th.focus, 4, 0.55 + 0.45 * Math.cos(age / 150 * Math.PI));
+    var size0 = Math.max(b.s, 20 * this.dpr), cx = b.x + b.s / 2, cy = b.y + b.s / 2;
+    for (var j = 0; j < 3; j++) {
+      var u = (age - j * 150) / 550;
+      if (u <= 0 || u >= 1) continue;
+      var size = size0 * (1 + 2.4 * easeOut(u));
+      this.ringAt(cx - size / 2, cy - size / 2, size, th.focus, 2 * this.dpr, 0.7 * (1 - u) * (1 - u), size / 2);
     }
-    if (this.hover != null && this.hover !== p) this.ring(this.hover, t.ring, 2);
-    if (this.cursor != null && this.focused && this.keyboard) this.ring(this.cursor, t.focus, 3);
-    if (this.flash) {
-      var age = global.performance.now() - this.flash.t0;
-      if (age > 1800) this.flash = null;
-      else {
-        this.ring(this.flash.n, t.focus, 4, 0.55 + 0.45 * Math.cos(age / 300 * Math.PI));
-        this.draw();
+  };
+
+  // The prime under the pointer, or under its button: the rest of the board
+  // dims, and a ring comes round each multiple in turn.
+  Board.prototype.spotAlpha = function (t) {
+    var sp = this.spot;
+    if (still()) return sp.dir > 0 ? 1 : 0;
+    return clamp01(sp.a0 + sp.dir * (t - sp.ta) / (sp.dir > 0 ? 70 : 100));
+  };
+
+  Board.prototype.renderSpot = function (t) {
+    var sp = this.spot, h = this.highlight, entry = h != null ? this.model.byNumber.get(h) : null;
+    if (!entry) h = null;
+    if (h !== sp.target) {
+      var a0 = this.spotAlpha(t);
+      if (h != null) {
+        if (h !== sp.p) sp.t0 = t;
+        sp.p = h;
+        sp.slot = entry.slot;
       }
+      sp.a0 = a0;
+      sp.ta = t;
+      sp.dir = h != null ? 1 : -1;
+      sp.target = h;
     }
+    var a = this.spotAlpha(t), w = this.win, p = sp.p;
+    if (a > 0 && a < 1) this.busy = true;
+    if (!a || p == null || !w || this.size < 6) return;
+    var ctx = this.ctx, tiles = w.sd >= 12, g = tiles ? this.gap() : 0, rad = this.radius(), list = [], i, k;
+    for (i = 0; i < w.count; i++) {
+      var n = this.numberOf(i);
+      if (n >= p && n < LIMIT && n % p === 0) list.push(i);
+    }
+    if (tiles) {
+      ctx.fillStyle = rgb(this.theme.board, this.theme.veil * a);
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      this.redraw(list, g, rad);
+    }
+    var colour = this.paint(4 + 2 * sp.slot).ring, lw = Math.max(1, Math.min(2, this.size * 0.045));
+    var many = list.length > 400, gap = many || !list.length ? 0 : Math.min(7, 150 / list.length);
+    for (k = 0; k < list.length; k++) {
+      var m = this.numberOf(list[k]);
+      if (m === p) continue;
+      var ak = many || still() ? a : a * clamp01((t - sp.t0 - k * gap) / 75);
+      if (ak < 1 && ak > 0 && !many) this.busy = true;
+      if (ak > 0) this.ring(m, colour, lw, ak);
+    }
+    this.ring(p, this.theme.ring, lw + 1, a);
+  };
+
+  // Draws the tiles in list again, as they stand, over the veil.
+  Board.prototype.redraw = function (list, g, rad) {
+    var self = this, groups = new Map(), chosen = [], numbers = this.win.sd * 0.42 >= MIN_FONT * this.dpr;
+    list.forEach(function (i) {
+      var code = self.vis[i] > 0 ? self.vis[i] : self.codes[i];
+      var l = groups.get(code);
+      if (!l) groups.set(code, l = []);
+      l.push(i);
+      if (isBright(code)) chosen.push(i);
+    });
+    groups.forEach(function (l, code) { self.fillGroup(code, l, g, rad); });
+    this.renderSheen(chosen, g, rad);
+    if (!numbers) return;
+    this.font = '';
+    this.ink = '';
+    groups.forEach(function (l, code) {
+      var p = self.paint(code);
+      l.forEach(function (i) { self.writeNumber(self.numberOf(i), self.tileBox(i, g), p.text, p.bold, 1); });
+    });
   };
 
   // Input ----------------------------------------------------------------------
@@ -543,12 +1295,16 @@
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       var p = pos(e);
       self.keyboard = false;
-      self.lastPointer = global.performance.now();
+      self.fling = null;
+      self.lastPointer = clock();
       try { cv.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
-      self.pointers.set(e.pointerId, { x: p[0], y: p[1], x0: p[0], y0: p[1], moved: false, type: e.pointerType });
+      self.pointers.set(e.pointerId, { x: p[0], y: p[1], x0: p[0], y0: p[1], moved: false, type: e.pointerType, samples: [] });
       if (self.pointers.size === 2) {
         self.pinch = self.pinchState();
-        self.pointers.forEach(function (q) { q.moved = true; });
+        self.pointers.forEach(function (q) { q.moved = true; q.samples = []; });
+        self.release();
+      } else if (self.pointers.size === 1) {
+        self.pressOn(self.numberAt(p[0], p[1]));
       }
     });
 
@@ -574,8 +1330,14 @@
         dy = p[1] - q.y0;
         cv.classList.add('dragging');
         self.setHover(null);
+        self.release();
       }
-      if (q.moved) self.scrollBy(-dx, -dy);
+      if (q.moved) {
+        var t = clock();
+        q.samples.push([t, p[0], p[1]]);
+        while (q.samples.length > 2 && t - q.samples[0][0] > 120) q.samples.shift();
+        self.scrollBy(-dx, -dy);
+      }
     });
 
     function end(e) {
@@ -584,9 +1346,14 @@
       self.pointers.delete(e.pointerId);
       if (self.pointers.size < 2) self.pinch = null;
       if (!self.pointers.size) cv.classList.remove('dragging');
-      if (e.type === 'pointerup' && !q.moved && !self.pointers.size) {
-        var n = self.numberAt(q.x, q.y);
-        if (n != null && self.opts.onTap) self.opts.onTap(n, q.type);
+      self.release();
+      if (e.type === 'pointerup' && !self.pointers.size) {
+        if (!q.moved) {
+          var n = self.numberAt(q.x, q.y);
+          if (n != null && self.opts.onTap) self.opts.onTap(n, q.type);
+        } else {
+          self.flingFrom(q);
+        }
       }
       if (e.pointerType === 'mouse' && e.type === 'pointerup') {
         var p = pos(e);
@@ -602,6 +1369,7 @@
     cv.addEventListener('wheel', function (e) {
       var k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? self.cssH : 1;
       var dx = e.deltaX * k, dy = e.deltaY * k, p = pos(e);
+      self.fling = null;
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         self.zoomBy(Math.exp(-Math.max(-40, Math.min(40, dy)) * 0.01), p[0], p[1]);
@@ -617,7 +1385,7 @@
     cv.addEventListener('focus', function () {
       self.focused = true;
       // Focus from the Tab key, not a click, starts the cursor at once.
-      if (global.performance.now() - self.lastPointer > 300) {
+      if (clock() - self.lastPointer > 300) {
         self.keyboard = true;
         if (self.cursor == null) self.setCursor(self.topLeft());
       }
@@ -648,12 +1416,12 @@
         case '+':
         case '=':
           e.preventDefault();
-          self.zoomBy(1.25);
+          self.zoomSmooth(1.25);
           return;
         case '-':
         case '_':
           e.preventDefault();
-          self.zoomBy(0.8);
+          self.zoomSmooth(0.8);
           return;
         case 'Escape':
           self.setCursor(null);
@@ -663,6 +1431,7 @@
       }
       e.preventDefault();
       self.keyboard = true;
+      self.fling = null;
       var n = self.cursor;
       if (n == null) n = self.topLeft();
       else if (step === 'home') n -= n % width;

@@ -34,6 +34,10 @@ started it, word for word, off the site with the rest of `docs/`.
       prime
 - [x] The address keeps the width, base, primes and view
 - [x] Light and dark themes
+- [x] Motion: a new prime springs out, its multiples light up in turn, and
+      every other change moves too, with none for reduced motion
+- [x] Glow and sheen on chosen tiles, squared-paper dots round the grid, and
+      a toolbar and status bar in the site's monospace
 - [x] Builder page entry, thumbnail, share card and short address
 - [ ] David tries it, then it is pushed and the address checker run
 - [ ] Try it on a real phone and in Safari
@@ -79,6 +83,14 @@ as OKLCH turned into sRGB.
   the sieve stand out from the ones sieved out.
 - **0 and 1.** Black and white in both themes, each with a thin edge, so they
   show on either board.
+- **The board.** Lighter in the middle, and shading to `boardEdge` at the
+  corners. A dot marks each corner of the squares round the grid, as on
+  squared paper, and the dots stop at the grid's edge.
+- **Glow and sheen.** A chosen tile glows with its own colour: a wide halo,
+  added as light, in dark mode, and a close shadow under the tile in light
+  mode. It also carries a sheen, lighter at the top and darker at the foot.
+  `theme()` holds the strengths, and `veil`, which dims the board round a
+  prime under the pointer.
 
 ## Bases
 
@@ -152,10 +164,12 @@ holds from 1 to 10⁹ numbers.
 
 - Click or tap a grey number to choose it, and a chosen one to remove it.
   Clicking a multiple, 0 or 1 only describes it.
-- Point at a number to describe it in the line under the grid. Point at a
-  chosen number, or its button under the grid, to ring its multiples.
-- Drag, or scroll, to move. At the top of the grid, scrolling up scrolls the
-  page. Pinch, Ctrl + scroll, or − and + under the grid zoom. Fit sizes the
+- Point at a number to describe it in the line under the grid, beside a
+  small tile in its colour. Point at a chosen number, or its button under the
+  grid, to dim the rest of the board and ring its multiples.
+- Drag, or scroll, to move. A drag let go while moving carries on and slows.
+  At the top of the grid, scrolling up scrolls the page. Pinch, Ctrl +
+  scroll, or − and + under the grid zoom. Fit, beside the row width, sizes the
   tiles so that a whole row fits, up to 72 px.
 - Go to jumps to a number, typed in the chosen base, and flashes its tile.
   The box then shows the number as the page writes it.
@@ -166,11 +180,45 @@ holds from 1 to 10⁹ numbers.
   chooses or removes, + and − zoom, and Escape hides the cursor. Tab to the
   grid, and the cursor starts on the first tile in view.
 - Anywhere outside a text box: N is Next prime, and Ctrl+Z or Cmd+Z is Undo.
+  Both buttons show their key, except on a touch screen.
 - A screen reader hears each change and each cursor move, but not the
   pointer passing over tiles.
 
 The first view fits ten rows of ten, 0 to 99, as the classroom hundred square
 does.
+
+## Motion
+
+The board moves only to show a change, and no move takes more than 0.9 s,
+the length of the Go to pulse.
+
+- **A new prime** springs past its size and back, and sends out a ring in its
+  colour. Its multiples in view then light up one after another, in the
+  order of their numbers, as the sieve reaches them. Each flashes the prime's
+  bright colour, sinks a little, and settles to the pale colour. The run
+  takes 0.35 s at most, however many multiples are in view.
+- **A removal** greys the prime, and its multiples change back in turn over
+  0.21 s. Clear, Undo and a new address run every change in number order
+  over 0.3 s.
+- **A large change.** When more than 2,500 tiles in view change, or the tiles
+  are too small to draw one by one, the change spreads as one circle from
+  the prime, or from the middle of the board.
+- **The opening** brings the tiles in from the top left, one diagonal after
+  another.
+- **Jumps.** Go to, Fit, and a new width, base or theme fade the old board
+  out over 0.12 s. Go to then sends three rings out from its tile.
+- **The pointer.** The ring round the number under the pointer glides from
+  tile to tile, and so does the keyboard cursor. A pressed tile sinks a
+  little. The zoom buttons and the + and − keys ease to their size.
+- **The buttons** of the primes spring in when chosen, and slide to their
+  new places when one goes.
+- **Reduced motion.** When the system asks for reduced motion, every change
+  shows at once, and nothing glides, fades or carries on.
+
+A move follows the time since it began, not the count of frames, so it runs
+at one speed at any frame rate. The model keeps no record of a change for the
+board. `animate()` in `board.js` compares the tiles drawn before a change
+with the tiles after it, and moves the ones that differ.
 
 ## The address
 
@@ -205,8 +253,10 @@ each chosen number walks one range; otherwise it walks each row.
 - **Smaller tiles** go into an image, one pixel per tile, which the canvas
   scales up without smoothing. Below 12 device pixels the tile size snaps to
   a whole number of pixels, so every tile is the same size.
-- The page draws only when something changes, and runs frames only while a
-  Go to flash lasts.
+- **A tile in motion** is drawn on its own, over the rest. A tile still
+  waiting its turn stays in its old colour's path.
+- The page draws only when something changes, and runs frames only while
+  something moves.
 
 Measured in headless Chromium, on a board of 1216 × 590 CSS px at twice the
 pixel density: the script's time to build one frame, after a scroll, over
@@ -214,14 +264,21 @@ nine frames.
 
 | Case | Tile | Median | Longest |
 |---|---|---|---|
-| 25 primes, width 210, at 0 | 1 px | 1.1 ms | 2.3 ms |
-| 25 primes, width 210, at 0 | 24 px | 1.3 ms | 2.0 ms |
-| 500 primes, width 210, at 10⁶ | 24 px | 2.1 ms | 2.4 ms |
-| 2,000 primes, width 1,000, at 10⁹ | 1 px | 7.2 ms | 8.8 ms |
-| 500 primes, width 10⁹, at 5 × 10¹⁴ | 1 px | 13.6 ms | 16.7 ms |
+| 25 primes, width 210, at 0 | 1 px | 1.5 ms | 1.8 ms |
+| 25 primes, width 210, at 0 | 24 px | 1.3 ms | 1.8 ms |
+| 500 primes, width 210, at 10⁶ | 24 px | 1.9 ms | 2.1 ms |
+| 2,000 primes, width 1,000, at 10⁹ | 1 px | 7.0 ms | 8.5 ms |
+| 500 primes, width 10⁹, at 5 × 10¹⁴ | 1 px | 12.5 ms | 15.1 ms |
 
 The last case is the slowest there is: 717,000 tiles in view, none of them in
-whole rows, so each chosen number walks all 590 rows.
+whole rows, so each chosen number walks all 590 rows. The glow, sheen and
+dots add under 0.3 ms to any case, measured on the same machine against the
+board before them.
+
+While a change moves, the page holds 60 frames a second in a visible
+Chromium at twice the pixel density. The heaviest case tried, Clear with ten
+primes at width 210 and 24 px tiles, moves about 1,100 tiles at once and
+dropped one frame in 90.
 
 ## Files
 
@@ -229,7 +286,7 @@ whole rows, so each chosen number walks all 590 rows.
 |---|---|
 | `app/sieve/index.html` | The page: its styles, the controls, the status line, the prime buttons, the address, and the text |
 | `app/sieve/model.js` | The rules, the tile codes, the bases and the colours. No drawing, so Node can run it |
-| `app/sieve/board.js` | The board: the view, drawing, and pointer, wheel and key input |
+| `app/sieve/board.js` | The board: the view, drawing, motion, and pointer, wheel and key input |
 | `app/sieve/pitman.woff` | Pitman's two dozenal digits, for the text boxes |
 | `docs/sieve/original-prompt.md` | The prompt that started the app, word for word |
 | `redirects/sieve.html` | The short address, drbuild.uk/sieve |

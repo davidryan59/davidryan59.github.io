@@ -40,20 +40,38 @@
     unicode-range: U+218A-218B;
   }
 
+  /* Colours the page adds to the site's own. The bar under the board sits
+     between the board and the page, and the shadows lift the board off it. */
+  :root {
+    --bar: light-dark(#faf7f0, #1a1a1f);
+    --lift: light-dark(rgba(80, 60, 20, 0.16), rgba(0, 0, 0, 0.55));
+    --press: light-dark(rgba(80, 60, 20, 0.1), rgba(0, 0, 0, 0.4));
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+  /* The toolbar. Labels are small capitals in the monospace, as the site's
+     severity badges are, and every value a visitor types is monospace, so
+     the digits line up as they do on the tiles. */
   .controls {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.55rem 1.2rem;
-    margin: 0 0 0.7rem;
+    margin: 0 0 0.8rem;
     font: 0.92rem "Sieve Pitman Digits", system-ui, -apple-system, "Segoe UI", sans-serif;
     color: var(--muted);
   }
-  .field { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin: 0; }
-  .field label { white-space: nowrap; }
+  .field { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0; }
+  .field > label {
+    white-space: nowrap;
+    font: 600 0.68rem/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
   .controls input,
   .controls select,
-  .controls button {
+  .controls button,
+  .zoom button {
     font: inherit;
     color: var(--h1);
     background: var(--panel);
@@ -61,15 +79,26 @@
     border-radius: 8px;
     padding: 0.4rem 0.6rem;
     min-height: 2.3rem;
+    box-shadow: 0 1px 0 var(--press);
+    transition: border-color 0.075s ease, background-color 0.075s ease, color 0.075s ease,
+                box-shadow 0.075s ease, transform 0.04s ease;
   }
+  .controls input { font-family: "Sieve Pitman Digits", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .controls input::placeholder { color: var(--muted); opacity: 0.8; }
   .controls select { padding-right: 0.3rem; cursor: pointer; }
   .controls button { cursor: pointer; }
   .controls input:focus-visible,
   .controls select:focus-visible,
-  .controls button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+  .controls button:focus-visible,
+  .zoom button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; position: relative; }
+  .controls input:hover,
+  .controls input:focus,
   .controls button:hover:not(:disabled),
-  .controls select:hover { border-color: var(--link); }
-  .controls button:disabled { opacity: 0.45; cursor: default; }
+  .controls select:hover,
+  .zoom button:hover { border-color: var(--link); }
+  .controls button:active:not(:disabled),
+  .zoom button:active { transform: translateY(1px); box-shadow: none; }
+  .controls button:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
   .stepper { display: inline-flex; }
   .stepper button { width: 2.3rem; padding: 0; font-size: 1.1rem; line-height: 1; }
   .stepper button:first-child { border-radius: 8px 0 0 8px; }
@@ -81,23 +110,44 @@
     border-left: 0;
     border-right: 0;
   }
-  #goto { width: 12ch; }
+  .stepper input:hover,
+  .stepper input:focus { border-color: var(--rule); }
+  #goto { width: 13.5ch; }
   /* The options explain themselves, so the closed menu is kept to its label. */
   #preset { width: 7.6rem; }
   .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-left: auto; }
-  .actions button { font-weight: 600; padding: 0.4rem 1rem; }
+  .actions button { font-weight: 600; padding: 0.4rem 0.95rem; }
+  /* Next prime is the move the sieve is made of, so it carries the ink. */
+  .actions .primary { color: var(--bg); background: var(--h1); border-color: var(--h1); }
+  .actions .primary:hover:not(:disabled) { background: var(--link); border-color: var(--link); }
+  /* The keys, beside the buttons they press. A touch screen has none. */
+  kbd {
+    display: inline-block;
+    margin-left: 0.55em;
+    padding: 0.08em 0.38em 0.04em;
+    font: 500 0.7rem/1.3 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    opacity: 0.5;
+    vertical-align: 0.08em;
+  }
+  @media (hover: none) { kbd { display: none; } }
 
-  /* The board fills the width and most of the window, and leaves room
-     above it to scroll the page on a phone, where a drag on the board
-     moves the grid. */
-  .stage {
-    position: relative;
-    height: clamp(320px, calc(100vh - 17rem), 1000px);
-    height: clamp(320px, calc(100svh - 17rem), 1000px);
+  /* The board and the bar under it are one frame, as an editor's window
+     and its status bar are. The board fills the width and most of the
+     window, and leaves room above it to scroll the page on a phone, where a
+     drag on the board moves the grid. */
+  .frame {
     border: 1px solid var(--rule);
     border-radius: 12px;
     overflow: hidden;
     background: var(--panel);
+    box-shadow: 0 1px 2px var(--press), 0 18px 40px -26px var(--lift);
+  }
+  .stage {
+    position: relative;
+    height: clamp(320px, calc(100vh - 17.5rem), 1000px);
+    height: clamp(320px, calc(100svh - 17.5rem), 1000px);
   }
   .stage canvas {
     display: block;
@@ -117,34 +167,45 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
-    align-items: baseline;
-    gap: 0.2rem 1.5rem;
-    min-height: 2.9em;
-    margin: 0.55rem 0 0.35rem;
-    font: 0.95rem/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    align-items: center;
+    gap: 0.35rem 1.5rem;
+    min-height: 3.4rem;
+    padding: 0.45rem 0.55rem 0.45rem 0.9rem;
+    border-top: 1px solid var(--rule);
+    background: var(--bar);
+    font: 0.93rem/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
   }
+  .readout { display: flex; align-items: baseline; gap: 0.6rem; flex: 1 1 30rem; min-width: 0; }
   .status p { margin: 0; }
-  #info { flex: 1 1 30rem; color: var(--h2); }
-  .view { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; }
-  #range { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+  #info { color: var(--h2); }
+  /* A small tile in the colour of the number the line describes. */
+  .swatch {
+    flex: none;
+    width: 0.78rem;
+    height: 0.78rem;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px var(--ring);
+    transform: translateY(0.08rem);
+    transition: background-color 0.075s ease;
+  }
+  .view { display: flex; align-items: center; gap: 0.8rem; margin-left: auto; }
+  #range { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
   /* Below the board, not over it, so they never hide a tile. */
   .zoom { display: inline-flex; }
   .zoom button {
     min-width: 2.2rem;
+    min-height: 2rem;
     height: 2rem;
     padding: 0 0.55rem;
     font: 600 1rem system-ui, -apple-system, "Segoe UI", sans-serif;
-    color: var(--h1);
-    background: var(--panel);
-    border: 1px solid var(--rule);
+    border-radius: 0;
     border-left-width: 0;
     cursor: pointer;
   }
   .zoom button:first-child { border-left-width: 1px; border-radius: 8px 0 0 8px; }
-  .zoom button:last-child { border-radius: 0 8px 8px 0; font-size: 0.8rem; }
-  .zoom button:hover { border-color: var(--link); border-left-width: 1px; margin-left: -1px; }
+  .zoom button:last-child { border-radius: 0 8px 8px 0; }
+  .zoom button:hover { border-left-width: 1px; margin-left: -1px; }
   .zoom button:first-child:hover { margin-left: 0; }
-  .zoom button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; position: relative; }
   .visually-hidden {
     position: absolute;
     width: 1px;
@@ -154,29 +215,44 @@
     white-space: nowrap;
   }
 
+  /* The primes, in the order chosen, as keys in their own colours. */
   .chips {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.35rem;
-    max-height: 7.8rem;
+    gap: 0.42rem;
+    max-height: 8.2rem;
     overflow-y: auto;
-    margin: 0 0 var(--gap-para);
+    margin: 0.85rem 0 var(--gap-para);
+    padding: 2px 0 4px;
     font: 0.85rem system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  .chips-label { color: var(--muted); margin-right: 0.3rem; }
+  .chips-label {
+    color: var(--muted);
+    margin-right: 0.35rem;
+    font: 600 0.68rem ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
   .chip {
     display: inline-flex;
     align-items: baseline;
     gap: 0.3rem;
     font: 700 0.85rem ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     border: 0;
-    border-radius: 6px;
-    padding: 0.25rem 0.5rem;
+    border-radius: 7px;
+    padding: 0.28rem 0.55rem 0.34rem;
     cursor: pointer;
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transition: transform 0.06s ease, box-shadow 0.075s ease;
   }
+  .chip:hover {
+    transform: translateY(-1px);
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 6px 14px -5px var(--c);
+  }
+  .chip:active { transform: translateY(1px); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.16); }
   .chip small { font-weight: 400; font-size: 0.72rem; opacity: 0.8; }
-  .chip .x { font-weight: 400; opacity: 0.65; }
+  .chip .x { font-weight: 400; opacity: 0.55; transition: opacity 0.06s ease; }
   .chip:hover .x { opacity: 1; }
   .chip:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 
@@ -190,6 +266,10 @@
     h1 { font-size: 1.55rem; }
     .actions { margin-left: 0; }
     .controls { gap: 0.5rem 0.9rem; }
+    .status { padding-left: 0.7rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .controls *, .zoom button, .chip, .swatch { transition: none; }
   }
 </style>
 </head>
@@ -225,32 +305,37 @@
       <button type="button" id="wider" aria-label="One number more in each row">+</button>
     </span>
     <select id="preset" aria-label="Row width presets"></select>
+    <button type="button" id="fit" title="Zoom to fit a whole row">Fit</button>
   </div>
   <form class="field" id="goto-form">
     <label for="goto">Go to</label>
     <input id="goto" type="text" inputmode="numeric" placeholder="any number" autocomplete="off" enterkeyhint="go">
   </form>
   <div class="actions">
-    <button type="button" id="next" title="Choose the smallest grey number (N)">Next prime</button>
-    <button type="button" id="undo" title="Undo the last change (Ctrl+Z)" disabled>Undo</button>
+    <button type="button" id="next" class="primary" title="Choose the smallest grey number (N)" aria-keyshortcuts="N">Next prime<kbd aria-hidden="true">N</kbd></button>
+    <button type="button" id="undo" title="Undo the last change (Ctrl+Z)" aria-keyshortcuts="Control+Z Meta+Z" disabled>Undo<kbd id="undo-key" aria-hidden="true">Ctrl Z</kbd></button>
     <button type="button" id="clear" title="Remove every prime" disabled>Clear</button>
   </div>
 </div>
 
-<div class="stage">
-  <canvas id="board" tabindex="0" role="application" aria-roledescription="number grid"
-          aria-label="The grid of numbers. The arrow keys move a cursor, and Enter chooses or removes its number."></canvas>
-</div>
+<div class="frame">
+  <div class="stage">
+    <canvas id="board" tabindex="0" role="application" aria-roledescription="number grid"
+            aria-label="The grid of numbers. The arrow keys move a cursor, and Enter chooses or removes its number."></canvas>
+  </div>
 
-<div class="status">
-  <p id="info"></p>
-  <div class="view">
-    <span id="range"></span>
-    <span class="zoom" role="group" aria-label="Zoom">
-      <button type="button" id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
-      <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
-      <button type="button" id="fit" title="Zoom to fit a whole row">Fit</button>
-    </span>
+  <div class="status">
+    <div class="readout">
+      <span id="swatch" class="swatch" aria-hidden="true" hidden></span>
+      <p id="info"></p>
+    </div>
+    <div class="view">
+      <span id="range" class="mono"></span>
+      <span class="zoom" role="group" aria-label="Zoom">
+        <button type="button" id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+        <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+      </span>
+    </div>
   </div>
 </div>
 <p id="say" class="visually-hidden" aria-live="polite"></p>
@@ -324,9 +409,11 @@
   <ul>
     <li>Click or tap a grey number to choose it, and a chosen one to remove it. The line under the
       grid describes the number under the pointer.</li>
-    <li>Point at a chosen prime, or at its button under the grid, to ring its multiples.</li>
-    <li>Drag or scroll to move. Pinch, Ctrl + scroll or the + and − buttons under the grid zoom,
-      and Fit sizes the tiles so that a whole row fits.</li>
+    <li>Point at a chosen prime, or at its button under the grid, to dim the rest of the grid and
+      ring its multiples.</li>
+    <li>Drag or scroll to move, and let go of a drag while moving to send the grid gliding.
+      Pinch, Ctrl + scroll or the + and − buttons under the grid zoom, and Fit, beside the row
+      width, sizes the tiles so that a whole row fits.</li>
     <li>The row width and Go to take numbers in the chosen base. In the width box, the up and
       down arrow keys add or take away one.</li>
     <li>With the grid focused, the arrow keys move a cursor, Enter chooses or removes its number,
@@ -345,10 +432,13 @@
   var Sieve = window.Sieve, LIMIT = Sieve.LIMIT, g = Sieve.grouped;
   function $(id) { return document.getElementById(id); }
   var canvas = $('board'), info = $('info'), say = $('say'), rangeOut = $('range'), chips = $('chips');
-  var widthIn = $('width'), preset = $('preset'), baseIn = $('base'), gotoIn = $('goto');
+  var widthIn = $('width'), preset = $('preset'), baseIn = $('base'), gotoIn = $('goto'), swatch = $('swatch');
   var touch = matchMedia('(hover: none)').matches, verb = touch ? 'Tap' : 'Click';
+  var motion = matchMedia('(prefers-reduced-motion: reduce)');
   var model = new Sieve.Model();
-  var shown = null, smallest = null, ready = false, saveTimer = 0;
+  var shown = null, swatchOf = null, smallest = null, ready = false, saveTimer = 0;
+
+  if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) $('undo-key').textContent = '⌘Z';
 
   var board = new Sieve.Board(canvas, model, {
     onTap: tap,
@@ -530,11 +620,24 @@
   }
 
   // Shows text under the grid. aloud also reads it to a screen reader, for
-  // changes and keyboard moves but not for the pointer passing over.
-  function tell(text, aloud) {
+  // changes and keyboard moves but not for the pointer passing over. n, if
+  // given, is the number the text describes, and a small tile beside the
+  // text takes its colour.
+  function tell(text, aloud, n) {
     info.textContent = '';
     appendText(info, text);
     if (aloud) say.textContent = text;
+    showSwatch(n);
+  }
+
+  function showSwatch(n) {
+    swatchOf = n == null ? null : n;
+    swatch.hidden = swatchOf == null;
+    if (swatchOf == null) return;
+    var k = model.kindOf(n), C = Sieve.CODES;
+    var code = k.kind === 'zero' ? C.ZERO : k.kind === 'one' ? C.ONE : k.kind === 'grey' ? C.GREY
+      : k.kind === 'chosen' ? 5 + 2 * k.entry.slot : 4 + 2 * k.entry.slot;
+    swatch.style.background = board.paint(code).fill;
   }
 
   function showRange() {
@@ -547,15 +650,18 @@
     shown = n;
     board.highlight = n != null && model.byNumber.has(n) ? n : null;
     board.draw();
-    tell(describe(n), aloud);
+    tell(describe(n), aloud, n);
   }
 
   // Changes ----------------------------------------------------------------------
 
-  function changed() {
+  // After each change of the primes. what says what changed, so the board
+  // can move the tiles it touched: { n, add } for one number, or {} for
+  // several at once.
+  function changed(what) {
     smallest = null;
-    board.draw();
-    renderChips();
+    board.changed(what);
+    renderChips(true);
     $('undo').disabled = !model.past.length;
     $('clear').disabled = !model.list.length;
     saveSoon();
@@ -563,26 +669,25 @@
 
   function tap(n) {
     var k = model.kindOf(n), before = '';
-    if (k.kind === 'grey') model.choose(n);
-    else if (k.kind === 'chosen') { model.remove(n); before = 'Removed ' + num(n) + '. '; }
-    if (k.kind === 'grey' || k.kind === 'chosen') changed();
+    if (k.kind === 'grey') { model.choose(n); changed({ n: n, add: true }); }
+    else if (k.kind === 'chosen') { model.remove(n); changed({ n: n, add: false }); before = 'Removed ' + num(n) + '. '; }
     shown = n;
-    tell(before + describe(n), true);
+    tell(before + describe(n), true, n);
   }
 
   function next() {
     var n = model.nextGrey();
     if (n == null) return;
     model.choose(n);
-    changed();
+    changed({ n: n, add: true });
     shown = n;
-    tell(describe(n), true);
+    tell(describe(n), true, n);
   }
 
   function undo() {
     var step = model.undo();
     if (!step) return;
-    changed();
+    changed(step.add ? { n: step.add.n, add: false } : step.remove ? { n: step.remove.n, add: true } : {});
     tell(step.add ? 'Took back ' + num(step.add.n) + '.'
       : step.remove ? 'Brought back ' + num(step.remove.n) + '.'
       : 'Brought back all ' + num(step.clear.length) + ' of your primes.', true);
@@ -590,18 +695,25 @@
 
   function clearAll() {
     if (!model.clear()) return;
-    changed();
+    changed({});
     tell('Cleared. Every number from 2 up is grey again, and Undo brings your primes back.', true);
   }
 
   function highlight(n) {
     board.highlight = n;
     board.draw();
-    if (n != null) tell(describe(n), false);
+    if (n != null) tell(describe(n), false, n);
   }
 
-  function renderChips() {
+  // Rebuilds the row of primes. After a change, the buttons that stay slide
+  // to their new places, and a new one springs in.
+  function renderChips(animate) {
     var focused = chips.contains(document.activeElement) ? [].indexOf.call(chips.querySelectorAll('.chip'), document.activeElement) : -1;
+    var was = new Map();
+    animate = animate && !motion.matches && typeof chips.animate === 'function';
+    if (animate) {
+      [].forEach.call(chips.querySelectorAll('.chip'), function (c) { was.set(c.dataset.n, c.getBoundingClientRect()); });
+    }
     chips.textContent = '';
     chips.hidden = !model.list.length;
     if (!model.list.length) return;
@@ -614,8 +726,10 @@
       var c = Sieve.slotColours(e.slot, dark), b = document.createElement('button');
       b.type = 'button';
       b.className = 'chip';
+      b.dataset.n = e.n;
       b.style.background = Sieve.css(c.bright);
       b.style.color = Sieve.css(c.brightText);
+      b.style.setProperty('--c', Sieve.css(c.bright));
       // The number goes in one span, so the chip's gap falls only between
       // the number, its decimal value and the ×.
       var figures = document.createElement('span');
@@ -636,7 +750,7 @@
       b.setAttribute('aria-label', 'Remove ' + num(e.n));
       b.addEventListener('click', function () {
         model.remove(e.n);
-        changed();
+        changed({ n: e.n, add: false });
         tell('Removed ' + num(e.n) + '.', true);
       });
       b.addEventListener('pointerenter', function () { highlight(e.n); });
@@ -648,6 +762,24 @@
     // After a removal from the keyboard, focus stays in the row of chips.
     var all = chips.querySelectorAll('.chip');
     if (focused >= 0 && all.length) all[Math.min(focused, all.length - 1)].focus();
+    if (!animate) return;
+    var fresh = 0;
+    [].forEach.call(all, function (b) {
+      var from = was.get(b.dataset.n);
+      if (!from) {
+        b.animate([
+          { transform: 'scale(0.3)', opacity: 0 },
+          { transform: 'scale(1.12)', opacity: 1, offset: 0.6 },
+          { transform: 'none', opacity: 1 }
+        ], { duration: 190, delay: Math.min(fresh++, 24) * 11, easing: 'ease-out', fill: 'backwards' });
+        return;
+      }
+      var to = b.getBoundingClientRect(), dx = from.left - to.left, dy = from.top - to.top;
+      if (dx || dy) {
+        b.animate([{ transform: 'translate(' + dx + 'px, ' + dy + 'px)' }, { transform: 'none' }],
+          { duration: 150, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+      }
+    });
   }
 
   // The address ------------------------------------------------------------------
@@ -698,6 +830,7 @@
       board.fit(10);
     }
     board.showAtTopLeft(Number.isInteger(at) && at >= 0 && at < LIMIT ? at : 0);
+    board.reset();
     smallest = null;
     renderChips();
     $('undo').disabled = true;
@@ -770,7 +903,7 @@
     setInputModes();
     renderChips();
     showRange();
-    if (shown != null) tell(describe(shown), false);
+    if (shown != null) tell(describe(shown), false, shown);
     saveSoon();
   });
 
@@ -784,14 +917,14 @@
     gotoIn.value = Sieve.write(n, board.base);
     board.goTo(n);
     shown = n;
-    tell(describe(n), true);
+    tell(describe(n), true, n);
   });
 
   $('next').addEventListener('click', next);
   $('undo').addEventListener('click', undo);
   $('clear').addEventListener('click', clearAll);
-  $('zoom-in').addEventListener('click', function () { board.zoomBy(1.25); });
-  $('zoom-out').addEventListener('click', function () { board.zoomBy(0.8); });
+  $('zoom-in').addEventListener('click', function () { board.zoomSmooth(1.25); });
+  $('zoom-out').addEventListener('click', function () { board.zoomSmooth(0.8); });
   $('fit').addEventListener('click', function () { board.fit(); });
 
   document.addEventListener('keydown', function (e) {
@@ -806,17 +939,23 @@
     if (e.key === 'n' || e.key === 'N') next();
   });
 
-  // The theme toggle sets data-theme, and the board and chips follow it.
+  // The theme toggle sets data-theme, and the board, chips and swatch
+  // follow it.
   new MutationObserver(function () {
     board.setTheme(isDark());
     renderChips();
+    showSwatch(swatchOf);
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-  window.addEventListener('hashchange', load);
+  window.addEventListener('hashchange', function () {
+    load();
+    board.intro();
+  });
 
   board.setTheme(isDark());
   board.resize();
   load();
+  board.intro();
   new ResizeObserver(function () { board.resize(); }).observe(canvas);
   ready = true;
 })();
