@@ -1,7 +1,7 @@
 # Thumbnails
 
 The builder page shows a 120 px picture beside most of its entries. The two
-NFT pictures are the artworks themselves. The other nine live in `assets/thumbs/`,
+NFT pictures are the artworks themselves. The other ten live in `assets/thumbs/`,
 and one script here draws each of them. The scripts need only Node. Each
 prints the file it wrote and the file's size. Rerun a script after you change
 it, then check the result with `frames.js`.
@@ -11,6 +11,7 @@ it, then check the result with `frames.js`.
 | `assets/thumbs/tiling-explorer.svg` | `tiling-explorer.js` | A patch of the Hat tiling that morphs from chevron to comet and back on a 10 s loop: 0.5 s still, 4.5 s sliding, each way. Light-mode Pastel colours, drawn from the explorer's own engine in `app/tiles/` |
 | `assets/thumbs/aperiodic-pairs.svg` | `aperiodic-pairs.js` | Penrose kites and darts in the gallery's light colours, zooming in and out about the central sun over 7 s |
 | `assets/thumbs/dice-to-seed.svg` | `dice-to-seed.js` | Six red dice thrown into the corner of a craps table. They settle, rest and fade on an 11 s loop |
+| `assets/thumbs/pentrys.svg` | `pentrys.js` | A still: a glowing X falls above a stack of six pieces in a dark well. The colours and lighting are the game's own, from `app/pentrys/pieces.js` and `app/pentrys/draw.js` |
 | `assets/thumbs/smash.svg` | `smash.js` | A monitor showing a white web page takes a hammer blow: cracks, black ink, then lines of stuck pixels, and back to whole on an 8 s loop. The damage is the page's own, from `app/smash/damage.js` with seed 7 |
 | `assets/thumbs/sieve.svg` | `sieve.js` | A hundred square, 0 to 99. 2, 3, 5 and 7 are chosen in turn and their multiples turn pale, until only primes stay grey, then it fades back on an 8 s loop. The rules and colours are the page's own, from `app/sieve/model.js` |
 | `assets/thumbs/retuner.svg` | `retuner.js` | The left half of ReTuner's keyboard. The note keys breathe and the octave rings turn, slowly |
@@ -23,7 +24,7 @@ Run any of them from anywhere, for example `node tools/thumbnails/dino-dash.js`.
 ## Notes
 
 - The page clips the tilings, ReTuner and Highlight Buffs to a circle, like
-  the NFT artworks. It shows the dice, Smash Screen, the sieve and the two games as rounded squares:
+  the NFT artworks. It shows the dice, Pentrys, Smash Screen, the sieve and the two games as rounded squares:
   `.thumb-link.square` in `index.html`.
 - The game pictures use each game's own colours and sprites, ported from its
   repo. The ReTuner keys are measured from a screenshot of the live app.

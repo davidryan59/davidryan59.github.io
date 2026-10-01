@@ -1,6 +1,7 @@
 /* Measures Pentrys's frames in headless Chromium, at 1280 x 800 and twice
-   the pixel density: a frame's own work during play and during a Pentrys
-   clear, and the gaps between frames while the title screen's game plays.
+   the pixel density: a frame's own work during play, a Quad clear, a
+   deluge and a blast, and the gaps between frames while the title screen's
+   game plays.
    It measures at full speed, then with the processor slowed four times. See
    Speed on old machines in docs/pentrys.md, where the numbers are kept.
 
@@ -41,12 +42,23 @@ async function launch() {
     }
     const play = await frames();
 
-    // A Pentrys: lesson 10's answer, through the clear and its celebration.
-    await page.goto(PAGE + '#mode=tutorial&lesson=10'); await page.reload(); await wait(600);
-    await page.keyboard.press('KeyX');
-    for (let i = 0; i < 5; i++) { await page.keyboard.press('ArrowRight'); await wait(30); }
+    // A Quad: lesson 16's answer, through the clear and its celebration.
+    await page.goto(PAGE + '#mode=tutorial&lesson=16'); await page.reload(); await wait(600);
+    await page.keyboard.press('KeyC');
+    for (let i = 0; i < 4; i++) { await page.keyboard.press('ArrowLeft'); await wait(30); }
+    await page.keyboard.press('Space'); await wait(100); await page.keyboard.press('KeyX');
+    for (let i = 0; i < 9; i++) { await page.keyboard.press('ArrowRight'); await wait(30); }
     await reset(); await page.keyboard.press('Space'); await wait(1000);
     const clear = await frames();
+
+    // A deluge and a bomb: the answers to lessons 11 and 12, through their effects.
+    const lesson = async (n, rights) => {
+      await page.goto(PAGE + '#mode=tutorial&lesson=' + n); await page.reload(); await wait(600);
+      for (let i = 0; i < rights; i++) { await page.keyboard.press('ArrowRight'); await wait(30); }
+      await reset(); await page.keyboard.press('Space'); await wait(1000);
+      return frames();
+    };
+    const deluge = await lesson(11, 2), blast = await lesson(12, 1);
 
     // The gaps between frames while the title screen's game plays.
     await page.goto(PAGE); await page.reload(); await wait(800);
@@ -56,7 +68,9 @@ async function launch() {
     }));
     console.log(`Processor ${rate === 1 ? 'at full speed' : 'slowed ' + rate + ' times'}`);
     console.log('  play, a frame\'s work:            ' + stats(play));
-    console.log('  a Pentrys clear, a frame\'s work: ' + stats(clear));
+    console.log('  a Quad clear, a frame\'s work:    ' + stats(clear));
+    console.log('  a deluge, a frame\'s work:       ' + stats(deluge));
+    console.log('  a blast, a frame\'s work:        ' + stats(blast));
     console.log('  title screen, between frames:    ' + stats(gaps));
     await ctx.close();
   }

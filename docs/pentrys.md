@@ -10,11 +10,12 @@ the stack reaches the top.
 
 Two rules are new. Some squares are special, and a row clears when its
 squares add up to the width of the well. A 2 lets its row clear with one
-gap and a 3 with two, glass counts nothing, and a flood square fills the
-gaps beside and below it as it lands. The queue of the next four pieces
-also cycles without limit, so the player picks which one falls next. Other
-games already have falling pentominoes, all 29 pieces of one to five
-squares, a flip control and a choice of well width.
+gap and a 3 with two, and glass counts nothing. Floods and deluges fill
+gaps as they land, a bomb blasts a hole, and a row bomb clears its whole
+row. The queue of the next four pieces also cycles without limit, so the
+player picks which one falls next. Other games already have falling
+pentominoes, all 29 pieces of one to five squares, a flip control and a
+choice of well width.
 [Similar games](#similar-games) lists them. No game found gives a square a
 value towards its row, or lets the player cycle the queue.
 
@@ -34,22 +35,28 @@ comes later. David's request is kept word for word in
 - [x] The rules in `rules.js`: the well, choosing pieces, the queue and its
       cycle, special squares, falling, locking, the flood, clearing,
       scoring, levels and the modes
-- [x] Tests for both, in Node: 42, all passing
+- [x] Tests for both, in Node
 - [x] A simulated player in Node, and its first measurements
 - [x] The page: the well, the queue, the score, and keyboard and touch
       controls, in the look of the still frame
 - [x] The motion, the celebrations, the title screen's game, pause and game
       over
-- [x] The tutorial's eleven lessons
+- [x] The tutorial's lessons: thirteen basics, then eight advanced
 - [x] Settings, the controls screen, high scores and the address
 - [x] Sound effects, not yet heard by a person: a headless browser plays
       no sound
 - [x] Frame times measured, at full speed and on a slowed processor
 - [x] The short address, drbuild.uk/pentrys
-- [ ] David plays each mode, and the speeds and special-square rates are
-      tuned
+- [x] David's first review: each square special on its own, the deluge,
+      bombs and row bombs, three ways for glass to break, the Pure, Plus
+      and Pentrys square sets, left-handed keys, combo scoring and its
+      display, and a gentler climb in speed
+- [x] Tests in Node: 80, all passing
+- [x] The builder page entry and its picture
+- [ ] David plays each mode again, and the speeds and special-square rates
+      are tuned
 - [ ] Try it on a real phone and in Safari
-- [ ] The builder page entry, the share card and the builder picture
+- [ ] The share card
 - [ ] Music, later
 - [ ] Install on a phone as an app, later
 
@@ -186,57 +193,139 @@ and `tools/pentrys/colours.html` shows them all.
 
 ## Special squares
 
-A plain square is worth 1. Four kinds of special square change that.
+A plain square is worth 1. Seven kinds of special square change that, or
+act as they land.
 
 | Square | Chance, per square | Worth | What it does |
 |---|---|---|---|
-| 2 | 1 in 20 | 2 | Its row clears with one gap |
+| 2 | 1 in 25 | 2 | Its row clears with one gap |
 | 3 | 1 in 100 | 3 | Its row clears with two gaps |
-| Glass | 1 in 200 | 0 | Solid, but counts nothing: its row needs a 2 or a 3 to clear |
-| Flood | 1 in 200 | 1 | When its piece locks, it fills the gaps beside it and below it |
+| Glass | 1 in 100 | 0 | Solid, but counts nothing: its row needs a 2 or a 3. It also breaks three ways |
+| Flood | 1 in 100 | 1 | Fills the gaps beside it and below it as it lands |
+| Deluge | 1 in 300 | 1 | Fills the gaps a flood would, and every hole they lead to, however deep |
+| Bomb | 1 in 50 | – | Destroys every square in the 3 × 3 block round it as it lands, its own piece included |
+| Row bomb | 1 in 300 | – | Clears its whole row as it lands, whatever the row holds |
 
-- A piece carries one special square at most. The game decides when the
-  piece joins the queue. A piece of n squares carries one with chance
-  n × 7/100. It is a 2, a 3, glass or a flood in the ratio 10 : 2 : 1 : 1,
-  on a square chosen at random. The long-run rates stay exactly as the
-  table says.
-- A five-square piece carries one about 1 time in 3, and a single square 1
-  time in 14. Across all shapes, 3 pieces in 10 carry one.
-- The rates are high on purpose. Clean rows are hard to build from
-  five-square pieces, and the 2s pay for the glass.
-- A special square shows from the moment its piece joins the queue, and
-  moves with its piece through the queue, rotation and flip. [Style](#style)
-  says how each looks.
+- Each square of a new piece is special or not on its own, at the rates
+  above, so a piece can carry several special squares.
+- 1 piece in 3 carries at least one. 1 in 17 carries two or more, 1 in 190
+  three or more, 1 in 4,000 four or more, and about 1 in 200,000 carries
+  five.
+- The game decides when the piece joins the queue. A special square shows
+  from that moment, and moves with its piece through the queue, rotation
+  and flip. [Style](#style) says how each looks.
+- Glass comes as often as a 3, since three things break it.
+
+### Square sets
+
+The title screen offers three sets of special squares, and every mode plays
+with any of them.
+
+| Set | Special squares |
+|---|---|
+| Pure | None: the 21 shapes and nothing else |
+| Plus | 2s and 3s, at the rates above |
+| Pentrys | All seven. The default |
+
+### When a piece lands
+
+One order settles any mix of special squares on a piece:
+
+1. Hard drop: a piece that lands on glass, and nothing else, smashes it and
+   falls on.
+2. Every bomb on the piece goes off, and the squares above each crater
+   break into single squares and fall as far as they can.
+3. Every flood and deluge fills. One caught in a blast still pours, from
+   where its square was.
+4. Every row that adds up to the width clears, along with each row bomb's
+   row, as one clear.
+
+A 2, a 3 or glass caught in a blast is destroyed with it.
 
 ### Flood
 
-- When a piece with a flood square locks, the flood fills each empty cell
-  among the five beside it and below it: left, right, below left, below
-  and below right. It leaves the three cells above alone, as water would.
+- A flood fills each empty cell among the five beside it and below it:
+  left, right, below left, below and below right. It leaves the three cells
+  above alone, as water would.
 - The filled cells become plain squares of the same piece, so the piece
   grows into the gaps. The flood square becomes a plain square.
-- The flood reaches buried holes too. A hole under an overhang,
-  diagonally below the flood, fills.
-- Before the piece lands, its landing outline shows the cells the flood
-  would fill.
-- Rows are added up after the flood.
+- The flood reaches buried holes too. A hole under an overhang, diagonally
+  below the flood, fills.
+
+### Deluge
+
+- A deluge fills the five cells a flood fills, then every hole those cells
+  lead to through other holes, below its own row, however deep.
+- A hole is a gap with a square somewhere above it. So the water fills
+  caves and shafts under the stack, and stays out of the open well above
+  it. A deluge on top of a tower fills no more than a flood.
+- The filled cells become plain squares of the deluge's piece.
+
+### Bombs
+
+- A bomb goes off as its piece locks. It destroys every square in the
+  3 × 3 block round it: the stack's squares, glass, and its own piece.
+- Then the crater closes. In all three of the blast's columns, every
+  square above the blast's top row breaks away from its piece as a single
+  square and falls as far as it can: through the crater, and on through
+  any gaps below it. That holds even in a column where the blast hit only
+  air.
+  This is the one place in Pentrys where squares fall.
+- A flood, deluge or row bomb on the same piece falls with its square. One
+  the blast took acts from where it was.
+- A bomb's own square always goes, so no bomb stays in the stack.
+
+### Row bombs
+
+- A row bomb clears its whole row as its piece locks, whatever the row
+  holds, gaps and glass included. The rows above drop by one, as in any
+  clear.
+- Its row joins any other rows the piece clears, and they score as one
+  clear.
+
+### Glass
+
+Glass counts nothing, so a full row with glass stays until a 2 or a 3 pays
+for it. Three other things break it.
+
+- A hard drop. A piece hard-dropped onto glass, and nothing else, smashes
+  it and falls on through. If other squares also hold the piece up, the
+  glass holds, since breaking it would leave a hole under the piece. A
+  soft landing never smashes glass.
+- A bomb, as with any other square.
+- Age. Glass shows a crack after 30 s in the stack, a second crack at
+  45 s, flashes from 57 s, and breaks at 60 s. Paused time does not count.
+  The rest of its piece stays, and its outline splits if the glass joined
+  two parts. Glass in a lesson never ages.
+
+### The landing outline
+
+For a piece with special squares, or one that will smash glass, the
+landing outline shows what a hard drop would do. [Style](#style) gives the
+colours.
 
 ## Moving a piece
 
-| Action | Keys | Touch |
-|---|---|---|
-| Move left or right | ← → | ◀ ▶ |
-| Soft drop | ↓ | ▼ |
-| Hard drop | Space | ⤓ |
-| Rotate clockwise | X or ↑ | ↻ |
-| Rotate anticlockwise | Z | ↺ |
-| Flip, left to right | A or F | ⇆ |
-| Cycle the queue | C or Shift | Cycle, or a tap on the queue |
-| Pause | Escape or P | ⏸ |
-| Restart | R | From the pause menu |
-| Sound on or off | M | From the pause menu |
+| Action | Right-handed keys | Left-handed keys | Touch |
+|---|---|---|---|
+| Move left or right | ← → | A D | ◀ ▶ |
+| Soft drop | ↓ | S | ▼ |
+| Hard drop | Space | Space | ⤓ |
+| Rotate clockwise | X or ↑ | L or → | ↻ |
+| Rotate anticlockwise | Z | J or ← | ↺ |
+| Flip, left to right | A or F | K or ↓ | ⇆ |
+| Cycle the queue | C or Shift | I or ↑ | Cycle, or a tap on the queue |
+| Pause | Escape or P | Escape or P | ⏸ |
+| Restart | R | R | From the pause menu |
+| Sound on or off | M | M | From the pause menu |
 
-- The keys follow the modern standard's keyboard layout, as TetrisWiki
+- The title screen's Keys setting picks a layout. Right-handed is the
+  default.
+- Left-handed puts the moves under the left hand, on A, S and D, and the
+  turns under the right, on J, K, L and I or the arrows. Space stays the
+  hard drop. The phone buttons already work this way round: the moves sit
+  under the left thumb, and the turns under the right.
+- The right-handed keys follow the modern standard's keyboard layout, as TetrisWiki
   records it: the arrows move, Space drops, and ↑, X and Z rotate. C and
   Shift, the keys other games give to hold, cycle the queue, the nearest
   thing to hold. A, the key some modern games give to a half turn, flips.
@@ -263,7 +352,9 @@ A plain square is worth 1. Four kinds of special square change that.
 - It also sets the three timings: the delay before a held key repeats
   (170 ms), the time between repeats (50 ms) and the soft drop speed (20
   rows a second).
-- Reset puts every key and timing back to its default.
+- Left-handed and Right-handed, at the top of the screen, put every key back to that layout, and
+  every timing back to its default. Once a key changes by hand, the title
+  screen's Keys setting shows Custom.
 - The choices are kept in this browser between visits.
 
 ### Rotating and flipping
@@ -298,11 +389,18 @@ A plain square is worth 1. Four kinds of special square change that.
 ### Falling and locking
 
 - The piece falls one row at a time, at the level's speed.
-- Once it rests on the floor or the stack, it locks after 0.5 s.
+- Once it rests on the floor or the stack, it locks after 1.25 times the
+  time it takes to fall a row: 1.25 s at level 1, 0.92 s at level 5 and
+  0.63 s at level 10. It never locks sooner than 0.5 s, which holds from
+  level 13 on. A lesson falls at half speed, so a resting piece there
+  waits 2.5 s.
+- That time to slide a resting piece sideways, under an overhang or into a
+  gap, matters more here than in most games.
 - A move, rotation or flip that works resets that time, up to 15 times per
   piece. A piece that falls to a new lowest row gets its 15 back.
 - After the 15th reset, the piece locks as soon as it rests.
-- When a piece locks, its flood square fills first, and then the rows are
+- When a piece locks, its special squares act in the order
+  [When a piece lands](#when-a-piece-lands) gives, and then the rows are
   added up.
 - The next piece appears at once, or after a clear's pause.
 - A piece may lock with squares in the hidden rows. They stay there, and
@@ -311,8 +409,8 @@ A plain square is worth 1. Four kinds of special square change that.
 
 ## Clearing rows
 
-- After a piece locks and any flood fills, each row is added up: 1 for a
-  plain or flood square, 2 or 3 for a 2 or a 3, and 0 for glass or a gap.
+- After a piece locks and its special squares act, each row is added up:
+  1 for a plain square, 2 or 3 for a 2 or a 3, and 0 for glass or a gap.
 - A row clears when its total reaches the width of the well. With no
   special squares that means a full row, as in every falling-block game.
 - So a 2 lets its row clear with one gap, and a 3 with two. They add
@@ -320,10 +418,10 @@ A plain square is worth 1. Four kinds of special square change that.
   back, so a full row with glass and no 2 or 3 stays.
 - A cleared row vanishes with its gaps, and every row above drops by one.
   Nothing else falls.
-- Only the rows the piece landed in, and the row just below a flood
-  square, can change. So one lock clears six rows at most: I5 standing up,
-  with a flood square at its foot that completes the row below. A piece
-  four rows tall, with a flood square at its foot, can clear five.
+- A deluge reaches holes far below its piece, so one lock can clear more
+  than six rows. Without one, six is the most: I5 standing up, with a
+  flood square at its foot that completes the row below.
+- A row bomb's row clears too, whatever it holds.
 - A 2 or a 3 can rescue a buried hole. A 2 in a row whose only gap is
   covered clears that row, hole and all.
 - Beside each row that holds a 2, a 3 or glass, the margin shows the row's
@@ -346,48 +444,87 @@ A plain square is worth 1. Four kinds of special square change that.
 
 ## Scoring
 
+A lock scores its rows, times every bonus they earn, plus flat points for
+smashing, blasting and filling, all times the level. Drops score on top,
+without the level.
+
 | Rows at once | Name | Points |
 |---|---|---|
-| 1 | Single | 1 × level |
-| 2 | Double | 3 × level |
-| 3 | Triple | 7 × level |
-| 4 | Quad | 13 × level |
-| 5 | Pentrys | 23 × level |
-| 6 | Hextrys | 71 × level |
+| 1 | Single | 100 |
+| 2 | Double | 300 |
+| 3 | Triple | 700 |
+| 4 | Quad | 1,300 |
+| 5 | Pentrys | 2,300 |
+| 6 | Hextrys | 7,100 |
+| 7 | 7 rows | 10,650 |
+| 8 | 8 rows | 15,975 |
+| More | The count | Each row past six adds half the points of one row fewer |
 
-- Each point of spare doubles the clear: ×2 for 1 spare, ×4 for 2, ×8 for
-  3, counting the spare of all the clear's rows together.
-- A clear that empties the well, an all clear, scores ×10.
-- Only clears score. Drops score nothing, so the score measures clearing,
-  not fast fingers.
-- The level that counts is the one in play before the clear. The level
-  multiplies the points because a clear at level 15, where pieces fall in
-  a blink, is harder than the same clear at level 1.
+Bonuses multiply the row points, and each other.
+
+| Bonus | When | Multiplier |
+|---|---|---|
+| Spare | The clear's rows hold 1, 2, 3, or 4 or more spare between them | ×1.2, ×1.3, ×1.5, ×1.8 |
+| Glass | Each glass square in a cleared row | ×1.5 each |
+| Crystal | Each cleared row that holds glass and has spare | ×2 each |
+| Streak | The 3rd clear on consecutive pieces, then the 4th, and on | ×1.2, ×1.3, and on |
+| All clear | The clear empties the well | ×2 |
+
+Flat points, added after the bonuses and multiplied by the level:
+
+| What | Points |
+|---|---|
+| Smash: glass broken by a hard drop | 100 each |
+| Blast: squares a bomb destroys | 10 each, and 100 for glass |
+| Flood or deluge | 10 for each gap filled |
+| Glass that breaks with age | 0 |
+
+Drops, not multiplied by the level:
+
+| Drop | Points |
+|---|---|
+| Soft drop | 1 for each row the piece falls while it is held |
+| Hard drop | 2 for each row the piece falls |
+
+- So a lock scores level × (row points × bonuses + flat points), plus its
+  drops.
+- Each clear scores more than the same rows cleared in smaller groups: a
+  Triple's 700 beats the 400 of a Double and a Single.
+- A row bomb's row counts in the clear like any other.
+- A streak counts consecutive pieces that each clear. A piece that clears
+  nothing ends it.
+- A flat bonus for a hard drop would pay more for a soft drop to the floor
+  and then a hard drop. So the hard drop pays by the row.
+- The level that counts is the one in play before the clear. A clear at
+  level 15, where pieces fall fast, is harder than the same clear at
+  level 1.
 - For example, a Double at level 5 whose rows hold a 2 and no gaps scores
-  3 × 5 × 2 = 30. A Pentrys at level 10 with a 3 and no gaps scores
-  23 × 10 × 4 = 920.
+  300 × 1.2 × 5 = 1,800. A Triple at level 3 that clears glass in a row
+  with 1 spare scores 700 × 1.2 × 1.5 × 2 × 3 = 7,560.
 - Four rows are a Quad, as in TETR.IO, so the game never uses the word
   Tetris. Five rows take the game's name, and six rows are a Hextrys.
-- [Celebrations](#celebrations) says how the page marks each clear.
+- [Celebrations](#celebrations) says how the page shows each combo.
 
 ## Levels and speed
 
 - The level rises by 1 for every 10 rows cleared, at any width.
-- At level L a piece falls one row every 0.82^(L − 1) seconds, so each
-  level cuts the time by 18%. The speed stops rising at level 20. The
-  level keeps counting, for the score.
+- At level L a piece falls one row every 1.08^−(L − 1) seconds, so each
+  level falls 8% faster than the one before. The speed stops rising at
+  level 50, at 0.023 s a row. The level keeps counting, for the score.
 
 | Level | Seconds a row | Time to fall 20 rows |
 |---|---|---|
 | 1 | 1.00 | 20 s |
-| 5 | 0.45 | 9 s |
-| 10 | 0.17 | 3.4 s |
-| 15 | 0.062 | 1.2 s |
-| 20 on | 0.023 | 0.46 s |
+| 10 | 0.50 | 10 s |
+| 20 | 0.23 | 4.6 s |
+| 30 | 0.11 | 2.1 s |
+| 40 | 0.050 | 1.0 s |
+| 50 on | 0.023 | 0.46 s |
 
-- The modern standard starts the same but is steeper: 0.064 s a row by
-  level 10. Five-square pieces need more thought, so Pentrys climbs more
-  gently. The 0.5 s lock keeps level 20 playable.
+- The modern standard starts the same but is far steeper: 0.064 s a row by
+  level 10. Pentrys is harder and less familiar, so it climbs gently, and
+  reaches that speed only at level 37. The lock's 0.5 s floor keeps the top speed
+  playable.
 - Speed rises with rows cleared, as in other falling-block games. A player
   who clears fast speeds up fast.
 
@@ -395,16 +532,22 @@ A plain square is worth 1. Four kinds of special square change that.
 
 ### Title screen
 
-PENTRYS, a button for each of the five modes, Settings, Controls, the best
-scores for the chosen mode and settings, and How to play. On a first visit
-the Tutorial button is the one lit. How to play says:
+PENTRYS, then three groups, each holding the choices that work together:
+
+- Learn: the Tutorial, and How to play. The square sets, width and pieces
+  do not apply to the tutorial, which sets its own.
+- Play: the three square sets with a line on the one chosen, the width,
+  the piece sizes, a button for each of the four playing modes with its
+  best score for those settings, and High scores.
+- Set up: the key layout with a button to Controls, effects and sound,
+  which apply everywhere.
+
+On a first visit the Tutorial button is the one lit. How to play says how to move, then shows each special
+square with a picture and one line, then the points and bonuses, then the
+keys. Its opening:
 
 > Move, rotate and flip the falling pieces to fill rows. A full row
-> clears. Cycle the queue to choose which piece falls next. A 2 counts as
-> two squares, so its row clears with one gap, and a 3 counts as three.
-> Glass counts nothing. A flood square fills the gaps beside and below it.
-> Clear a row that holds a 2 or a 3 and has no gaps, and the clear scores
-> double or more.
+> clears. Cycle the queue to choose which piece falls next.
 
 The simulated player plays a slow game in a dimmed well. On a wide screen
 the menu takes the left column, widened, and the game plays beside it. On a
@@ -412,13 +555,17 @@ phone the menu covers the well, and its game waits.
 
 ### Tutorial
 
-Eleven short lessons, each teaching one thing. A lesson starts from a set
+21 short lessons. The first thirteen teach one thing each, and the
+advanced eight put two or three ideas together. No lesson shows a clear
+past a Quad, a Triple or Quad with a bonus, or the rarer bonuses: Crystal,
+Streak and the all clear. Players find those, and the Pentrys and Hextrys,
+for themselves. A lesson starts from a set
 well 10 wide, with its pieces set in order and one line of instruction.
 Pieces fall at half the level 1 speed, a row every 2 s. Meeting the goal
 passes the lesson and offers the next. If the last piece locks without it,
 the lesson offers Try again. Passed lessons show a tick, kept in this
-browser, and any lesson can be played in any order. Lessons record no
-score.
+browser by title, and any lesson can be played in any order. Lessons
+record no score.
 
 The wells below show the bottom rows, top to bottom: `#` a plain square,
 `.` a gap, `2` a 2 and `g` glass. The queue shows the lesson's remaining
@@ -427,25 +574,43 @@ pieces, and its empty slots stay empty.
 | # | Lesson | Says | Well | Pieces | Goal |
 |---|---|---|---|---|---|
 | 1 | Move and drop | Move with ← and →, and drop with Space | `######...#` | I3 lying flat, three times | Clear a row |
-| 2 | Rotate | Z and X rotate. Stand the piece up in the slot | `########.#` three times | I3 lying flat, twice | A Triple |
+| 2 | Rotate | Z and X rotate. Stand the piece up in the slot | `########.#` three times, over `........#.` | I3 lying flat, twice | A Triple |
 | 3 | Flip | A flips a piece. Flip this one, then stand it up | `######..##` over `#######.##` | Z4, twice | A Double |
 | 4 | Cycle | C cycles the queue. Bring the O to the front, then drop this square in the slot on the right | `###..####.` over `###..#####` | A single square, then T4, S4, O4 and L3 | A Double |
 | 5 | Twos | A 2 counts as two squares, so its row clears with one gap | `##.####.##` | A single square carrying a 2, twice | Clear a row with a gap |
 | 6 | Threes | A 3 counts as three, so its row clears with two gaps | `#.###.##.#` | A single square carrying a 3, twice | Clear a row with two gaps |
-| 7 | Spare | Fill every gap in a row that holds a 2, and the clear scores double | `##2###..##` | 2 lying flat, three times | A clear worth ×2 |
+| 7 | Spare | Fill every gap in a row that holds a 2, and the clear earns a spare bonus | `##2###..##` | 2 lying flat, three times | A clear with spare |
 | 8 | Glass | Glass counts nothing, so its row needs a 2 or a 3 | `###g###.##` | A single square carrying a 2, twice | Clear the row with glass |
-| 9 | Flood | A flood square fills the gaps beside and below it | `#####...##` over `#####.#.##` | I3 lying flat, with a flood square in the middle, twice | A Double |
-| 10 | Pentrys | Stand the long piece up in the slot for five rows at once | `#########.` five times | I5 lying flat, twice | A Pentrys |
-| 11 | Hextrys | A flood at the foot of I5 fills the row below too. Which way must it turn? | `#########.` five times, over `########.#` | I5 lying flat, with a flood square at its left end, twice | A Hextrys |
+| 9 | Smash | A hard drop onto glass, and nothing else, smashes it. Glass also breaks by itself after a minute | `######g###` | A single square, twice | Smash the glass |
+| 10 | Flood | A flood square fills the gaps beside and below it | `#####...##` over `#####.#.##` | I3 lying flat, with a flood square in the middle, twice | A Double |
+| 11 | Deluge | A deluge fills every hole below it that water could reach, however deep. Land it over the gap | `######.###` over `#####...##` | I3 lying flat, with a deluge in the middle, twice | A Double |
+| 12 | Bomb | Glass blocks this row for good. Drop the bomb next to the glass to blast it out, then fill the hole with the next piece | `####g#####` | A single square carrying a bomb, then I3 lying flat, twice | Blast the glass, then clear the row |
+| 13 | Row bomb | A row bomb clears its whole row as it lands, whatever the row holds | `##g###g.##` | A single square carrying a row bomb, twice | Clear the row with glass |
+| 14 | Rescue | The hole in this row is buried. A 3 pays for it and the gap beside it, so the row clears anyway | `...#......` over `###.####..` | A single square carrying a 3, twice | Clear a row with a buried hole |
+| 15 | Two spare | Fill all three gaps in the row with the 3, and it clears with two spare: ×1.3 | `#3###...##` | I3 lying flat, twice | Clear a row with two spare |
+| 16 | Quad | Park the O somewhere harmless, cycle the I4 to the front, then stand it in the slot | `#########.` four times | O4, T4, I4 and O4 | A Quad |
+| 17 | Double smash | Glass stacked on glass: a hard drop smashes through both, and the piece fills both rows | `#######g##` twice | 2 standing, twice | Two smashes and a Double |
+| 18 | Under the overhang | The flood reaches the gaps beside its square, even under the overhang where no piece fits | `#####.####` over `####...###` | 2 standing, with a flood at its foot, twice | A Double |
+| 19 | Crater | Drop the bomb down the gap to blast both panes of glass, then fill the crater with three standing pieces | `####g.####` over `####g#####` | A single square carrying a bomb, then 2 standing, four times | A Double |
+| 20 | Row bomb Double | One square fills the top row, and the row bomb below it clears the glass row as well | `#########.` over `##g###g##.` over `#........#` | 2 standing, with a row bomb at its foot, twice | A Double with a row bomb |
+| 21 | Bomb and deluge | This piece carries a bomb and a deluge. The bomb goes off first, then the water refills the crater. Blast the glass in the corner | `g#########` | 2 lying flat, with a bomb on its left square and a deluge on its right, twice | Clear the glass row |
 
 - The set squares of a lesson's well are stone grey.
-- A lesson's clear shows only its spare's multiplier. A lesson's well
-  often empties, and an all clear's ×10 would muddle the lesson.
+- The keys in a lesson's words are the player's own. With the left-handed
+  layout, lesson 1 says A and D.
+- A lesson's clear shows its combo like any other.
 - Lesson 3 needs S4 standing up, and its mirror, Z4, fits nowhere. So the
   player must flip.
-- In lesson 11 an anticlockwise turn brings the left end, and the flood,
-  to the foot. A clockwise turn puts the flood at the top, which gives
-  only a Pentrys.
+- In lesson 9 the row is full apart from its glass, so only a smash clears
+  it. A soft landing leaves the glass whole.
+- In lesson 2 a stone square under the slot keeps the well from emptying,
+  so the Triple shows no all clear.
+- In lesson 11 the deluge must land over the gap. Anywhere else, the cells
+  below it are full, and nothing fills.
+- In lesson 12 the bomb lands beside the glass and blasts a crater three
+  wide in the stuck row, glass and all. I3 lying flat fills it, and the row
+  clears. Dropped straight onto the glass, the bomb smashes it first, then
+  blasts, and the crater still takes I3.
 
 ### Marathon
 
@@ -497,7 +662,9 @@ left.
 - Width: 10, 12, 14, 16 or 18. Default 12.
 - Pieces: any mix of sizes 1 to 5, at least one. Default all five. Grow
   ignores it.
-- Special squares: on or off, all four kinds together. Default on.
+- Squares: Pure, Plus or Pentrys, on the title screen above the modes.
+  Default Pentrys.
+- Keys: Right-handed or Left-handed. Default right-handed.
 - Effects: full or low. Default full, and the game switches to low by
   itself on a slow machine.
 - Sound: on or off, and M does the same.
@@ -506,14 +673,25 @@ left.
 - The settings are kept in this browser, so the last setup is ready on the
   next visit.
 - High scores are kept in this browser: the top 10 for each mode and set
-  of settings. A top-10 run asks for three initials, as Smash Screen does.
-  Sprint keeps times, best first.
+  of settings, the square set included. A top-10 run asks for three
+  initials, as Smash Screen does. Sprint keeps times, best first.
+- The points changed with the first review, so scores from before it stay
+  in the browser unused.
 - A run started from the address with a level or a seed is practice, and
   records no score.
-- Pause offers Resume, Restart, Controls, Sound and Title screen. Hiding
-  the tab pauses.
+- Pause offers Resume, Restart, Controls, Sound and Title screen. In a
+  lesson the last is All lessons. A click or tap anywhere outside the menu
+  resumes. Hiding the tab pauses.
+- The way back is always in sight. Each page off the title screen has a
+  ← Back button in a header that stays put as the page scrolls. In a run,
+  the PENTRYS logo at the top of the scores goes back to the title screen:
+  at once from a lesson, a finished run or one not yet started, and
+  through the pause menu, with Title screen chosen, from a scored run in
+  play. The buttons after a game stay at the foot of its card as it
+  scrolls.
 - Game over shows the score, rows, level, time and pieces, the count of
-  each clear and the best multiplier. Then Play again and Title screen.
+  each clear and the best combo's multiplier. Then Play again and Title
+  screen.
 
 ## Look
 
@@ -558,7 +736,18 @@ drawing functions in `tools/pentrys/look.js` as they are.
   ring, with a soft gold glow.
 - Glass is a pane you can see through: the well shows behind a faint tint
   of its piece's colour, with a sheen across it and a bright rim.
-- A flood square shows a white drop in a pale aqua ring.
+- A flood square shows a white drop in a pale aqua ring, and a deluge two
+  smaller drops in a blue ring.
+- A bomb shows a round black bomb with a lit fuse, in an orange ring. A row
+  bomb shows a smaller bomb on a white double arrow across the square, in a
+  pink ring.
+- Ageing glass shows one white crack from 30 s and three more from 45 s,
+  and flashes white over its last 3 s.
+- The landing outline of a piece with special squares, or one that will
+  smash glass, shows what a hard drop would do: rows that will clear in
+  faint gold, a row bomb's row in pink, squares a bomb will destroy in
+  orange, gaps a flood or deluge will fill as aqua dashes, and glass that
+  will smash cracked.
 - The row gauge sits left of the well: small hollow gold squares for the
   gaps a row may keep, and small glass squares for the points it lacks.
 - Text uses the system's own font. Numbers are bold, with figures of equal
@@ -614,6 +803,11 @@ animation holds up the player or the rules.
 | Hard drop | A fading trail from where the piece was to where it lands. The well dips 3 px and springs back | 120 ms |
 | Lock | The piece flashes bright | 90 ms |
 | Flood | The new squares swell out of the flood square into the gaps | 150 ms |
+| Deluge | The water reaches each gap in turn, nearest first, and lights it aqua | 300 ms |
+| Blast | A flash swells from the bomb, the destroyed squares burst, and the well shakes | 320 ms |
+| Row bomb | A beam runs from the bomb along its row to both walls | 300 ms |
+| Smash | The glass flashes white and bursts into shards | 220 ms |
+| Glass breaking with age | The same shards | 220 ms |
 | Clear | The rows flash. A gold line runs from each 2 or 3 to the gaps it fills. Each square bursts into small squares that fly and fade, and the rows above drop into place | The 0.3 s pause, then 400 ms |
 | A 3 in the stack | A slow gold shimmer | Every 2.5 s |
 | Score | Counts up to its new value | 300 ms |
@@ -623,15 +817,24 @@ animation holds up the player or the rules.
 | Game over | The stack drains to grey from the top down, then the game-over card rises | 1 s |
 
 With reduced motion set in the browser, nothing slides, turns, dips,
-bursts or pulses, and clears fade instead.
+shakes, bursts or pulses, and clears fade instead.
 
 ### Celebrations
 
-The fuss grows with the clear, and never covers the well. On a wide
-screen the clear's name, multiplier and points appear beside the well, at
-the height of the rows that cleared. On a phone they take the title's
-place in the bar across the top. The effects play on the well's rim, the
-wallpaper and the page, and inside the well only the clearing rows flash.
+Every lock that scores shows a combo, and the fuss grows with it, but
+never covers the well. The effects play on the well's rim, the wallpaper
+and the page, and inside the well only the clearing rows flash.
+
+- On a wide screen the combo appears beside the well, at the height of the
+  rows that cleared: the clear's name and its total multiplier, then a
+  line for each bonus with its multiplier or points, the level last, and
+  the points scored. The lines arrive one by one, and the combo stays
+  longer the more lines it has.
+- On a phone the clear's name and total multiplier take the title's place
+  in the bar across the top.
+- A lock that clears nothing but smashes, blasts or fills shows a small
+  combo of its own.
+- A combo plays a rising bell for each bonus that multiplies.
 
 | Clear | Fuss |
 |---|---|
@@ -642,6 +845,7 @@ wallpaper and the page, and inside the well only the clearing rows flash.
 | Pentrys | The rim runs through all 21 colours, and the wallpaper pulses |
 | Hextrys | All of that for twice as long, with the whole page flashing its colours |
 | Any multiplier | The multiplier in gold beside the name, and bigger for ×4 and ×8 |
+| A blast that clears nothing | A warm glow pulses across the page |
 | All clear | ALL CLEAR in gold across the top of the well's frame |
 
 - The names and numbers are page text, moved and faded with CSS, which the
@@ -683,27 +887,33 @@ wallpaper and the page, and inside the well only the clearing rows flash.
   and moves without slides. The Effects setting does the same by hand.
 - The budget: in headless Chromium without a GPU, at 1280 × 800 and twice
   the pixel density, a frame's own work stays under 4 ms at the median
-  during a Pentrys clear, and under 12 ms with the processor slowed four
+  during a big clear, and under 12 ms with the processor slowed four
   times.
 
-Measured on 2026-10-01 in headless Chromium without a GPU, at 1280 × 800
-and twice the pixel density. A frame's work is the script's time in the
-frame: stepping the rules and issuing the drawing.
+Measured on 2026-10-01, after the first review, in headless Chromium
+without a GPU, at 1280 × 800 and twice the pixel density. A frame's work
+is the script's time in the frame: stepping the rules and issuing the
+drawing.
 
 | Case | Median | 95th percentile |
 |---|---|---|
-| Play, at full speed | 0.3 ms | 0.9 ms |
-| A Pentrys clear, at full speed | 0.2 ms | 0.4 ms |
-| Play, with the processor slowed four times | 1.2 ms | 4.0 ms |
-| A Pentrys clear, slowed four times | 0.6 ms | 1.3 ms |
+| Play, at full speed | 0.4 ms | 2.4 ms |
+| A Quad clear, at full speed | 0.3 ms | 0.4 ms |
+| A deluge, at full speed | 0.2 ms | 0.3 ms |
+| A blast, at full speed | 0.2 ms | 0.4 ms |
+| Play, with the processor slowed four times | 1.5 ms | 7.4 ms |
+| A Quad clear, slowed four times | 0.9 ms | 2.6 ms |
+| A deluge, slowed four times | 0.7 ms | 1.2 ms |
+| A blast, slowed four times | 0.8 ms | 1.4 ms |
 
-- The slowest single frame is the one where a Pentrys clears: 16 ms at
-  full speed and 49 ms slowed. It falls in the clear's pause, when nothing
-  moves.
-- The title screen's game held 60 frames a second at both speeds: 16.7 ms
-  between frames at the median and 16.8 ms at the 95th percentile, with
-  one frame dropped when slowed. Its simulated player weighs one queued
-  piece a step, so its thinking never stalls a frame.
+- The slowest single frames redraw the stack after a lock or a clear:
+  18 ms at full speed and 43 ms slowed. They fall as a piece locks or in a
+  clear's pause, when nothing moves.
+- At full speed the title screen's game held 60 frames a second, 16.7 ms
+  apart at the 95th percentile. Slowed four times, about 1 frame in 16
+  comes late, as before the review: three runs of 8 s found 88 late frames
+  in 1,434, against 78 for the earlier build. Its simulated player weighs
+  one queued piece a step, so its thinking never stalls a frame.
 - The budget holds with room to spare.
 - `tools/pentrys/perf.js` measures all of this again. From the repo root:
   `NODE_PATH=tools/tiling-video/node_modules node tools/pentrys/perf.js`,
@@ -713,11 +923,13 @@ frame: stepping the rules and issuing the drawing.
 
 - Synthesised in the browser, as in Smash Screen, with no sound files.
 - Short sounds for a move, a rotation, a flip, a cycle, a lock, a hard
-  drop, a flood, a level up and the end of a game.
+  drop, a flood, a deluge, a blast, a row bomb, a smash, glass cracking and
+  breaking, a level up and the end of a game.
 - A clear plays a chord from the harmonic series, in just intonation, that
   grows with the rows: harmonics 4 and 5 for a Single, 4 to 6 for a
   Double, and so on up to 4 to 10 for a Hextrys, all of one low C. Each 2
-  or 3 in the cleared rows adds a bell.
+  or 3 in the cleared rows adds a bell, and each bonus in the combo a
+  rising one.
 - Sound starts after the player's first click or key, since browsers allow
   none before.
 - Music comes later, as in Smash Screen.
@@ -727,8 +939,9 @@ frame: stepping the rules and issuing the drawing.
 | Address | Opens |
 |---|---|
 | `#mode=marathon` | Marathon with the saved settings. Also `grow`, `sprint`, `blitz` and `tutorial` |
-| `#mode=marathon&width=14&sizes=45&specials=0` | Marathon at width 14, with four- and five-square pieces and no special squares |
-| `#mode=grow&level=6` | Grow from level 6, as practice |
+| `#mode=marathon&squares=plus` | Marathon with 2s and 3s only. Also `pure` and `pentrys` |
+| `#mode=marathon&width=14&sizes=45&squares=pure` | Marathon at width 14, with four- and five-square pieces and no special squares. The older `specials=0` means the same |
+| `#mode=grow&level=6` | Grow from level 6, as practice. Levels run up to 50 |
 | `#mode=sprint&seed=42` | Sprint with a fixed run of pieces and special squares, as practice |
 | `#mode=tutorial&lesson=9` | The tutorial at lesson 9 |
 
@@ -744,8 +957,8 @@ way. The page runs it from the display's frames.
 |---|---|
 | `app/pentrys/index.html` | The page, its styles, the screens and the touch buttons |
 | `app/pentrys/pieces.js` | The 21 shapes, their orientations and colours, rotation, flip and the shifts |
-| `app/pentrys/rules.js` | The well, choosing pieces, the queue, special squares, falling, locking, the flood, clearing, scoring, levels and modes |
-| `app/pentrys/lessons.js` | The tutorial's eleven lessons: wells, pieces, words and goals |
+| `app/pentrys/rules.js` | The well, choosing pieces, the queue, special squares, falling, locking, smashing, bombs, floods, clearing, scoring, levels and modes |
+| `app/pentrys/lessons.js` | The tutorial's 21 lessons: wells, pieces, words and goals |
 | `app/pentrys/bot.js` | The simulated player's choice of placement, for the title screen and `sim.js` |
 | `app/pentrys/draw.js` | Drawing: the wallpaper, the well, the pieces, the queue and every effect |
 | `app/pentrys/sound.js` | The sounds, synthesised |
@@ -767,12 +980,25 @@ The tests cover:
   with three, glass with and without a 2, and rows one short of each.
 - The flood: it fills left, right and the three cells below, never above,
   and joins its piece. I5 with a flood at its foot clears six rows.
-- Spare, the multipliers, the all clear and the level in the score.
+- The deluge: it fills holes however deep, and stays out of the open well,
+  even on top of a tower.
+- Bombs: the 3 × 3 blast, its own piece included, and its points. A row
+  bomb clears its row whatever it holds. With several special squares on
+  a piece, the bombs go off before the water fills, and a flood caught in
+  a blast still pours.
+- Smashing: a hard drop onto glass alone smashes it, and the glass holds
+  when something else also holds the piece up, or when it lands softly.
+- Ageing glass: cracks at 30 s and 45 s, breaks at 60 s and leaves the
+  rest of its piece, and never ages in a lesson.
+- The score: the row points past six, spare, glass, Crystal, a streak, the
+  all clear, the level, and soft and hard drops.
+- The speed: 8% faster a level, up to level 50.
 - The lock time and its 15 resets, and the end of the game.
 - The queue: cycle sends the front piece to the back, and a lock takes the
   front piece and adds a new one at the back.
 - Over a million pieces, each shape comes 1 time in 21 and each of its
-  orientations equally often. Special squares land at their rates.
+  orientations equally often. Each kind of special square lands at its
+  rate, square by square, and Plus and Pure deal only their own.
 - Grow's mix at each level matches its table.
 - Each lesson: its intended moves meet its goal, and the obvious wrong
   move does not.
@@ -780,41 +1006,48 @@ The tests cover:
 ## Simulated player
 
 - `sim.js` plays with no page. For the falling piece it tries every
-  column, rotation and flip. It picks the placement that leaves the fewest
-  holes and the lowest, flattest stack, and favours rows cleared. Then it
-  cycles the queue to bring forward the piece that best fits the new
-  stack.
-- It plays a dozen games of Marathon at each width by default, with
-  special squares on and off, and with the cycle used and unused. It
-  reports rows per game, the share of clears that use a gap or earn a
-  spare, how often each clear size comes, and how long games last.
-- Those numbers tune the special-square rates. The rates are four numbers
-  to change.
-- It places pieces at once, so the speeds need a person to play them.
+  column, rotation and flip, and works out what each landing would do,
+  smashed glass, bombs and floods included. It picks the placement that
+  leaves the fewest holes and the lowest, flattest stack, and favours rows
+  cleared. Then it cycles the queue to bring forward the piece that best
+  fits the new stack.
+- It plays a dozen games of Marathon at each width by default, with each
+  square set, and with the cycle used and unused. It reports rows per
+  game, the share of clears that use a gap or earn a spare, how often glass
+  is smashed and bombs and deluges go off, the score, how often each clear
+  size comes, and how long games last.
+- Those numbers tune the special-square rates, which are seven numbers in
+  `rules.js`.
+- It places pieces at once, so the speeds need a person to play them, and
+  glass never breaks with age in its games.
 - The title screen shows it playing, with the same `bot.js`.
 
-The first measurements, on 2026-10-01: 12 games for each setting, each
-stopped at 1,500 pieces if it lasted that long.
+Measured after the first review, on 2026-10-01, with bombs at 1 in 100
+and before craters closed: 12 games for each setting, each stopped at
+1,500 pieces. Every game lasted that long.
 
-| Width | Special squares | Cycle | Pieces a game | Rows a game | Rows that kept a gap | Clears with spare | Rows with a special square | Rows with glass |
-|---|---|---|---|---|---|---|---|---|
-| 12 | on | used | 1,118, 1 game of 12 lasting | 398 | 44% | 20% | 58% | 2.0% |
-| 12 | off | used | 1,500, every game lasting | 527 | – | – | – | – |
-| 12 | on | unused | 862, none lasting | 304 | 43% | 20% | 56% | 2.5% |
-| 12 | off | unused | 1,500, every game lasting | 526 | – | – | – | – |
-| 10 | on | used | 1,016, none lasting | 436 | 39% | 17% | 51% | 1.5% |
-| 14 | on | used | 1,236, 2 lasting | 378 | 48% | 22% | 63% | 3.0% |
-| 16 | on | used | 1,383, 5 lasting | 371 | 53% | 24% | 68% | 3.8% |
-| 18 | on | used | 1,415, 7 lasting | 338 | 57% | 25% | 72% | 5.0% |
+| Width | Squares | Cycle | Rows a game | Rows that kept a gap | Clears with spare | Rows with glass | Smashes in 100 pieces | Blasts in 100 pieces | Score a game |
+|---|---|---|---|---|---|---|---|---|---|
+| 12 | Pentrys | used | 545 | 37% | 17% | 2.7% | 3.0 | 4.1 | 2,066,193 |
+| 12 | Plus | used | 551 | 36% | 17% | – | – | – | 1,801,295 |
+| 12 | Pure | used | 527 | – | – | – | – | – | 1,590,211 |
+| 12 | Pentrys | unused | 542 | 37% | 19% | 2.9% | 2.9 | 4.1 | 2,113,793 |
+| 10 | Pentrys | used | 651 | 32% | 16% | 1.9% | 3.1 | 4.1 | 2,895,700 |
+| 14 | Pentrys | used | 469 | 42% | 19% | 3.8% | 2.7 | 4.1 | 1,554,133 |
+| 16 | Pentrys | used | 411 | 46% | 20% | 4.6% | 2.6 | 4.1 | 1,242,843 |
+| 18 | Pentrys | used | 367 | 50% | 21% | 5.4% | 2.6 | 4.1 | 1,011,435 |
 
-- For this player the special squares shorten games, because of glass. It
-  never aims a 2 at a row that holds glass, so such a row stays for good.
-  A person who does will fare better.
-- The cycle lengthens its games by a third: 1,118 pieces against 862.
-- It clears one row at a time: at width 12, 93% of its clears are Singles
-  and 6.5% Doubles, since its measure keeps the stack low. A person
-  building for a Pentrys plays otherwise.
-- A flood came 2 times in 100 pieces, at every width.
+- Glass no longer ends this player's games. Before the review, rows
+  holding glass stayed for good, and its games with special squares lasted
+  1,118 pieces at width 12. Now smashes and bombs break the glass, and
+  every game reaches 1,500.
+- A deluge came 1.3 times in 100 pieces, and so did a row bomb.
+- It still clears one row at a time: at width 12 with the Pentrys set, 92%
+  of its clears are Singles and 8% Doubles. So it never builds a long
+  streak or a big deluge clear. A person building for a Pentrys plays
+  otherwise.
+- With every game reaching 1,500 pieces, the cycle makes little
+  difference to it.
 
 ## Later
 
@@ -828,14 +1061,11 @@ stopped at 1,500 pieces if it lasted that long.
 - Resume a run. Leaving the page keeps the run in one slot, and resuming
   deletes the slot, so a saved run cannot be replayed for a better score.
   Useful on a phone, where a call ends a run today.
-- Bombs. A square that blasts a hole around it when its row clears.
-  Bombliss did this in 1991, and four of its bombs in a 2 × 2 fuse into a
-  big one.
 - Six-square pieces after Grow's last level: 35 more shapes, as MultiMino
   has.
 - A daily game. One seed a day gives everyone the same pieces, and the
   score can be shared.
-- Combos and back-to-back bonuses from the modern standard.
+- Back-to-back bonuses from the modern standard, beyond the streak.
 - Swipe controls on phones.
 
 ## Similar games

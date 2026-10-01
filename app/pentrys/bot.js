@@ -5,8 +5,9 @@
    hundreds of games with it to measure the rules.
 
    The score is El-Tetris's: six measures of a stack, each with a weight
-   found by a genetic search on classic Tetris (Yiyuan Lee, 2013). It knows
-   nothing of special squares beyond what clearing rows does. */
+   found by a genetic search on classic Tetris (Yiyuan Lee, 2013). It sees
+   special squares only through the stack each placement leaves: what the
+   bombs, floods, row bombs and smashed glass do to it. */
 (function (root) {
   'use strict';
   var Pentrys = root.Pentrys || (root.Pentrys = {});
@@ -69,10 +70,9 @@
       var or = shape.orients[o];
       for (var bx = -or.minX; bx + or.maxX < w; bx++) {
         if (!fits(grid, piece.shape, o, bx, top)) continue;
-        var bottom = top;
-        while (fits(grid, piece.shape, o, bx, bottom + 1)) bottom++;
+        var l = Rules.land(grid, piece.shape, o, bx, top, true), bottom = l.bottom;
         var cells = Pieces.cellsAt(piece.shape, o, bx, bottom);
-        var out = Rules.settle(grid, cells, piece.special, -1, piece.shape), value = score(out, cells);
+        var out = Rules.settle(grid, cells, piece.specials, -1, piece.shape, { smashed: l.smashed }), value = score(out, cells);
         if (!found || value > found.value) found = { o: o, bx: bx, bottom: bottom, value: value, out: out };
       }
     }

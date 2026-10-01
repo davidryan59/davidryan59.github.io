@@ -167,8 +167,45 @@
     ctx.lineWidth = Math.max(1.5, s * 0.08); ctx.strokeStyle = style;
     ctx.beginPath(); ctx.arc(cx, cy, s * 0.35, 0, Math.PI * 2); ctx.stroke();
   }
-  // A special square: 2 or 3 (a number in a ring), 0 (glass) or 'flood' (a drop in a ring).
-  function drawSpecial(ctx, x, y, kind, shape, ox, oy, s) {
+  // A white drop of water, k times the flood's size.
+  function drop(ctx, cx, cy, s, k) {
+    var r = s * 0.17 * k, top = cy - s * 0.25 * k, mid = cy + s * 0.07 * k;
+    ctx.beginPath(); ctx.moveTo(cx, top);
+    ctx.quadraticCurveTo(cx + r * 1.1, cy - s * 0.04 * k, cx + r, mid);
+    ctx.arc(cx, mid, r, 0, Math.PI, false);
+    ctx.quadraticCurveTo(cx - r * 1.1, cy - s * 0.04 * k, cx, top); ctx.closePath();
+    ctx.lineJoin = 'round'; ctx.lineWidth = s * 0.1 * k; ctx.strokeStyle = 'rgba(12,14,34,0.5)'; ctx.stroke();
+    ctx.fillStyle = '#ffffff'; ctx.fill();
+  }
+  // A round bomb with a lit fuse, k times full size.
+  function bomb(ctx, cx, cy, s, k) {
+    var r = s * 0.19 * k, bx = cx - s * 0.03 * k, by = cy + s * 0.05 * k;
+    ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1, s * 0.06 * k); ctx.strokeStyle = 'rgba(12,14,34,0.85)';
+    ctx.beginPath(); ctx.moveTo(bx + r * 0.6, by - r * 0.6); ctx.quadraticCurveTo(bx + r * 1.05, by - r * 1.5, bx + r * 1.5, by - r * 1.25); ctx.stroke();
+    ctx.fillStyle = '#1d2140'; ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = Math.max(1, s * 0.05 * k); ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(bx - r * 0.35, by - r * 0.35, r * 0.24, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(bx + r * 1.5, by - r * 1.25, r * 0.38, 0, Math.PI * 2); ctx.fill();
+  }
+  // The cracks in ageing glass: one at 30 s, more at 45 s.
+  var CRACKS = [[[0.22, 0.2], [0.42, 0.44], [0.36, 0.6], [0.62, 0.8]],
+                [[0.42, 0.44], [0.7, 0.32], [0.8, 0.18]], [[0.42, 0.44], [0.2, 0.72]], [[0.36, 0.6], [0.56, 0.57], [0.8, 0.68]]];
+  function cracks(ctx, px, py, s, stage) {
+    var lines = stage >= 2 ? CRACKS : CRACKS.slice(0, 1);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    [['rgba(12,14,34,0.45)', 0.09], ['rgba(255,255,255,0.95)', 0.045]].forEach(function (st) {
+      ctx.strokeStyle = st[0]; ctx.lineWidth = Math.max(1, s * st[1]);
+      lines.forEach(function (l) {
+        ctx.beginPath();
+        l.forEach(function (p, i) { if (i) ctx.lineTo(px + p[0] * s, py + p[1] * s); else ctx.moveTo(px + p[0] * s, py + p[1] * s); });
+        ctx.stroke();
+      });
+    });
+  }
+  // A special square: 2 or 3 (a number in a ring), 0 (glass, cracked at
+  // stage 1 or 2), 'flood' (a drop in a ring), 'deluge' (two drops), 'bomb'
+  // (a bomb) or 'rowbomb' (a bomb on a line across the square).
+  function drawSpecial(ctx, x, y, kind, shape, ox, oy, s, crack) {
     var px = ox + x * s, py = oy + y * s, cx = px + s / 2, cy = py + s / 2;
     ctx.save();
     if (kind === 2 || kind === 3) {
@@ -192,17 +229,33 @@
       ctx.restore();
       ctx.beginPath(); ctx.roundRect(px + m, py + m, s - 2 * m, s - 2 * m, s * 0.14);
       ctx.lineWidth = Math.max(1.2, s * 0.06); ctx.strokeStyle = light ? colour(shape) : 'rgba(255,255,255,0.85)'; ctx.stroke();
+      if (crack) cracks(ctx, px, py, s, crack);
     } else if (kind === 'flood') {
       ring(ctx, cx, cy, s, 'rgba(170,236,255,0.95)');
-      var r = s * 0.17, top = cy - s * 0.25, mid = cy + s * 0.07;
-      ctx.beginPath(); ctx.moveTo(cx, top);
-      ctx.quadraticCurveTo(cx + r * 1.1, cy - s * 0.04, cx + r, mid);
-      ctx.arc(cx, mid, r, 0, Math.PI, false);
-      ctx.quadraticCurveTo(cx - r * 1.1, cy - s * 0.04, cx, top); ctx.closePath();
-      ctx.lineJoin = 'round'; ctx.lineWidth = s * 0.1; ctx.strokeStyle = 'rgba(12,14,34,0.5)'; ctx.stroke();
-      ctx.fillStyle = '#ffffff'; ctx.fill();
+      drop(ctx, cx, cy, s, 1);
+    } else if (kind === 'deluge') {
+      ring(ctx, cx, cy, s, 'rgba(110,190,255,0.95)');
+      drop(ctx, cx - s * 0.11, cy + s * 0.02, s, 0.72);
+      drop(ctx, cx + s * 0.11, cy + s * 0.02, s, 0.72);
+    } else if (kind === 'bomb') {
+      ring(ctx, cx, cy, s, 'rgba(255,150,80,0.95)');
+      bomb(ctx, cx, cy, s, 1);
+    } else if (kind === 'rowbomb') {
+      ring(ctx, cx, cy, s, 'rgba(255,90,130,0.95)');
+      var a = px + s * 0.08, b = px + s * 0.92, hd = s * 0.1;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      [['rgba(12,14,34,0.5)', 0.13], ['#ffffff', 0.07]].forEach(function (st) {
+        ctx.strokeStyle = st[0]; ctx.lineWidth = Math.max(1, s * st[1]);
+        ctx.beginPath(); ctx.moveTo(a, cy); ctx.lineTo(b, cy);
+        ctx.moveTo(a + hd, cy - hd); ctx.lineTo(a, cy); ctx.lineTo(a + hd, cy + hd);
+        ctx.moveTo(b - hd, cy - hd); ctx.lineTo(b, cy); ctx.lineTo(b - hd, cy + hd); ctx.stroke();
+      });
+      bomb(ctx, cx, cy, s, 0.8);
     }
     ctx.restore();
+  }
+  function drawSpecials(ctx, cells, specials, shape, ox, oy, s) {
+    (specials || []).forEach(function (sp) { var c = cells[sp.i]; drawSpecial(ctx, c[0], c[1], sp.kind, shape, ox, oy, s); });
   }
 
   // The layout and its caches ------------------------------------------------------
@@ -211,7 +264,7 @@
     well: null, next: null, ctx: null, nctx: null, W: 12, s: 20, qs: 20, queueRow: false, queueWidth: 0,
     panel: null, stack: null, stackKey: null, threes: [], glows: {},
     anims: [], particles: [], clear: null, tween: null, lastPiece: null, dip: 0,
-    queueAnim: null, over: null, rimSweep: null, levelGlow: 0, dim: false, lessonRows: null
+    queueAnim: null, over: null, rimSweep: null, levelGlow: 0, dim: false, lessonRows: null, shake: 0
   };
 
   function ox() { return GAUGE * D.s; }
@@ -268,7 +321,7 @@
     Object.keys(byId).forEach(function (id) { drawPiece(c, byId[id].cells, byId[id].shape, x0, y0, s); });
     for (y = 0; y < grid.length; y++) for (x = 0; x < grid[y].length; x++) {
       cell = grid[y][x];
-      if (cell && cell.v !== 1) { drawSpecial(c, x, rowY(y), cell.v, cell.shape, x0, y0, s); if (cell.v === 3) threes.push([x, rowY(y)]); }
+      if (cell && cell.v !== 1) { drawSpecial(c, x, rowY(y), cell.v, cell.shape, x0, y0, s, cell.crack); if (cell.v === 3) threes.push([x, rowY(y)]); }
     }
     Rules.balances(grid).forEach(function (b) {
       var yy = rowY(b[0]), n = b[1], q = s * 0.3, gap = s * 0.1;
@@ -284,7 +337,7 @@
     return off;
   }
   function refreshStack(game) {
-    var key = game.pieces + ':' + game.rowsCleared + ':' + (light ? 1 : 0) + ':' + D.s + ':' + game.width;
+    var key = game.version + ':' + (light ? 1 : 0) + ':' + D.s + ':' + game.width;
     if (D.stack && D.stackKey === key) return;
     D.stack = stackImage(game.grid); D.stackKey = key; D.threes = D.stack.threes;
   }
@@ -315,7 +368,27 @@
         if (motion()) D.anims.push({ kind: 'trail', t0: now, dur: 120, from: e.from, to: e.to, cells: e.cells, shape: e.shape });
         if (!reduced) D.dip = now;
       } else if (e.type === 'lock') D.anims.push({ kind: 'flash', t0: now, dur: 90, cells: e.cells, shape: e.shape });
-      else if (e.type === 'flood') D.anims.push({ kind: 'flood', t0: now, dur: 260, at: e.at, filled: e.filled });
+      else if (e.type === 'fill') {
+        if (e.kind === 'flood') D.anims.push({ kind: 'flood', t0: now, dur: 260, at: e.at, filled: e.filled });
+        else {
+          // The deluge pours: each gap fills in turn, nearest first, within 0.2 s.
+          var far = Math.max.apply(null, e.filled.map(function (c) { return c[2]; }).concat([1]));
+          D.anims.push({ kind: 'water', t0: now, step: Math.min(30, 200 / far), dur: 300, filled: e.filled });
+        }
+      } else if (e.type === 'blast') {
+        D.anims.push({ kind: 'blast', t0: now, dur: 320, at: e.at });
+        if (!reduced) D.shake = now;
+        if (motion()) e.cells.forEach(function (c) {
+          for (var k = 0; k < 3; k++) burst(c.x + 0.5, rowY(c.y) + 0.5, c.v === 0 ? '#e6f4ff' : colour(c.shape), now, 4);
+        });
+      } else if (e.type === 'rowbomb') D.anims.push({ kind: 'beam', t0: now, dur: 300, x: e.at[0], y: e.y });
+      else if (e.type === 'smash' || e.type === 'shatter') {
+        var glass = e.type === 'smash' ? e.cells.map(function (c) { return [c[0], c[1]]; }) : [[e.x, e.y]];
+        D.anims.push({ kind: 'smash', t0: now, dur: 220, cells: glass });
+        if (motion()) glass.forEach(function (c) {
+          for (var k = 0; k < 6; k++) burst(c[0] + 0.5, rowY(c[1]) + 0.5, k % 2 ? '#ffffff' : '#bfe6ff', now, 2);
+        });
+      }
       else if (e.type === 'clear') startClear(e, game, now);
       else if (e.type === 'level') D.levelGlow = now;
       else if (e.type === 'cycle') D.queueAnim = { t0: now, dur: motion() ? 150 : 0 };
@@ -378,7 +451,7 @@
   function busy(now) {
     return D.anims.length > 0 || D.particles.length > 0 || !!D.clear || !!D.tween || !!D.over ||
       (D.queueAnim && now - D.queueAnim.t0 < D.queueAnim.dur + 20) || (D.rimSweep && now - D.rimSweep.t0 < D.rimSweep.dur) ||
-      now - D.levelGlow < 1000 || now - D.dip < 250;
+      now - D.levelGlow < 1000 || now - D.dip < 250 || now - D.shake < 260;
   }
 
   // A frame ----------------------------------------------------------------------
@@ -391,7 +464,8 @@
     refreshStack(game);
     ctx.clearRect(0, 0, wellWidth(), wellHeight());
     var dip = motion() && now - D.dip < 250 ? Math.sin(Math.min(1, (now - D.dip) / 250) * Math.PI) * 3 * (1 - (now - D.dip) / 250) : 0;
-    ctx.save(); ctx.translate(0, dip);
+    var shake = !reduced && now - D.shake < 260 ? Math.sin((now - D.shake) / 18) * 4 * (1 - (now - D.shake) / 260) : 0;
+    ctx.save(); ctx.translate(shake, dip);
     blit(ctx, D.panel);
     rimEffects(ctx, now);
 
@@ -401,24 +475,67 @@
     else if (cl && now - cl.t0 < 420 && motion()) drawDropping(ctx, cl, now);
     else { if (cl) D.clear = null; blit(ctx, D.stack); }
     if (!clearing && motion() && D.threes.length) shimmer(ctx, now);
+    if (!clearing) glassFlash(ctx, game, now);
 
-    // The falling piece and where it will land.
+    // The falling piece, where it will land, and what its landing will do.
     var p = game.piece;
     if (p && !game.over && !clearing) {
-      var landing = game.landing(), cells = Pieces.cellsAt(p.shape, p.o, p.bx, p.bottom).map(function (c) { return [c[0], rowY(c[1])]; });
-      if (landing !== p.bottom) drawOutline(ctx, Pieces.cellsAt(p.shape, p.o, p.bx, landing).map(function (c) { return [c[0], rowY(c[1])]; }), p.shape, x0, y0, s);
-      game.floodPreview().forEach(function (c) {
-        ctx.save(); ctx.globalAlpha = 0.5 + 0.25 * Math.sin(now / 160);
-        ctx.strokeStyle = 'rgba(120,220,255,0.95)'; ctx.lineWidth = Math.max(1.5, s * 0.07); ctx.setLineDash([s * 0.16, s * 0.12]);
-        ctx.beginPath(); ctx.roundRect(x0 + c[0] * s + s * 0.14, y0 + rowY(c[1]) * s + s * 0.14, s * 0.72, s * 0.72, s * 0.14); ctx.stroke();
-        ctx.restore();
-      });
+      var pv = game.preview(), cells = Pieces.cellsAt(p.shape, p.o, p.bx, p.bottom).map(function (c) { return [c[0], rowY(c[1])]; });
+      if (pv.bottom !== p.bottom) drawOutline(ctx, Pieces.cellsAt(p.shape, p.o, p.bx, pv.bottom).map(function (c) { return [c[0], rowY(c[1])]; }), p.shape, x0, y0, s);
+      drawPreview(ctx, pv, now);
       drawFalling(ctx, game, p, cells, now);
     }
     effects(ctx, now);
     if (D.over) drawOver(ctx, now);
     if (D.dim) { ctx.fillStyle = WELL.dim; ctx.beginPath(); ctx.roundRect(x0, y0, D.W * s, ROWS * s, s * 0.35); ctx.fill(); }
     ctx.restore();
+  }
+
+  // A colour part way from one hex colour to another, for masking the well.
+  function mix(a, b, t) {
+    var A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16), out = [];
+    for (var k = 16; k >= 0; k -= 8) out.push(Math.round(((A >> k) & 255) * (1 - t) + ((B >> k) & 255) * t));
+    return 'rgb(' + out.join(',') + ')';
+  }
+
+  // What a hard drop would do: rows that clear in gold, a row bomb's row in
+  // pink, squares a bomb destroys in orange, gaps a flood fills in aqua, and
+  // glass a hard drop smashes cracked.
+  function drawPreview(ctx, pv, now) {
+    if (!pv.rows.length && !pv.destroyed.length && !pv.filled.length && !pv.smashed.length) return;
+    var s = D.s, x0 = ox(), y0 = oy(), pulse = 0.75 + 0.25 * Math.sin(now / 160);
+    ctx.save();
+    pv.rows.forEach(function (y) {
+      var bombed = pv.rowBombs.indexOf(y) >= 0;
+      ctx.globalAlpha = (bombed ? 0.24 : 0.15) * pulse; ctx.fillStyle = bombed ? '#ff5a82' : GOLD;
+      ctx.fillRect(x0, y0 + rowY(y) * s, D.W * s, s);
+    });
+    ctx.lineWidth = Math.max(1.5, s * 0.07); ctx.setLineDash([s * 0.16, s * 0.12]);
+    pv.destroyed.forEach(function (c) {
+      var px = x0 + c.x * s + s * 0.12, py = y0 + rowY(c.y) * s + s * 0.12;
+      ctx.globalAlpha = 0.35 * pulse; ctx.fillStyle = '#ff7840';
+      ctx.beginPath(); ctx.roundRect(px, py, s * 0.76, s * 0.76, s * 0.14); ctx.fill();
+      ctx.globalAlpha = 0.9 * pulse; ctx.strokeStyle = '#ff9a50'; ctx.stroke();
+    });
+    pv.filled.forEach(function (c) {
+      ctx.globalAlpha = 0.95 * pulse; ctx.strokeStyle = 'rgba(120,220,255,0.95)';
+      ctx.beginPath(); ctx.roundRect(x0 + c[0] * s + s * 0.14, y0 + rowY(c[1]) * s + s * 0.14, s * 0.72, s * 0.72, s * 0.14); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    pv.smashed.forEach(function (c) { ctx.globalAlpha = pulse; cracks(ctx, x0 + c[0] * s, y0 + rowY(c[1]) * s, s, 2); });
+    ctx.restore();
+  }
+
+  // Glass in its last 3 s flashes before it breaks.
+  function glassFlash(ctx, game, now) {
+    var s = D.s, x0 = ox(), y0 = oy(), grid = game.grid;
+    for (var y = 0; y < grid.length; y++) for (var x = 0; x < grid[y].length; x++) {
+      var c = grid[y][x];
+      if (!c || c.v !== 0 || game.glassAge(c) < Rules.FLASH_TICKS) continue;
+      ctx.save(); ctx.globalAlpha = reduced ? 0.35 : 0.3 + 0.3 * Math.sin(now / 45); ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.roundRect(x0 + x * s + s * 0.1, y0 + rowY(y) * s + s * 0.1, s * 0.8, s * 0.8, s * 0.14); ctx.fill();
+      ctx.restore();
+    }
   }
 
   function drawFalling(ctx, game, p, cells, now) {
@@ -454,7 +571,7 @@
     var top = Math.min.apply(null, cells.map(function (c) { return c[1]; })), left = p.bx + minX;
     if (!low) blit(ctx, gl, x0 + (left - gl.pad) * s, y0 + (top - gl.pad) * s);
     drawPiece(ctx, cells, p.shape, x0, y0, s);
-    if (p.special) { var sc = cells[p.special.i]; drawSpecial(ctx, sc[0], sc[1], p.special.kind, p.shape, x0, y0, s); }
+    drawSpecials(ctx, cells, p.specials, p.shape, x0, y0, s);
     ctx.restore();
   }
 
@@ -555,6 +672,41 @@
           ctx.beginPath(); ctx.roundRect(x0 + cx * s - r, y0 + cy * s - r, 2 * r, 2 * r, r * 0.4); ctx.fill();
         });
         ctx.restore();
+      } else if (a.kind === 'water') {
+        // Gaps the water has not reached yet stay empty; each lights aqua as it arrives.
+        var ms = now - a.t0;
+        ctx.save();
+        a.filled.forEach(function (c) {
+          var ry = rowY(c[1]), arrive = c[2] * a.step, px = x0 + c[0] * s, py = y0 + ry * s;
+          if (ms < arrive) {
+            if (ry < 0) return;
+            ctx.globalAlpha = 1; ctx.fillStyle = mix(WELL.top, WELL.bottom, (ry + 0.5) / ROWS);
+            ctx.fillRect(px + s * 0.05, py + s * 0.05, s * 0.9, s * 0.9);
+          } else {
+            ctx.globalAlpha = 0.85 * Math.max(0, 1 - (ms - arrive) / 160); ctx.fillStyle = 'rgba(120,205,255,1)';
+            ctx.beginPath(); ctx.roundRect(px + s * 0.06, py + s * 0.06, s * 0.88, s * 0.88, s * 0.18); ctx.fill();
+          }
+        });
+        ctx.restore();
+      } else if (a.kind === 'blast') {
+        var bx = x0 + (a.at[0] + 0.5) * s, by = y0 + (rowY(a.at[1]) + 0.5) * s, rr = s * (0.4 + 1.9 * ease(t));
+        var gr = ctx.createRadialGradient(bx, by, 0, bx, by, rr);
+        gr.addColorStop(0, 'rgba(255,255,255,' + (0.95 * (1 - t)) + ')');
+        gr.addColorStop(0.35, 'rgba(255,190,90,' + (0.8 * (1 - t)) + ')');
+        gr.addColorStop(1, 'rgba(255,90,40,0)');
+        ctx.save(); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(bx, by, rr, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      } else if (a.kind === 'beam') {
+        // A beam runs out along the row bomb's row to both walls.
+        var reach = Math.min(1, (now - a.t0) / 120), cyb = y0 + (rowY(a.y) + 0.5) * s;
+        var lx = Math.max(x0, x0 + (a.x + 0.5 - reach * D.W) * s), rx = Math.min(x0 + D.W * s, x0 + (a.x + 0.5 + reach * D.W) * s);
+        var gb = ctx.createLinearGradient(0, cyb - s * 0.6, 0, cyb + s * 0.6);
+        gb.addColorStop(0, 'rgba(255,90,130,0)'); gb.addColorStop(0.38, 'rgba(255,90,130,0.75)'); gb.addColorStop(0.5, 'rgba(255,255,255,1)');
+        gb.addColorStop(0.62, 'rgba(255,90,130,0.75)'); gb.addColorStop(1, 'rgba(255,90,130,0)');
+        ctx.save(); ctx.globalAlpha = t < 0.5 ? 1 : 2 * (1 - t); ctx.fillStyle = gb; ctx.fillRect(lx, cyb - s * 0.6, rx - lx, s * 1.2); ctx.restore();
+      } else if (a.kind === 'smash') {
+        ctx.save(); ctx.globalAlpha = 0.85 * (1 - t); ctx.fillStyle = '#ffffff';
+        a.cells.forEach(function (c) { ctx.beginPath(); ctx.roundRect(x0 + c[0] * s + s * 0.06, y0 + rowY(c[1]) * s + s * 0.06, s * 0.88, s * 0.88, s * 0.18); ctx.fill(); });
+        ctx.restore();
       }
       return true;
     });
@@ -644,7 +796,7 @@
       ctx.save();
       ctx.beginPath(); ctx.rect(D.queueRow ? left : 0, label, D.queueRow ? 4 * slot : w, 4 * slot); ctx.clip();
       drawPiece(ctx, cells, p.shape, gx, gy, q, i === 3 && k > 0 ? 1 - k : null);
-      if (p.special) drawSpecial(ctx, cells[p.special.i][0], cells[p.special.i][1], p.special.kind, p.shape, gx, gy, q);
+      drawSpecials(ctx, cells, p.specials, p.shape, gx, gy, q);
       ctx.restore();
     });
     if (qa && now - qa.t0 >= qa.dur) D.queueAnim = null;
@@ -689,12 +841,12 @@
   }
 
   // A small picture of a piece, for the page's text: the tutorial and How to play.
-  function icon(cv, shape, o, special, cell) {
+  function icon(cv, shape, o, specials, cell) {
     var cells = Pieces.shapeCells(shape, o || 0), w = 0, h = 0;
     cells.forEach(function (c) { w = Math.max(w, c[0] + 1); h = Math.max(h, c[1] + 1); });
     var ctx = sizeCanvas(cv, w * cell + 2, h * cell + 2);
     drawPiece(ctx, cells, shape, 1, 1, cell);
-    if (special) drawSpecial(ctx, cells[special[0]][0], cells[special[0]][1], special[1], shape, 1, 1, cell);
+    drawSpecials(ctx, cells, (specials || []).map(function (sp) { return { i: sp[0], kind: sp[1] }; }), shape, 1, 1, cell);
   }
 
   function setDanger(game) {
@@ -705,7 +857,7 @@
 
   function reset() {
     D.anims = []; D.particles = []; D.clear = null; D.tween = null; D.lastPiece = null; D.over = null;
-    D.rimSweep = null; D.levelGlow = 0; D.queueAnim = null; D.stackKey = null; D.danger = false;
+    D.rimSweep = null; D.levelGlow = 0; D.queueAnim = null; D.stackKey = null; D.danger = false; D.shake = 0;
   }
 
   Pentrys.Draw = {

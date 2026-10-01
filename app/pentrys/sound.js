@@ -3,7 +3,8 @@
 
    Every pitch is a harmonic of one low C (65.4 Hz), so all of it is in just
    intonation. A clear plays the harmonics 4 and 5 for a Single, one more for
-   each row, up to 4 to 10 for a Hextrys. Notes start and stop cleanly: each
+   each row, up to 4 to 10 for a Hextrys, and a rising bell for each bonus
+   in its combo. Notes start and stop cleanly: each
    gain starts at 0, and no note slides. Nothing plays until the player's
    first click or key, since browsers allow no sound before one. */
 (function (root) {
@@ -58,6 +59,14 @@
     lock: function () { if (ready()) { note(2, 0, 0.09, 0.1); thud(0, 0.04, 0.05, 1400); } },
     hardDrop: function () { if (ready()) { note(1.5, 0, 0.14, 0.16); thud(0, 0.09, 0.09, 900); } },
     flood: function () { if (ready()) { note(20, 0, 0.06, 0.05); note(15, 0.06, 0.09, 0.05); note(12, 0.13, 0.12, 0.035); } },
+    deluge: function () { if (ready()) [24, 20, 16, 15, 12, 10, 8].forEach(function (h, i) { note(h, i * 0.035, 0.12, 0.045); }); },
+    blast: function () { if (ready()) { thud(0, 0.35, 0.22, 380); note(1, 0, 0.4, 0.14); note(1.5, 0.01, 0.25, 0.06); } },
+    rowbomb: function () { if (ready()) { thud(0, 0.25, 0.14, 2600); [8, 10, 12, 16].forEach(function (h, i) { note(h, i * 0.025, 0.18, 0.04, 'triangle'); }); } },
+    smash: function () { if (ready()) { thud(0, 0.12, 0.12, 7000); [30, 36, 45].forEach(function (h, i) { note(h, i * 0.02, 0.16, 0.025); }); } },
+    shatter: function () { if (ready()) { thud(0, 0.08, 0.06, 7000); note(36, 0, 0.12, 0.015); note(45, 0.03, 0.1, 0.012); } },
+    crack: function () { if (ready()) { thud(0, 0.025, 0.04, 5000); note(40, 0, 0.03, 0.01); } },
+    // A bell for each bonus in a combo, rising.
+    combo: function (bonuses) { if (ready()) for (var i = 0; i < Math.min(bonuses, 5); i++) bell([16, 20, 24, 30, 32][i], 0.25 + i * 0.09, 0.5, 0.045); },
     clear: function (n, twos, threes) {
       if (!ready()) return;
       var top = 4 + Math.min(n, 6), count = top - 3;
