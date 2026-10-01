@@ -1,8 +1,8 @@
 # Thumbnails
 
 The builder page shows a 120 px picture beside most of its entries. The two
-NFT pictures are the artworks themselves. The other ten live in `assets/thumbs/`,
-and one script here draws each of them. The scripts need only Node. Each
+NFT pictures are the artworks themselves. Nifty Ink's is a crop of a screenshot of one piece, `assets/thumbs/nifty-ink.jpg`. The other pictures live in `assets/thumbs/`,
+and one script here draws each of them, except the four audits, which share `audits.js`. The scripts need only Node. Each
 prints the file it wrote and the file's size. Rerun a script after you change
 it, then check the result with `frames.js`.
 
@@ -18,6 +18,10 @@ it, then check the result with `frames.js`.
 | `assets/thumbs/dino-dash.svg` | `dino-dash.js` | A lap of a Dino Dash maze on a 6.4 s loop: coins, the "Yay!" at the tenth, a dinosaur, a cat and an eagle |
 | `assets/thumbs/sonic-asteroids.svg` | `sonic-asteroids.js` | Sonic fires rings at a Mario head, which bursts into two Luigis, on a 6 s loop |
 | `assets/thumbs/highlight-buffs.svg` | `highlight-buffs.js` | A still: the plugin's seven ring colours round planets on a Dark Forest map |
+| `assets/thumbs/weth9.svg`, `uniswap-v2.svg`, `dai.svg`, `permit2.svg` | `audits.js` | Stills of the diagrams on each audit's social card in `tools/social-cards/cards.html`, cut down to what reads at 120 px: ETH and WETH with arrows, the x·y=k curve, the price band round $1, and signers split 83% and 17% |
+| `assets/thumbs/polygonal-spectre.svg` | `polygonal-spectre.js` | A still of the paper's default tile, p = 29/50 and h = 13/50, with the plain Spectre dashed beneath. Built as in `papers/verify-polygonal-spectre.py` |
+| `assets/thumbs/rcn.svg` | `rcn.js` | A still: C4 D4 E'4 G4 on a staff, with the numeric accidental 5 before E'4 |
+| `assets/thumbs/harmony.svg` | `harmony.js` | A still: the divisors of 60 as tiles, with the major triad 4:5:6 in blue and the minor triad 10:12:15 in red |
 
 Run any of them from anywhere, for example `node tools/thumbnails/dino-dash.js`.
 

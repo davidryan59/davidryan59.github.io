@@ -41,10 +41,12 @@
 <p class="tagline">Audit by David Ryan using Claude (Opus 5) on 2026&#8209;09&#8209;22 against block 26,032,914<br>Contract on Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/address/0x000000000022D473030F116dDEE9F6B43aC78BA3#code"><code>Permit2</code></a></p>
 
 <p>
-  An ERC-20 token moves only when its owner sends it, or when a contract the
-  owner has approved moves it for them. Each approval is a transaction, and it
-  costs gas. To save users that cost, most applications ask for an unlimited
-  approval that never expires. Those approvals outlive the reason for them. A flaw in any contract that holds one can let an attacker take the owner's whole balance of that token.
+  An ERC-20 token moves only when its owner transfers it, or when a contract the
+  owner has approved transfers it for them. Approvals are transactions, and cost gas.
+  To save users that gas cost and inconvenience, most applications ask for an unlimited approval that never expires.
+  But those approvals are security hazards, because if the contract being approved has a flaw
+  or is hacked by say replacing a proxy implementation with a malicious implementation,
+  an attacker can take the owner's whole balance of that token.
 </p>
 <p>
   Uniswap Labs deployed Permit2 in November 2022 to change that pattern. A user
