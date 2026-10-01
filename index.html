@@ -637,33 +637,31 @@
       <img class="thumb" src="assets/thumbs/uniswap-v2.svg" width="120" height="120" alt="" loading="lazy">
     </a>
     <a href="audits/uniswap-v2/index.html">Uniswap V2</a>
-    – the pair, factory and router contracts deployed by Uniswap in 2020 to Ethereum mainnet and other chains.
-    These contracts are critical in DeFi, since together with over 700 forks they control over $2 billion of assets.
-    Uniswap governance switched on the protocol fee in Dec 2025, after 5.6 years of that code lying dormant.
-    <br><b>Summary</b>: no exploitable vulnerability, the newly live fee arithmetic proven overflow-free,
-    and three medium findings, the largest being a fee that charges staking yield as though it were trading revenue.
+    – the pair, factory and router contracts deployed by Uniswap in 2020.
+    With over 700 forks they control over $2 billion of assets.
+    Governance switched on the protocol fee in Dec 2025, after 5.6 years of dormant code.
+    <br><b>Summary</b>: no exploitable vulnerability, the live fee arithmetic proven overflow-free,
+    and three medium findings, the largest a fee that charges staking yield as trading revenue.
   </li>
   <li class="thumb-item">
     <a class="thumb-link square" href="audits/dai/index.html" tabindex="-1" aria-hidden="true">
       <img class="thumb" src="assets/thumbs/dai.svg" width="120" height="120" alt="" loading="lazy">
     </a>
     <a href="audits/dai/index.html">DAI</a>
-    – the decentralised stablecoin deployed by MakerDAO (now Sky) in Nov 2019, backed by onchain collateral,
-    and with over $4 billion worth of DAI currently minted.
-    The main risk is that the wrong person calls `mint`, so this audit traces it through 16.9 million blocks of chain history.
+    – the decentralised stablecoin deployed by MakerDAO (now Sky) in Nov 2019, with over $4 billion of DAI minted.
+    The main risk is the wrong person calling mint, so this audit traces it through 16.9 million blocks of chain history.
     <br><b>Summary</b>: no exploitable vulnerability, the mint authority proven closed to a single address since 2019,
-    and two medium findings in a signed-approval function that predates the EIP-2612 standard.
+    and two medium findings in a signed-approval function that predates EIP-2612.
   </li>
   <li class="thumb-item">
     <a class="thumb-link square" href="audits/permit2/index.html" tabindex="-1" aria-hidden="true">
       <img class="thumb" src="assets/thumbs/permit2.svg" width="120" height="120" alt="" loading="lazy">
     </a>
     <a href="audits/permit2/index.html">Permit2</a>
-    – the contract Uniswap deployed in Nov 2022 so that apps can take token allowances from a signature rather than a transaction.
-    Uniswap's own router spends through it, and it has received over 700,000 transactions on Ethereum mainnet.
+    – the contract Uniswap deployed in Nov 2022 so that apps can take token allowances from a signature, with over 700,000 transactions on Ethereum mainnet.
     Since 2025, EIP-7702 has let ordinary accounts carry code, which Permit2 was not designed for.
     <br><b>Summary</b>: no exploitable vulnerability, deployed code identical to the verified source,
-    and four medium findings, one of them caused by EIP-7702, which moved about one in six of Permit2's signers onto the signature check written for smart contract wallets.
+    and four medium findings, one caused by EIP-7702, which moved about one in six signers onto the smart contract wallet signature check.
   </li>
 </ul>
 
