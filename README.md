@@ -48,7 +48,9 @@ address, `davidryan59.github.io`, redirects there.
 - `404.html` – the page GitHub Pages shows for an address with no page.
 - `_config.yml` – keeps `docs/` and `tools/` off the site.
 - `tools/` – scripts for people who work on the repo. `tools/check-addresses/`
-  checks that every published address still works.
+  checks that every published address still works. `tools/screen-fit/`
+  checks that a game or app fills the screen at six window sizes, from a
+  monitor to a phone held sideways; see [docs/screen-fit.md](docs/screen-fit.md).
   `tools/tiling-video/` renders a 45-second looping video of the tiling
   explorer, with captions and a just-intonation soundtrack. See its
   [README](tools/tiling-video/README.md). `tools/sieve-video/` renders a
@@ -74,6 +76,7 @@ there first, then render it into `index.html`.
 ## Docs
 
 - [docs/site-layout.md](docs/site-layout.md) – how the site is filed, and the addresses that must keep working
+- [docs/screen-fit.md](docs/screen-fit.md) – how a game or app fills a monitor, a laptop, an iPad and a phone, and how to check it
 - [docs/tiling-explorer.md](docs/tiling-explorer.md) – how the Hat and Spectre viewers work
 - [docs/aperiodic-pairs.md](docs/aperiodic-pairs.md) – how each gallery tiling is generated and checked
 - [docs/smash.md](docs/smash.md) – the rules of Smash Screen, how a blow breaks a screen, and what it costs to run

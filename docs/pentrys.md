@@ -53,6 +53,9 @@ comes later. David's request is kept word for word in
       display, and a gentler climb in speed
 - [x] Tests in Node: 80, all passing
 - [x] The builder page entry and its picture
+- [x] Fits every screen: a larger well on a monitor, touch buttons on an
+      iPad and on a phone held sideways, and a full-screen button, checked
+      with `tools/screen-fit/check.js`
 - [ ] David plays each mode again, and the speeds and special-square rates
       are tuned
 - [ ] Try it on a real phone and in Safari
@@ -183,6 +186,9 @@ and `tools/pentrys/colours.html` shows them all.
 - On a phone the queue shrinks to 0.6 of the well's scale. It goes beside
   the well or above it as a row, whichever leaves the larger well. A tall
   phone puts it above, with the front piece on the left.
+- On a touch screen held sideways the queue shares its column with the
+  buttons below it, so it shrinks to fit. It goes in a column or a row,
+  whichever gives the larger slots: a column on an iPad, a row on a phone.
 
 ### Where a piece appears
 
@@ -549,9 +555,9 @@ keys. Its opening:
 > Move, rotate and flip the falling pieces to fill rows. A full row
 > clears. Cycle the queue to choose which piece falls next.
 
-The simulated player plays a slow game in a dimmed well. On a wide screen
+The simulated player plays a slow game in a dimmed well. With a keyboard
 the menu takes the left column, widened, and the game plays beside it. On a
-phone the menu covers the well, and its game waits.
+touch screen the menu covers the well, and its game waits.
 
 ### Tutorial
 
@@ -825,7 +831,7 @@ Every lock that scores shows a combo, and the fuss grows with it, but
 never covers the well. The effects play on the well's rim, the wallpaper
 and the page, and inside the well only the clearing rows flash.
 
-- On a wide screen the combo appears beside the well, at the height of the
+- Beside the well the combo appears at the height of the
   rows that cleared: the clear's name and its total multiplier, then a
   line for each bonus with its multiplier or points, the level last, and
   the points scored. The lines arrive one by one, and the combo stays
@@ -854,16 +860,36 @@ and the page, and inside the well only the clearing rows flash.
 
 ### Layout
 
-- A wide screen shows the scores on the left, the well in the centre and
-  the queue on the right. The window's height sets the cell size, up to
-  42 px, so the 20 rows and the room above them fill it. The key reminder
-  sits at the foot of the left column, and the celebrations between.
-- A phone shows the scores in a bar across the top, the buttons across the
-  bottom and the well between them. The queue goes beside the well or
-  above it, as [The queue](#the-queue) says.
+The game picks one of three layouts, and sets it as a class on the page:
+`phone`, `hand`, or neither for a keyboard. It reads the page's own size,
+`clientWidth` and `clientHeight`, since a phone's `innerWidth` grows with
+anything wider than the screen. The rules all the site's games follow are in
+[screen-fit.md](screen-fit.md).
+
+- **Keyboard**, for a fine pointer: the scores on the left, the well in
+  the centre and the queue on the right. The window's height sets the cell
+  size, up to 72 px, so the 20 rows and the room above them fill it. Past
+  the 42 px squares a laptop shows, the score panel and key reminder zoom
+  with the well, up to 1.6 times. The key reminder sits at the foot of the
+  left column, and the celebrations between.
+- **Phone**, for a touch screen held upright or any window 640 px wide or
+  less: the scores in a bar across the top, the buttons across the bottom
+  and the well between them. The queue goes beside the well or above it,
+  as [The queue](#the-queue) says. An iPad held upright uses this layout
+  too.
+- **Hand**, for a touch screen held sideways: the well in the middle at the
+  full height, the scores on its left and the queue on its right. The
+  buttons sit in the two bottom corners, 48 to 72 px square. On a phone,
+  under 500 px tall, the scores keep only Score, Level and Rows, and the
+  theme and full-screen buttons move to the menu.
 - The touch buttons are two rows of four. The bottom row, nearest the
   thumbs, holds the ones used most: ◀ ▶ ↺ ↻. The top row holds ▼ ⤓ ⇆ and
-  Cycle. A button held down repeats, as a held key does.
+  Cycle. Held sideways, the left two columns go to the left corner and the
+  right two to the right corner, so each button stays under the same thumb.
+  A button held down repeats, as a held key does.
+- A full-screen button sits beside the theme button, and the menu's Set up
+  group and the pause menu each have one. They show only where the browser
+  supports full screen, which an iPhone does not.
 - Sizes snap to whole pixels, so edges stay sharp.
 
 ### Speed on old machines
@@ -1067,6 +1093,8 @@ and before craters closed: 12 games for each setting, each stopped at
   score can be shared.
 - Back-to-back bonuses from the modern standard, beyond the streak.
 - Swipe controls on phones.
+- On a touch screen, a lesson's words name the touch buttons. Today they
+  name keys, which a phone or iPad player does not have.
 
 ## Similar games
 

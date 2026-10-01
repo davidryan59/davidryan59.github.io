@@ -34,6 +34,9 @@ drbuild.uk/smash redirects there.
 - [x] Two time-out endings, death, local high scores and an announcer voice
 - [x] A visitor's own picture in Fun Mode, and Fun Mode's cheer for a
       destroyed screen
+- [x] Fits every screen: a full-width stage, a side layout for a screen
+      held sideways, and a full-screen button, checked with
+      `tools/screen-fit/check.js`
 - [ ] Play an early and a late level of Anger Mode, and tune the time limits
 - [ ] Try the game on a real phone and in Safari
 - [ ] Redraw the share card with the new glass, if wanted
@@ -395,6 +398,22 @@ work out in Chromium, and 14 ms at worst. In Node, the slowest of 240 random
 blows with every weapon took 13 ms, and 4,200 cracks from them had no
 crossings.
 
+## Layout
+
+The stage takes the window's full width, and its height less room for the
+title above and the buttons below. The device is drawn to fit the stage,
+so a bigger window shows a bigger device. Anger Mode's bars stop at 1300 px
+across, however wide the stage. The rules all the site's games follow are
+in [screen-fit.md](screen-fit.md).
+
+- A touch screen held sideways, or any window under 520 px tall, puts the
+  title and buttons in a narrow column on the left. The stage takes the full
+  height beside them, and the weapons run down its left edge, so they take
+  no height from the device.
+- A Full screen button sits with the sound buttons. It shows only where the
+  browser supports full screen, which an iPhone does not.
+- A title or end sheet taller than the stage scrolls from its top.
+
 ## Controls
 
 - Click or tap to swing: press lifts the weapon, release strikes. Hold
@@ -402,7 +421,8 @@ crossings.
 - Keys 1 to 7, or the buttons at the foot of the stage, pick a weapon.
 - Keys, with the stage focused: the arrows aim, Space or Enter swings.
   Anywhere on the page: P or Escape pauses Anger Mode, N gives a new device
-  in Fun Mode, M turns sound on and off, V turns the voice on and off.
+  in Fun Mode, M turns sound on and off, V turns the voice on and off, F
+  fills the screen.
 - Fun Mode only: scroll, pinch, or − and + zoom towards the last blow;
   drag moves the view when zoomed in; 0 shows the whole device.
 - The Menu button pauses Anger Mode, with a choice to quit. In Fun Mode the

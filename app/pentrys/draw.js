@@ -805,7 +805,7 @@
   // The wallpaper and the title ----------------------------------------------------------
 
   function wallpaper(cv, pageLight) {
-    var w = root.innerWidth, h = root.innerHeight, ctx = sizeCanvas(cv, w, h);
+    var de = document.documentElement, w = de.clientWidth, h = de.clientHeight, ctx = sizeCanvas(cv, w, h);
     var b = Math.max(18, Math.round(Math.min(w, h) / 30)), tile = offscreen(10 * b, 6 * b), by = {};
     TILING.forEach(function (row, y) { for (var x = 0; x < row.length; x++) (by[row[x]] = by[row[x]] || []).push([x, y]); });
     Object.keys(by).forEach(function (ch) {

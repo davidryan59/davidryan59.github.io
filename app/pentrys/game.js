@@ -14,7 +14,21 @@
   function $(id) { return document.getElementById(id); }
   function load(k, d) { try { var v = root.localStorage.getItem(STORE + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
   function save(k, v) { try { root.localStorage.setItem(STORE + k, JSON.stringify(v)); } catch (e) { /* private window: keep going */ } }
-  function isPhone() { return root.matchMedia('(max-width: 640px)').matches; }
+  // The layout that fits the screen. 'phone' stacks the scores, the well and
+  // the buttons; 'hand', a touch screen held sideways, puts the buttons in the
+  // bottom corners beside the well; 'desk' is for a keyboard.
+  var coarse = root.matchMedia('(pointer: coarse)'), mode = 'desk';
+  // The page's own size. On a phone innerWidth grows with anything wider than
+  // the screen, so a layout sized from it never shrinks back.
+  function viewport() { var de = document.documentElement; return { w: de.clientWidth, h: de.clientHeight }; }
+  function pickMode() {
+    var v = viewport(), cl = document.documentElement.classList;
+    mode = v.w <= 640 || (coarse.matches && v.h >= v.w) ? 'phone' : coarse.matches ? 'hand' : 'desk';
+    cl.toggle('phone', mode === 'phone'); cl.toggle('hand', mode === 'hand'); cl.toggle('short', mode === 'hand' && v.h < 500);
+  }
+  pickMode();
+  function isPhone() { return mode === 'phone'; }
+  function compact() { return mode !== 'desk'; }
   function isLight() { return document.documentElement.dataset.theme === 'light'; }
   function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
@@ -159,7 +173,7 @@
     if (!last) last = now;
     var dt = Math.min(250, now - last);
     last = now;
-    var stepping = g && !g.over && (game ? screen === null : !isPhone());
+    var stepping = g && !g.over && (game ? screen === null : !compact());
     if (stepping) {
       acc += dt;
       var n = 0;
@@ -179,7 +193,7 @@
       if (game) updateHud(now);
     }
     measure(performance.now() - t0, now);
-    if ((g && !g.over && (screen === null || (demo && !isPhone()))) || Draw.busy(now) || (shown.t0 && now - shown.t0 < 320)) schedule();
+    if ((g && !g.over && (screen === null || (demo && !compact()))) || Draw.busy(now) || (shown.t0 && now - shown.t0 < 320)) schedule();
     else if (demo && demo.over) root.setTimeout(function () { if (demo && demo.over && screen) { startDemo(); schedule(); } }, 1500);
   }
 
@@ -558,7 +572,7 @@
   // title screen's game shows beside them. Other pages sit in the middle.
   function placeScreen() {
     var el = $('screen');
-    if (titling() && !isPhone()) {
+    if (titling() && !compact()) {
       var r = $('left').getBoundingClientRect();
       el.style.justifyContent = 'flex-start'; el.style.alignItems = 'flex-start';
       el.style.padding = Math.round(r.top) + 'px 0 0 ' + Math.round(r.left) + 'px';
@@ -666,6 +680,29 @@
     settings.sound = !settings.sound; Sound.setOn(settings.sound); save('settings', settings); refreshSoundButtons();
     if (game && screen === null) callout('Sound ' + (settings.sound ? 'on' : 'off'), 'info', null, null);
   }
+
+  // Full screen takes the whole page, so the well grows to fill it. iPhones
+  // have no full-screen mode, so there its buttons stay hidden.
+  var canFull = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function toggleFull() {
+    var page = document.documentElement;
+    var p = isFull() ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+                     : (page.requestFullscreen || page.webkitRequestFullscreen).call(page);
+    if (p && p.catch) p.catch(function () {});
+  }
+  function refreshFull() {
+    $('set-full').textContent = isFull() ? 'On' : 'Off';
+    $('set-full').setAttribute('aria-pressed', isFull());
+    $('pause-full').textContent = 'Full screen: ' + (isFull() ? 'on' : 'off');
+  }
+  ['fs-toggle', 'full-row', 'pause-full'].forEach(function (id) { $(id).hidden = !canFull; });
+  $('fs-toggle').addEventListener('click', function () { toggleFull(); $('fs-toggle').blur(); });
+  $('set-full').addEventListener('click', toggleFull);
+  $('pause-full').addEventListener('click', toggleFull);
+  document.addEventListener('fullscreenchange', refreshFull);
+  document.addEventListener('webkitfullscreenchange', refreshFull);
+  refreshFull();
 
   function buildLessons() {
     var list = $('lesson-list'); list.textContent = '';
@@ -837,32 +874,56 @@
   // Layout ---------------------------------------------------------------------------------------
 
   function layout() {
-    var g = active(), W = g ? g.width : settings.width, phone = isPhone();
-    Draw.logo($('logo'), phone ? 4 : 7);   // before measuring: a blank canvas is 300 x 150
-    var board = $('board'), left = $('left'), gameEl = $('game');
-    var wellCols = Draw.GAUGE + W + 0.2, wellRows = Draw.TOP + Rules.ROWS + 0.4, s, row = false;
+    pickMode();
+    var g = active(), W = g ? g.width : settings.width, phone = isPhone(), v = viewport();
+    Draw.logo($('logo'), phone || (mode === 'hand' && v.h < 500) ? 4 : 7);   // before measuring: a blank canvas is 300 x 150
+    var board = $('board'), left = $('left'), gameEl = $('game'), next = $('next');
+    var wellCols = Draw.GAUGE + W + 0.2, wellRows = Draw.TOP + Rules.ROWS + 0.4, s, q, row = false, zoom = 1, queue, sideW = 0;
+    gameEl.style.paddingTop = ''; left.style.height = ''; left.style.width = ''; next.style.marginRight = '';
     if (phone) {
-      gameEl.style.paddingTop = ''; left.style.height = ''; left.style.width = '';
-      var availW = root.innerWidth - 32, availH = root.innerHeight - left.getBoundingClientRect().height - (58 * 2 + 8) - 10 - 12 - 16 - 8;
+      var availW = v.w - 32, availH = v.h - left.getBoundingClientRect().height - (58 * 2 + 8) - 10 - 12 - 16 - 8;
       var side = Math.floor(Math.min((availW - 4) / (wellCols + 0.6 * 5.7), availH / wellRows));
       var top = Math.floor(Math.min(availW / wellCols, (availH - 16 - 2) / (wellRows + 0.6 * 5)));
-      row = top > side; s = Math.max(8, Math.max(side, top));
+      row = top > side; s = Math.max(8, Math.max(side, top)); q = Math.round(s * 0.6);
+      queue = { cell: q, row: row, width: Math.round(wellCols * s), height: Math.round(wellRows * s) };
+    } else if (mode === 'hand') {
+      // Two columns of buttons sit in each bottom corner. The scores and the
+      // queue take the space above them, either side of the well.
+      var b = Math.round(Math.max(48, Math.min(72, v.h * 0.14))), corner = 2 * b + 8 + 12;
+      s = Math.max(8, Math.floor(Math.min((v.h - 20) / wellRows, (v.w - 2 * corner - 64) / wellCols, 72)));
+      sideW = Math.max(corner, Math.min(236, Math.floor((v.w - 40 - Math.round(wellCols * s)) / 2) - 12));
+      var above = Math.round(wellRows * s) - (2 * b + 8) - 24;
+      var qCol = Math.floor(Math.min(s, (above - Draw.TOP * s) / 20, sideW / 5.7));
+      var qRow = Math.floor(Math.min((sideW - Draw.GAUGE * s - 4) / 20, (above - 16) / 5));
+      row = qRow > qCol; q = Math.max(4, row ? qRow : qCol);
+      queue = { cell: q, row: row, width: Math.round(Draw.GAUGE * s + 20 * q + 4), height: Math.round(Draw.TOP * s + 20 * q + 6) };
+      gameEl.style.setProperty('--b', b + 'px');
+      left.style.width = sideW + 'px'; left.style.height = above + 'px';
     } else {
       var leftW = titling() ? 460 : 236;
-      left.style.width = leftW + 'px';
-      s = Math.max(10, Math.floor(Math.min((root.innerHeight - 40) / wellRows, (root.innerWidth - leftW - 60) / (wellCols + 5.7), 42)));
+      s = Math.max(10, Math.floor(Math.min((v.h - 40) / wellRows, (v.w - leftW - 60) / (wellCols + 5.7), 72)));
+      // The scores grow with the well, past the 42px squares a laptop shows.
+      zoom = titling() ? 1 : Math.min(1.6, Math.max(1, s / 42));
+      s = Math.max(10, Math.min(s, Math.floor((v.w - leftW * zoom - 60) / (wellCols + 5.7))));
+      left.style.width = Math.round(leftW * zoom) + 'px';
+      q = s;
+      queue = { cell: q, row: false, width: Math.round(wellCols * s), height: Math.round(wellRows * s) };
     }
-    board.classList.toggle('top', row);
-    var q = phone ? Math.round(s * 0.6) : s;
-    Draw.layout(W, s, { cell: q, row: row, width: Math.round(wellCols * s), height: Math.round(wellRows * s) });
+    $('hud').style.zoom = $('keys').style.zoom = zoom === 1 ? '' : zoom.toFixed(3);
+    board.classList.toggle('top', row && phone);
+    Draw.layout(W, s, queue);
     var wellH = Math.round(wellRows * s);
-    if (!phone) { gameEl.style.paddingTop = Math.max(0, (root.innerHeight - wellH) / 2) + 'px'; left.style.height = wellH + 'px'; }
+    if (!phone) gameEl.style.paddingTop = Math.max(0, (v.h - wellH) / 2) + 'px';
+    if (mode === 'desk') left.style.height = wellH + 'px';
+    // The queue's column is as wide as the scores', so the well sits in the middle.
+    if (mode === 'hand') next.style.marginRight = Math.max(0, sideW - (row ? queue.width : Math.round(5.7 * q))) + 'px';
     if (g) { Draw.frame(g, performance.now()); Draw.queue(g, performance.now()); }
     placeScreen();
   }
   function paintBackground() {
+    pickMode();
     Draw.wallpaper($('wall'), isLight());
-    Draw.logo($('biglogo'), isPhone() ? 9 : 12);
+    Draw.logo($('biglogo'), compact() ? 9 : 12);
   }
 
   var resizeTimer = 0;

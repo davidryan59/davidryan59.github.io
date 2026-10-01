@@ -86,11 +86,15 @@
     fdpr = dpr;
     fx.width = Math.round(sw * dpr);
     fx.height = Math.round(sh * dpr);
+    setPads();
   };
 
+  // A weapons bar down the side of the stage, on a screen held sideways,
+  // takes no height from the device.
   function setPads() {
+    var side = bar.offsetHeight > bar.offsetWidth;
     E.pads.top = G.mode === 'anger' ? hud.offsetHeight + 4 : 0;
-    E.pads.bottom = G.mode === 'title' ? 0 : bar.offsetHeight + 6;
+    E.pads.bottom = G.mode === 'title' || side ? 0 : bar.offsetHeight + 6;
   }
 
   /* ------------------------------------------------------ the announcer */
@@ -1308,6 +1312,8 @@
       Music.refresh();
     } else if (k === 'v' || k === 'V') {
       voiceBtn.click();
+    } else if ((k === 'f' || k === 'F') && canFull) {
+      toggleFull();
     } else if (leaving && (k === 'p' || k === 'P' || k === 'Escape')) {
       e.preventDefault();
       if (k === 'Escape') stay();
@@ -1316,6 +1322,21 @@
       setPaused(!G.paused);
     }
   });
+  // Full screen takes the whole page, so the stage grows to fill it.
+  // iPhones have no full-screen mode, so there the button stays hidden.
+  var canFull = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled), fullBtn = $('fullscreen');
+  function toggleFull() {
+    var root = document.documentElement, on = document.fullscreenElement || document.webkitFullscreenElement;
+    var p = on ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+               : (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
+    if (p && p.catch) p.catch(function () {});
+  }
+  function syncFull() { fullBtn.textContent = document.fullscreenElement || document.webkitFullscreenElement ? 'Exit full screen' : 'Full screen'; }
+  fullBtn.hidden = !canFull;
+  fullBtn.addEventListener('click', function () { toggleFull(); fullBtn.blur(); });
+  document.addEventListener('fullscreenchange', syncFull);
+  document.addEventListener('webkitfullscreenchange', syncFull);
+
   document.addEventListener('visibilitychange', function () {
     if (document.hidden && G.mode === 'anger' && G.phase === 'play' && !G.paused) setPaused(true);
   });

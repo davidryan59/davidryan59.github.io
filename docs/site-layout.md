@@ -100,6 +100,8 @@ permalink page, because it sits in the folder it serves.
 
 1. Make `app/<name>/index.html`. Reach `favicon.svg` and `assets/` by relative
    path, and set `og:url` and `og:image` to the real address and a card.
+   Follow [screen-fit.md](screen-fit.md), and run `tools/screen-fit/check.js`
+   until every size passes.
 2. Draw the card into `social/` and add the address to `docs/inventory.md`
    and `index.html`.
 3. Add the address to `tools/check-addresses/addresses.json`.

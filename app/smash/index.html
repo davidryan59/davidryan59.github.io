@@ -23,7 +23,7 @@
 <script src="../../assets/theme.js"></script>
 <script>Theme.initTheme();</script>
 <style>
-  body { max-width: 1200px; padding: 1.1rem 1rem 1rem; }
+  body { max-width: none; padding: 1.1rem 1rem 1rem; }
   header { padding-right: 3rem; }
   .back { margin: 0; font-size: 0.9rem; }
   h1 { margin: 0.3rem 0 0.15rem; }
@@ -57,16 +57,17 @@
   .tool:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
   .theme-toggle { top: 1rem; right: 1rem; }
 
-  /* The stage fits the window with room for the text around it, so the
-     device is never cropped and the page never scrolls on a laptop. */
+  /* The stage fills the window's width, and its height with room for the
+     text around it, so the device is never cropped and the page never
+     scrolls on a laptop. */
   /* clip, where supported, keeps the stage from scrolling to follow the
      arm or a focused button. */
   .stage {
     position: relative;
     overflow: hidden;
     overflow: clip;
-    height: clamp(320px, calc(100vh - 13.5rem), 800px);
-    height: clamp(320px, calc(100svh - 13.5rem), 800px);
+    height: max(320px, calc(100vh - 13.5rem));
+    height: max(320px, calc(100svh - 13.5rem));
     background: radial-gradient(ellipse at 50% 38%, var(--panel), var(--bg) 75%);
     border: 1px solid var(--rule);
     border-radius: 12px;
@@ -106,10 +107,11 @@
 
   /* Anger Mode's bars, fighting-game style: your Health on the left, the
      screen's on the right, each draining towards its own edge. */
+  /* The bars stop at 1300px across, however wide the stage. */
   .hud {
     position: absolute;
-    left: 10px;
-    right: 10px;
+    left: max(10px, 50% - 650px);
+    right: max(10px, 50% - 650px);
     top: 8px;
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -278,6 +280,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    /* safe: a sheet taller than the stage scrolls from its top, not its middle. */
+    justify-content: safe center;
     gap: 12px;
     padding: 16px;
     text-align: center;
@@ -399,7 +403,7 @@
     body { padding: 0.8rem 0.75rem 0.8rem; }
     h1 { font-size: 1.5rem; }
     .tagline { font-size: 0.9rem; }
-    .stage { height: clamp(320px, calc(100svh - 17rem), 800px); }
+    .stage { height: max(320px, calc(100svh - 17rem)); }
     .title-row { margin-right: 0; }
     .tool { font-size: 0.9rem; padding: 0.45rem 0.9rem; }
     .caption { text-align: left; }
@@ -409,6 +413,39 @@
     .hud .you .lbl span + span, .hud .them .lbl span:first-child { display: none; }
     .hud .timer { font-size: 24px; }
     .hud .bar { height: 12px; }
+  }
+  /* A screen held sideways, or any short window: the title and buttons in a
+     column on the left, the stage the full height beside them, and the
+     weapons down the stage's left edge. */
+  @media (orientation: landscape) and (max-height: 520px), (orientation: landscape) and (pointer: coarse) {
+    body {
+      display: grid;
+      grid-template-columns: 9.5rem minmax(0, 1fr);
+      grid-template-rows: auto 1fr auto;
+      grid-template-areas: "head stage" "ctrl stage" "credit credit";
+      gap: 0 0.75rem;
+      padding: 0.5rem max(0.75rem, env(safe-area-inset-right)) 0.75rem max(0.75rem, env(safe-area-inset-left));
+    }
+    .theme-toggle { display: none; }
+    header { grid-area: head; padding-right: 0; }
+    .back { display: none; }
+    h1 { font-size: 1.15rem; margin: 0.1rem 0 0.2rem; }
+    .tagline { font-size: 0.78rem; margin: 0 0 0.5rem; }
+    .title-row { display: block; margin-right: 0; }
+    .fun-tools { flex-direction: column; gap: 0.35rem; margin: 0; }
+    .tool { font-size: 0.78rem; padding: 0.35rem 0.6rem; white-space: normal; text-align: left; }
+    .stage { grid-area: stage; height: calc(100vh - 1.25rem); height: calc(100svh - 1.25rem); }
+    .controls { grid-area: ctrl; align-self: end; margin: 0.5rem 0 0; gap: 0.35rem; font-size: 0.8rem; }
+    .caption { display: none; }
+    .credit { grid-area: credit; }
+    .weapons { left: 6px; top: 50%; bottom: auto; transform: translateY(-50%); flex-direction: column; }
+    .hud { left: 64px; }
+  }
+  @media (orientation: landscape) and (max-height: 520px) {
+    .wpn { width: 36px; height: 36px; padding: 4px; }
+    .hud { left: 54px; font-size: 11px; }
+    .hud .timer { font-size: 22px; }
+    .hud .bar { height: 11px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .announce.show { animation: none; opacity: 1; }
@@ -532,11 +569,12 @@
   <button type="button" id="music" aria-pressed="true">Music on</button>
   <button type="button" id="pause" hidden>Pause</button>
   <button type="button" id="menu" hidden>Menu</button>
+  <button type="button" id="fullscreen" hidden>Full screen</button>
   <span id="caption" class="caption"></span>
 </div>
 <p class="credit">Inspired by <a href="https://x.com/austingriffith/status/2103545545801556280">a photo of a shattered monitor</a> by Austin Griffith.
   A picture of your own stays in your browser.<span class="keys">
-  Keys: 1&ndash;7 pick a weapon, arrows and Space aim and swing, P pauses, N gives a new device, M sound, V voice.</span></p>
+  Keys: 1&ndash;7 pick a weapon, arrows and Space aim and swing, P pauses, N gives a new device, M sound, V voice, F full screen.</span></p>
 <p id="status" class="sr-only" aria-live="polite"></p>
 
 <script src="scenes.js"></script>
