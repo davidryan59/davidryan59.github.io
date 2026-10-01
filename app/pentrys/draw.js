@@ -22,12 +22,12 @@
              shadow: 'rgba(70,55,20,0.22)', slot: 'rgba(255,255,255,0.96)', slotFront: '#ffffff',
              slotEdge: 'rgba(20,30,70,0.12)', slotEdgeFront: 'rgba(20,30,70,0.34)', wash: 'rgba(244,246,251,0.78)',
              ink: '#1d2140', muted: '#7c786d', gauge: '#a86f00', need: 'rgba(60,80,140,0.8)', needFill: 'rgba(90,110,160,0.25)',
-             dim: 'rgba(246,243,236,0.55)', grey: 'rgba(170,172,184,0.9)' },
+             dim: 'rgba(246,243,236,0.55)' },
     dark: { top: '#151b3d', bottom: '#0a0d20', dot: 'rgba(170,190,255,0.16)', rim: 'rgba(200,215,255,0.18)',
             shadow: 'rgba(0,0,0,0.55)', slot: 'rgba(12,15,33,0.9)', slotFront: 'rgba(21,27,61,0.96)',
             slotEdge: 'rgba(200,215,255,0.1)', slotEdgeFront: 'rgba(200,215,255,0.34)', wash: 'rgba(13,17,40,0.72)',
             ink: '#ffffff', muted: '#918c80', gauge: GOLD, need: 'rgba(230,238,255,0.85)', needFill: 'rgba(200,215,255,0.22)',
-            dim: 'rgba(10,12,26,0.5)', grey: 'rgba(70,74,94,0.92)' }
+            dim: 'rgba(10,12,26,0.5)' }
   };
   var LETTERS = {
     P: ['###', '#.#', '###', '#..', '#..'], E: ['###', '#..', '###', '#..', '###'],
@@ -209,7 +209,7 @@
     var px = ox + x * s, py = oy + y * s, cx = px + s / 2, cy = py + s / 2;
     ctx.save();
     if (kind === 2 || kind === 3) {
-      if (kind === 3) { ctx.globalAlpha = 0.35; ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(cx, cy, s * 0.45, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+      if (kind === 3) { var ga = ctx.globalAlpha; ctx.globalAlpha = 0.35 * ga; ctx.fillStyle = GOLD; ctx.beginPath(); ctx.arc(cx, cy, s * 0.45, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = ga; }
       ring(ctx, cx, cy, s, kind === 3 ? GOLD : 'rgba(255,255,255,0.92)');
       ctx.font = '800 ' + Math.round(s * 0.52) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineJoin = 'round'; ctx.lineWidth = s * 0.11; ctx.strokeStyle = 'rgba(12,14,34,0.5)';
@@ -264,7 +264,7 @@
     well: null, next: null, ctx: null, nctx: null, W: 12, s: 20, qs: 20, queueRow: false, queueWidth: 0,
     panel: null, stack: null, stackKey: null, threes: [], glows: {},
     anims: [], particles: [], clear: null, tween: null, lastPiece: null, dip: 0,
-    queueAnim: null, over: null, rimSweep: null, levelGlow: 0, dim: false, lessonRows: null, shake: 0
+    queueAnim: null, over: null, rimSweep: null, speedGlow: 0, dim: false, lessonRows: null, shake: 0
   };
 
   function ox() { return GAUGE * D.s; }
@@ -362,7 +362,7 @@
 
   function onEvents(list, game, now) {
     list.forEach(function (e) {
-      if (e.type === 'spawn') { D.tween = null; D.lastPiece = e.piece ? { id: e.piece.id, o: e.piece.o, bx: e.piece.bx, bottom: e.piece.bottom } : null; }
+      if (e.type === 'spawn' || e.type === 'swap') { D.tween = null; D.lastPiece = e.piece ? { id: e.piece.id, o: e.piece.o, bx: e.piece.bx, bottom: e.piece.bottom } : null; }
       else if (e.type === 'rotate' || e.type === 'flip') startTurn(e, game, now);
       else if (e.type === 'hardDrop') {
         if (motion()) D.anims.push({ kind: 'trail', t0: now, dur: 120, from: e.from, to: e.to, cells: e.cells, shape: e.shape });
@@ -390,9 +390,10 @@
         });
       }
       else if (e.type === 'clear') startClear(e, game, now);
-      else if (e.type === 'level') D.levelGlow = now;
-      else if (e.type === 'cycle') D.queueAnim = { t0: now, dur: motion() ? 150 : 0 };
-      else if (e.type === 'over' && e.result === 'topout') D.over = { t0: now, grid: game.grid.map(function (r) { return r.slice(); }) };
+      else if (e.type === 'speed') D.speedGlow = now;
+      else if (e.type === 'cycle') D.queueAnim = { t0: now, dur: motion() ? 150 : 0, kind: 'cycle', to: e.to };
+      else if (e.type === 'bump') D.queueAnim = { t0: now, dur: motion() ? 150 : 0, kind: 'bump', from: e.from, swap: !!e.swap };
+      else if (e.type === 'over' && e.result === 'topout') startOver(game, now);
     });
   }
   function startTurn(e, game, now) {
@@ -440,18 +441,18 @@
       });
     }
     if (e.n >= 5) D.rimSweep = { t0: now, dur: e.n >= 6 ? 3000 : 1500 };
-    else if (e.n >= 3) D.levelGlow = now;
+    else if (e.n >= 3) D.speedGlow = now;
   }
-  function burst(x, y, col, t0, n) {
-    if (D.particles.length >= 200) return;
+  function burst(x, y, col, t0, n, cap) {
+    if (D.particles.length >= (cap || 200)) return;
     var a = Math.random() * Math.PI * 2, v = 2.5 + Math.random() * (2 + n);
     D.particles.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 3, t0: t0, life: 420 + Math.random() * 160, col: col, size: 0.18 + Math.random() * 0.16 });
   }
 
   function busy(now) {
-    return D.anims.length > 0 || D.particles.length > 0 || !!D.clear || !!D.tween || !!D.over ||
+    return D.anims.length > 0 || D.particles.length > 0 || !!D.clear || !!D.tween || (D.over && now < D.over.end) ||
       (D.queueAnim && now - D.queueAnim.t0 < D.queueAnim.dur + 20) || (D.rimSweep && now - D.rimSweep.t0 < D.rimSweep.dur) ||
-      now - D.levelGlow < 1000 || now - D.dip < 250 || now - D.shake < 260;
+      now - D.speedGlow < 1000 || now - D.dip < 250 || now - D.shake < 260;
   }
 
   // A frame ----------------------------------------------------------------------
@@ -467,12 +468,14 @@
     var shake = !reduced && now - D.shake < 260 ? Math.sin((now - D.shake) / 18) * 4 * (1 - (now - D.shake) / 260) : 0;
     ctx.save(); ctx.translate(shake, dip);
     blit(ctx, D.panel);
+    choiceBand(ctx, game, now);
     rimEffects(ctx, now);
 
     // The stack, or the clear under way.
     var cl = D.clear, clearing = cl && now - cl.t0 < 300;
     if (clearing) drawClearing(ctx, cl, now);
     else if (cl && now - cl.t0 < 420 && motion()) drawDropping(ctx, cl, now);
+    else if (D.over) { D.clear = null; drawOver(ctx, now); }
     else { if (cl) D.clear = null; blit(ctx, D.stack); }
     if (!clearing && motion() && D.threes.length) shimmer(ctx, now);
     if (!clearing) glassFlash(ctx, game, now);
@@ -486,8 +489,20 @@
       drawFalling(ctx, game, p, cells, now);
     }
     effects(ctx, now);
-    if (D.over) drawOver(ctx, now);
     if (D.dim) { ctx.fillStyle = WELL.dim; ctx.beginPath(); ctx.roundRect(x0, y0, D.W * s, ROWS * s, s * 0.35); ctx.fill(); }
+    ctx.restore();
+  }
+
+  // The choice rows at the top of the well: a new piece can be swapped for
+  // one in the queue until it falls out of them. They show a faint blue band,
+  // a little brighter while the falling piece is still open.
+  function choiceBand(ctx, game, now) {
+    if (!game.choosing) return;
+    var s = D.s, x0 = ox(), y0 = oy(), h = game.choiceRows * s, w = D.W * s, on = !!(game.piece && game.piece.open && !game.over);
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(x0, y0, w, ROWS * s, s * 0.35); ctx.clip();
+    ctx.fillStyle = light ? 'rgba(60,120,240,' + (on ? 0.045 : 0.0225) + ')' : 'rgba(140,180,255,' + (on ? 0.05 : 0.025) + ')';
+    ctx.fillRect(x0, y0, w, h);
     ctx.restore();
   }
 
@@ -569,9 +584,15 @@
     }
     var gl = glow(p.shape, p.o), minX = Pieces.SHAPE[p.shape].orients[p.o].minX;
     var top = Math.min.apply(null, cells.map(function (c) { return c[1]; })), left = p.bx + minX;
+    // An open piece, one that can still be swapped, pulses gently; it turns solid once fixed.
+    var fade = p.open ? (reduced ? 0.7 : 0.7 + 0.3 * Math.sin(now / 53)) : null;
+    if (fade != null) ctx.globalAlpha = fade;
     if (!low) blit(ctx, gl, x0 + (left - gl.pad) * s, y0 + (top - gl.pad) * s);
-    drawPiece(ctx, cells, p.shape, x0, y0, s);
+    ctx.globalAlpha = 1;
+    drawPiece(ctx, cells, p.shape, x0, y0, s, fade);
+    if (fade != null) ctx.globalAlpha = fade;
     drawSpecials(ctx, cells, p.specials, p.shape, x0, y0, s);
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 
@@ -727,7 +748,7 @@
   function rimEffects(ctx, now) {
     var s = D.s, x0 = ox(), y0 = oy(), w = D.W * s, h = ROWS * s;
     var sweep = D.rimSweep && now - D.rimSweep.t0 < D.rimSweep.dur ? (now - D.rimSweep.t0) / D.rimSweep.dur : -1;
-    var glowT = (now - D.levelGlow) / 1000;
+    var glowT = (now - D.speedGlow) / 1000;
     if (sweep >= 0 && !reduced) {
       var hue = (now / 4) % 360;
       ctx.save(); ctx.lineWidth = s * 0.22; ctx.globalAlpha = 0.9 * Math.sin(Math.PI * sweep);
@@ -751,19 +772,63 @@
     }
   }
 
+  // Game over: the stack blows up a row at a time, from the top down. Each
+  // row glows white and shakes, then bursts into squares of its colours.
+  var OVER_FLASH = 110, OVER_BAR = 160;
+  function startOver(game, now) {
+    var grid = game.grid.map(function (r) { return r.slice(); }), rows = [];
+    for (var y = 0; y < grid.length; y++) if (grid[y].some(Boolean)) rows.push(y);
+    var gap = rows.length ? Math.min(55, 750 / rows.length) : 0;
+    D.over = { t0: now, grid: grid, rows: rows, gap: gap, done: 0, end: now + rows.length * gap + OVER_FLASH + 650 };
+  }
   function drawOver(ctx, now) {
-    // The stack drains to grey from the top down.
-    var s = D.s, x0 = ox(), y0 = oy(), t = Math.min(1, (now - D.over.t0) / 1000);
-    var upto = t * (ROWS + HIDDEN) - HIDDEN;
-    ctx.save(); ctx.fillStyle = WELL.grey;
-    for (var y = 0; y < D.over.grid.length; y++) {
-      var r = rowY(y);
-      if (r > upto) break;
-      for (var x = 0; x < D.W; x++) if (D.over.grid[y][x]) { ctx.beginPath(); ctx.roundRect(x0 + x * s + s * 0.06, y0 + r * s + s * 0.06, s * 0.88, s * 0.88, s * 0.18); ctx.fill(); }
+    var o = D.over, s = D.s, x0 = ox(), y0 = oy(), t = now - o.t0, n = o.rows.length;
+    while (o.done < n && t >= o.done * o.gap + OVER_FLASH) {
+      var y = o.rows[o.done], at = o.t0 + o.done * o.gap + OVER_FLASH;
+      o.done++;
+      if (motion()) for (var x = 0; x < D.W; x++) {
+        var c = o.grid[y][x];
+        if (c) for (var k = 0; k < 3; k++) burst(x + 0.5, rowY(y) + 0.5, c.v === 0 ? '#e6f4ff' : colour(c.shape), at, 4, 600);
+      }
+      if (!reduced) D.shake = now;
+    }
+    // The rows not yet lit stand as they were.
+    var lit = o.done;
+    while (lit < n && t >= lit * o.gap) lit++;
+    strip(ctx, D.stack, lit < n ? rowY(o.rows[lit]) : ROWS + 1, ROWS + 1, 0);
+    // The lit rows shake harder and glow whiter as they go.
+    for (var i = o.done; i < lit; i++) {
+      var r = rowY(o.rows[i]), u = (t - i * o.gap) / OVER_FLASH, jx = reduced ? 0 : Math.sin(now / 9 + i * 2.1) * s * 0.09 * u;
+      ctx.save(); ctx.beginPath(); ctx.rect(x0 - s * 2, y0 + r * s, (D.W + 3) * s, s); ctx.clip();
+      blit(ctx, D.stack, jx, 0);
+      ctx.globalAlpha = 0.85 * u; ctx.fillStyle = '#ffffff';
+      for (var xx = 0; xx < D.W; xx++) if (o.grid[o.rows[i]][xx]) { ctx.beginPath(); ctx.roundRect(x0 + xx * s + jx + s * 0.06, y0 + r * s + s * 0.06, s * 0.88, s * 0.88, s * 0.18); ctx.fill(); }
+      ctx.restore();
+    }
+    // A white bar flares across each row as it bursts.
+    ctx.save(); ctx.fillStyle = '#ffffff';
+    for (var j = 0; j < o.done; j++) {
+      var age = t - (j * o.gap + OVER_FLASH);
+      if (age >= OVER_BAR) continue;
+      var ry = rowY(o.rows[j]), grow = s * 0.25 * (age / OVER_BAR);
+      ctx.globalAlpha = 0.7 * (1 - age / OVER_BAR);
+      ctx.fillRect(x0, y0 + ry * s - grow, D.W * s, s + 2 * grow);
     }
     ctx.restore();
   }
   function clearOver() { D.over = null; }
+
+  // The middle of the well, on its canvas.
+  function wellCentre() { return { x: ox() + D.W * D.s / 2, y: oy() + ROWS * D.s / 2 }; }
+  // The well's visible box, on its canvas.
+  function wellBox() { return { x: ox(), y: oy(), w: D.W * D.s, h: ROWS * D.s }; }
+
+  // The queue's place at a point on its canvas, 0 for the front, or -1.
+  function queueSlot(x, y) {
+    var q = D.qs, slot = 5 * q, label = D.queueRow ? 16 : oy();
+    var i = Math.floor(D.queueRow ? (x - GAUGE * D.s) / slot : (y - label) / slot);
+    return i >= 0 && i < Rules.QUEUE ? i : -1;
+  }
 
   // The queue ------------------------------------------------------------------------
 
@@ -778,25 +843,42 @@
     var left = D.queueRow ? GAUGE * D.s : 0;
     ctx.fillText('NEXT', D.queueRow ? left + 2 : q * 0.55, label / 2 + 1);
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
-    var qa = D.queueAnim, k = qa && qa.dur ? 1 - ease((now - qa.t0) / qa.dur) : 0;
-    for (var i = 0; i < 4; i++) {
+    var qa = D.queueAnim, k = qa && qa.dur ? 1 - ease((now - qa.t0) / qa.dur) : 0, n = Rules.QUEUE;
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    for (var i = 0; i < n; i++) {
       var x0 = D.queueRow ? left + i * slot : q * 0.35, y0 = D.queueRow ? label : label + i * slot;
       ctx.beginPath(); ctx.roundRect(x0 + m, y0 + m, slot - 2 * m, slot - 2 * m, q * 0.45);
       ctx.fillStyle = i === 0 ? WELL.slotFront : WELL.slot; ctx.fill();
       ctx.strokeStyle = i === 0 ? WELL.slotEdgeFront : WELL.slotEdge; ctx.lineWidth = i === 0 ? 1.5 : 1; ctx.stroke();
+      // Each slot's number, the key that brings its piece to the front.
+      var fs = Math.max(9, Math.round(q * 0.34));
+      ctx.font = '700 ' + fs + 'px ' + FONT;
+      ctx.fillStyle = light ? '#8a857a' : '#8f8a7e';
+      ctx.fillText(String(i + 1), x0 + m + fs * 0.8, y0 + m + fs * 0.85);
+    }
+    ctx.textAlign = 'start';
+    // Where each piece was before the last cycle or bump. A piece that moved
+    // one place slides from there; one that jumped further fades in.
+    function source(i) {
+      if (!qa || !k) return i;
+      if (qa.kind === 'cycle') return i < qa.to ? i + 1 : i === qa.to ? -1 : i;
+      if (i === 0) return !qa.swap && qa.from === 1 ? 1 : -1;
+      return i <= qa.from ? i - 1 : i;
     }
     game.queue.forEach(function (p, i) {
       if (!p) return;
       var cells = Pieces.shapeCells(p.shape, p.o), pw = 0, ph = 0;
       cells.forEach(function (c) { pw = Math.max(pw, c[0] + 1); ph = Math.max(ph, c[1] + 1); });
-      // While cycling, each piece slides up (or left) from the slot below it, and the old front fades in at the back.
-      var shift = i === 3 ? 0 : k;
-      var x0 = D.queueRow ? left + (i + shift) * slot : q * 0.35, y0 = D.queueRow ? label : label + (i + shift) * slot;
-      var gx = x0 + (5 - pw) / 2 * q, gy = y0 + (5 - ph) / 2 * q;
+      var src = source(i), at = src < 0 ? i : i + (src - i) * k;
+      var x0 = D.queueRow ? left + at * slot : q * 0.35, y0 = D.queueRow ? label : label + at * slot;
+      // Pieces draw a little smaller than the slot's squares, so a piece five long stays inside its slot.
+      var pc = q * 0.84, gx = x0 + (slot - pw * pc) / 2, gy = y0 + (slot - ph * pc) / 2;
       ctx.save();
-      ctx.beginPath(); ctx.rect(D.queueRow ? left : 0, label, D.queueRow ? 4 * slot : w, 4 * slot); ctx.clip();
-      drawPiece(ctx, cells, p.shape, gx, gy, q, i === 3 && k > 0 ? 1 - k : null);
-      drawSpecials(ctx, cells, p.specials, p.shape, gx, gy, q);
+      ctx.beginPath(); ctx.rect(D.queueRow ? left : 0, label, D.queueRow ? n * slot : w, n * slot); ctx.clip();
+      var fadeIn = src < 0 && k > 0 ? 1 - k : null;
+      drawPiece(ctx, cells, p.shape, gx, gy, pc, fadeIn);
+      if (fadeIn != null) ctx.globalAlpha = fadeIn;
+      drawSpecials(ctx, cells, p.specials, p.shape, gx, gy, pc);
       ctx.restore();
     });
     if (qa && now - qa.t0 >= qa.dur) D.queueAnim = null;
@@ -857,13 +939,13 @@
 
   function reset() {
     D.anims = []; D.particles = []; D.clear = null; D.tween = null; D.lastPiece = null; D.over = null;
-    D.rimSweep = null; D.levelGlow = 0; D.queueAnim = null; D.stackKey = null; D.danger = false; D.shake = 0;
+    D.rimSweep = null; D.speedGlow = 0; D.queueAnim = null; D.stackKey = null; D.danger = false; D.shake = 0;
   }
 
   Pentrys.Draw = {
     TOP: TOP, GAUGE: GAUGE, init: init, layout: layout, setTheme: setTheme, setLow: setLow, setDim: setDim,
     frame: frame, queue: queue, onEvents: onEvents, busy: busy, wallpaper: wallpaper, logo: logo, icon: icon,
-    reset: reset, clearOver: clearOver, setDanger: setDanger, colour: colour,
+    reset: reset, clearOver: clearOver, queueSlot: queueSlot, wellCentre: wellCentre, wellBox: wellBox, setDanger: setDanger, colour: colour,
     wellSize: function () { return { w: wellWidth(), h: wellHeight() }; },
     queueBusy: function (now) { return !!D.queueAnim; },
     rowTop: function (gridRow) { return (TOP + rowY(gridRow)) * D.s; }

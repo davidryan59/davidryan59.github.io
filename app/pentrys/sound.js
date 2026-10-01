@@ -74,7 +74,7 @@
       for (var i = 0; i < Math.min(twos, 4); i++) bell(16, 0.12 + i * 0.06, 0.6, 0.05);
       for (var j = 0; j < Math.min(threes, 3); j++) bell(24, 0.15 + j * 0.07, 0.7, 0.05);
     },
-    level: function () { if (ready()) [4, 5, 6, 8].forEach(function (h, i) { bell(h * 2, i * 0.07, 0.5, 0.05); }); },
+    speed: function () { if (ready()) [4, 5, 6, 8].forEach(function (h, i) { bell(h * 2, i * 0.07, 0.5, 0.05); }); },
     over: function () { if (ready()) [8, 6, 5, 4].forEach(function (h, i) { bell(h, i * 0.18, 0.9, 0.06); }); },
     pass: function () { if (ready()) [4, 5, 6, 8, 10, 12].forEach(function (h, i) { bell(h * 2, i * 0.06, 0.6, 0.05); }); },
     begin: function () { if (ready()) [4, 6, 8].forEach(function (h, i) { bell(h * 2, i * 0.05, 0.35, 0.04); }); }

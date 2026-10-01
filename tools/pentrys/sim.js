@@ -13,19 +13,19 @@
 'use strict';
 const path = require('path');
 const APP = path.join(__dirname, '..', '..', 'app', 'pentrys');
-['pieces.js', 'rules.js', 'bot.js'].forEach(f => require(path.join(APP, f)));
+['pieces.js', 'config.js', 'rules.js', 'bot.js'].forEach(f => require(path.join(APP, f)));
 const { Rules, Bot } = globalThis.Pentrys;
 
 const GAMES = +process.argv[2] || 12, MOST = +process.argv[3] || 1500;
 const SETTINGS = [
-  { width: 12, squares: 'pentrys', cycle: true },
+  { width: 12, squares: 'normal', cycle: true },
   { width: 12, squares: 'plus', cycle: true },
   { width: 12, squares: 'pure', cycle: true },
-  { width: 12, squares: 'pentrys', cycle: false },
-  { width: 10, squares: 'pentrys', cycle: true },
-  { width: 14, squares: 'pentrys', cycle: true },
-  { width: 16, squares: 'pentrys', cycle: true },
-  { width: 18, squares: 'pentrys', cycle: true }
+  { width: 12, squares: 'normal', cycle: false },
+  { width: 10, squares: 'normal', cycle: true },
+  { width: 14, squares: 'normal', cycle: true },
+  { width: 16, squares: 'normal', cycle: true },
+  { width: 18, squares: 'normal', cycle: true }
 ];
 const COUNTS = ['pieces', 'rows', 'gapRows', 'spareClears', 'clearsAll', 'glassRows', 'smashes', 'blasts', 'deluges', 'rowBombs', 'score'];
 

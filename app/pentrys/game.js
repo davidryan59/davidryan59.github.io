@@ -3,14 +3,15 @@
 
    The rules run in fixed steps of a sixtieth of a second, as many as the
    time since the last frame needs. Frames run only while something moves:
-   a game in play, the title screen's own game, or an animation finishing.
+   a game in play, the main menu's own game, or an animation finishing.
    The choices, keys, high scores and lessons passed are kept in this
    browser, and the page works without them. */
 (function (root) {
   'use strict';
-  var P = root.Pentrys, Pieces = P.Pieces, Rules = P.Rules, Draw = P.Draw, Sound = P.Sound, Bot = P.Bot, Lessons = P.Lessons;
+  var P = root.Pentrys, Pieces = P.Pieces, Rules = P.Rules, Draw = P.Draw, Sound = P.Sound, Bot = P.Bot, Lessons = P.Lessons, C = P.Config;
   var STEP = 1000 / 60, STORE = 'pentrys.v1.';
-  var MODES = { tutorial: 'Tutorial', marathon: 'Marathon', grow: 'Grow', sprint: 'Sprint', blitz: 'Blitz' };
+  var MODES = { tutorial: 'Tutorial', easy: 'Easy', normal: 'Normal', hard: 'Hard', custom: 'Custom' };
+  var DIFFICULTIES = ['easy', 'normal', 'hard'];   // the difficulties, with high scores
   function $(id) { return document.getElementById(id); }
   function load(k, d) { try { var v = root.localStorage.getItem(STORE + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
   function save(k, v) { try { root.localStorage.setItem(STORE + k, JSON.stringify(v)); } catch (e) { /* private window: keep going */ } }
@@ -34,13 +35,16 @@
 
   // Settings, keys and records -------------------------------------------------------
 
-  var savedSettings = load('settings', {});
-  var settings = Object.assign({ width: 12, sizes: [1, 2, 3, 4, 5], squares: 'pentrys', hand: 'right', effects: 'full', sound: true }, savedSettings);
-  if (savedSettings.squares == null && savedSettings.specials === false) settings.squares = 'pure';   // the old on/off switch
-  delete settings.specials;
-  if (!Rules.SQUARES[settings.squares]) settings.squares = 'pentrys';
+  // Custom's choices are kept apart from the rest, and start from Normal.
+  var CUSTOM = { squares: 'normal', width: C.width, sizes: C.sizes.slice(), speed: C.difficulty.normal.speed, choiceRows: C.difficulty.normal.choiceRows };
+  var settings = Object.assign({ hand: 'right', effects: 'full', sound: true }, load('settings', {}));
+  settings.custom = Object.assign({}, CUSTOM, settings.custom || {});
+  ['width', 'sizes', 'squares', 'specials'].forEach(function (k) { delete settings[k]; });   // from before Custom
+  if (!Rules.SQUARES[settings.custom.squares]) settings.custom.squares = CUSTOM.squares;
   var SQUARE_SETS = [['pure', 'Pure', 'The 21 shapes and nothing else.'], ['plus', 'Plus', 'The 21 shapes, with 2s and 3s.'],
-                     ['pentrys', 'Pentrys', 'Every special square: 2s, 3s, glass, floods, deluges, bombs and row bombs.']];
+                     ['easy', 'Easy', "Every special square, at Easy's odds: more 2s, 3s, floods and bombs, and little glass."],
+                     ['normal', 'Normal', "Every special square, at Normal's odds."],
+                     ['hard', 'Hard', "Every special square, at Hard's odds: more glass, and fewer of the rest."]];
   function squaresName(k) { for (var i = 0; i < SQUARE_SETS.length; i++) if (SQUARE_SETS[i][0] === k) return SQUARE_SETS[i][1]; return k; }
   var ACTIONS = [
     ['left', 'Move left'], ['right', 'Move right'], ['soft', 'Soft drop'], ['hard', 'Hard drop'],
@@ -48,12 +52,13 @@
     ['pause', 'Pause'], ['restart', 'Restart'], ['sound', 'Sound on or off']
   ];
   // Two standard layouts. Right-handed moves on the arrows and turns with the
-  // left hand; left-handed moves on A, S and D and turns with the right hand.
+  // left hand; left-handed moves on S, D and F and turns on J, K, L and ;. Both
+  // hands rest on the home row, the index fingers on the bumps of F and J.
   var LAYOUTS = {
     right: { left: ['ArrowLeft'], right: ['ArrowRight'], soft: ['ArrowDown'], hard: ['Space'], cw: ['KeyX', 'ArrowUp'],
              ccw: ['KeyZ'], flip: ['KeyA', 'KeyF'], cycle: ['KeyC', 'ShiftLeft'], pause: ['Escape', 'KeyP'], restart: ['KeyR'], sound: ['KeyM'] },
-    left: { left: ['KeyA'], right: ['KeyD'], soft: ['KeyS'], hard: ['Space'], cw: ['KeyL', 'ArrowRight'],
-            ccw: ['KeyJ', 'ArrowLeft'], flip: ['KeyK', 'ArrowDown'], cycle: ['KeyI', 'ArrowUp'], pause: ['Escape', 'KeyP'], restart: ['KeyR'], sound: ['KeyM'] }
+    left: { left: ['KeyS'], right: ['KeyF'], soft: ['KeyD'], hard: ['Space'], cw: ['KeyK', 'ArrowRight'],
+            ccw: ['KeyJ', 'ArrowLeft'], flip: ['KeyL', 'ArrowDown'], cycle: ['Semicolon', 'ArrowUp'], pause: ['Escape', 'KeyP'], restart: ['KeyR'], sound: ['KeyM'] }
   };
   if (!LAYOUTS[settings.hand]) settings.hand = 'right';
   function defaultKeys() { return LAYOUTS[settings.hand]; }
@@ -102,33 +107,32 @@
   var shown = { score: 0, from: 0, to: 0, t0: 0 };
   root.PentrysDebug = { frameTimes: frameTimes, get game() { return game; }, get demo() { return demo; } };
 
-  // High scores, kept for each mode and set of settings. The points changed on
-  // 2026-10-01, so the keys name the square set, and older scores stay unused.
-  function scoreKey(mode, w, sizes, squares) {
-    return [mode, w, mode === 'grow' ? 'g' : sizes.join(''), squares].join('|');
-  }
-  function currentKey(mode) { return scoreKey(mode, settings.width, settings.sizes, settings.squares); }
+  // High scores, kept for Easy, Normal and Hard alone. Scores kept before
+  // the difficulties came in, under other keys, stay unused.
+  function scoreKey(mode) { return 'difficulty|' + mode; }
   function bestOf(key) { var list = scores[key]; return list && list.length ? list[0] : null; }
   function fmtTime(ms) {
     var s = Math.floor(ms / 1000), m = Math.floor(s / 60);
     return m + ':' + String(s % 60).padStart(2, '0') + (ms < 600000 ? '.' + String(Math.floor(ms / 100) % 10) : '');
   }
-  function fmtBest(mode, entry) {
-    if (!entry) return '';
-    return mode === 'sprint' ? fmtTime(entry.v) : entry.v.toLocaleString('en-GB');
-  }
+  function fmtBest(entry) { return entry ? entry.v.toLocaleString('en-GB') : ''; }
 
+  // A run of one mode. opts, from the address: lesson for the tutorial;
+  // speed and seed, which make a run practice; and for Custom, any of its
+  // choices, in place of the ones kept.
   function start(mode, opts) {
     opts = opts || {};
-    var lessonIndex = mode === 'tutorial' ? (opts.lesson || 0) : null;
-    var practice = !!(opts.level > 1 || opts.seed != null);
-    game = Rules.create({
-      mode: mode, width: opts.width || settings.width, sizes: opts.sizes || settings.sizes,
-      squares: opts.squares || settings.squares, seed: opts.seed, level: opts.level,
-      lesson: lessonIndex == null ? null : Lessons[lessonIndex], softDropRate: timing.sdf
-    });
-    run = { mode: mode, practice: practice, lesson: lessonIndex, key: scoreKey(mode, game.width, opts.sizes || settings.sizes, game.squares),
-            started: performance.now() };
+    var lessonIndex = mode === 'tutorial' ? (opts.lesson || 0) : null, set;
+    if (mode === 'tutorial') set = { lesson: Lessons[lessonIndex] };
+    else if (mode === 'custom') set = Object.assign({}, settings.custom, opts);
+    else {
+      var d = C.difficulty[mode];
+      set = { width: C.width, sizes: C.sizes, squares: d.squares, speed: opts.speed || d.speed, choiceRows: d.choiceRows };
+    }
+    var practice = mode !== 'tutorial' && (opts.speed != null || opts.seed != null);
+    game = Rules.create(Object.assign({ mode: mode === 'tutorial' ? 'tutorial' : 'marathon', seed: opts.seed, softDropRate: timing.sdf }, set));
+    run = { mode: mode, opts: opts, practice: practice, lesson: lessonIndex,
+            key: DIFFICULTIES.indexOf(mode) >= 0 && !practice ? scoreKey(mode) : null, started: performance.now() };
     demo = null; demoPlan = null;
     Draw.reset(); Draw.setDim(false);
     held = { dir: 0, l: false, r: false, ms: 0, rep: 0, soft: false }; queued = {};
@@ -144,7 +148,7 @@
   }
 
   function startDemo() {
-    demo = Rules.create({ mode: 'demo', width: settings.width, sizes: settings.sizes, squares: settings.squares, level: 3 });
+    demo = Rules.create({ mode: 'demo', width: C.width, sizes: C.sizes, squares: 'normal', speed: 2 });
     demoPlan = null;
     demo.takeEvents();
     Draw.reset(); Draw.setDim(true);
@@ -216,6 +220,8 @@
   function tickInput() {
     var inp = queued;
     queued = {};
+    // One bump a step, so quick presses all count, in order.
+    if (inp.bumps) { inp.bump = inp.bumps.shift(); if (inp.bumps.length) queued.bumps = inp.bumps; delete inp.bumps; }
     if (held.dir) {
       var before = held.ms;
       held.ms += STEP;
@@ -250,6 +256,14 @@
     else if (action === 'cw' || action === 'ccw' || action === 'flip' || action === 'cycle') queued[action] = true;
     schedule();
   }
+  // Bring the queue's piece number n (1 is the front) to the front. While the
+  // falling piece is open, n takes its place, and 1 swaps it for the next.
+  function bump(n) {
+    Sound.start();
+    if (!game || game.over || screen !== null || n < 1) return;
+    (queued.bumps = queued.bumps || []).push(n - 1);
+    schedule();
+  }
   function release(action) {
     if (action === 'left' || action === 'right') {
       held[action === 'left' ? 'l' : 'r'] = false;
@@ -259,12 +273,47 @@
     } else if (action === 'soft') held.soft = false;
   }
 
+  // Keys on a popup or page: the arrows, Home and End move between its buttons,
+  // and wrap round at the ends. Left-handed keys add E, S, D and F. Tab, Enter and Space work as the browser has them.
+  var navAt = 0;
+  function navButtons() {
+    var panel = screen && $(screen);
+    if (!panel) return [];
+    return Array.prototype.filter.call(panel.querySelectorAll('button, a[href]'), function (b) { return !b.disabled && b.getClientRects().length > 0; });
+  }
+  $('screen').addEventListener('focusin', function (e) { var i = navButtons().indexOf(e.target); if (i >= 0) navAt = i; });
+  function menuKey(e) {
+    if (e.altKey || e.ctrlKey || e.metaKey) return false;
+    var step = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 }[e.code];
+    if (!step && handOf() === 'left') step = { KeyE: -1, KeyS: -1, KeyD: 1, KeyF: 1 }[e.code];
+    var edge = e.code === 'Home' ? 0 : e.code === 'End' ? -1 : null;
+    if (!step && edge === null) return false;
+    var list = navButtons();
+    if (!list.length) return false;
+    e.preventDefault();
+    var at = list.indexOf(document.activeElement), to;
+    if (edge !== null) to = edge < 0 ? list.length - 1 : 0;
+    // A page that rebuilds its buttons drops the focus: the first arrow returns to the same place.
+    else if (at < 0) to = Math.min(navAt, list.length - 1);
+    else to = (at + step + list.length) % list.length;
+    list[to].focus();
+    return true;
+  }
+
   var capturing = null;
   root.addEventListener('keydown', function (e) {
     if (capturing) { captureKey(e); return; }
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
     var a = actionOf(e.code);
     if (screen && screen !== 'pause' && e.code === 'Escape') { e.preventDefault(); goBack(); return; }
+    if (screen !== null) {
+      if (menuKey(e)) return;
+      // Enter and Space press the focused button. A held key must not press it again.
+      if ((e.code === 'Enter' || e.code === 'Space') && e.target && e.target.closest && e.target.closest('button, a[href]')) { if (e.repeat) e.preventDefault(); return; }
+    }
+    // The number keys bring that piece of the queue to the front.
+    var num = !a && /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+    if (num && game && !game.over && screen === null) { e.preventDefault(); if (!e.repeat) bump(+num[1]); return; }
     if (!a) return;
     if (game && screen === null || a === 'pause' || a === 'sound') e.preventDefault();
     else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].indexOf(e.code) >= 0 && game) e.preventDefault();
@@ -283,9 +332,16 @@
     });
     b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   });
-  $('next').addEventListener('pointerdown', function (e) { e.preventDefault(); if (game && screen === null) press('cycle'); });
+  // A tap on a piece in the queue brings it to the front. A tap on the first
+  // piece swaps it in while the falling piece is open, and cycles otherwise.
+  $('next').addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    if (!game || screen !== null) return;
+    var r = $('next').getBoundingClientRect(), i = Draw.queueSlot(e.clientX - r.left, e.clientY - r.top);
+    if (i > 0 || (i === 0 && game.piece && game.piece.open)) bump(i + 1); else press('cycle');
+  });
 
-  // The title screen's game: the simulated player, at an easy pace.
+  // The main menu's game: the simulated player, at an easy pace.
   function demoInput(g) {
     if (!g.piece) return {};
     if (!demoPlan || demoPlan.id !== g.piece.id) {
@@ -293,15 +349,15 @@
       demoPlan = { id: g.piece.id, wait: 18, cycles: 0, turns: p ? Bot.turns(g.piece.o, p.o) : [], bx: p ? p.bx : g.piece.bx, tries: 0,
                    grid: p ? p.grid : null, look: 0, bestK: 0, bestV: -Infinity };
     }
-    // Weigh one queue piece a step, so the title screen's game never stalls a frame.
-    if (demoPlan.grid && demoPlan.look < 4) {
+    // Weigh one queue piece a step, so the main menu's game never stalls a frame.
+    if (demoPlan.grid && demoPlan.look < g.queue.length) {
       var q = g.queue[demoPlan.look];
       if (q) { var v = Bot.nextValue(demoPlan.grid, q, g.hidden); if (v > demoPlan.bestV) { demoPlan.bestV = v; demoPlan.bestK = demoPlan.look; } }
-      if (++demoPlan.look === 4) demoPlan.cycles = demoPlan.bestK;
+      if (++demoPlan.look === g.queue.length) demoPlan.cycles = demoPlan.bestK;
     }
     if (demoPlan.wait-- > 0) return {};
     demoPlan.wait = 5;
-    if (demoPlan.cycles > 0) { demoPlan.cycles--; return { cycle: true }; }
+    if (demoPlan.cycles > 0) { demoPlan.cycles--; g.cycle(); return {}; }
     if (demoPlan.turns.length) { var t = {}; t[demoPlan.turns.shift()] = true; return t; }
     if (g.piece.bx !== demoPlan.bx && demoPlan.tries++ < 20) return g.piece.bx < demoPlan.bx ? { right: 1 } : { left: 1 };
     demoPlan.wait = 0;
@@ -318,7 +374,7 @@
       if (e.type === 'move') Sound.move();
       else if (e.type === 'rotate') Sound.rotate();
       else if (e.type === 'flip') Sound.flip();
-      else if (e.type === 'cycle') Sound.cycle();
+      else if (e.type === 'cycle' || e.type === 'bump') Sound.cycle();
       else if (e.type === 'hardDrop') Sound.hardDrop();
       else if (e.type === 'lock') { if (!list.some(function (x) { return x.type === 'hardDrop'; })) Sound.lock(); Draw.setDanger(g); }
       else if (e.type === 'fill') { if (e.kind === 'deluge') Sound.deluge(); else Sound.flood(); }
@@ -329,7 +385,7 @@
       else if (e.type === 'crack') Sound.crack();
       else if (e.type === 'clear') celebrate(e);
       else if (e.type === 'combo') combo(e);
-      else if (e.type === 'level') { Sound.level(); levelUp(e); }
+      else if (e.type === 'speed') { Sound.speed(); callout('Speed ' + e.speed, 'c2', null, null, null, null, 2); }
       else if (e.type === 'over') finish(e.result);
     });
   }
@@ -347,12 +403,12 @@
   }
   function fmtMult(m) { return '×' + String(Math.round(m * 100) / 100); }
   // A combo: the clear's name and its total multiplier, then a line for each
-  // bonus, with the level last, and the points. On a phone, one line.
+  // bonus, with the speed last, and the points. On a phone, one line.
   function combo(e) {
-    var bonus = e.lines.filter(function (l) { return l.base == null && l.name.indexOf('Level') !== 0; });
-    var level = e.lines.filter(function (l) { return l.name.indexOf('Level') === 0; });
+    var bonus = e.lines.filter(function (l) { return l.base == null && l.name.indexOf('Speed') !== 0; });
+    var speed = e.lines.filter(function (l) { return l.name.indexOf('Speed') === 0; });
     var shown = e.n ? bonus : bonus.slice(1);
-    var rows = shown.length ? shown.concat(level) : [];
+    var rows = shown.length ? shown.concat(speed) : [];
     // The better the combo, the longer it stays: more rows, more bonuses and a
     // bigger multiplier each add time. A new combo pushes the old one out.
     var hold = (e.n ? [0, 2, 2.6, 3.2, 4, 5.5, 7.5][Math.min(e.n, 6)] : 1.6) + 0.35 * rows.length +
@@ -410,21 +466,12 @@
     $('well-wrap').appendChild(el);
     root.setTimeout(function () { el.remove(); }, 4100);
   }
-  function levelUp(e) {
-    callout('Level ' + e.level, 'c2', null, null, null, null, 2);
-    if (e.grow) {
-      var sizes = e.grow.sizes, five = Math.round(e.grow.five * 100);
-      root.setTimeout(function () {
-        callout(five === 100 ? 'Five squares only' : five ? 'Sizes ' + sizes[0] + '–' + sizes[sizes.length - 1] + ', ' + five + '% five' : 'Sizes 1–4', 'info', null, null);
-      }, 700);
-    }
-  }
-
   function finish(result) {
     var g = game;
     Draw.setDanger(g);
     if (result === 'topout') Sound.over();
-    var wait = result === 'topout' ? 1100 : 350;
+    // A top out waits for the stack to finish blowing up.
+    var wait = result === 'topout' ? 1400 : 350;
     if (run.lesson != null && result === 'passed') {
       var title = Lessons[run.lesson].title;
       if (passed.indexOf(title) < 0) { passed.push(title); save('lessons', passed); }
@@ -436,18 +483,19 @@
 
   function showOver(result) {
     var g = game, mode = run.mode, lesson = run.lesson;
-    var title = { topout: 'Game over', won: 'Sprint complete', time: 'Time up', passed: 'Lesson passed', failed: 'Not quite' }[result] || 'Game over';
-    if (mode === 'sprint' && result === 'topout') title = 'Topped out';
+    var title = { topout: 'Game over', passed: 'Lesson passed', failed: 'Not quite' }[result] || 'Game over';
     $('over-title').textContent = title;
+    $('over-title').classList.toggle('doom', result === 'topout');
     var text = '', stats = [];
     var ms = g.ticks * STEP;
     if (lesson != null) {
       text = result === 'passed' ? 'Lesson ' + (lesson + 1) + ', ' + Lessons[lesson].title + ', passed.' : Lessons[lesson].goalText + ', to pass. Try again.';
     } else {
-      stats = [['Score', g.score.toLocaleString('en-GB')], ['Rows', g.rowsCleared], ['Level', g.level], ['Time', fmtTime(ms)], ['Pieces', g.pieces]];
+      stats = [['Score', g.score.toLocaleString('en-GB')], ['Rows', g.rowsCleared], ['Speed', g.speed], ['Time', fmtTime(ms)], ['Pieces', g.pieces]];
       for (var n = 2; n < g.clears.length; n++) if (g.clears[n]) stats.push([n <= 6 ? Rules.clearName(n) + (g.clears[n] > 1 ? 's' : '') : n + '-row clears', g.clears[n]]);
       if (g.bestMultiplier > 1) stats.push(['Best combo', fmtMult(g.bestMultiplier)]);
-      if (run.practice) text = 'A practice run: it records no score.';
+      if (mode === 'custom') text = 'A custom game: it keeps no score.';
+      else if (run.practice) text = 'A practice run: it keeps no score.';
     }
     var dl = $('over-stats');
     dl.textContent = '';
@@ -455,8 +503,8 @@
     $('over-text').textContent = text;
     $('over-scores').textContent = '';
     var form = $('initials'); form.hidden = true;
-    var value = mode === 'sprint' ? (result === 'won' ? Math.round(ms) : null) : g.score;
-    if (lesson == null && !run.practice && value != null && value > 0 && qualifies(run.key, mode, value)) {
+    var value = g.score;
+    if (run.key && value > 0 && qualifies(run.key, value)) {
       form.hidden = false;
       var input = $('initials-in');
       input.value = initials;
@@ -464,12 +512,12 @@
         ev.preventDefault();
         var who = (input.value || '???').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || '???';
         initials = who; save('initials', who);
-        var entry = record(run.key, mode, { v: value, i: who, d: today(), r: g.rowsCleared, l: g.level });
+        var entry = record(run.key, { v: value, i: who, d: today(), r: g.rowsCleared, s: g.speed });
         form.hidden = true;
-        scoreTable($('over-scores'), run.key, mode, entry);
+        scoreTable($('over-scores'), run.key, entry);
         $('over-actions').querySelector('button').focus();
       };
-    } else if (lesson == null && !run.practice) scoreTable($('over-scores'), run.key, mode, null);
+    } else if (run.key) scoreTable($('over-scores'), run.key, null);
     var acts = $('over-actions');
     acts.textContent = '';
     function button(label, fn, primary) {
@@ -483,37 +531,36 @@
       first = first || again;
       button('All lessons', function () { toTitle(); buildLessons(); showScreen('lessons'); });
     } else {
-      first = button('Play again', function () { start(mode, run.practice ? {} : {}); }, true);
-      button('Title screen', toTitle);
+      var replay = run.opts;
+      first = button('Play again', function () { start(mode, replay); }, true);
+      button('Main menu', toTitle);
     }
     showScreen('over');
     if (!form.hidden) { $('initials-in').focus(); $('initials-in').select(); } else first.focus();
   }
 
-  function qualifies(key, mode, value) {
+  function qualifies(key, value) {
     var list = scores[key] || [];
-    if (list.length < 10) return true;
-    var worst = list[list.length - 1].v;
-    return mode === 'sprint' ? value < worst : value > worst;
+    return list.length < 10 || value > list[list.length - 1].v;
   }
-  function record(key, mode, entry) {
+  function record(key, entry) {
     var list = (scores[key] || []).concat([entry]);
-    list.sort(function (a, b) { return mode === 'sprint' ? a.v - b.v : b.v - a.v; });
+    list.sort(function (a, b) { return b.v - a.v; });
     scores[key] = list.slice(0, 10);
     save('scores', scores);
     return entry;
   }
-  function scoreTable(table, key, mode, mine) {
+  function scoreTable(table, key, mine) {
     table.textContent = '';
     var list = scores[key] || [];
     if (!list.length) { var tr0 = table.insertRow(); var td0 = tr0.insertCell(); td0.colSpan = 4; td0.textContent = 'No scores yet.'; return; }
     var head = table.createTHead().insertRow();
-    ['#', 'Who', mode === 'sprint' ? 'Time' : 'Score', 'Date'].forEach(function (h) { var th = document.createElement('th'); th.textContent = h; head.appendChild(th); });
+    ['#', 'Who', 'Score', 'Date'].forEach(function (h) { var th = document.createElement('th'); th.textContent = h; head.appendChild(th); });
     var body = table.createTBody();
     list.forEach(function (s, i) {
       var tr = body.insertRow();
       if (s === mine) tr.className = 'me';
-      [String(i + 1), s.i, mode === 'sprint' ? fmtTime(s.v) : s.v.toLocaleString('en-GB'), s.d].forEach(function (v, k) {
+      [String(i + 1), s.i, s.v.toLocaleString('en-GB'), s.d].forEach(function (v, k) {
         var td = tr.insertCell(); td.textContent = v; if (k === 2) td.className = 'v';
       });
     });
@@ -524,9 +571,10 @@
   function pause() {
     if (!game || game.over || screen !== null) return;
     held = { dir: 0, l: false, r: false, ms: 0, rep: 0, soft: false };
-    // A lesson's pause leads back to the lesson list, a run's to the title screen.
-    $('quit').textContent = run.lesson != null ? 'All lessons' : 'Title screen';
+    // A lesson's pause leads back to the lesson list, a run's to the main menu.
+    $('quit').textContent = run.lesson != null ? 'All lessons' : 'Main menu';
     showScreen('pause');
+    $('resume').focus();
     refreshSoundButtons();
   }
   function resume() { showScreen(null); last = 0; schedule(); }
@@ -534,7 +582,7 @@
   $('resume').addEventListener('click', resume);
   $('restart').addEventListener('click', function () {
     if (!run) return;
-    if (run.lesson != null) start('tutorial', { lesson: run.lesson }); else start(run.mode, {});
+    if (run.lesson != null) start('tutorial', { lesson: run.lesson }); else start(run.mode, run.opts);
   });
   // A click or tap outside the pause menu resumes, and does nothing else.
   var swallowClick = false;
@@ -547,7 +595,7 @@
     if (run && run.lesson != null) { toTitle(); buildLessons(); showScreen('lessons'); } else toTitle();
   });
   $('pause-sound').addEventListener('click', toggleSound);
-  // The logo goes back to the title screen. A lesson, a finished run or one
+  // The logo goes back to the main menu. A lesson, a finished run or one
   // not yet started goes at once; a scored run pauses first, with Title
   // screen chosen, so the pause menu confirms.
   $('home').addEventListener('click', function () {
@@ -558,18 +606,19 @@
 
   // Screens ------------------------------------------------------------------------------------
 
-  var TITLE_SCREENS = ['menu', 'lessons', 'howto', 'controls', 'scores'];
+  var TITLE_SCREENS = ['menu', 'lessons', 'howto', 'settings', 'custom'];
   function titling() { return !game && TITLE_SCREENS.indexOf(screen) >= 0; }
   function showScreen(name) {
     var was = titling();
-    ['menu', 'lessons', 'howto', 'controls', 'scores', 'pause', 'over'].forEach(function (id) { $(id).hidden = id !== name; });
+    ['menu', 'lessons', 'howto', 'settings', 'custom', 'pause', 'over'].forEach(function (id) { $(id).hidden = id !== name; });
     screen = name;
     if (name === null) back = [];
     document.body.classList.toggle('titling', titling());
     if (was !== titling()) layout(); else placeScreen();
+    highScores();
   }
-  // On a wide screen the title screen's pages take the left column, so the
-  // title screen's game shows beside them. Other pages sit in the middle.
+  // On a wide screen the main menu's pages take the left column, so the
+  // main menu's game shows beside them. Other pages sit in the middle.
   function placeScreen() {
     var el = $('screen');
     if (titling() && !compact()) {
@@ -579,14 +628,21 @@
       Array.prototype.forEach.call(el.children, function (panel) { panel.style.maxHeight = Math.round(r.height) + 'px'; });
     } else {
       el.style.justifyContent = el.style.alignItems = el.style.padding = '';
-      Array.prototype.forEach.call(el.children, function (panel) { panel.style.maxHeight = ''; });
+      Array.prototype.forEach.call(el.children, function (panel) { panel.style.maxHeight = panel.style.left = panel.style.top = ''; });
+      // A run's pause and game-over cards sit over the middle of the well, as far as the window allows.
+      if (game && (screen === 'pause' || screen === 'over')) {
+        var panel = $(screen), pr = panel.getBoundingClientRect(), wr = $('well').getBoundingClientRect(), c = Draw.wellCentre(), v = viewport();
+        var dx = Math.max(16 - pr.left, Math.min(v.w - 16 - pr.right, wr.left + c.x - (pr.left + pr.width / 2)));
+        var dy = Math.max(16 - pr.top, Math.min(v.h - 16 - pr.bottom, wr.top + c.y - (pr.top + pr.height / 2)));
+        panel.style.position = 'relative'; panel.style.left = Math.round(dx) + 'px'; panel.style.top = Math.round(dy) + 'px';
+      }
     }
   }
   function open(name) {
     back.push(screen);
-    if (name === 'controls') buildControls();
+    if (name === 'settings') { buildControls(); refreshSettings(); }
+    if (name === 'custom') refreshCustom();
     if (name === 'howto') buildHowto();
-    if (name === 'scores') buildScores(scoresMode);
     if (name === 'lessons') buildLessons();
     showScreen(name);
     var first = $(name).querySelector('button');
@@ -606,55 +662,95 @@
     b.addEventListener('click', function () { Sound.start(); if (b.dataset.mode === 'tutorial') open('lessons'); else start(b.dataset.mode); });
   });
 
+  // High scores over the main menu's game. Hard, Normal and Easy take turns,
+  // fading in and out, and a difficulty with no scores yet is left out. On a
+  // phone or a tablet the menu covers the game, so they sit in the menu.
+  var HS_SHOW = 6000, HS_FADE = 700, hsTimer = 0;
+  function highScores() {
+    var box = $('hiscores'), list = ['hard', 'normal', 'easy'].filter(function (m) { return bestOf(scoreKey(m)); });
+    root.clearTimeout(hsTimer);
+    box.classList.remove('on');
+    if (screen !== 'menu' || !list.length) { box.hidden = true; return; }
+    var home = compact() ? $('menu') : document.body;
+    if (box.parentNode !== home) home.appendChild(box);
+    box.hidden = false;
+    placeHighScores();
+    (function show(i) {
+      $('hs-title').textContent = MODES[list[i]] + ' · high scores';
+      scoreTable($('hs-table'), scoreKey(list[i]), null);
+      void box.offsetWidth;
+      box.classList.add('on');
+      if (list.length < 2) return;
+      hsTimer = root.setTimeout(function () {
+        box.classList.remove('on');
+        hsTimer = root.setTimeout(function () { show((i + 1) % list.length); }, HS_FADE);
+      }, HS_SHOW);
+    })(0);
+  }
+  // On a wide screen the scores sit over the top half of the game's well.
+  function placeHighScores() {
+    var box = $('hiscores');
+    box.style.left = box.style.top = box.style.width = '';
+    if (box.hidden || compact()) return;
+    var wr = $('well').getBoundingClientRect(), b = Draw.wellBox(), w = Math.min(320, b.w * 0.86);
+    box.style.width = Math.round(w) + 'px';
+    box.style.left = Math.round(wr.left + b.x + (b.w - w) / 2) + 'px';
+    box.style.top = Math.round(wr.top + b.y + b.h * 0.12) + 'px';
+  }
+
+  var ABOUT = { easy: ', more helpers', normal: '', hard: ', more glass' };
   function refreshMenu() {
-    Array.prototype.forEach.call(document.querySelectorAll('[data-best]'), function (em) {
-      var mode = em.dataset.best, best = bestOf(currentKey(mode));
-      em.textContent = best ? (mode === 'sprint' ? '' : 'Best ') + fmtBest(mode, best) : '';
+    DIFFICULTIES.forEach(function (m) {
+      var d = C.difficulty[m], best = bestOf(scoreKey(m));
+      document.querySelector('[data-about="' + m + '"]').textContent = 'From speed ' + d.speed + ABOUT[m];
+      document.querySelector('[data-best="' + m + '"]').textContent = best ? 'Best ' + fmtBest(best) : '';
     });
     var done = Lessons.filter(function (ls) { return passed.indexOf(ls.title) >= 0; }).length;
     $('tut-count').textContent = done ? done + ' of ' + Lessons.length : '';
-    var fresh = !passed.length && !Object.keys(scores).length;
+    var fresh = !passed.length && !DIFFICULTIES.some(function (m) { return bestOf(scoreKey(m)); });
     document.querySelector('[data-mode="tutorial"]').classList.toggle('suggest', fresh);
-    refreshSettings();
   }
 
-  function refreshSettings() {
-    var w = $('set-width'); w.textContent = '';
-    [10, 12, 14, 16, 18].forEach(function (n) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = n;
-      b.setAttribute('aria-pressed', settings.width === n);
-      b.addEventListener('click', function () { settings.width = n; changed(); });
-      w.appendChild(b);
-    });
-    var z = $('set-sizes'); z.textContent = '';
-    [1, 2, 3, 4, 5].forEach(function (n) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = n;
-      b.title = 'Pieces of ' + n + (n === 1 ? ' square' : ' squares');
-      b.setAttribute('aria-pressed', settings.sizes.indexOf(n) >= 0);
-      b.addEventListener('click', function () {
-        var i = settings.sizes.indexOf(n);
-        if (i >= 0 && settings.sizes.length > 1) settings.sizes.splice(i, 1);
-        else if (i < 0) settings.sizes.push(n);
-        settings.sizes.sort(); changed();
+  // The Custom page: each choice, kept for next time.
+  function refreshCustom() {
+    var cu = settings.custom;
+    function seg(id, values, label, on, pick) {
+      var box = $(id); box.textContent = '';
+      values.forEach(function (v) {
+        var b = document.createElement('button'); b.type = 'button'; b.textContent = label(v);
+        b.setAttribute('aria-pressed', on(v));
+        b.addEventListener('click', function () { pick(v); save('settings', settings); refreshCustom(); b.focus(); });
+        box.appendChild(b);
       });
-      z.appendChild(b);
+    }
+    seg('set-squares', SQUARE_SETS, function (set) { return set[1]; }, function (set) { return cu.squares === set[0]; }, function (set) { cu.squares = set[0]; });
+    SQUARE_SETS.forEach(function (set) { if (set[0] === cu.squares) $('squares-hint').textContent = set[2]; });
+    seg('set-width', [10, 12, 14, 16, 18], String, function (n) { return cu.width === n; }, function (n) { cu.width = n; });
+    seg('set-sizes', [1, 2, 3, 4, 5], String, function (n) { return cu.sizes.indexOf(n) >= 0; }, function (n) {
+      var i = cu.sizes.indexOf(n);
+      if (i >= 0 && cu.sizes.length > 1) cu.sizes.splice(i, 1); else if (i < 0) cu.sizes.push(n);
+      cu.sizes.sort();
     });
-    var sq = $('set-squares'); sq.textContent = '';
-    SQUARE_SETS.forEach(function (set) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = set[1];
-      b.setAttribute('aria-pressed', settings.squares === set[0]);
-      b.addEventListener('click', function () { settings.squares = set[0]; changed(); });
-      sq.appendChild(b);
-    });
-    SQUARE_SETS.forEach(function (set) { if (set[0] === settings.squares) $('squares-hint').textContent = set[2]; });
-    var hd = $('set-hand'), hand = handOf(); hd.textContent = '';
-    [['left', 'Left-handed'], ['right', 'Right-handed']].forEach(function (h) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = h[1];
-      b.title = h[0] === 'right' ? 'Move with the arrows, turn with Z, X, A and C' : 'Move with A, S and D, turn with J, K, L and I';
-      b.setAttribute('aria-pressed', hand === h[0]);
-      b.addEventListener('click', function () { setHand(h[0]); refreshSettings(); });
-      hd.appendChild(b);
-    });
+    seg('set-choice', [0, 1, 2, 3], String, function (n) { return cu.choiceRows === n; }, function (n) { cu.choiceRows = n; });
+    $('choice-hint').textContent = cu.choiceRows ? 'A new piece can be swapped for one in the queue until it falls ' + cu.choiceRows +
+      (cu.choiceRows === 1 ? ' row.' : ' rows.') : 'A new piece is fixed from the start.';
+    var t = $('set-speed'); t.textContent = '';
+    var label = document.createElement('span'), value = document.createElement('b'), input = document.createElement('input');
+    label.textContent = 'Starting speed'; value.textContent = cu.speed + ' of ' + Rules.SPEEDS;
+    input.type = 'range'; input.min = 1; input.max = Rules.SPEEDS; input.step = 1; input.value = cu.speed;
+    input.setAttribute('aria-label', 'Starting speed');
+    input.addEventListener('input', function () { cu.speed = +input.value; value.textContent = cu.speed + ' of ' + Rules.SPEEDS; save('settings', settings); });
+    t.appendChild(label); t.appendChild(value); t.appendChild(input);
+  }
+  $('custom-play').addEventListener('click', function () { Sound.start(); start('custom'); });
+
+  // The Settings page: effects, sound, full screen and the keys.
+  function refreshSettings() {
+    var hand = handOf();
+    $('controls-left').setAttribute('aria-pressed', hand === 'left');
+    $('controls-right').setAttribute('aria-pressed', hand === 'right');
+    $('controls-right').title = 'Move with the arrows, turn with Z, X, A and C';
+    $('controls-left').title = 'Move with S, D and F, turn with J, K, L and ;';
     $('hand-note').textContent = hand === 'custom' ? 'Custom' : '';
     var fx = settings.effects === 'low' ? 'Low' : autoLow ? 'Low (auto)' : 'Full';
     $('set-effects').textContent = fx;
@@ -665,11 +761,6 @@
     $('set-sound').textContent = settings.sound ? 'On' : 'Off';
     $('set-sound').setAttribute('aria-pressed', settings.sound);
     $('pause-sound').textContent = 'Sound: ' + (settings.sound ? 'on' : 'off');
-  }
-  function changed() {
-    save('settings', settings);
-    refreshMenu();
-    if (!game) { startDemo(); layout(); hudForDemo(); schedule(); }
   }
   $('set-effects').addEventListener('click', function () {
     if (autoLow) { autoLow = false; settings.effects = 'full'; } else settings.effects = settings.effects === 'low' ? 'full' : 'low';
@@ -755,6 +846,12 @@
         (function (action, s, btn) { btn.addEventListener('click', function () { beginCapture(action, s, btn); }); })(a[0], slot, b);
         cell.appendChild(b);
       }
+      if (a[0] === 'cycle') {
+        var tr2 = table.insertRow(), kb = document.createElement('kbd'), kb2 = document.createElement('kbd');
+        tr2.insertCell().textContent = 'Bring a piece to the front';
+        kb.textContent = '1'; kb2.textContent = String(Rules.QUEUE);
+        var c2 = tr2.insertCell(); c2.appendChild(kb); c2.appendChild(document.createTextNode(' to ')); c2.appendChild(kb2);
+      }
     });
   }
   function buildControls() {
@@ -801,36 +898,21 @@
     buildControls();
     $('control-note').textContent = note.trim();
   }
-  function saveControls() { save('controls', { keys: keys, timing: timing }); showKeys(); if (screen === 'menu') refreshSettings(); }
+  function saveControls() { save('controls', { keys: keys, timing: timing }); showKeys(); if (screen === 'settings') refreshSettings(); }
   [['controls-right', 'right', 'Right-handed'], ['controls-left', 'left', 'Left-handed']].forEach(function (c) {
     $(c[0]).addEventListener('click', function () {
       timing = Object.assign({}, DEFAULT_TIMING);
-      setHand(c[1]); buildControls();
+      setHand(c[1]); buildControls(); refreshSettings();
       $('control-note').textContent = c[2] + ': every key and timing is back to its default.';
     });
   });
-
-  var scoresMode = 'marathon';
-  function buildScores(mode) {
-    scoresMode = mode;
-    var tabs = $('scores-tabs'); tabs.textContent = '';
-    ['marathon', 'grow', 'sprint', 'blitz'].forEach(function (m) {
-      var b = document.createElement('button'); b.type = 'button'; b.textContent = MODES[m];
-      b.setAttribute('aria-pressed', m === mode);
-      b.addEventListener('click', function () { buildScores(m); });
-      tabs.appendChild(b);
-    });
-    $('scores-scope').textContent = 'For the settings now chosen: ' + settings.width + ' wide' +
-      (mode === 'grow' ? '' : ', pieces of ' + settings.sizes.join(', ') + ' squares') + ', ' + squaresName(settings.squares) + '. Kept in this browser.';
-    scoreTable($('scores-table'), currentKey(mode), mode, null);
-  }
 
   // The HUD ------------------------------------------------------------------------------------
 
   function showKeys() {
     function k(a) { return keys[a].map(function (c) { return '<kbd>' + codeName(c).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</kbd>'; }).join(' '); }
     $('keys').innerHTML = k('left') + ' ' + k('right') + ' move &nbsp;' + k('soft') + ' soft drop<br>' + k('hard') + ' hard drop &nbsp;' +
-      k('flip') + ' flip<br>' + k('ccw') + ' ' + k('cw') + ' rotate<br>' + k('cycle') + ' cycle &nbsp;' + k('pause') + ' pause';
+      k('flip') + ' flip<br>' + k('ccw') + ' ' + k('cw') + ' rotate<br>' + k('cycle') + ' cycle &nbsp;<kbd>1</kbd>–<kbd>' + Rules.QUEUE + '</kbd> choose<br>' + k('pause') + ' pause';
   }
   function hudForRun() {
     var left = $('left'), lesson = run.lesson;
@@ -842,19 +924,18 @@
       $('lesson-says').textContent = keyText(ls.says);
       $('lesson-goal').textContent = ls.goalText;
     } else {
-      $('mode-label').textContent = MODES[run.mode] + ' · ' + squaresName(game.squares) + ' · ' + game.width + ' wide' + (run.practice ? ' · practice' : '');
+      $('mode-label').textContent = MODES[run.mode] + (run.mode === 'custom' ? ' · ' + squaresName(game.squares) + ' squares · ' + game.width + ' wide' : '') +
+        (run.practice ? ' · practice' : '');
     }
-    $('time-label').textContent = run.mode === 'blitz' ? 'Time left' : 'Time';
-    var best = bestOf(run.key);
-    $('best').textContent = best ? fmtBest(run.mode, best) : '–';
-    $('score').textContent = '0'; $('level').textContent = game.level; $('rows').textContent = run.mode === 'sprint' ? '0 of 40' : '0';
+    var best = run.key ? bestOf(run.key) : null;
+    $('best').textContent = best ? fmtBest(best) : '–';
+    $('score').textContent = '0'; $('speed').textContent = game.speed; $('rows').textContent = '0';
   }
   function hudForDemo() {
     $('left').classList.remove('in-lesson');
-    $('mode-label').textContent = 'Title screen';
-    $('score').textContent = '0'; $('level').textContent = '–'; $('rows').textContent = '–'; $('time').textContent = '–';
-    var best = bestOf(currentKey('marathon'));
-    $('best').textContent = best ? fmtBest('marathon', best) : '–';
+    $('mode-label').textContent = 'Main menu';
+    $('score').textContent = '0'; $('speed').textContent = '–'; $('rows').textContent = '–'; $('time').textContent = '–';
+    $('best').textContent = '–';
   }
   function setScore(v, now) { shown.from = shown.score; shown.to = v; shown.t0 = now; }
   function updateHud(now) {
@@ -865,26 +946,28 @@
       if (t >= 1) shown.t0 = 0;
       $('score').textContent = shown.score.toLocaleString('en-GB');
     }
-    $('level').textContent = game.level;
-    $('rows').textContent = run.mode === 'sprint' ? Math.min(game.rowsCleared, 40) + ' of 40' : game.rowsCleared;
-    var ms = game.ticks * STEP;
-    $('time').textContent = run.mode === 'blitz' ? fmtTime(Math.max(0, Rules.BLITZ_TICKS * STEP - ms)).replace(/\.\d$/, '') : fmtTime(ms).replace(/\.\d$/, '');
+    $('speed').textContent = game.speed;
+    $('rows').textContent = game.rowsCleared;
+    $('time').textContent = fmtTime(game.ticks * STEP).replace(/\.\d$/, '');
   }
 
   // Layout ---------------------------------------------------------------------------------------
 
   function layout() {
     pickMode();
-    var g = active(), W = g ? g.width : settings.width, phone = isPhone(), v = viewport();
+    var g = active(), W = g ? g.width : C.width, phone = isPhone(), v = viewport();
     Draw.logo($('logo'), phone || (mode === 'hand' && v.h < 500) ? 4 : 7);   // before measuring: a blank canvas is 300 x 150
     var board = $('board'), left = $('left'), gameEl = $('game'), next = $('next');
     var wellCols = Draw.GAUGE + W + 0.2, wellRows = Draw.TOP + Rules.ROWS + 0.4, s, q, row = false, zoom = 1, queue, sideW = 0;
+    var span = 5 * Rules.QUEUE;   // the queue's length in its own squares: five to a slot
     gameEl.style.paddingTop = ''; left.style.height = ''; left.style.width = ''; next.style.marginRight = '';
     if (phone) {
       var availW = v.w - 32, availH = v.h - left.getBoundingClientRect().height - (58 * 2 + 8) - 10 - 12 - 16 - 8;
       var side = Math.floor(Math.min((availW - 4) / (wellCols + 0.6 * 5.7), availH / wellRows));
       var top = Math.floor(Math.min(availW / wellCols, (availH - 16 - 2) / (wellRows + 0.6 * 5)));
-      row = top > side; s = Math.max(8, Math.max(side, top)); q = Math.round(s * 0.6);
+      row = top > side; s = Math.max(8, Math.max(side, top));
+      // In a row the queue fits beside the gauge, across the well's width; in a column, down its height.
+      q = Math.max(4, Math.floor(Math.min(s * 0.6, row ? (W + 0.2) * s / span : (Rules.ROWS + 0.4) * s / span)));
       queue = { cell: q, row: row, width: Math.round(wellCols * s), height: Math.round(wellRows * s) };
     } else if (mode === 'hand') {
       // Two columns of buttons sit in each bottom corner. The scores and the
@@ -893,10 +976,10 @@
       s = Math.max(8, Math.floor(Math.min((v.h - 20) / wellRows, (v.w - 2 * corner - 64) / wellCols, 72)));
       sideW = Math.max(corner, Math.min(236, Math.floor((v.w - 40 - Math.round(wellCols * s)) / 2) - 12));
       var above = Math.round(wellRows * s) - (2 * b + 8) - 24;
-      var qCol = Math.floor(Math.min(s, (above - Draw.TOP * s) / 20, sideW / 5.7));
-      var qRow = Math.floor(Math.min((sideW - Draw.GAUGE * s - 4) / 20, (above - 16) / 5));
+      var qCol = Math.floor(Math.min(s, (above - Draw.TOP * s) / span, sideW / 5.7));
+      var qRow = Math.floor(Math.min((sideW - Draw.GAUGE * s - 4) / span, (above - 16) / 5));
       row = qRow > qCol; q = Math.max(4, row ? qRow : qCol);
-      queue = { cell: q, row: row, width: Math.round(Draw.GAUGE * s + 20 * q + 4), height: Math.round(Draw.TOP * s + 20 * q + 6) };
+      queue = { cell: q, row: row, width: Math.round(Draw.GAUGE * s + span * q + 4), height: Math.round(Draw.TOP * s + span * q + 6) };
       gameEl.style.setProperty('--b', b + 'px');
       left.style.width = sideW + 'px'; left.style.height = above + 'px';
     } else {
@@ -906,7 +989,7 @@
       zoom = titling() ? 1 : Math.min(1.6, Math.max(1, s / 42));
       s = Math.max(10, Math.min(s, Math.floor((v.w - leftW * zoom - 60) / (wellCols + 5.7))));
       left.style.width = Math.round(leftW * zoom) + 'px';
-      q = s;
+      q = Math.min(s, Math.floor((Rules.ROWS + 0.4) * s / span));
       queue = { cell: q, row: false, width: Math.round(wellCols * s), height: Math.round(wellRows * s) };
     }
     $('hud').style.zoom = $('keys').style.zoom = zoom === 1 ? '' : zoom.toFixed(3);
@@ -919,6 +1002,7 @@
     if (mode === 'hand') next.style.marginRight = Math.max(0, sideW - (row ? queue.width : Math.round(5.7 * q))) + 'px';
     if (g) { Draw.frame(g, performance.now()); Draw.queue(g, performance.now()); }
     placeScreen();
+    placeHighScores();
   }
   function paintBackground() {
     pickMode();
@@ -937,23 +1021,27 @@
 
   // The address -----------------------------------------------------------------------------------
 
+  // #mode=easy, normal, hard or custom, with speed and seed for practice,
+  // and for Custom width, sizes and squares too; or #mode=tutorial&lesson=n.
   function fromAddress() {
     var h = new URLSearchParams(root.location.hash.replace(/^#/, ''));
     var mode = h.get('mode');
+    if (mode === 'marathon') mode = 'normal';   // addresses from before the difficulties
     if (!mode || !MODES[mode]) return false;
     if (mode === 'tutorial') {
       var n = Math.max(1, Math.min(Lessons.length, +h.get('lesson') || 1));
       start('tutorial', { lesson: n - 1 });
       return true;
     }
-    var opts = {};
-    var w = +h.get('width');
-    if ([10, 12, 14, 16, 18].indexOf(w) >= 0) opts.width = w;
-    if (h.get('sizes')) { var sz = h.get('sizes').split('').map(Number).filter(function (x) { return x >= 1 && x <= 5; }); if (sz.length) opts.sizes = sz; }
-    if (Rules.SQUARES[h.get('squares')]) opts.squares = h.get('squares');
-    else if (h.get('specials') != null) opts.squares = h.get('specials') === '0' ? 'pure' : 'pentrys';
-    if (+h.get('level') > 1) opts.level = Math.min(Rules.TOP_LEVEL, Math.floor(+h.get('level')));
+    var opts = {}, speed = +(h.get('speed') || h.get('level'));
+    if (speed >= 1) opts.speed = Math.min(Rules.SPEEDS, Math.floor(speed));
     if (h.get('seed') != null && h.get('seed') !== '') opts.seed = Math.floor(+h.get('seed')) >>> 0;
+    if (mode === 'custom') {
+      var w = +h.get('width');
+      if ([10, 12, 14, 16, 18].indexOf(w) >= 0) opts.width = w;
+      if (h.get('sizes')) { var sz = h.get('sizes').split('').map(Number).filter(function (x) { return x >= 1 && x <= 5; }); if (sz.length) opts.sizes = sz; }
+      if (Rules.SQUARES[h.get('squares')]) opts.squares = h.get('squares');
+    }
     start(mode, opts);
     return true;
   }

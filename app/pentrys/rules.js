@@ -1,5 +1,5 @@
 /* The rules of Pentrys: the well, the pieces and queue, special squares,
-   falling, locking, smashing glass, bombs, floods, clearing, scoring, levels
+   falling, locking, smashing glass, bombs, floods, clearing, scoring, speeds
    and the modes. See docs/pentrys.md.
 
    No page, no drawing and no clock. The game moves on one step, a sixtieth
@@ -13,45 +13,26 @@
 (function (root) {
   'use strict';
   var Pentrys = root.Pentrys || (root.Pentrys = {});
-  var Pieces = Pentrys.Pieces;
+  var Pieces = Pentrys.Pieces, C = Pentrys.Config;
 
+  // The tuning numbers live in config.js.
   var ROWS = 20, HIDDEN = 4, HEIGHT = ROWS + HIDDEN;
   var TICK = 1 / 60;
-  var LOCK_TICKS = 30;          // the shortest rest before a piece locks: 0.5 s
-  var MAX_RESETS = 15;          // moves and turns that restart that time
-  var CLEAR_TICKS = 18;         // 0.3 s pause while rows vanish
-  var SPRINT_ROWS = 40, BLITZ_TICKS = 180 * 60;
-  var TOP_LEVEL = 50;           // the speed stops rising here
-  var ROW_POINTS = [0, 100, 300, 700, 1300, 2300, 7100];
+  var LOCK_TICKS = C.lockTicks, MAX_RESETS = C.maxResets, CLEAR_TICKS = C.clearTicks;
+  var SPEEDS = C.speeds, SPEED_RATIO = Math.pow(C.firstRowSeconds / C.lastRowSeconds, 1 / (SPEEDS - 1));
+  var ROW_POINTS = C.rowPoints;
   var NAMES = ['', 'Single', 'Double', 'Triple', 'Quad', 'Pentrys', 'Hextrys'];
-  var SPARE = [1, 1.2, 1.3, 1.5, 1.8];   // by the clear's spare, 4 or more taking the last
-  var CRACK_TICKS = [30 * 60, 45 * 60], FLASH_TICKS = 57 * 60, BREAK_TICKS = 60 * 60;
+  var SPARE = C.spare;
+  var CRACK_TICKS = C.glassCrackSeconds.map(function (t) { return t * 60; }), FLASH_TICKS = C.glassFlashSeconds * 60, BREAK_TICKS = C.glassBreakSeconds * 60;
   var FLOOD = [[-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];   // beside and below, never above
+  var SQUARES = C.squares;
+  var QUEUE = C.queueLength;
 
-  // The special squares of each set, and the chance that any one square of a
-  // new piece is each kind. Kinds: 2, 3, 0 (glass), 'flood', 'deluge',
-  // 'bomb' and 'rowbomb'.
-  var SQUARES = {
-    pure: [],
-    plus: [[2, 1 / 25], [3, 1 / 100]],
-    pentrys: [[2, 1 / 25], [3, 1 / 100], [0, 1 / 100], ['flood', 1 / 100], ['deluge', 1 / 300], ['bomb', 1 / 50], ['rowbomb', 1 / 300]]
-  };
-
-  // Grow: the sizes in play and the share of five-square pieces, from level 1.
-  var GROW = [
-    { sizes: [1, 2, 3, 4], five: 0 },
-    { sizes: [1, 2, 3, 4, 5], five: 0.2 },
-    { sizes: [2, 3, 4, 5], five: 0.4 },
-    { sizes: [3, 4, 5], five: 0.6 },
-    { sizes: [4, 5], five: 0.8 },
-    { sizes: [5], five: 1 }
-  ];
-
-  // Each level falls 8% faster than the one before, up to level 50.
-  function secondsPerRow(level) { return Math.pow(1.08, 1 - Math.min(level, TOP_LEVEL)); }
-  // A resting piece locks after 1.25 times the time it takes to fall a row,
-  // and never sooner than 0.5 s, so the fast levels stay playable.
-  function lockAfter(secondsARow) { return Math.max(LOCK_TICKS, Math.round(1.25 * secondsARow * 60)); }
+  // Each speed falls the same number of times faster than the one before.
+  function secondsPerRow(speed) { return C.firstRowSeconds / Math.pow(SPEED_RATIO, Math.min(Math.max(speed, 1), SPEEDS) - 1); }
+  // A resting piece locks after a little more than the time it takes to fall
+  // a row, and never sooner than LOCK_TICKS, so the fast speeds stay playable.
+  function lockAfter(secondsARow) { return Math.max(LOCK_TICKS, Math.round(C.lockRows * secondsARow * 60)); }
   // Past six rows, each row adds half the points of one row fewer.
   function rowPoints(n) { return n <= 6 ? ROW_POINTS[n] : Math.round(ROW_POINTS[6] * Math.pow(1.5, n - 6)); }
   function clearName(n) { return n <= 6 ? NAMES[n] : n + ' rows'; }
@@ -118,10 +99,12 @@
     });
     return out;
   }
-  // The gaps a deluge fills: the five a flood fills, and every hole those
-  // lead to below its row, however deep. A hole is a gap with a square
-  // somewhere above it, so the water stays out of the open well above the
-  // stack.
+  // The gaps a deluge fills: the five a flood fills, and every gap the water
+  // then reaches below its row, however deep. A hole is a gap with a square
+  // somewhere above it. The water settles: it always pours straight down,
+  // and it moves sideways or up only into a hole, or out of one. So it fills
+  // caves and shafts, never hangs over a gap, and never spreads across the
+  // open well.
   function delugeFill(g, at) {
     var out = [], seen = {}, queue = [], x0 = at[0], y0 = at[1], roof = [];
     for (var x = 0; x < g[0].length; x++) { roof[x] = g.length; for (var y = 0; y < g.length; y++) if (g[y][x]) { roof[x] = y; break; } }
@@ -134,12 +117,35 @@
     [-1, 0, 1].forEach(function (dx) { if (add(x0 + dx, y0 + 1, 1)) queue.push([x0 + dx, y0 + 1, 1]); });
     for (var q = 0; q < queue.length; q++) {
       var c = queue[q];
+      var fromHole = roof[c[0]] < c[1];
       [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
         var x = c[0] + d[0], y = c[1] + d[1];
-        if (y > y0 && inside(g, x, y) && roof[x] < y && add(x, y, c[2] + 1)) queue.push([x, y, c[2] + 1]);
+        if (y <= y0 || !inside(g, x, y)) return;
+        var hole = roof[x] < y, ok = d[1] === 1 || hole || (fromHole && d[1] === 0);
+        if (ok && add(x, y, c[2] + 1)) queue.push([x, y, c[2] + 1]);
       });
     }
     return out;
+  }
+
+  // The squares the floor holds up: each one on the floor, resting on a held
+  // square, or joined to a held square of its own piece.
+  function heldUp(g) {
+    var seen = new Set(), queue = [];
+    function hold(x, y) {
+      var c = inside(g, x, y) && g[y][x];
+      if (c && !seen.has(c)) { seen.add(c); queue.push([x, y]); }
+    }
+    for (var x = 0; x < g[0].length; x++) hold(x, g.length - 1);
+    for (var q = 0; q < queue.length; q++) {
+      var qx = queue[q][0], qy = queue[q][1], own = g[qy][qx].id;
+      hold(qx, qy - 1);
+      [[1, 0], [-1, 0], [0, 1]].forEach(function (d) {
+        var n = inside(g, qx + d[0], qy + d[1]) && g[qy + d[1]][qx + d[0]];
+        if (n && n.id === own) hold(qx + d[0], qy + d[1]);
+      });
+    }
+    return seen;
   }
 
   // Lock a piece into a copy of the grid, as the game and the simulated
@@ -163,7 +169,7 @@
       else if (k === 'rowbomb') rowBombs.push(c);
     });
 
-    var blasts = [], destroyed = [];
+    var blasts = [], destroyed = [], heldBefore = bombs.length ? heldUp(g) : null;
     bombs.forEach(function (b) {
       var hit = [];
       for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
@@ -181,7 +187,24 @@
     // the blast took them.
     // The blast's three columns count, whether or not the blast hit a square
     // in each, and everything above the blast's top row falls.
-    var roofOf = {}, falls = [], moved = {}, single = 0;
+    var roofOf = {}, falls = [], moved = {}, from = {}, single = 0, rubble = new Set();
+    // A square breaks away from its piece as a single square, and falls as far as it can.
+    function drop(x, y) {
+      var c = g[y][x], to = y;
+      while (to + 1 < g.length && !g[to + 1][x]) to++;
+      var piece = c;
+      if (!rubble.has(c)) {
+        piece = { id: id + ':' + (single++), shape: c.shape, v: c.v };
+        if (c.born != null) piece.born = c.born;
+        if (c.crack) piece.crack = c.crack;
+        rubble.add(piece);
+      }
+      g[y][x] = null; g[to][x] = piece;
+      var k = x + ',' + y, start = from[k] || k;
+      delete from[k]; from[x + ',' + to] = start;
+      moved[start] = [x, to];
+      if (to !== y) falls.push([x, to]);
+    }
     bombs.forEach(function (b) {
       for (var dx = -1; dx <= 1; dx++) {
         var x = b[0] + dx;
@@ -190,19 +213,19 @@
     });
     Object.keys(roofOf).forEach(function (k) {
       var x = +k, top = roofOf[x];
-      for (var y = top - 1; y >= 0; y--) {
-        var c = g[y][x];
-        if (!c) continue;
-        var to = y;
-        while (to + 1 < g.length && !g[to + 1][x]) to++;
-        var piece = { id: id + ':' + (single++), shape: c.shape, v: c.v };
-        if (c.born != null) piece.born = c.born;
-        if (c.crack) piece.crack = c.crack;
-        g[y][x] = null; g[to][x] = piece;
-        moved[x + ',' + y] = [x, to];
-        if (to !== y) falls.push([x, to]);
-      }
+      for (var y = top - 1; y >= 0; y--) if (g[y][x]) drop(x, y);
     });
+    // Then the squares the blast cut loose. A square the floor held up before
+    // the blast, but no longer does, breaks away and falls too: the ends of a
+    // piece cut through, and anything resting on them. A square that hung in
+    // the air before the blast stays where it is.
+    if (bombs.length) {
+      var heldAfter = heldUp(g);
+      for (var ly = g.length - 1; ly >= 0; ly--) for (var lx = 0; lx < w; lx++) {
+        var lc = g[ly][lx];
+        if (lc && !heldAfter.has(lc) && (heldBefore.has(lc) || rubble.has(lc))) drop(lx, ly);
+      }
+    }
     function settled(c) { return moved[c[0] + ',' + c[1]] || c; }
     waters.forEach(function (wt) { wt.at = settled(wt.at); });
     rowBombs = rowBombs.map(settled);
@@ -253,41 +276,43 @@
     return out;
   }
 
-  // A new game. opts: mode ('marathon', 'grow', 'sprint', 'blitz', 'tutorial'
-  // or 'demo'), width, sizes, squares ('pure', 'plus' or 'pentrys'), seed,
-  // level, lesson, softDropRate.
+  // A new game. opts: mode ('marathon', 'tutorial' or 'demo'), width, sizes,
+  // squares (a set in config.js), seed, speed (the one it starts at),
+  // choiceRows, lesson, softDropRate.
   function create(opts) {
     opts = opts || {};
     var mode = opts.mode || 'marathon', lesson = opts.lesson || null;
     var W = lesson ? lesson.width : (opts.width || 12);
     var sizes = opts.sizes && opts.sizes.length ? opts.sizes.slice().sort() : [1, 2, 3, 4, 5];
-    var squares = SQUARES[opts.squares] ? opts.squares : opts.specials === false ? 'pure' : 'pentrys';
+    var squares = SQUARES[opts.squares] ? opts.squares : 'normal';
     var table = SQUARES[squares];
     var seed = opts.seed == null ? Math.floor(Math.random() * 4294967296) : opts.seed;
     var random = rng(seed);
-    var startLevel = Math.max(1, opts.level || 1);
+    var startSpeed = Math.max(1, Math.min(SPEEDS, opts.speed || 1));
     var gravityScale = lesson ? 0.5 : 1;
     var softRate = opts.softDropRate || 20;
     var ageing = mode !== 'tutorial';   // glass in a lesson never breaks with age
+    // A lesson's falling piece, and the main menu's game's, is fixed from the start.
+    var choiceRows = lesson || mode === 'demo' ? 0 : opts.choiceRows != null ? opts.choiceRows : C.difficulty.normal.choiceRows;
+    var choosing = choiceRows > 0;
     var grid = emptyGrid(W);
     var nextId = 1, lessonLeft = lesson ? lesson.pieces.slice() : null;
     var lockTicks = 0, resets = 0, lowest = 0, fallAcc = 0, preview = { key: null, value: null };
 
     var g = {
       mode: mode, width: W, rows: ROWS, hidden: HIDDEN, height: HEIGHT, seed: seed, squares: squares,
-      grid: grid, piece: null, queue: [], level: startLevel, startLevel: startLevel,
+      grid: grid, piece: null, queue: [], speed: startSpeed, startSpeed: startSpeed, clearCount: 0,
       rowsCleared: 0, score: 0, ticks: 0, pieces: 0, clears: emptyRow(HEIGHT + 1).map(function () { return 0; }),
-      bestMultiplier: 1, streak: 0, version: 0,
+      bestMultiplier: 1, streak: 0, version: 0, choosing: choosing, choiceRows: choiceRows,
       pause: 0, over: false, result: null, events: [], lesson: lesson,
       step: step, takeEvents: takeEvents, landing: landing, preview: showPreview,
-      pieceCells: pieceCells, placeDirect: placeDirect, cycle: cycle, balances: function () { return balances(grid); },
+      pieceCells: pieceCells, placeDirect: placeDirect, cycle: cycle, bump: bump, balances: function () { return balances(grid); },
       deal: function () { return newPiece(); },   // the next random piece, for the tests
-      glassAge: function (cell) { return ageing && cell && cell.v === 0 && cell.born != null ? g.ticks - cell.born : 0; },
-      timeLeft: function () { return mode === 'blitz' ? Math.max(0, BLITZ_TICKS - g.ticks) * TICK : null; }
+      glassAge: function (cell) { return ageing && cell && cell.v === 0 && cell.born != null ? g.ticks - cell.born : 0; }
     };
 
     if (lesson) buildLessonWell(lesson);
-    for (var q = 0; q < 4; q++) g.queue.push(newPiece());
+    for (var q = 0; q < QUEUE; q++) g.queue.push(newPiece());
     spawn();
     return g;
 
@@ -308,14 +333,7 @@
     }
 
     function chooseShape() {
-      var pool;
-      if (mode === 'grow') {
-        var stage = GROW[Math.min(g.level, GROW.length) - 1];
-        if (stage.five > 0 && random() < stage.five) pool = Pieces.BY_SIZE[5];
-        else pool = [].concat.apply([], stage.sizes.filter(function (z) { return z < 5; }).map(function (z) { return Pieces.BY_SIZE[z]; }));
-      } else {
-        pool = [].concat.apply([], sizes.map(function (z) { return Pieces.BY_SIZE[z]; }));
-      }
+      var pool = [].concat.apply([], sizes.map(function (z) { return Pieces.BY_SIZE[z]; }));
       return pool[Math.floor(random() * pool.length)];
     }
 
@@ -361,7 +379,7 @@
       g.queue.push(newPiece());
       if (!next) { end(lesson ? 'failed' : 'topout'); return; }
       var at = Pieces.spawnAt(next.shape, next.o, W, HIDDEN);
-      g.piece = { id: next.id, shape: next.shape, o: next.o, bx: at.bx, bottom: at.bottom, specials: next.specials };
+      g.piece = { id: next.id, shape: next.shape, o: next.o, bx: at.bx, bottom: at.bottom, specials: next.specials, open: choosing };
       lockTicks = 0; resets = 0; lowest = g.piece.bottom; fallAcc = 0;
       if (!fits(g.piece.shape, g.piece.o, g.piece.bx, g.piece.bottom)) {
         emit({ type: 'spawn', piece: g.piece, blocked: true });
@@ -402,12 +420,56 @@
       return false;
     }
 
+    // The choice. A new piece is open: until it falls choiceRows rows, or
+    // the player drops it at all, it counts as the queue's place 0, and the
+    // player's cycle and bump take it in. It keeps its height when swapped,
+    // so swapping never holds it up. g.cycle and g.bump act on the queue alone.
+    function open() { return !!(g.piece && g.piece.open); }
+    function swapIn(next) {
+      var p = g.piece, at = Pieces.spawnAt(next.shape, next.o, W, HIDDEN);
+      if (!fits(next.shape, next.o, at.bx, p.bottom)) return null;
+      g.piece = { id: next.id, shape: next.shape, o: next.o, bx: at.bx, bottom: p.bottom, specials: next.specials, open: true };
+      emit({ type: 'swap', piece: g.piece });
+      return { id: p.id, shape: p.shape, o: p.o, specials: p.specials };
+    }
+    function chooseCycle() {
+      if (!open()) return cycle();
+      var k = 0;
+      while (k < g.queue.length && g.queue[k]) k++;
+      if (k < 1) return false;
+      var back = swapIn(g.queue[0]);
+      if (!back) return false;
+      g.queue.shift();
+      g.queue.splice(k - 1, 0, back);
+      emit({ type: 'cycle', to: k - 1 });
+      return true;
+    }
+    function chooseBump(i) {
+      if (!open()) return bump(i);
+      if (!(i >= 0 && i < g.queue.length && g.queue[i])) return false;
+      var back = swapIn(g.queue[i]);
+      if (!back) return false;
+      g.queue.splice(i, 1);
+      g.queue.unshift(back);
+      emit({ type: 'bump', from: i, swap: true });
+      return true;
+    }
+
+    // Cycle: the front piece goes to the back, and the rest move up one.
     function cycle() {
       var k = 0;
       while (k < g.queue.length && g.queue[k]) k++;
       if (k < 2) return false;
       g.queue.splice(k - 1, 0, g.queue.shift());
-      emit({ type: 'cycle' });
+      emit({ type: 'cycle', to: k - 1 });
+      return true;
+    }
+    // Bump: the piece at place i (0 is the front) moves to the front, and
+    // the pieces before it move back one.
+    function bump(i) {
+      if (!(i >= 1 && i < g.queue.length && g.queue[i])) return false;
+      g.queue.unshift(g.queue.splice(i, 1)[0]);
+      emit({ type: 'bump', from: i });
       return true;
     }
 
@@ -442,7 +504,7 @@
       l.smashed.forEach(function (c) { grid[c[1]][c[0]] = null; });
       if (smashed.length) g.version++;
       p.bottom = l.bottom;
-      g.score += 2 * (p.bottom - from);
+      g.score += C.hardDropPoints * (p.bottom - from);
       emit({ type: 'hardDrop', from: from, to: p.bottom, shape: p.shape, cells: pieceCells(p) });
       if (smashed.length) emit({ type: 'smash', cells: smashed });
       lock(smashed.length);
@@ -461,18 +523,18 @@
       g.version++;
 
       // The score: the rows, times every bonus they earned, plus flat points
-      // for smashing, blasting and filling, all times the level.
-      var level = g.level, lines = [], add = 0, mult = 1, base = 0, n = out.rows.length;
+      // for smashing, blasting and filling, all times the speed.
+      var speed = g.speed, lines = [], add = 0, mult = 1, base = 0, n = out.rows.length;
       var blastGlass = out.destroyed.filter(function (c) { return c.v === 0; }).length;
       var floods = 0, deluges = 0;
       out.fills.forEach(function (f) { if (f.kind === 'flood') floods += f.filled.length; else deluges += f.filled.length; });
-      if (smashed) { lines.push({ name: 'Smash', add: 100 * smashed }); add += 100 * smashed; }
+      if (smashed) { lines.push({ name: 'Smash', add: C.smashPoints * smashed }); add += C.smashPoints * smashed; }
       if (out.destroyed.length) {
-        var bp = 100 * blastGlass + 10 * (out.destroyed.length - blastGlass);
+        var bp = C.blastGlassPoints * blastGlass + C.blastPoints * (out.destroyed.length - blastGlass);
         lines.push({ name: 'Blast', add: bp }); add += bp;
       }
-      if (floods) { lines.push({ name: 'Flood', add: 10 * floods }); add += 10 * floods; }
-      if (deluges) { lines.push({ name: 'Deluge', add: 10 * deluges }); add += 10 * deluges; }
+      if (floods) { lines.push({ name: 'Flood', add: C.fillPoints * floods }); add += C.fillPoints * floods; }
+      if (deluges) { lines.push({ name: 'Deluge', add: C.fillPoints * deluges }); add += C.fillPoints * deluges; }
       var clear = null, allClear = false, spare = 0, glass = 0, crystal = 0;
       if (n) {
         g.streak++;
@@ -481,28 +543,27 @@
         allClear = grid.every(function (row) { return row.every(function (c) { return !c; }); });
         var bonus = [];
         if (out.rowBombs.length) bonus.push({ name: 'Row bomb' });
-        if (spare) bonus.push({ name: 'Spare ' + spare, mult: SPARE[Math.min(spare, 4)] });
-        if (glass) bonus.push({ name: glass > 1 ? glass + ' glass' : 'Glass', mult: Math.pow(1.5, glass) });
-        if (crystal) bonus.push({ name: 'Crystal', mult: Math.pow(2, crystal) });
-        if (g.streak >= 3) bonus.push({ name: 'Streak ' + g.streak, mult: 1 + 0.1 * (g.streak - 1) });
-        if (allClear) bonus.push({ name: 'All clear', mult: 2 });
+        if (spare) bonus.push({ name: 'Spare ' + spare, mult: SPARE[Math.min(spare, SPARE.length - 1)] });
+        if (glass) bonus.push({ name: glass > 1 ? glass + ' glass' : 'Glass', mult: Math.pow(C.glassBonus, glass) });
+        if (crystal) bonus.push({ name: 'Crystal', mult: Math.pow(C.crystalBonus, crystal) });
+        if (g.streak >= C.streakFrom) bonus.push({ name: 'Streak ' + g.streak, mult: 1 + C.streakStep * (g.streak - 1) });
+        if (allClear) bonus.push({ name: 'All clear', mult: C.allClearBonus });
         bonus.forEach(function (b) { if (b.mult) mult *= b.mult; });
         mult = Math.round(mult * 1000) / 1000;
         lines = [{ name: clearName(n), base: base }].concat(bonus, lines);
       } else g.streak = 0;
-      var points = Math.round(level * (base * mult + add));
-      if (points && level > 1) lines.push({ name: 'Level ' + level, mult: level });
+      var points = Math.round(speed * (base * mult + add));
+      if (points && speed > 1) lines.push({ name: 'Speed ' + speed, mult: speed });
       g.score += points;
 
       if (n) {
         g.rowsCleared += n;
         g.clears[n]++;
         if (mult > g.bestMultiplier) g.bestMultiplier = mult;
-        if (mode === 'marathon' || mode === 'grow' || mode === 'blitz' || mode === 'demo') {
-          g.level = startLevel + Math.floor(g.rowsCleared / 10);
-        }
+        // The speed goes up after every so many clears, whatever their size.
+        if (!lesson) { g.clearCount++; g.speed = Math.min(SPEEDS, startSpeed + Math.floor(g.clearCount / C.clearsPerSpeed)); }
         clear = { type: 'clear', n: n, name: clearName(n), rows: out.rows, spare: spare, glass: glass, multiplier: mult,
-                  allClear: allClear, base: base, points: points, level: level, before: out.before,
+                  allClear: allClear, base: base, points: points, speed: speed, before: out.before,
                   flood: floods > 0, deluge: deluges > 0, rowBomb: out.rowBombs.length > 0, streak: g.streak };
         emit(clear);
       }
@@ -510,13 +571,12 @@
         var top = n ? out.rows[0].y : Math.min.apply(null, cells.map(function (c) { return c[1]; }));
         emit({ type: 'combo', lines: lines, points: points, n: n, name: n ? clearName(n) : lines[0].name, multiplier: mult, y: top });
       }
-      if (n && g.level > level) emit({ type: 'level', level: g.level, grow: mode === 'grow' ? GROW[Math.min(g.level, GROW.length) - 1] : null });
+      if (n && g.speed > speed) emit({ type: 'speed', speed: g.speed });
 
       // What the lock did, for a lesson's goal.
       var report = clear || { n: 0, rows: [], spare: 0, glass: 0, multiplier: 1, flood: floods > 0, deluge: deluges > 0, rowBomb: false };
       report.smashed = smashed; report.blastGlass = blastGlass; report.blasted = out.destroyed.length;
       if (lesson && lesson.goal(report)) { end('passed'); return; }
-      if (mode === 'sprint' && g.rowsCleared >= SPRINT_ROWS) { end('won'); return; }
       if (clear) g.pause = CLEAR_TICKS; else spawn();
     }
 
@@ -555,14 +615,15 @@
     }
 
     // One step. input: left and right (squares to move, usually 1), cw, ccw,
-    // flip, cycle and hardDrop (once each), and softDrop (held).
+    // flip, cycle and hardDrop (once each), bump (the queue place to bring
+    // to the front), and softDrop (held). Cycle and bump take in an open piece.
     function step(input) {
       input = input || {};
       if (g.over) return;
       g.ticks++;
-      if (mode === 'blitz' && g.ticks >= BLITZ_TICKS) { end('time'); return; }
       if (ageing) age();
-      if (input.cycle) cycle();
+      if (input.cycle) chooseCycle();
+      if (input.bump != null) chooseBump(input.bump);
       if (g.pause > 0) {
         if (--g.pause === 0) spawn();
         return;
@@ -575,19 +636,21 @@
       for (var l = 0; l < (input.left | 0); l++) if (!move(-1)) break;
       for (var r = 0; r < (input.right | 0); r++) if (!move(1)) break;
       if (input.hardDrop) { hardDrop(); return; }
-      var speedLevel = mode === 'sprint' || lesson ? 1 : g.level;
-      var rate = TICK / (secondsPerRow(speedLevel) / gravityScale);
+      var speedNow = lesson ? 1 : g.speed;
+      var rate = TICK / (secondsPerRow(speedNow) / gravityScale);
       if (input.softDrop) rate = Math.max(rate, softRate * TICK);
       fallAcc += rate;
       while (fallAcc >= 1) {
         if (!fits(p.shape, p.o, p.bx, p.bottom + 1)) { fallAcc = 0; break; }
         p.bottom++;
         fallAcc -= 1;
-        if (input.softDrop) g.score++;
+        // The choice closes once the piece is dropped at all, or falls choiceRows rows.
+        if (p.open && (input.softDrop || p.bottom - HIDDEN >= choiceRows)) p.open = false;
+        if (input.softDrop) g.score += C.softDropPoints;
         if (p.bottom > lowest) { lowest = p.bottom; resets = 0; lockTicks = 0; }
       }
       if (grounded(p)) {
-        if (resets >= MAX_RESETS || ++lockTicks >= lockAfter(secondsPerRow(speedLevel) / gravityScale)) lock(0);
+        if (resets >= MAX_RESETS || ++lockTicks >= lockAfter(secondsPerRow(speedNow) / gravityScale)) lock(0);
       } else {
         lockTicks = 0;
       }
@@ -595,9 +658,9 @@
   }
 
   Pentrys.Rules = {
-    ROWS: ROWS, HIDDEN: HIDDEN, HEIGHT: HEIGHT, TICK: TICK, ROW_POINTS: ROW_POINTS, NAMES: NAMES, GROW: GROW,
-    SPARE: SPARE, SQUARES: SQUARES, TOP_LEVEL: TOP_LEVEL, CRACK_TICKS: CRACK_TICKS, FLASH_TICKS: FLASH_TICKS, BREAK_TICKS: BREAK_TICKS,
-    SPRINT_ROWS: SPRINT_ROWS, BLITZ_TICKS: BLITZ_TICKS, CLEAR_TICKS: CLEAR_TICKS, LOCK_TICKS: LOCK_TICKS,
+    ROWS: ROWS, HIDDEN: HIDDEN, HEIGHT: HEIGHT, TICK: TICK, ROW_POINTS: ROW_POINTS, NAMES: NAMES,
+    SPARE: SPARE, SQUARES: SQUARES, QUEUE: QUEUE, SPEEDS: SPEEDS, CRACK_TICKS: CRACK_TICKS, FLASH_TICKS: FLASH_TICKS, BREAK_TICKS: BREAK_TICKS,
+    CLEAR_TICKS: CLEAR_TICKS, LOCK_TICKS: LOCK_TICKS,
     secondsPerRow: secondsPerRow, lockTicks: lockAfter, rowPoints: rowPoints, clearName: clearName, rng: rng, land: land, settle: settle,
     balances: balances, emptyGrid: emptyGrid, create: create
   };

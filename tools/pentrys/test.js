@@ -6,7 +6,7 @@
 'use strict';
 const path = require('path'), assert = require('assert');
 const APP = path.join(__dirname, '..', '..', 'app', 'pentrys');
-['pieces.js', 'rules.js', 'lessons.js', 'bot.js'].forEach(f => require(path.join(APP, f)));
+['pieces.js', 'config.js', 'rules.js', 'lessons.js', 'bot.js'].forEach(f => require(path.join(APP, f)));
 const { Pieces, Rules, Lessons, Bot } = globalThis.Pentrys;
 const Pentrys = globalThis.Pentrys;
 
@@ -164,8 +164,8 @@ test('glass counts nothing: a full row with glass stays, and a 2 clears it', () 
 test('the row points: 100, 300, 700, 1,300, 2,300, 7,100, then half as much again for each row', () => {
   assert.deepStrictEqual([1, 2, 3, 4, 5, 6, 7, 8, 9].map(Rules.rowPoints), [100, 300, 700, 1300, 2300, 7100, 10650, 15975, 23963]);
 });
-test('scoring: a Double at level 5 with 1 spare scores 300 × 1.2 × 5 = 1,800, and the hard drop 2 a row', () => {
-  const g = setGame(['#2######..', '########..', '#.......##'], [{ shape: 'O4' }, { shape: '1' }], { level: 5 });
+test('scoring: a Double at speed 5 with 1 spare scores 300 × 1.2 × 5 = 1,800, and the hard drop 2 a row', () => {
+  const g = setGame(['#2######..', '########..', '#.......##'], [{ shape: 'O4' }, { shape: '1' }], { speed: 5 });
   play(g, Array(4).fill('right').concat(['hardDrop']));
   const c = events(g).find(e => e.type === 'clear');
   assert.strictEqual(c.n, 2); assert.strictEqual(c.spare, 1); assert.strictEqual(c.points, 1800);
@@ -199,11 +199,27 @@ test('a soft drop scores 1 a row, and a hard drop 2', () => {
   play(h, ['hardDrop']);
   assert.strictEqual(h.score, 38);
 });
-test('each level falls 8% faster, up to level 50', () => {
-  assert.strictEqual(Rules.secondsPerRow(1), 1);
-  assert.ok(Math.abs(Rules.secondsPerRow(10) - 1 / Math.pow(1.08, 9)) < 1e-12);
-  assert.ok(Math.abs(Rules.secondsPerRow(50) - 0.0231) < 0.0001);
-  assert.strictEqual(Rules.secondsPerRow(70), Rules.secondsPerRow(50));
+test('20 speeds, from a row a second to the top speed, each the same number of times faster than the one before', () => {
+  const C = Pentrys.Config;
+  assert.strictEqual(Rules.secondsPerRow(1), C.firstRowSeconds);
+  assert.ok(Math.abs(Rules.secondsPerRow(Rules.SPEEDS) - C.lastRowSeconds) < 1e-12);
+  const ratio = Rules.secondsPerRow(1) / Rules.secondsPerRow(2);
+  for (let k = 2; k < Rules.SPEEDS; k++) assert.ok(Math.abs(Rules.secondsPerRow(k) / Rules.secondsPerRow(k + 1) - ratio) < 1e-9, 'speed ' + k);
+  assert.strictEqual(Rules.secondsPerRow(Rules.SPEEDS + 5), Rules.secondsPerRow(Rules.SPEEDS));
+});
+test('the speed goes up one after every 5 clears, whatever their size, and stops at the top speed', () => {
+  // Each clear is a Double: a standing 2 fills column 0 of two rows.
+  const g = Rules.create({ width: 10, sizes: [2], squares: 'pure', seed: 3, speed: 18 });
+  const o = Pieces.SHAPE['2'].orients.findIndex(or => or.cells.every(c => c[0] === or.cells[0][0]));
+  const bx = -Pieces.SHAPE['2'].orients[o].cells[0][0];   // so the squares go in column 0
+  const speeds = [];
+  for (let k = 0; k < 15; k++) {
+    for (const y of [Rules.HEIGHT - 1, Rules.HEIGHT - 2]) for (let x = 1; x < 10; x++) g.grid[y][x] = { id: 9000 + k, shape: 'stone', v: 1 };
+    assert.ok(g.placeDirect(o, bx), 'clear ' + (k + 1) + ' failed');
+    speeds.push(g.speed);
+  }
+  assert.strictEqual(g.rowsCleared, 30);
+  assert.deepStrictEqual(speeds, [18, 18, 18, 18, 19, 19, 19, 19, 19, 20, 20, 20, 20, 20, 20]);
 });
 
 // Smashing glass ----------------------------------------------------------------
@@ -292,11 +308,20 @@ const gridOf = rows => {
   rows.forEach((row, i) => { for (let x = 0; x < row.length; x++) if (row[x] === '#') grid[top + i][x] = { id: 1, shape: 'stone', v: 1 }; });
   return grid;
 };
-test('a deluge on top of a tower stays out of the open well', () => {
+test('a deluge on top of a tower pours straight down beside it, and no further across the open well', () => {
   const grid = gridOf(Array(9).fill('#.........').concat(['#########.']));
   const out = Rules.settle(grid, [[0, 13]], [{ i: 0, kind: 'deluge' }], 2, '1');
-  assert.strictEqual(key(out.filled.map(c => [c[0], c[1]])), key([[1, 13], [1, 14]]));
+  const want = [[1, 13]].concat([14, 15, 16, 17, 18, 19, 20, 21, 22].map(y => [1, y]));
+  assert.strictEqual(key(out.filled.map(c => [c[0], c[1]])), key(want));
   assert.strictEqual(out.rows.length, 0);
+});
+test('deluge water never hangs over a gap, and fills an open column beside the holes it reaches', () => {
+  // Column 0 is open to the top, so it holds no hole; columns 1 to 3 are holes under a roof at row 20.
+  const grid = gridOf(['.###......', '..........', '..........', '#...######']);
+  const out = Rules.settle(grid, [[1, 19]], [{ i: 0, kind: 'deluge' }], 2, '1');
+  const got = out.filled.map(c => c[0] + ',' + c[1]);
+  for (const c of ['0,19', '0,20', '0,21', '0,22', '1,21', '2,22', '3,23', '4,21']) assert.ok(got.includes(c), c + ' stayed empty');
+  assert.ok(!got.includes('5,19'), 'the water spread across the open well');
 });
 test('a deluge over a shaft fills the cave under the stack, however far it reaches', () => {
   const grid = gridOf(['###.######', '###.######', '##......##']);
@@ -324,6 +349,25 @@ test('everything above the blast in all three of its columns falls, even where t
   assert.strictEqual(out.grid[21][5] && out.grid[21][5].shape, 'L4', 'the square did not fall all the way down');
   assert.notStrictEqual(out.grid[21][5].id, 7, 'the falling square stayed part of its piece');
   assert.strictEqual(out.grid[17][6] && out.grid[17][6].id, 7, 'a square outside the three columns moved');
+});
+test('a piece the blast cuts through: its ends left hanging break into single squares and fall', () => {
+  // An L4 lies across column 5, held up only by the stones in column 5 that the blast takes.
+  const grid = gridOf(['.....#....', '.....#....', '#########.', '#########.']);
+  [5, 6, 7].forEach(x => { grid[19][x] = { id: 7, shape: 'L4', v: 1 }; });
+  const out = Rules.settle(grid, [[4, 21]], [{ i: 0, kind: 'bomb' }], 2, '1');
+  assert.strictEqual(out.grid[22][5] && out.grid[22][5].shape, 'L4', 'the square above the crater did not fall into it');
+  for (const x of [6, 7]) {
+    assert.strictEqual(out.grid[19][x], null, 'the hanging square at column ' + x + ' stayed put');
+    assert.strictEqual(out.grid[21][x] && out.grid[21][x].shape, 'L4', 'the hanging square at column ' + x + ' did not fall to the stack');
+    assert.notStrictEqual(out.grid[21][x].id, 7, 'the hanging square at column ' + x + ' stayed part of its piece');
+  }
+  assert.notStrictEqual(out.grid[21][6].id, out.grid[21][7].id, 'the hanging squares stayed joined');
+});
+test('a piece the blast cuts through stays where something else still holds it up', () => {
+  const grid = gridOf(['.....#.#..', '.....#.#..', '#########.', '#########.']);
+  [5, 6, 7].forEach(x => { grid[19][x] = { id: 7, shape: 'L4', v: 1 }; });
+  const out = Rules.settle(grid, [[4, 21]], [{ i: 0, kind: 'bomb' }], 2, '1');
+  for (const x of [6, 7]) assert.strictEqual(out.grid[19][x] && out.grid[19][x].id, 7, 'the held square at column ' + x + ' moved');
 });
 test('a flood caught in a blast still pours', () => {
   const grid = Rules.emptyGrid(10);
@@ -354,13 +398,67 @@ test('cycle sends the front piece to the back, and a lock takes the front and ad
   const g = Rules.create({ seed: 7 });
   const ids = () => g.queue.map(p => p.id);
   const q = ids();
-  g.step({ cycle: true });
+  g.cycle();
   assert.deepStrictEqual(ids(), q.slice(1).concat(q[0]));
   const front = g.queue[0].id;
   g.step({ hardDrop: true });
   while (!g.over && g.pause) g.step({});
   assert.strictEqual(g.piece.id, front);
-  assert.strictEqual(g.queue.length, 4);
+  assert.strictEqual(g.queue.length, Rules.QUEUE);
+});
+test('bump brings a piece to the front, and the pieces before it move back one', () => {
+  const g = Rules.create({ seed: 7 });
+  const ids = () => g.queue.map(p => p.id);
+  const q = ids();
+  g.bump(3);   // the fourth piece, numbered 4 on the page
+  assert.deepStrictEqual(ids(), [q[3], q[0], q[1], q[2]].concat(q.slice(4)));
+  assert.strictEqual(g.bump(0), false, 'the front piece moved');
+  assert.strictEqual(g.bump(Rules.QUEUE), false, 'a place past the queue moved');
+});
+
+// The choice: a new piece can be swapped until it falls two rows ---------------
+const openGame = () => Rules.create({ seed: 7 });
+test('while the new piece is open, cycle takes it in: it goes to the back and the front piece falls', () => {
+  const g = openGame(), was = g.piece.id, q = g.queue.map(p => p.id), bottom = g.piece.bottom;
+  assert.ok(g.piece.open);
+  g.step({ cycle: true });
+  assert.strictEqual(g.piece.id, q[0]);
+  assert.deepStrictEqual(g.queue.map(p => p.id), q.slice(1).concat(was));
+  assert.strictEqual(g.piece.bottom, bottom, 'the swapped piece did not keep its height');
+  assert.ok(g.piece.open, 'the swap closed the choice');
+});
+test('while the new piece is open, 1 swaps it for the next, and 3 brings the third in', () => {
+  const g = openGame(), a = g.piece.id, q = g.queue.map(p => p.id);
+  g.step({ bump: 0 });
+  assert.strictEqual(g.piece.id, q[0]);
+  assert.deepStrictEqual(g.queue.map(p => p.id), [a].concat(q.slice(1)));
+  g.step({ bump: 2 });
+  assert.strictEqual(g.piece.id, q[2]);
+  assert.deepStrictEqual(g.queue.map(p => p.id), [q[0], a, q[1]].concat(q.slice(3)));
+});
+test('moves and turns leave the piece open; two rows of falling fix it', () => {
+  const g = openGame();
+  g.step({ left: 1 }); g.step({ cw: true }); g.step({ flip: true });
+  assert.ok(g.piece.open, 'a move or turn fixed the piece');
+  const id = g.piece.id;
+  while (g.piece.id === id && g.piece.bottom - Rules.HIDDEN < g.choiceRows) { assert.ok(g.piece.open); g.step({}); }
+  assert.strictEqual(g.piece.open, false, 'two rows of falling left the piece open');
+  const q = g.queue.map(p => p.id);
+  g.step({ cycle: true });
+  assert.strictEqual(g.piece.id, id, 'a fixed piece was swapped');
+  assert.deepStrictEqual(g.queue.map(p => p.id), q.slice(1).concat(q[0]));
+  g.step({ bump: 0 });
+  assert.strictEqual(g.piece.id, id, '1 swapped a fixed piece');
+});
+test('a soft drop of a single row fixes the piece', () => {
+  const g = openGame();
+  const b = g.piece.bottom;
+  while (g.piece.bottom === b) g.step({ softDrop: true });
+  assert.strictEqual(g.piece.open, false);
+});
+test('a lesson piece is fixed from the start', () => {
+  const g = Rules.create({ mode: 'tutorial', lesson: Lessons[3] });
+  assert.ok(!g.piece.open);
 });
 test('over a million pieces, shapes, orientations and special squares land at their rates, each square on its own', () => {
   const g = Rules.create({ seed: 11 }), N = 1000000;
@@ -376,11 +474,14 @@ test('over a million pieces, shapes, orientations and special squares land at th
   }
   for (const s of Pieces.SHAPES) assert.ok(Math.abs(shapes[s] / N - 1 / 21) < 0.002, s + ' at ' + shapes[s] / N);
   for (let o = 0; o < 8; o++) assert.ok(Math.abs(orients[o] / N - 1 / 8) < 0.002, 'orientation ' + o);
-  for (const [kind, p] of Rules.SQUARES.pentrys) {
+  for (const [kind, p] of Rules.SQUARES.normal) {
     const rate = (specials[kind] || 0) / squares;
     assert.ok(Math.abs(rate - p) < p * 0.03, kind + ' at ' + rate);
   }
-  assert.ok(Math.abs(perPiece[2] / N - 0.053) < 0.004, 'two special squares on ' + perPiece[2] / N);
+  // Each square is special on its own, so a piece of n squares has two with chance C(n, 2) p² (1 − p)^(n − 2).
+  const p = Rules.SQUARES.normal.reduce((sum, k) => sum + k[1], 0);
+  const two = Pieces.SHAPES.reduce((sum, s) => { const n = Pieces.SHAPE[s].size; return sum + n * (n - 1) / 2 * p * p * Math.pow(1 - p, n - 2) / 21; }, 0);
+  assert.ok(Math.abs(perPiece[2] / N - two) < 0.004, 'two special squares on ' + perPiece[2] / N + ', not ' + two);
   assert.ok(perPiece[3] > 0, 'never three special squares');
 });
 test('Plus deals only 2s and 3s, and Pure deals none', () => {
@@ -388,15 +489,6 @@ test('Plus deals only 2s and 3s, and Pure deals none', () => {
   const kinds = new Set();
   for (let i = 0; i < 100000; i++) { for (const sp of plus.deal().specials) kinds.add(sp.kind); assert.strictEqual(pure.deal().specials.length, 0); }
   assert.deepStrictEqual([...kinds].sort(), [2, 3]);
-});
-test("Grow's mix at each level matches its table", () => {
-  for (let level = 1; level <= 7; level++) {
-    const g = Rules.create({ mode: 'grow', level, seed: level }), N = 60000, count = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    for (let i = 0; i < N; i++) count[Pieces.SHAPE[g.deal().shape].size]++;
-    const stage = Rules.GROW[Math.min(level, 6) - 1];
-    assert.ok(Math.abs(count[5] / N - stage.five) < 0.01, 'level ' + level + ': five at ' + count[5] / N);
-    for (const size of [1, 2, 3, 4]) if (!stage.sizes.includes(size)) assert.strictEqual(count[size], 0, 'level ' + level + ' dealt size ' + size);
-  }
 });
 test('the same seed plays the same game', () => {
   const run = () => { const g = Rules.create({ seed: 99 }); for (let i = 0; i < 3000 && !g.over; i++) g.step(i % 7 === 0 ? { hardDrop: true } : i % 5 === 0 ? { cw: true } : {}); return [g.score, g.rowsCleared, g.pieces, g.ticks].join(); };

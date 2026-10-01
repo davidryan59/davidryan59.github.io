@@ -17,8 +17,8 @@
 <script src="../../assets/theme.js"></script>
 <script>Theme.initTheme();</script>
 <style>
-  :root { --gold: #ffd66b; --glow: 0 0 18px rgba(150, 200, 255, 0.75); --ui: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  :root[data-theme="light"] { --gold: #a86f00; --glow: 0 1px 0 rgba(255, 255, 255, 0.8); }
+  :root { --gold: #ffd66b; --doom: #ff4d6d; --glow: 0 0 18px rgba(150, 200, 255, 0.75); --ui: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  :root[data-theme="light"] { --gold: #a86f00; --doom: #d3123c; --glow: 0 1px 0 rgba(255, 255, 255, 0.8); }
   html, body { height: 100%; }
   body { max-width: none; margin: 0; padding: 0; overflow: hidden; font: 15px/1.4 var(--ui); color: var(--text);
          -webkit-tap-highlight-color: transparent; }
@@ -110,16 +110,20 @@
   @keyframes pulse { 0%, 100% { opacity: 0; } 25% { opacity: 1; } 50% { opacity: 0.3; } 70% { opacity: 0.8; } }
   @keyframes flash { 0%, 100% { opacity: 0; } 8% { opacity: 0.22; } 20% { opacity: 0.05; } 32% { opacity: 0.18; } 60% { opacity: 0.08; } }
 
-  /* Panels: the title screen and its pages, pause and game over. */
+  /* Panels: the main menu and its pages, pause and game over. */
   .screen { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; padding: 16px;
             box-sizing: border-box; pointer-events: none; }
   .panel { pointer-events: auto; width: min(460px, 100%); max-height: calc(100% - 8px); overflow-y: auto; box-sizing: border-box;
            padding: 22px 24px 20px; border-radius: 18px; background: var(--panel); border: 1px solid var(--rule);
            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); }
   .panel[hidden] { display: none; }
-  .panel .head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  .panel .head { position: sticky; top: -22px; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px;
                  margin: -22px -24px 12px; padding: 16px 24px 10px; background: var(--panel); border-bottom: 1px solid var(--rule); }
   .panel .head h2 { margin: 0; }
+  .panel h2.doom { margin: 6px 0 18px; text-align: center; font: 900 clamp(38px, 11vw, 60px)/1 var(--ui); letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--doom); text-shadow: 0 0 26px rgba(255, 77, 109, 0.45); animation: slam 520ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+  :root[data-theme="light"] .panel h2.doom { text-shadow: 0 2px 14px rgba(211, 18, 60, 0.25); }
+  @keyframes slam { 0% { opacity: 0; transform: scale(2.4); } 55% { opacity: 1; transform: scale(0.94); } 100% { opacity: 1; transform: none; } }
   .back-top { padding: 6px 12px; border-radius: 9px; border: 1px solid var(--link); background: var(--bg); color: var(--h1);
                      cursor: pointer; font: 600 13.5px var(--ui); white-space: nowrap; }
   .back-top:hover { background: var(--link); color: var(--bg); }
@@ -142,7 +146,6 @@
   .group { margin: 12px 0 0; padding: 10px 12px 12px; border: 1px solid var(--rule); border-radius: 14px; }
   .group h3 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; font: 700 11px var(--ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
   .group .modes { margin: 8px 0 0; }
-  .group h3 .mini { text-transform: none; letter-spacing: 0; font-size: 12.5px; padding: 3px 9px; }
   .group > :last-child { margin-bottom: 0; }
   .group .settings { margin: 10px 0 0; }
   .settings .aside { font-style: normal; font-size: 11.5px; opacity: 0.8; margin-left: 4px; }
@@ -164,7 +167,6 @@
   .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .actions button.primary { background: var(--link); border-color: var(--link); color: var(--bg); }
   .links button:hover, .actions button:hover { border-color: var(--link); }
-  .panel .back { display: block; text-align: center; font-size: 13px; margin-top: 4px; }
   .lessons { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
   .lessons button { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 8px; width: 100%; text-align: left;
     padding: 8px 10px; border-radius: 10px; border: 1px solid var(--rule); background: var(--bg); color: var(--text); cursor: pointer; }
@@ -193,8 +195,15 @@
   .initials { display: flex; gap: 8px; align-items: center; margin: 10px 0 0; }
   .initials input { width: 5.5em; font: 800 18px var(--ui); text-transform: uppercase; letter-spacing: 0.2em; padding: 6px 8px;
     border-radius: 8px; border: 1px solid var(--gold); background: var(--bg); color: var(--h1); }
-  .scope { font-size: 12.5px; color: var(--muted); margin: -6px 0 10px; }
-  .tabs { display: flex; gap: 4px; margin: 0 0 10px; flex-wrap: wrap; }
+  .step { margin: 14px 0 8px; font: 700 11px var(--ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .panel > .hint { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); }
+  /* The high scores over the main menu's game, fading from one table to the next. */
+  .hiscores { position: fixed; z-index: 3; box-sizing: border-box; padding: 14px 16px 12px; border-radius: 14px; background: var(--panel);
+              border: 1px solid var(--rule); box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3); opacity: 0; transition: opacity 700ms ease; pointer-events: none; }
+  .hiscores.on { opacity: 0.94; }
+  .hiscores[hidden] { display: none; }
+  .hiscores h3 { margin: 0 0 8px; text-align: center; font: 800 13px var(--ui); letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+  .panel .hiscores { position: static; margin: 14px 0 0; box-shadow: none; }
 
   /* The layout comes from game.js, as a class on the page: phone, hand or
      neither, for a keyboard. */
@@ -231,7 +240,9 @@
   .phone .pad button { height: 58px; }
   .phone .titling .left .hud { visibility: visible; }
   .phone .panel { padding: 18px 16px 16px; }
-  .phone .panel .head { margin: -18px -16px 12px; padding: 12px 16px 10px; }
+  .phone .modes button { flex-wrap: wrap; row-gap: 2px; }
+  .phone .modes button em { flex-basis: 100%; padding-left: 98px; }
+  .phone .panel .head { top: -18px; margin: -18px -16px 12px; padding: 12px 16px 10px; }
   .phone .settings .row { flex-wrap: wrap; row-gap: 4px; }
   .phone .seg button { white-space: nowrap; }
   .phone .settings .aside { display: block; margin: 0; }
@@ -263,7 +274,7 @@
   .short .callout { font-size: 15px !important; }
   @media (prefers-reduced-motion: reduce) {
     .allclear { animation-name: fade !important; }
-    .callout { animation-name: appear !important; } .callout.out { animation-name: vanish !important; }
+    .callout, .panel h2.doom { animation-name: appear !important; } .callout.out { animation-name: vanish !important; }
     @keyframes appear { from { opacity: 0; } to { opacity: 1; } } @keyframes vanish { from { opacity: 1; } to { opacity: 0; } }
     .fx { display: none; }
     @keyframes fade { 0% { opacity: 0; } 15%, 75% { opacity: 1; } 100% { opacity: 0; } }
@@ -292,12 +303,12 @@
 <main class="game" id="game">
   <aside class="left" id="left">
     <section class="hud" id="hud">
-      <button type="button" class="home" id="home" title="Title screen" aria-label="Pentrys: back to the title screen"><canvas id="logo" aria-label="Pentrys"></canvas></button>
-      <div class="mode" id="mode-label">Marathon · 12 wide</div>
+      <button type="button" class="home" id="home" title="Main menu" aria-label="Pentrys: back to the main menu"><canvas id="logo" aria-label="Pentrys"></canvas></button>
+      <div class="mode" id="mode-label">Main menu</div>
       <div class="stat score"><span>Score</span><b id="score">0</b></div>
-      <div class="stat"><span>Level</span><b id="level">1</b></div>
+      <div class="stat"><span>Speed</span><b id="speed">1</b></div>
       <div class="stat"><span>Rows</span><b id="rows">0</b></div>
-      <div class="stat time"><span id="time-label">Time</span><b id="time">0:00</b></div>
+      <div class="stat time"><span>Time</span><b id="time">0:00</b></div>
       <div class="stat best"><span>Best</span><b id="best">–</b></div>
       <div class="lesson" id="lesson"><h3 id="lesson-title"></h3><p id="lesson-says"></p><div class="goal" id="lesson-goal"></div></div>
     </section>
@@ -320,78 +331,86 @@
   </nav>
 </main>
 
+<section class="hiscores" id="hiscores" aria-label="High scores" hidden><h3 id="hs-title"></h3><table class="scores" id="hs-table"></table></section>
+
 <div class="screen" id="screen">
   <section class="panel" id="menu">
     <canvas id="biglogo" aria-label="Pentrys"></canvas>
     <p class="tag">All 21 shapes of one to five squares. Some count double.</p>
     <section class="group" aria-label="Learn">
-      <h3>Learn <button type="button" class="mini" data-open="howto">How to play</button></h3>
+      <h3>Learn</h3>
       <div class="modes">
         <button type="button" data-mode="tutorial"><b>Tutorial</b><span>21 short lessons</span><em id="tut-count"></em></button>
       </div>
     </section>
     <section class="group" aria-label="Play">
-      <h3>Play <button type="button" class="mini" data-open="scores">High scores</button></h3>
-      <div class="squares">
-        <div class="seg" id="set-squares" role="group" aria-label="Special squares"></div>
-        <p class="hint" id="squares-hint"></p>
-      </div>
-      <div class="settings">
-        <div class="row"><span>Width</span><div class="seg" id="set-width"></div></div>
-        <div class="row"><span>Pieces, by squares <em class="aside">not in Grow</em></span><div class="seg" id="set-sizes"></div></div>
-      </div>
+      <h3>Play</h3>
       <div class="modes">
-        <button type="button" data-mode="marathon"><b>Marathon</b><span>Endless, faster and faster</span><em data-best="marathon"></em></button>
-        <button type="button" data-mode="grow"><b>Grow</b><span>The pieces grow with the level</span><em data-best="grow"></em></button>
-        <button type="button" data-mode="sprint"><b>Sprint</b><span>Clear 40 rows, fast</span><em data-best="sprint"></em></button>
-        <button type="button" data-mode="blitz"><b>Blitz</b><span>Three minutes to score</span><em data-best="blitz"></em></button>
+        <button type="button" data-mode="easy"><b>Easy</b><span data-about="easy"></span><em data-best="easy"></em></button>
+        <button type="button" data-mode="normal"><b>Normal</b><span data-about="normal"></span><em data-best="normal"></em></button>
+        <button type="button" data-mode="hard"><b>Hard</b><span data-about="hard"></span><em data-best="hard"></em></button>
+        <button type="button" data-open="custom"><b>Custom</b><span>Your own squares, well, pieces and speed</span></button>
       </div>
     </section>
-    <section class="group" aria-label="Set up">
-      <h3>Set up</h3>
-      <div class="settings">
-        <div class="row"><span>Keys <em class="hand-note" id="hand-note"></em></span><div class="seg"><span class="seg" id="set-hand"></span><button type="button" class="mini" data-open="controls" title="Change single keys and timings">Controls</button></div></div>
-        <div class="row"><span>Effects</span><button type="button" class="toggle" id="set-effects"></button></div>
-        <div class="row"><span>Sound</span><button type="button" class="toggle" id="set-sound"></button></div>
-        <div class="row" id="full-row" hidden><span>Full screen</span><button type="button" class="toggle" id="set-full"></button></div>
-      </div>
-    </section>
-    <a class="back" href="../../index.html">&larr; David Ryan's builder page</a>
+    <div class="modes">
+      <button type="button" data-open="settings"><b>Settings</b><span>Keys, effects, sound and full screen</span></button>
+    </div>
   </section>
 
   <section class="panel" id="lessons" hidden>
     <div class="head"><h2>Tutorial</h2><button type="button" class="back-top" data-back>← Back</button></div>
     <p>Thirteen basics, then eight advanced lessons. Play them in any order.</p>
+    <div class="links"><button type="button" data-open="howto">How to play</button></div>
     <ol class="lessons" id="lesson-list"></ol>
     <div class="actions"><button type="button" data-back>Back</button></div>
   </section>
 
   <section class="panel" id="howto" hidden>
     <div class="head"><h2>How to play</h2><button type="button" class="back-top" data-back>← Back</button></div>
-    <p>Move, rotate and flip the falling pieces to fill rows. A full row clears. Cycle the queue to choose which piece falls next.</p>
+    <p>Move, rotate and flip the falling pieces to fill rows. A full row clears. Cycle the queue, or press 2 to 5, to choose which piece falls next. While a new piece pulses in the top rows, cycle or press 1 to 5 to swap it for one in the queue.</p>
     <div class="specials" id="special-list"></div>
     <p>Clear more rows at once for far more: 100, 300, 700, 1,300, 2,300 and 7,100 points for one to six rows, and half as much again for each row past six.</p>
-    <p>Bonuses multiply together. Spare, the squares a row has over its width, is ×1.2 to ×1.8. Each glass cleared is ×1.5, and glass in a row with spare adds ×2. A streak of three or more clears in a row starts at ×1.2, and an all clear is ×2. Smashing, blasting and filling score too. Then the level multiplies it all. Drops score without it: 1 a row for a soft drop, 2 for a hard drop.</p>
+    <p>Bonuses multiply together. Spare, the squares a row has over its width, is ×1.2 to ×1.8. Each glass cleared is ×1.5, and glass in a row with spare adds ×2. A streak of three or more clears in a row starts at ×1.2, and an all clear is ×2. Smashing, blasting and filling score too. Then the speed multiplies it all. Drops score without it: 1 a row for a soft drop, 2 for a hard drop.</p>
+    <p>The speed goes up one after every five clears, whatever their size, to speed 20.</p>
     <table class="keytable" id="howto-keys"></table>
     <div class="actions"><button type="button" data-back>Back</button></div>
   </section>
 
-  <section class="panel" id="controls" hidden>
-    <div class="head"><h2>Controls</h2><button type="button" class="back-top" data-back>← Back</button></div>
-    <div class="settings"><div class="row"><span>Start from a layout</span><div class="seg"><button type="button" id="controls-left">Left-handed</button><button type="button" id="controls-right">Right-handed</button></div></div></div>
+  <section class="panel" id="custom" hidden>
+    <div class="head"><h2>Custom</h2><button type="button" class="back-top" data-back>← Back</button></div>
+    <p>Set up your own game. A custom game keeps no high scores, and your choices stay for next time.</p>
+    <h4 class="step">Special squares</h4>
+    <div class="squares">
+      <div class="seg" id="set-squares" role="group" aria-label="Special squares"></div>
+      <p class="hint" id="squares-hint"></p>
+    </div>
+    <h4 class="step">The well and the pieces</h4>
+    <div class="settings">
+      <div class="row"><span>Width</span><div class="seg" id="set-width"></div></div>
+      <div class="row"><span>Pieces, by squares</span><div class="seg" id="set-sizes"></div></div>
+    </div>
+    <h4 class="step">Speed and choice</h4>
+    <div class="timing" id="set-speed"></div>
+    <div class="settings">
+      <div class="row"><span>Choice rows</span><div class="seg" id="set-choice"></div></div>
+    </div>
+    <p class="hint" id="choice-hint"></p>
+    <div class="actions"><button type="button" class="primary" id="custom-play">Play</button></div>
+  </section>
+
+  <section class="panel" id="settings" hidden>
+    <div class="head"><h2>Settings</h2><button type="button" class="back-top" data-back>← Back</button></div>
+    <div class="settings">
+      <div class="row"><span>Effects</span><button type="button" class="toggle" id="set-effects"></button></div>
+      <div class="row"><span>Sound</span><button type="button" class="toggle" id="set-sound"></button></div>
+      <div class="row" id="full-row" hidden><span>Full screen</span><button type="button" class="toggle" id="set-full"></button></div>
+      <div class="row"><span>Keys <em class="hand-note" id="hand-note"></em></span><div class="seg"><button type="button" id="controls-left">Left-handed</button><button type="button" id="controls-right">Right-handed</button></div></div>
+    </div>
     <p>Or click a single key to change it, then press the new key. Backspace clears it, and Escape keeps it.</p>
     <table class="keytable" id="control-keys"></table>
     <div class="timing" id="timing"></div>
     <div class="note" id="control-note" aria-live="polite"></div>
     <div class="actions"><button type="button" class="primary" data-back>Done</button></div>
-  </section>
-
-  <section class="panel" id="scores" hidden>
-    <div class="head"><h2>High scores</h2><button type="button" class="back-top" data-back>← Back</button></div>
-    <p class="scope" id="scores-scope"></p>
-    <div class="tabs seg" id="scores-tabs"></div>
-    <table class="scores" id="scores-table"></table>
-    <div class="actions"><button type="button" data-back>Back</button></div>
   </section>
 
   <section class="panel" id="pause" hidden>
@@ -400,11 +419,11 @@
       <button type="button" class="primary" id="resume">Resume</button>
       <button type="button" id="restart">Restart</button>
       <div class="sep"></div>
-      <button type="button" data-open="controls">Controls</button>
+      <button type="button" data-open="settings">Settings</button>
       <button type="button" id="pause-sound">Sound</button>
       <button type="button" id="pause-full" hidden>Full screen</button>
       <div class="sep"></div>
-      <button type="button" id="quit">Title screen</button>
+      <button type="button" id="quit">Main menu</button>
     </div>
   </section>
 
@@ -423,6 +442,7 @@
 </div>
 
 <script src="pieces.js"></script>
+<script src="config.js"></script>
 <script src="rules.js"></script>
 <script src="lessons.js"></script>
 <script src="bot.js"></script>
