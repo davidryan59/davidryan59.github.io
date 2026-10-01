@@ -19,6 +19,7 @@ it, then check the result with `frames.js`.
 | `assets/thumbs/sonic-asteroids.svg` | `sonic-asteroids.js` | Sonic fires rings at a Mario head, which bursts into two Luigis, on a 6 s loop |
 | `assets/thumbs/highlight-buffs.svg` | `highlight-buffs.js` | A still: the plugin's seven ring colours round planets on a Dark Forest map |
 | `assets/thumbs/weth9.svg`, `uniswap-v2.svg`, `dai.svg`, `permit2.svg` | `audits.js` | Stills of the diagrams on each audit's social card in `tools/social-cards/cards.html`, cut down to what reads at 120 px: ETH and WETH with arrows, the x·y=k curve, the price band round $1, and signers split 83% and 17% |
+| `assets/thumbs/salary-loan.svg` | `salary-loan.js` | A still: a risk scale for loan-to-value, green on the left where low is safe, amber, then red where liquidation starts at 80%. A marker sits at 25%. It is the diagram on the guide's social card |
 | `assets/thumbs/polygonal-spectre.svg` | `polygonal-spectre.js` | A still of the paper's default tile, p = 29/50 and h = 13/50, with the plain Spectre dashed beneath. Built as in `papers/verify-polygonal-spectre.py` |
 | `assets/thumbs/rcn.svg` | `rcn.js` | A still: C4 D4 E'4 G4 on a staff, with the numeric accidental 5 before E'4 |
 | `assets/thumbs/harmony.svg` | `harmony.js` | A still: the divisors of 60 as tiles, with the major triad 4:5:6 in blue and the minor triad 10:12:15 in red |

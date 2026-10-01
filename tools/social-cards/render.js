@@ -14,14 +14,18 @@
    at the best quality that stays under 300 KB, since WhatsApp shows no
    picture for anything larger. */
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os');
-const { chromium } = require('playwright');
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch (e) { ({ chromium } = require('../tiling-video/node_modules/playwright-core')); }
 
 const ROOT = path.join(__dirname, '..', '..');
 const OUT = path.join(ROOT, 'social');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'social-cards-'));
 const MAX_BYTES = 300 * 1024;
 const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'merge-fractals', 'moving-mondrian',
-               'weth9', 'uniswap-v2', 'dai', 'permit2', 'parfly'];
+               'weth9', 'uniswap-v2', 'dai', 'permit2', 'parfly', 'salary-loan'];
+// Cards drawn from their own words and diagram, with no picture from stage 1.
+const STANDALONE = ['parfly', 'salary-loan'];
 
 // The tiling views, as each tab's address bar holds them.
 const TILINGS = {
@@ -139,7 +143,7 @@ async function stageTwo(browser, base, ids) {
     args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader']
   });
   try {
-    await stageOne(browser, base);
+    if (ids.some(id => !STANDALONE.includes(id))) await stageOne(browser, base);
     await stageTwo(browser, base, ids);
   } finally {
     await browser.close();

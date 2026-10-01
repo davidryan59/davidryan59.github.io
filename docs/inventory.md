@@ -147,7 +147,7 @@ A written guide, added 2026-10-01 at
 [drbuild.uk/guides/salary-loan/](https://drbuild.uk/guides/salary-loan/). It began as
 David's reply to Ari Eiberman's question on X about being paid in Bitcoin. It covers the
 Aave steps, the loan-to-value arithmetic and the risks. Listed on the page under
-Ethereum & NFTs. Not yet pushed.
+Ethereum & NFTs, with a thumbnail and a share card (`social/salary-loan.jpg`). Not yet pushed.
 
 ## Music
 | Item | Link | Status |

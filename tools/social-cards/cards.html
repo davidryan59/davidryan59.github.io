@@ -43,6 +43,14 @@
   .audit p { font-size: 23px; margin-top: 8px; }
   .audit .site { margin-top: 12px; }
 
+  /* Guides: the diagram above the words, on a soft lavender ground. */
+  .guide { background: #e9e6f4; }
+  .guide .panel { width: 640px; padding: 20px 36px 24px; }
+  .guide svg { display: block; margin: 0 auto 6px; }
+  .guide h1 { font-size: 52px; }
+  .guide p { font-size: 23px; margin-top: 8px; }
+  .guide .site { margin-top: 12px; }
+
   /* Builder page: a mosaic of the work, with the name in the middle. */
   .mosaic { background: #1b1a20; }
   .grid { position: absolute; inset: 0; display: grid; gap: 6px; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); }
@@ -144,6 +152,22 @@
         '<path d="M ' + X0 + ' 162 H ' + X1 + '" stroke="#8a8578" stroke-width="2.5"/>' +
         '<text x="' + X1 + '" y="186" text-anchor="end" font-size="18" fill="#8a8578">time</text></svg>';
     },
+    // A risk scale for loan-to-value: low is safe, high is liquidated. A marker at 25%.
+    'salary-loan': function () {
+      var X0 = 20, W = 480, Y = 84, H = 46;
+      function at(p) { return X0 + W * p / 100; }
+      function seg(a, b, fill, label, ink) {
+        return '<rect x="' + at(a) + '" y="' + Y + '" width="' + (at(b) - at(a)) + '" height="' + H + '" fill="' + fill + '"/>' +
+          '<text x="' + (at(a) + at(b)) / 2 + '" y="' + (Y + 30) + '" text-anchor="middle" font-size="24" fill="' + ink + '">' + label + '</text>';
+      }
+      return '<svg width="520" height="196" viewBox="0 0 520 196" font-family="Georgia, serif"><defs>' +
+        '<clipPath id="bar"><rect x="' + X0 + '" y="' + Y + '" width="' + W + '" height="' + H + '" rx="14"/></clipPath></defs>' +
+        '<g clip-path="url(#bar)">' + seg(0, 50, '#2f8f5b', 'safe', '#fff') + seg(50, 80, '#e3b341', 'careful', INK) + seg(80, 100, '#c0263b', 'danger', '#fff') + '</g>' +
+        '<path d="M ' + at(80) + ' ' + (Y - 16) + ' V ' + (Y + H + 16) + '" stroke="#c0263b" stroke-width="3" stroke-dasharray="8 6"/>' +
+        '<path d="M ' + (at(25) - 13) + ' ' + (Y - 28) + ' H ' + (at(25) + 13) + ' L ' + at(25) + ' ' + (Y - 6) + ' Z" fill="' + INK + '"/>' +
+        '<text x="' + at(25) + '" y="' + (Y - 44) + '" text-anchor="middle" font-size="32" fill="' + INK + '">your loan: 25%</text>' +
+        '<text x="' + at(80) + '" y="' + (Y + H + 42) + '" text-anchor="middle" font-size="22" fill="#c0263b">liquidation starts</text></svg>';
+    },
     // One code-size check sends each signer down one of two paths.
     permit2: function () {
       function box(y, name, share) {
@@ -167,6 +191,11 @@
       return '<div class="card audit"><pre class="hex">' + text + '</pre><div class="panel">' + diagrams[key]() +
         words(title, sub) + '</div></div>';
     });
+  }
+
+  // A guide has no contract bytecode, so its diagram sits on a plain ground.
+  function guide(key, title, sub) {
+    return '<div class="card guide"><div class="panel">' + diagrams[key]() + words(title, sub) + '</div></div>';
   }
 
   // A winding road with a dashed centre line, as on the Parfly icon.
@@ -208,6 +237,7 @@
     'uniswap-v2': function () { return audit('uniswap-v2', 'Uniswap V2 security audit', 'No exploitable vulnerability across 519,134 pairs'); },
     dai: function () { return audit('dai', 'DAI security audit', 'No exploitable vulnerability, and the mint authority closed since 2019'); },
     permit2: function () { return audit('permit2', 'Permit2 security audit', 'No exploitable vulnerability, and a signature check EIP-7702 changed'); },
+    'salary-loan': function () { return guide('salary-loan', 'Crypto salary guide', 'Borrow stablecoins on Aave instead of selling, and the arithmetic that keeps you safe'); },
     parfly: parfly
   };
 
