@@ -45,14 +45,14 @@
       ]
     },
 
-    // Easy, Normal and Hard: the speed each starts at, its set of special
-    // squares, and its choice rows. A new piece can still be swapped for one
-    // in the queue until it has fallen choiceRows rows, or the player drops
-    // it at all. All three play the same well and pieces.
+    // Easy, Normal and Hard: how fast its speed 1 falls, in seconds a row,
+    // its set of special squares, and its choice rows. A new piece can still
+    // be swapped for one in the queue until it has fallen choiceRows rows,
+    // or the player drops it at all. All three play the same well and pieces.
     difficulty: {
-      easy:   { speed: 1, squares: 'easy',   choiceRows: 3 },
-      normal: { speed: 4, squares: 'normal', choiceRows: 2 },
-      hard:   { speed: 7, squares: 'hard',   choiceRows: 1 }
+      easy:   { firstRowSeconds: 1,    squares: 'easy',   choiceRows: 3 },
+      normal: { firstRowSeconds: 0.55, squares: 'normal', choiceRows: 2 },
+      hard:   { firstRowSeconds: 0.3,  squares: 'hard',   choiceRows: 1 }
     },
     width: 12,                  // the well, in squares, for Easy, Normal and Hard
     sizes: [3, 4, 5],           // the pieces they deal, by squares
@@ -60,17 +60,21 @@
     // The pieces shown in the queue, numbered 1 to queueLength.
     queueLength: 5,
 
-    // Speeds 1 to speeds. Each falls the same number of times faster than
-    // the one before, from firstRowSeconds a row at speed 1 to lastRowSeconds
-    // a row at the top speed. The speed goes up one after every
-    // clearsPerSpeed clears, whatever their size. The lessons stay at speed 1.
+    // Speeds 1 to speeds. Every game starts at speed 1, which falls at its
+    // difficulty's firstRowSeconds a row, and climbs to the top speed, which
+    // falls at lastRowSeconds a row for all three. Each speed falls the same
+    // number of times faster than the one before. The speed goes up one
+    // after every clearsPerSpeed clears, whatever their size. Points multiply
+    // by ×1 at 1 s a row, up to topSpeedMultiplier at lastRowSeconds a row,
+    // on a log scale, so a faster game scores more. The lessons stay at
+    // Easy's speed 1, at half pace.
     speeds: 20,
-    firstRowSeconds: 1,
     lastRowSeconds: 0.023,
+    topSpeedMultiplier: 10,
     clearsPerSpeed: 5,
 
     // Timings, in sixtieths of a second unless named in seconds.
-    lockTicks: 30,              // the shortest rest before a piece locks
+    lockTicks: 18,              // the shortest rest before a piece locks: 0.3 s
     lockRows: 1.25,             // a resting piece locks after this many rows' worth of falling time
     maxResets: 15,              // moves and turns that restart the lock time
     clearTicks: 18,             // the pause while cleared rows vanish
@@ -83,16 +87,13 @@
     // Points. A clear of n rows scores rowPoints[n]; past six rows, each row
     // adds half as much again.
     rowPoints: [0, 100, 300, 700, 1300, 2300, 7100],
-    spare: [1, 1.2, 1.3, 1.5, 1.8],   // multiplier by the clear's spare, 4 or more taking the last
+    spareOne: 1.5,              // multiplier for 1 spare; n spare, from 2, multiplies by n
     glassBonus: 1.5,            // multiplier for each glass square cleared
-    crystalBonus: 2,            // multiplier for each row cleared with both glass and spare
+    crystalBonus: 1.5,          // multiplier for each row cleared with both glass and spare
     allClearBonus: 2,
-    streakFrom: 3,              // clears in a row before the streak bonus starts
-    streakStep: 0.1,            // a streak of n multiplies by 1 + streakStep × (n − 1)
+    streakFrom: 2,              // a streak of n clears in a row, from this many, multiplies by n
     smashPoints: 100,           // each pane of glass a hard drop smashes
-    blastGlassPoints: 100,      // each pane of glass a bomb destroys
-    blastPoints: 10,            // each other square a bomb destroys
-    fillPoints: 10,             // each gap a flood or deluge fills
+    blastGlassPoints: 100,      // each pane of glass a bomb destroys; other squares score nothing
     softDropPoints: 1,          // each row
     hardDropPoints: 2           // each row
   };

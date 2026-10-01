@@ -19,17 +19,28 @@
   var ROWS = 20, HIDDEN = 4, HEIGHT = ROWS + HIDDEN;
   var TICK = 1 / 60;
   var LOCK_TICKS = C.lockTicks, MAX_RESETS = C.maxResets, CLEAR_TICKS = C.clearTicks;
-  var SPEEDS = C.speeds, SPEED_RATIO = Math.pow(C.firstRowSeconds / C.lastRowSeconds, 1 / (SPEEDS - 1));
+  var SPEEDS = C.speeds, EASY_FIRST = C.difficulty.easy.firstRowSeconds;
   var ROW_POINTS = C.rowPoints;
   var NAMES = ['', 'Single', 'Double', 'Triple', 'Quad', 'Pentrys', 'Hextrys'];
-  var SPARE = C.spare;
   var CRACK_TICKS = C.glassCrackSeconds.map(function (t) { return t * 60; }), FLASH_TICKS = C.glassFlashSeconds * 60, BREAK_TICKS = C.glassBreakSeconds * 60;
   var FLOOD = [[-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];   // beside and below, never above
   var SQUARES = C.squares;
   var QUEUE = C.queueLength;
 
-  // Each speed falls the same number of times faster than the one before.
-  function secondsPerRow(speed) { return C.firstRowSeconds / Math.pow(SPEED_RATIO, Math.min(Math.max(speed, 1), SPEEDS) - 1); }
+  // The seconds a row at a speed, for a game whose speed 1 falls at first
+  // seconds a row. Each speed falls the same number of times faster than the
+  // one before, up to the top speed shared by every game.
+  function secondsPerRow(speed, first) {
+    first = first || EASY_FIRST;
+    var ratio = Math.pow(first / C.lastRowSeconds, 1 / (SPEEDS - 1));
+    return first / Math.pow(ratio, Math.min(Math.max(speed, 1), SPEEDS) - 1);
+  }
+  // What a speed multiplies points by, to a tenth: ×1 at 1 s a row, up to the
+  // top multiplier at the top speed, evenly on a log scale of seconds a row.
+  function speedMultiplier(speed, first) {
+    var part = Math.max(0, Math.log(secondsPerRow(speed, first)) / Math.log(C.lastRowSeconds));
+    return Math.round(10 * (1 + (C.topSpeedMultiplier - 1) * part)) / 10;
+  }
   // A resting piece locks after a little more than the time it takes to fall
   // a row, and never sooner than LOCK_TICKS, so the fast speeds stay playable.
   function lockAfter(secondsARow) { return Math.max(LOCK_TICKS, Math.round(C.lockRows * secondsARow * 60)); }
@@ -278,7 +289,8 @@
 
   // A new game. opts: mode ('marathon', 'tutorial' or 'demo'), width, sizes,
   // squares (a set in config.js), seed, speed (the one it starts at),
-  // choiceRows, lesson, softDropRate.
+  // firstRowSeconds (how fast its speed 1 falls), choiceRows, lesson,
+  // softDropRate.
   function create(opts) {
     opts = opts || {};
     var mode = opts.mode || 'marathon', lesson = opts.lesson || null;
@@ -289,6 +301,7 @@
     var seed = opts.seed == null ? Math.floor(Math.random() * 4294967296) : opts.seed;
     var random = rng(seed);
     var startSpeed = Math.max(1, Math.min(SPEEDS, opts.speed || 1));
+    var firstRow = lesson ? EASY_FIRST : opts.firstRowSeconds || EASY_FIRST;
     var gravityScale = lesson ? 0.5 : 1;
     var softRate = opts.softDropRate || 20;
     var ageing = mode !== 'tutorial';   // glass in a lesson never breaks with age
@@ -301,7 +314,7 @@
 
     var g = {
       mode: mode, width: W, rows: ROWS, hidden: HIDDEN, height: HEIGHT, seed: seed, squares: squares,
-      grid: grid, piece: null, queue: [], speed: startSpeed, startSpeed: startSpeed, clearCount: 0,
+      grid: grid, piece: null, queue: [], speed: startSpeed, startSpeed: startSpeed, clearCount: 0, firstRowSeconds: firstRow,
       rowsCleared: 0, score: 0, ticks: 0, pieces: 0, clears: emptyRow(HEIGHT + 1).map(function () { return 0; }),
       bestMultiplier: 1, streak: 0, version: 0, choosing: choosing, choiceRows: choiceRows,
       pause: 0, over: false, result: null, events: [], lesson: lesson,
@@ -523,18 +536,13 @@
       g.version++;
 
       // The score: the rows, times every bonus they earned, plus flat points
-      // for smashing, blasting and filling, all times the speed.
-      var speed = g.speed, lines = [], add = 0, mult = 1, base = 0, n = out.rows.length;
+      // for glass smashed or blasted, all times the speed multiplier.
+      var speed = g.speed, speedMult = speedMultiplier(speed, firstRow), lines = [], add = 0, mult = 1, base = 0, n = out.rows.length;
       var blastGlass = out.destroyed.filter(function (c) { return c.v === 0; }).length;
       var floods = 0, deluges = 0;
       out.fills.forEach(function (f) { if (f.kind === 'flood') floods += f.filled.length; else deluges += f.filled.length; });
       if (smashed) { lines.push({ name: 'Smash', add: C.smashPoints * smashed }); add += C.smashPoints * smashed; }
-      if (out.destroyed.length) {
-        var bp = C.blastGlassPoints * blastGlass + C.blastPoints * (out.destroyed.length - blastGlass);
-        lines.push({ name: 'Blast', add: bp }); add += bp;
-      }
-      if (floods) { lines.push({ name: 'Flood', add: C.fillPoints * floods }); add += C.fillPoints * floods; }
-      if (deluges) { lines.push({ name: 'Deluge', add: C.fillPoints * deluges }); add += C.fillPoints * deluges; }
+      if (blastGlass) { lines.push({ name: 'Blast', add: C.blastGlassPoints * blastGlass }); add += C.blastGlassPoints * blastGlass; }
       var clear = null, allClear = false, spare = 0, glass = 0, crystal = 0;
       if (n) {
         g.streak++;
@@ -543,17 +551,17 @@
         allClear = grid.every(function (row) { return row.every(function (c) { return !c; }); });
         var bonus = [];
         if (out.rowBombs.length) bonus.push({ name: 'Row bomb' });
-        if (spare) bonus.push({ name: 'Spare ' + spare, mult: SPARE[Math.min(spare, SPARE.length - 1)] });
+        if (spare) bonus.push({ name: 'Spare ' + spare, mult: spare === 1 ? C.spareOne : spare });
         if (glass) bonus.push({ name: glass > 1 ? glass + ' glass' : 'Glass', mult: Math.pow(C.glassBonus, glass) });
         if (crystal) bonus.push({ name: 'Crystal', mult: Math.pow(C.crystalBonus, crystal) });
-        if (g.streak >= C.streakFrom) bonus.push({ name: 'Streak ' + g.streak, mult: 1 + C.streakStep * (g.streak - 1) });
+        if (g.streak >= C.streakFrom) bonus.push({ name: 'Streak ' + g.streak, mult: g.streak });
         if (allClear) bonus.push({ name: 'All clear', mult: C.allClearBonus });
         bonus.forEach(function (b) { if (b.mult) mult *= b.mult; });
         mult = Math.round(mult * 1000) / 1000;
         lines = [{ name: clearName(n), base: base }].concat(bonus, lines);
       } else g.streak = 0;
-      var points = Math.round(speed * (base * mult + add));
-      if (points && speed > 1) lines.push({ name: 'Speed ' + speed, mult: speed });
+      var points = Math.round(speedMult * (base * mult + add));
+      if (points && speedMult !== 1) lines.push({ name: 'Speed ' + speed, mult: speedMult });
       g.score += points;
 
       if (n) {
@@ -637,7 +645,7 @@
       for (var r = 0; r < (input.right | 0); r++) if (!move(1)) break;
       if (input.hardDrop) { hardDrop(); return; }
       var speedNow = lesson ? 1 : g.speed;
-      var rate = TICK / (secondsPerRow(speedNow) / gravityScale);
+      var rate = TICK / (secondsPerRow(speedNow, firstRow) / gravityScale);
       if (input.softDrop) rate = Math.max(rate, softRate * TICK);
       fallAcc += rate;
       while (fallAcc >= 1) {
@@ -650,7 +658,7 @@
         if (p.bottom > lowest) { lowest = p.bottom; resets = 0; lockTicks = 0; }
       }
       if (grounded(p)) {
-        if (resets >= MAX_RESETS || ++lockTicks >= lockAfter(secondsPerRow(speedNow) / gravityScale)) lock(0);
+        if (resets >= MAX_RESETS || ++lockTicks >= lockAfter(secondsPerRow(speedNow, firstRow) / gravityScale)) lock(0);
       } else {
         lockTicks = 0;
       }
@@ -659,9 +667,9 @@
 
   Pentrys.Rules = {
     ROWS: ROWS, HIDDEN: HIDDEN, HEIGHT: HEIGHT, TICK: TICK, ROW_POINTS: ROW_POINTS, NAMES: NAMES,
-    SPARE: SPARE, SQUARES: SQUARES, QUEUE: QUEUE, SPEEDS: SPEEDS, CRACK_TICKS: CRACK_TICKS, FLASH_TICKS: FLASH_TICKS, BREAK_TICKS: BREAK_TICKS,
+    SQUARES: SQUARES, QUEUE: QUEUE, SPEEDS: SPEEDS, CRACK_TICKS: CRACK_TICKS, FLASH_TICKS: FLASH_TICKS, BREAK_TICKS: BREAK_TICKS,
     CLEAR_TICKS: CLEAR_TICKS, LOCK_TICKS: LOCK_TICKS,
-    secondsPerRow: secondsPerRow, lockTicks: lockAfter, rowPoints: rowPoints, clearName: clearName, rng: rng, land: land, settle: settle,
+    secondsPerRow: secondsPerRow, speedMultiplier: speedMultiplier, lockTicks: lockAfter, rowPoints: rowPoints, clearName: clearName, rng: rng, land: land, settle: settle,
     balances: balances, emptyGrid: emptyGrid, create: create
   };
 })(typeof window !== 'undefined' ? window : globalThis);

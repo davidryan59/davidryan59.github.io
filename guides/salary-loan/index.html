@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spend a crypto salary without selling it</title>
+<meta name="description" content="A step-by-step guide to saving a salary as crypto and borrowing stablecoins against it on Aave, fully onchain, with the arithmetic and the risks.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://drbuild.uk/guides/salary-loan/">
+<meta property="og:title" content="Spend a crypto salary without selling it">
+<meta property="og:description" content="Save a salary as crypto, borrow stablecoins against it on Aave, and pay monthly expenses from the loan. The steps, the arithmetic and the risks.">
+<meta property="og:image" content="https://drbuild.uk/social/builder.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../../assets/site.css">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../../index.html">← David Ryan's builder page</a>
+
+<h1>Spend a crypto salary without selling it</h1>
+<p class="tagline">A guide by David Ryan, 2026&#8209;10&#8209;01. It is general information, not financial advice.</p>
+
+<p>
+  Suppose you are paid in crypto and expect it to rise in value. Selling it to
+  pay the rent means foregoing the increase in value. A loan offers another way. You keep the
+  crypto as collateral, borrow a stablecoin against it, and spend the stablecoin.
+  You can do all of this onchain on Ethereum, with no exchange and no
+  middleman. This page shows the steps, then the arithmetic and the risks, which
+  matter more than the steps.
+</p>
+
+<h2>What you need</h2>
+<ul>
+  <li>A hardware wallet, such as a Ledger or a Trezor, connected to a browser
+    wallet such as <a target="_blank" rel="noopener" href="https://rabby.io">Rabby</a>
+    or MetaMask. Write the seed phrase on paper. Never type it into a website.</li>
+  <li>Some ETH in that wallet to pay gas. On an L2 such as Base, a transaction
+    costs a few cents. On Ethereum mainnet it may cost more.</li>
+  <li>A way to turn USDC into your local money. Use the exchange or app you
+    already use, and send a small test amount first.</li>
+</ul>
+
+<h2>The steps</h2>
+<ol>
+  <li><strong>Get the collateral.</strong> Ask to be paid in ETH, WBTC, cbBTC, USDT/USDC, or any other crypto.
+    Ask them to pay that to your Ethereum wallet address on Ethereum, Base, or other suitable L2.
+  </li>
+  <li>
+    <strong>Swap to the right token.</strong>
+    If they paid in a different token to what you want, you can swap to the correct token
+    using a swapper such as 
+    <a target="_blank" rel="noopener" href="https://matcha.xyz">Matcha</a>,
+    <a target="_blank" rel="noopener" href="https://swap.cow.fi">CoW Swap</a> or Uniswap.
+    A salary paid as native Bitcoin cannot enter Ethereum directly. Convert it
+    first into a wrapped version such as cbBTC, or save into ETH.</li>
+  <li><strong>Supply it to Aave.</strong> Open
+    <a target="_blank" rel="noopener" href="https://app.aave.com">app.aave.com</a>,
+    connect the wallet, pick the asset and press Supply. Aave counts it as
+    collateral at once, and it earns a small yield.</li>
+  <li><strong>Borrow USDC.</strong> Press Borrow on USDC and choose an amount.
+    Aave shows a health factor. The loan stays safe while it stays a long way above 1, and
+    a higher number gives you more room.</li>
+  <li><strong>Spend it.</strong> Send the USDC to your off-ramp and convert it
+    to local money.</li>
+  <li><strong>Next payday.</strong> Repay some of the loan, or supply the new
+    salary as more collateral, or both. Repeat each month.</li>
+</ol>
+
+<h2>The arithmetic to check first</h2>
+<p>
+  The loan-to-value ratio (LTV) is the debt divided by the collateral. A high
+  LTV is how people get liquidated: if it climbs past the limit, Aave sells
+  part of your collateral to repay the loan, and charges a penalty.
+</p>
+<p>
+  Take the plan where 100% of salary goes in as collateral and the expenses come
+  out as debt. Each month the collateral grows by your salary and the debt grows
+  by your expenses. With flat prices, the LTV settles at
+  <strong>expenses ÷ salary</strong>. A person who spends 60% of their salary
+  sits at 60% LTV, which is close to the liquidation line for most assets. A
+  price fall of 15% to 25% could end the experiment.
+</p>
+<p>
+  Several steps bring the LTV down:
+</p>
+<ul>
+  <li>Hold savings in the collateral from the start. The loan then sits on top
+    of a larger stack. A stack of four times the debt gives 25% LTV.</li>
+  <li>Repay part of the loan each payday, so the debt does not pile up.</li>
+  <li>Keep a stablecoin buffer for the first months, and borrow only once the
+    collateral is large.</li>
+</ul>
+<p>
+  Check the health factor on Aave every week. Aim to keep it above 3.
+</p>
+
+<h2>What it costs</h2>
+<ul>
+  <li><strong>Interest.</strong> The USDC borrow rate is variable and usually
+    several percent a year. That is higher than the yield on the collateral, so
+    you pay for the loan every month. You come out ahead only if the collateral
+    rises by more than the interest. Read the live rates on Aave before you
+    start.</li>
+  <li><strong>Gas.</strong> Each supply, borrow and repay pays a network fee.</li>
+  <li><strong>The off-ramp.</strong> Converting USDC to local money has a spread
+    or a fee. Compare two or three routes.</li>
+</ul>
+
+<h2>What can go wrong</h2>
+<ul>
+  <li><strong>A price fall.</strong> A big drop liquidates a loan that is too
+    large. Borrow less than you think you need.</li>
+  <li><strong>Smart contract risk.</strong> Aave is widely used and audited, and
+    it can still have bugs.</li>
+  <li><strong>Wrapper risk.</strong> A wrapped Bitcoin depends on its issuer.
+    Native ETH has no such dependency.</li>
+  <li><strong>Stablecoin risk.</strong> USDC can lose its dollar price, though it
+    has held it for years apart from a short break in March 2023.</li>
+  <li><strong>Tax.</strong> Many countries tax a crypto salary as income, and tax
+    each swap. A loan is often not a sale, and the rules differ by country. Ask
+    an accountant before you start.</li>
+</ul>
+
+<h2>Try it for a month</h2>
+<p>
+  Run the whole loop with a small amount, such as $200, including the off-ramp
+  and the repayment. You learn where the fees fall and how the health factor
+  moves. Then decide whether to scale up.
+</p>
+
+<h2>Links</h2>
+<ul class="links">
+  <li><a target="_blank" rel="noopener" href="https://app.aave.com">Aave app</a></li>
+  <li><a target="_blank" rel="noopener" href="https://aave.com/docs">Aave documentation</a>, including how liquidation works</li>
+  <li><a target="_blank" rel="noopener" href="https://matcha.xyz">Matcha</a></li>
+  <li><a target="_blank" rel="noopener" href="https://swap.cow.fi">CoW Swap</a></li>
+  <li><a href="../../audits/dai/index.html">My DAI audit</a>, an example of how I check a DeFi contract</li>
+  <li><a href="../../index.html">David Ryan's builder page</a></li>
+</ul>
+
+<script>Theme.wireThemeToggle();</script>
+
+</body>
+</html>

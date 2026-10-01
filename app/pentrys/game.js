@@ -36,9 +36,11 @@
   // Settings, keys and records -------------------------------------------------------
 
   // Custom's choices are kept apart from the rest, and start from Normal.
-  var CUSTOM = { squares: 'normal', width: C.width, sizes: C.sizes.slice(), speed: C.difficulty.normal.speed, choiceRows: C.difficulty.normal.choiceRows };
+  var CUSTOM = { squares: 'normal', width: C.width, sizes: C.sizes.slice(), pace: 'normal', speed: 1, choiceRows: C.difficulty.normal.choiceRows };
   var settings = Object.assign({ hand: 'right', effects: 'full', sound: true }, load('settings', {}));
+  if (settings.custom && !settings.custom.pace) delete settings.custom.speed;   // from before each difficulty had its own speeds
   settings.custom = Object.assign({}, CUSTOM, settings.custom || {});
+  if (!C.difficulty[settings.custom.pace]) settings.custom.pace = CUSTOM.pace;
   ['width', 'sizes', 'squares', 'specials'].forEach(function (k) { delete settings[k]; });   // from before Custom
   if (!Rules.SQUARES[settings.custom.squares]) settings.custom.squares = CUSTOM.squares;
   var SQUARE_SETS = [['pure', 'Pure', 'The 21 shapes and nothing else.'], ['plus', 'Plus', 'The 21 shapes, with 2s and 3s.'],
@@ -124,10 +126,12 @@
     opts = opts || {};
     var lessonIndex = mode === 'tutorial' ? (opts.lesson || 0) : null, set;
     if (mode === 'tutorial') set = { lesson: Lessons[lessonIndex] };
-    else if (mode === 'custom') set = Object.assign({}, settings.custom, opts);
-    else {
+    else if (mode === 'custom') {
+      set = Object.assign({}, settings.custom, opts);
+      set.firstRowSeconds = C.difficulty[set.pace].firstRowSeconds;
+    } else {
       var d = C.difficulty[mode];
-      set = { width: C.width, sizes: C.sizes, squares: d.squares, speed: opts.speed || d.speed, choiceRows: d.choiceRows };
+      set = { width: C.width, sizes: C.sizes, squares: d.squares, speed: opts.speed || 1, firstRowSeconds: d.firstRowSeconds, choiceRows: d.choiceRows };
     }
     var practice = mode !== 'tutorial' && (opts.speed != null || opts.seed != null);
     game = Rules.create(Object.assign({ mode: mode === 'tutorial' ? 'tutorial' : 'marathon', seed: opts.seed, softDropRate: timing.sdf }, set));
@@ -148,7 +152,7 @@
   }
 
   function startDemo() {
-    demo = Rules.create({ mode: 'demo', width: C.width, sizes: C.sizes, squares: 'normal', speed: 2 });
+    demo = Rules.create({ mode: 'demo', width: C.width, sizes: C.sizes, squares: 'normal', firstRowSeconds: C.difficulty.easy.firstRowSeconds, speed: 2 });
     demoPlan = null;
     demo.takeEvents();
     Draw.reset(); Draw.setDim(true);
@@ -361,6 +365,10 @@
     if (demoPlan.turns.length) { var t = {}; t[demoPlan.turns.shift()] = true; return t; }
     if (g.piece.bx !== demoPlan.bx && demoPlan.tries++ < 20) return g.piece.bx < demoPlan.bx ? { right: 1 } : { left: 1 };
     demoPlan.wait = 0;
+    // The plan counts on a hard drop where the piece would smash glass, so
+    // once it rests softly on that glass, it hard drops through.
+    var pc = g.piece, soft = Rules.land(g.grid, pc.shape, pc.o, pc.bx, pc.bottom, false).bottom;
+    if (soft === pc.bottom && Rules.land(g.grid, pc.shape, pc.o, pc.bx, pc.bottom, true).smashed.length) return { hardDrop: true };
     return { softDrop: true };
   }
 
@@ -378,7 +386,13 @@
       else if (e.type === 'hardDrop') Sound.hardDrop();
       else if (e.type === 'lock') { if (!list.some(function (x) { return x.type === 'hardDrop'; })) Sound.lock(); Draw.setDanger(g); }
       else if (e.type === 'fill') { if (e.kind === 'deluge') Sound.deluge(); else Sound.flood(); }
-      else if (e.type === 'blast') Sound.blast();
+      else if (e.type === 'blast') {
+        Sound.blast();
+        // A blast that clears no rows flashes the screen; a clear has its own flash.
+        if (!list.some(function (x) { return x.type === 'clear'; }) && settings.effects !== 'low' && !autoLow) {
+          var fx = $('fx'); fx.className = 'fx'; void fx.offsetWidth; fx.className = 'fx boom';
+        }
+      }
       else if (e.type === 'rowbomb') Sound.rowbomb();
       else if (e.type === 'smash') Sound.smash();
       else if (e.type === 'shatter') Sound.shatter();
@@ -418,10 +432,6 @@
             '+' + e.points.toLocaleString('en-GB'), rows, Math.min(hold, 10));
     var mults = bonus.filter(function (l) { return l.mult; }).length;
     if (mults) Sound.combo(mults);
-    var fx = $('fx');
-    if (!e.n && e.lines.some(function (l) { return l.name === 'Blast'; }) && settings.effects !== 'low' && !autoLow) {
-      fx.className = 'fx'; void fx.offsetWidth; fx.className = 'fx boom';
-    }
   }
   function callout(text, cls, mult, gridRow, points, lines, hold) {
     var box = $('callouts'), el = document.createElement('div');
@@ -491,11 +501,10 @@
     if (lesson != null) {
       text = result === 'passed' ? 'Lesson ' + (lesson + 1) + ', ' + Lessons[lesson].title + ', passed.' : Lessons[lesson].goalText + ', to pass. Try again.';
     } else {
-      stats = [['Score', g.score.toLocaleString('en-GB')], ['Rows', g.rowsCleared], ['Speed', g.speed], ['Time', fmtTime(ms)], ['Pieces', g.pieces]];
+      stats = [['Score', g.score.toLocaleString('en-GB')], ['Rows', g.rowsCleared], ['Speed', g.speed], ['Time', fmtTime(ms).replace(/\.\d$/, '')], ['Pieces', g.pieces]];
       for (var n = 2; n < g.clears.length; n++) if (g.clears[n]) stats.push([n <= 6 ? Rules.clearName(n) + (g.clears[n] > 1 ? 's' : '') : n + '-row clears', g.clears[n]]);
       if (g.bestMultiplier > 1) stats.push(['Best combo', fmtMult(g.bestMultiplier)]);
-      if (mode === 'custom') text = 'A custom game: it keeps no score.';
-      else if (run.practice) text = 'A practice run: it keeps no score.';
+      if (run.practice && mode !== 'custom') text = 'A practice run: it keeps no high score.';
     }
     var dl = $('over-stats');
     dl.textContent = '';
@@ -698,15 +707,8 @@
     box.style.top = Math.round(wr.top + b.y + b.h * 0.12) + 'px';
   }
 
-  var ABOUT = { easy: ', more helpers', normal: '', hard: ', more glass' };
+  // On a first visit the Tutorial is the button lit.
   function refreshMenu() {
-    DIFFICULTIES.forEach(function (m) {
-      var d = C.difficulty[m], best = bestOf(scoreKey(m));
-      document.querySelector('[data-about="' + m + '"]').textContent = 'From speed ' + d.speed + ABOUT[m];
-      document.querySelector('[data-best="' + m + '"]').textContent = best ? 'Best ' + fmtBest(best) : '';
-    });
-    var done = Lessons.filter(function (ls) { return passed.indexOf(ls.title) >= 0; }).length;
-    $('tut-count').textContent = done ? done + ' of ' + Lessons.length : '';
     var fresh = !passed.length && !DIFFICULTIES.some(function (m) { return bestOf(scoreKey(m)); });
     document.querySelector('[data-mode="tutorial"]').classList.toggle('suggest', fresh);
   }
@@ -726,11 +728,13 @@
     seg('set-squares', SQUARE_SETS, function (set) { return set[1]; }, function (set) { return cu.squares === set[0]; }, function (set) { cu.squares = set[0]; });
     SQUARE_SETS.forEach(function (set) { if (set[0] === cu.squares) $('squares-hint').textContent = set[2]; });
     seg('set-width', [10, 12, 14, 16, 18], String, function (n) { return cu.width === n; }, function (n) { cu.width = n; });
-    seg('set-sizes', [1, 2, 3, 4, 5], String, function (n) { return cu.sizes.indexOf(n) >= 0; }, function (n) {
+    seg('set-sizes', [1, 2, 3, 4, 5], function (n) { return (cu.sizes.indexOf(n) >= 0 ? '✓ ' : '') + n; }, function (n) { return cu.sizes.indexOf(n) >= 0; }, function (n) {
       var i = cu.sizes.indexOf(n);
       if (i >= 0 && cu.sizes.length > 1) cu.sizes.splice(i, 1); else if (i < 0) cu.sizes.push(n);
       cu.sizes.sort();
     });
+    seg('set-pace', DIFFICULTIES, function (m) { return MODES[m]; }, function (m) { return cu.pace === m; }, function (m) { cu.pace = m; });
+    $('pace-hint').textContent = MODES[cu.pace] + "'s speeds: speed 1 falls a row every " + C.difficulty[cu.pace].firstRowSeconds + ' s.';
     seg('set-choice', [0, 1, 2, 3], String, function (n) { return cu.choiceRows === n; }, function (n) { cu.choiceRows = n; });
     $('choice-hint').textContent = cu.choiceRows ? 'A new piece can be swapped for one in the queue until it falls ' + cu.choiceRows +
       (cu.choiceRows === 1 ? ' row.' : ' rows.') : 'A new piece is fixed from the start.';

@@ -15,10 +15,11 @@ index.html                       the builder page
 app/<name>/                      one folder for each app a visitor can run
     tiles/  aperiodic-pairs/  smash/  sieve/  pentrys/  parfly/
 assets/                          files the pages share
-    site.css  theme.js           the document pages: audits, gallery, Smash Screen, sieve, Pentrys, 404
+    site.css  theme.js           the document pages: audits, guides, gallery, Smash Screen, sieve, Pentrys, 404
     mint.css  mint.js            the two mint pages
     david-headshot.jpg  thumbs/  the builder page's pictures
 audits/  papers/                 published reports and papers
+guides/<name>/                   one folder for each written guide
 merge-fractals/  moving-mondrian/   mint pages, each with its own artwork
 social/                          the share cards that each page's og:image names
 redirects/                       one page for each short or old address
@@ -56,6 +57,7 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/moving-mondrian/?token=N` | The `external_url` of every token, recorded onchain. It cannot change once the contract owner gives up ownership | `moving-mondrian/index.html` |
 | `/merge-fractals/` | Links to the mint page | `merge-fractals/index.html` |
 | `/audits/weth9/`, `/audits/uniswap-v2/`, `/audits/dai/`, `/audits/permit2/` | Posts and CVs that cite an audit | `audits/<name>/index.html` |
+| `/guides/salary-loan/` | Posts that link the guide | `guides/salary-loan/index.html` |
 | `/papers/polygonal-spectre.pdf` | Posts about the paper | `papers/` |
 | `/tiles` | The paper, and the corner label of the tiling video | `redirects/tiles.html` |
 | `/demos/hat/`, `/demos/spectre/`, `/demos/hat-extended/` | Shared links to the explorer, each with its settings after the `#`. The `index.html` form of each is a link too | `redirects/demos-*.html` |

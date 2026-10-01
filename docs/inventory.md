@@ -142,6 +142,13 @@ addresses `0xF2D2859BC10ce6c7c338c949a0e9eaa730C2d1c3`,
 `0xA46D28633B36FB9dF949B82d29BF1B72994Fe34C`). That was development history,
 not the release — the live Optimism deployment above is the one to publish.
 
+### Guide: spend a crypto salary without selling it
+A written guide, added 2026-10-01 at
+[drbuild.uk/guides/salary-loan/](https://drbuild.uk/guides/salary-loan/). It began as
+David's reply to Ari Eiberman's question on X about being paid in Bitcoin. It covers the
+Aave steps, the loan-to-value arithmetic and the risks. Listed on the page under
+Ethereum & NFTs. Not yet pushed.
+
 ## Music
 | Item | Link | Status |
 |---|---|---|

@@ -452,8 +452,8 @@ colours.
 - The piece falls one row at a time, at the speed in play.
 - Once it rests on the floor or the stack, it locks after 1.25 times the
   time it takes to fall a row: 1.25 s at speed 1, 0.83 s at speed 3 and
-  0.57 s at speed 5. It never locks sooner than 0.5 s, which holds from
-  speed 6 on. A lesson falls at half speed, so a resting piece there
+  0.57 s at speed 5, on Easy. It never locks sooner than 0.3 s, in any
+  mode, which on Easy holds from speed 9 on, and sooner on Normal and Hard. A lesson falls at half speed, so a resting piece there
   waits 2.5 s.
 - That time to slide a resting piece sideways, under an overhang or into a
   gap, matters more here than in most games.
@@ -506,8 +506,8 @@ colours.
 ## Scoring
 
 A lock scores its rows, times every bonus they earn, plus flat points for
-smashing, blasting and filling, all times the speed. Drops score on top,
-without the speed.
+glass smashed or blasted, all times the speed's multiplier: the rows
+a second the piece falls. Drops score on top, without it.
 
 | Rows at once | Name | Points |
 |---|---|---|
@@ -525,30 +525,38 @@ Bonuses multiply the row points, and each other.
 
 | Bonus | When | Multiplier |
 |---|---|---|
-| Spare | The clear's rows hold 1, 2, 3, or 4 or more spare between them | ×1.2, ×1.3, ×1.5, ×1.8 |
+| Spare | The clear's rows hold n spare between them | ×1.5 for 1, then ×n: ×2, ×3, and on |
 | Glass | Each glass square in a cleared row | ×1.5 each |
-| Crystal | Each cleared row that holds glass and has spare | ×2 each |
-| Streak | The 3rd clear on consecutive pieces, then the 4th, and on | ×1.2, ×1.3, and on |
+| Crystal | Each cleared row that holds glass and has spare | ×1.5 each |
+| Streak | The 2nd clear on consecutive pieces, then the 3rd, and on | ×2, ×3, and on |
 | All clear | The clear empties the well | ×2 |
 
-Flat points, added after the bonuses and multiplied by the speed:
+Flat points, added after the bonuses and multiplied by the speed's multiplier:
 
 | What | Points |
 |---|---|
 | Smash: glass broken by a hard drop | 100 each |
-| Blast: squares a bomb destroys | 10 each, and 100 for glass |
-| Flood or deluge | 10 for each gap filled |
+| Blast: glass a bomb destroys | 100 each |
+| Other squares a bomb destroys, and gaps a flood or deluge fills | 0 |
 | Glass that breaks with age | 0 |
 
-Drops, not multiplied by the speed:
+- A hard drop breaks the glass it smashes before its bombs go off, so each
+  pane scores 100 once, however it breaks.
+- Spare and streak have no cap. The well's width limits spare, and the
+  rows in the well limit a streak. Row bombs could stretch a streak, so
+  they stay rare.
+
+Drops, not multiplied:
 
 | Drop | Points |
 |---|---|
 | Soft drop | 1 for each row the piece falls while it is held |
 | Hard drop | 2 for each row the piece falls |
 
-- So a lock scores speed × (row points × bonuses + flat points), plus its
-  drops.
+- So a lock scores the speed multiplier × (row points × bonuses + flat
+  points), plus its drops.
+- The multiplier follows how fast the pieces really fall, so Hard scores
+  more than Normal, and Normal more than Easy, at every speed below 20.
 - Each clear scores more than the same rows cleared in smaller groups: a
   Triple's 700 beats the 400 of a Double and a Single.
 - A row bomb's row counts in the clear like any other.
@@ -559,37 +567,42 @@ Drops, not multiplied by the speed:
 - The speed that counts is the one in play before the clear. A clear at
   speed 15, where pieces fall fast, is harder than the same clear at
   speed 1.
-- For example, a Double at speed 5 whose rows hold a 2 and no gaps scores
-  300 × 1.2 × 5 = 1,800. A Triple at speed 3 that clears glass in a row
-  with 1 spare scores 700 × 1.2 × 1.5 × 2 × 3 = 7,560.
+- For example, a Double at Easy's speed 5, ×2.9, whose rows hold a 2 and
+  no gaps scores 300 × 1.5 × 2.9 = 1,305. The same Double at Hard's
+  speed 5, ×5.2, scores 2,340.
 - Four rows are a Quad, as in TETR.IO, so the game never uses the word
   Tetris. Five rows take the game's name, and six rows are a Hextrys.
 - [Celebrations](#celebrations) says how the page shows each combo.
 
 ## Speeds
 
-- There are 20 speeds. Each falls the same number of times faster than
-  the one before, about 1.22 times, from a row a second at speed 1 to
-  0.023 s a row at speed 20.
-- The speed goes up one after every 5 clears, whatever their size: a
-  Single and a Quad each count once. It stops at speed 20.
-- Easy starts at speed 1, Normal at 4 and Hard at 7, and all three climb
-  to the same top speed. `config.js` holds the speeds, the starting speeds
-  and the 5 clears.
+- Every game runs through 20 speeds. Each difficulty has its own speed 1,
+  and all three share speed 20, at 0.023 s a row. Between them each speed
+  falls the same number of times faster than the one before.
+- Every game starts at speed 1. The speed goes up one after every 5
+  clears, whatever their size: a Single and a Quad each count once. It
+  stops at speed 20, after 95 clears.
+- `config.js` holds each difficulty's speed 1, the shared top speed and
+  the 5 clears.
 
-| Speed | Seconds a row | Time to fall 20 rows |
-|---|---|---|
-| 1 | 1.00 | 20 s |
-| 4 | 0.55 | 11 s |
-| 7 | 0.30 | 6.1 s |
-| 10 | 0.17 | 3.3 s |
-| 13 | 0.092 | 1.8 s |
-| 16 | 0.051 | 1.0 s |
-| 20 | 0.023 | 0.46 s |
+| Speed | Easy | Normal | Hard |
+|---|---|---|---|
+| 1 | 1.00 s a row, ×1 | 0.55 s, ×2.4 | 0.30 s, ×3.9 |
+| 5 | 0.45 s, ×2.9 | 0.28 s, ×4 | 0.18 s, ×5.2 |
+| 10 | 0.17 s, ×5.3 | 0.12 s, ×6 | 0.089 s, ×6.8 |
+| 15 | 0.062 s, ×7.6 | 0.053 s, ×8 | 0.045 s, ×8.4 |
+| 20 | 0.023 s, ×10 | 0.023 s, ×10 | 0.023 s, ×10 |
 
-- The modern standard reaches 0.064 s a row by its level 10. Pentrys
-  reaches it at speed 15, after 70 clears from speed 1. The lock's 0.5 s
-  floor keeps the top speed playable.
+- The speed multiplier runs from ×1 at 1 s a row to ×10 at the top speed,
+  evenly on a log scale of the seconds a row, rounded to a tenth. Each
+  speed adds about the same, so the late speeds still pay.
+- On a straight scale of rows a second, the top speed would pay ×43.5 and
+  speeds 15 to 20 would carry most of the reward. On a straight scale of
+  seconds, Normal would start at half the maximum and speeds 10 to 20
+  would add almost nothing.
+- The modern standard reaches 0.064 s a row by its level 10. Easy reaches
+  it at speed 15, after 70 clears. The lock's 0.3 s floor keeps the top
+  speed playable.
 - Counting clears rather than rows means a player who builds up for big
   clears speeds up more slowly than one who clears row by row.
 
@@ -597,16 +610,16 @@ Drops, not multiplied by the speed:
 
 ### Main menu
 
-PENTRYS, then:
+PENTRYS, then two groups of bright buttons, one word each:
 
-- Learn: the Tutorial. Its page also opens How to play.
-- Play: Easy, Normal and Hard, each with its starting speed and its best
-  score, then Custom.
-- Settings: keys, effects, sound and full screen.
+- Play: Easy in green, Normal in blue and Hard in red, then, a little
+  apart, Custom in purple.
+- Setup: Tutorial in gold and Settings in slate.
 
-On a first visit the Tutorial button is the one lit. How to play says how
-to move, then shows each special square with a picture and one line, then
-the points and bonuses, then the keys. Its opening:
+On a first visit the Tutorial button has a gold ring. How to play opens
+from the Tutorial page. It says how to move, then shows each special square
+with a picture and one line, then the points and bonuses, then the keys.
+Its opening:
 
 > Move, rotate and flip the falling pieces to fill rows. A full row
 > clears. Cycle the queue, or press 2 to 5, to choose which piece falls
@@ -684,13 +697,13 @@ pieces, and its empty slots stay empty.
 
 ### Easy, Normal and Hard
 
-Endless. The speed rises after every 5 clears, and the run ends when the
-stack reaches the top. All three play a well 12 wide, with pieces of
+Endless. Each starts at speed 1 and rises after every 5 clears to speed
+20, and the run ends when the stack reaches the top. All three play a well 12 wide, with pieces of
 three, four and five squares. They differ in three ways:
 
 | | Easy | Normal | Hard |
 |---|---|---|---|
-| Starting speed | 1 | 4 | 7 |
+| Speed 1 | 1 s a row | 0.55 s a row | 0.3 s a row |
 | Special squares | More helpful squares, little glass | The standard mix | More glass, fewer helpful squares |
 | Choice rows | 3 | 2 | 1 |
 
@@ -703,7 +716,10 @@ Custom opens a page of choices before the game starts:
 - Special squares: Pure, Plus, Easy, Normal or Hard, with a line on the
   one chosen.
 - Width: 10, 12, 14, 16 or 18.
-- Pieces: any mix of sizes 1 to 5, at least one.
+- Pieces: any mix of sizes 1 to 5, at least one. These buttons take
+  several at once, so they sit apart, with dashed edges and a tick on each
+  one chosen, and a line says to pick one or more.
+- Speeds: Easy's, Normal's or Hard's, which sets how fast speed 1 falls.
 - Starting speed: 1 to 20.
 - Choice rows: 0 to 3.
 
@@ -719,7 +735,9 @@ name gives its square set and width.
   Hard. A top-10 run asks for three initials, as Smash Screen does.
 - Scores from before the difficulties stay in the browser unused.
 - A run started from the address with a speed or a seed is practice, and
-  records no score.
+  records no high score.
+- A custom game scores as any other, and has no high-score table.
+- The game-over card gives the time to the second, as 0:20.
 - The pause and game-over cards sit over the middle of the well, as far
   as the window allows.
 - Pause offers Resume, Restart, Settings, Sound, Full screen and Main
@@ -1093,7 +1111,9 @@ The tests cover:
   `config.js`.
 - It places pieces at once, so the speeds need a person to play them, and
   glass never breaks with age in its games.
-- The main menu shows it playing, with the same `bot.js`.
+- The main menu shows it playing, with the same `bot.js`. It soft drops
+  each piece at a watchable pace. Where its plan smashes glass, it soft
+  drops onto the glass, then hard drops through it.
 
 Measured after the first review, on 2026-10-01, with bombs at 1 in 100
 and before craters closed: 12 games for each setting, each stopped at

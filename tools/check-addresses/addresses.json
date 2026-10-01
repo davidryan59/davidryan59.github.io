@@ -9,6 +9,7 @@
     { "path": "/audits/uniswap-v2/", "title": "Uniswap V2 security audit", "direct": true },
     { "path": "/audits/dai/", "title": "DAI security audit", "direct": true },
     { "path": "/audits/permit2/", "title": "Permit2 security audit", "direct": true },
+    { "path": "/guides/salary-loan/", "title": "Spend a crypto salary without selling it", "direct": true },
     { "path": "/tiles", "title": "Hat tiling – a family of aperiodic monotiles", "stub": "/app/tiles/hat/" },
     { "path": "/demos/hat/", "title": "Hat tiling – a family of aperiodic monotiles", "stub": "/app/tiles/hat/" },
     { "path": "/demos/hat/index.html", "title": "Hat tiling – a family of aperiodic monotiles", "stub": "/app/tiles/hat/" },

@@ -126,7 +126,7 @@ test('a resting piece locks after 1.25 times a row\'s fall, and moves restart th
   g.step({});
   assert.notStrictEqual(g.piece.id, id, 'did not lock at 2.5 s');
   assert.strictEqual(Rules.lockTicks(1), 75);
-  assert.strictEqual(Rules.lockTicks(Rules.secondsPerRow(40)), 30);
+  assert.strictEqual(Rules.lockTicks(Rules.secondsPerRow(Rules.SPEEDS)), 18);   // never sooner than 0.3 s
   const h = setGame(['..........'], [{ shape: 'O4' }, { shape: 'O4' }]);
   while (h.piece && Math.max(...h.pieceCells().map(c => c[1])) < Rules.HEIGHT - 1) h.step({ softDrop: true });
   const hid = h.piece.id;
@@ -164,31 +164,32 @@ test('glass counts nothing: a full row with glass stays, and a 2 clears it', () 
 test('the row points: 100, 300, 700, 1,300, 2,300, 7,100, then half as much again for each row', () => {
   assert.deepStrictEqual([1, 2, 3, 4, 5, 6, 7, 8, 9].map(Rules.rowPoints), [100, 300, 700, 1300, 2300, 7100, 10650, 15975, 23963]);
 });
-test('scoring: a Double at speed 5 with 1 spare scores 300 × 1.2 × 5 = 1,800, and the hard drop 2 a row', () => {
+test("scoring: a Double at Easy's speed 5, ×2.9, with 1 spare scores 300 × 1.5 × 2.9 = 1,305, and the hard drop 2 a row", () => {
   const g = setGame(['#2######..', '########..', '#.......##'], [{ shape: 'O4' }, { shape: '1' }], { speed: 5 });
   play(g, Array(4).fill('right').concat(['hardDrop']));
   const c = events(g).find(e => e.type === 'clear');
-  assert.strictEqual(c.n, 2); assert.strictEqual(c.spare, 1); assert.strictEqual(c.points, 1800);
-  assert.strictEqual(g.score, 1800 + 2 * 18);
+  assert.strictEqual(c.n, 2); assert.strictEqual(c.spare, 1); assert.strictEqual(c.points, 1305);
+  assert.strictEqual(g.score, 1305 + 2 * 18);
 });
-test('scoring: 2 spare is ×1.3, and an all clear ×2', () => {
+test('scoring: 2 spare is ×2, and an all clear ×2', () => {
   const g = setGame(['#3#######.'], [{ shape: '1' }, { shape: '1' }]);
   play(g, Array(5).fill('right').concat(['hardDrop']));
   const c = events(g).find(e => e.type === 'clear');
-  assert.strictEqual(c.spare, 2); assert.ok(c.allClear); assert.strictEqual(c.multiplier, 2.6); assert.strictEqual(c.points, 260);
+  assert.strictEqual(c.spare, 2); assert.ok(c.allClear); assert.strictEqual(c.multiplier, 4); assert.strictEqual(c.points, 400);
 });
-test('scoring: glass in a cleared row is ×1.5, and glass with spare adds Crystal ×2', () => {
+test('scoring: glass in a cleared row is ×1.5, and glass with spare adds Crystal ×1.5', () => {
   const g = setGame(['#g3#####..', '########.#'], [{ shape: '2' }, { shape: '1' }]);
   play(g, Array(4).fill('right').concat(['hardDrop']));
   const ev = events(g), c = ev.find(e => e.type === 'clear'), combo = ev.find(e => e.type === 'combo');
-  assert.strictEqual(c.glass, 1); assert.strictEqual(c.spare, 1); assert.strictEqual(c.multiplier, 3.6); assert.strictEqual(c.points, 360);
+  assert.strictEqual(c.glass, 1); assert.strictEqual(c.spare, 1); assert.strictEqual(c.multiplier, 3.375); assert.strictEqual(c.points, 338);
   assert.deepStrictEqual(combo.lines.map(l => l.name), ['Single', 'Spare 1', 'Glass', 'Crystal']);
 });
-test('scoring: the third clear on consecutive pieces earns Streak ×1.2', () => {
+test('scoring: clears on consecutive pieces earn Streak ×2, then ×3', () => {
   const g = setGame(['#########.', '#########.', '#########.', '#........#'], Array(4).fill({ shape: '1' }));
   const combos = [];
   for (let k = 0; k < 3; k++) { play(g, Array(5).fill('right').concat(['hardDrop'])); combos.push(...events(g).filter(e => e.type === 'combo')); while (g.pause) g.step({}); }
-  assert.deepStrictEqual(combos.map(c => c.points), [100, 100, 120]);
+  assert.deepStrictEqual(combos.map(c => c.points), [100, 200, 300]);
+  assert.strictEqual(combos[1].lines[1].name, 'Streak 2');
   assert.strictEqual(combos[2].lines[1].name, 'Streak 3');
 });
 test('a soft drop scores 1 a row, and a hard drop 2', () => {
@@ -199,13 +200,22 @@ test('a soft drop scores 1 a row, and a hard drop 2', () => {
   play(h, ['hardDrop']);
   assert.strictEqual(h.score, 38);
 });
-test('20 speeds, from a row a second to the top speed, each the same number of times faster than the one before', () => {
+test('20 speeds for each difficulty, from its own speed 1 to the shared top speed, each the same number of times faster', () => {
   const C = Pentrys.Config;
-  assert.strictEqual(Rules.secondsPerRow(1), C.firstRowSeconds);
-  assert.ok(Math.abs(Rules.secondsPerRow(Rules.SPEEDS) - C.lastRowSeconds) < 1e-12);
-  const ratio = Rules.secondsPerRow(1) / Rules.secondsPerRow(2);
-  for (let k = 2; k < Rules.SPEEDS; k++) assert.ok(Math.abs(Rules.secondsPerRow(k) / Rules.secondsPerRow(k + 1) - ratio) < 1e-9, 'speed ' + k);
-  assert.strictEqual(Rules.secondsPerRow(Rules.SPEEDS + 5), Rules.secondsPerRow(Rules.SPEEDS));
+  for (const name of ['easy', 'normal', 'hard']) {
+    const first = C.difficulty[name].firstRowSeconds, at = k => Rules.secondsPerRow(k, first);
+    assert.strictEqual(at(1), first, name);
+    assert.ok(Math.abs(at(Rules.SPEEDS) - C.lastRowSeconds) < 1e-12, name);
+    const ratio = at(1) / at(2);
+    for (let k = 2; k < Rules.SPEEDS; k++) assert.ok(Math.abs(at(k) / at(k + 1) - ratio) < 1e-9, name + ' speed ' + k);
+    assert.strictEqual(at(Rules.SPEEDS + 5), at(Rules.SPEEDS));
+  }
+});
+test('the same speed scores more on Hard than on Normal, and more on Normal than on Easy, below the shared top speed', () => {
+  const C = Pentrys.Config, m = (name, k) => Rules.speedMultiplier(k, C.difficulty[name].firstRowSeconds);
+  assert.strictEqual(m('easy', 1), 1);
+  for (const name of ['easy', 'normal', 'hard']) assert.strictEqual(m(name, Rules.SPEEDS), C.topSpeedMultiplier, name);
+  for (let k = 1; k < Rules.SPEEDS; k++) assert.ok(m('hard', k) > m('normal', k) && m('normal', k) > m('easy', k), 'speed ' + k);
 });
 test('the speed goes up one after every 5 clears, whatever their size, and stops at the top speed', () => {
   // Each clear is a Double: a standing 2 fills column 0 of two rows.
@@ -276,7 +286,7 @@ test('a deluge beside an open surface fills only the gaps either side of it in i
 });
 
 // Bombs ---------------------------------------------------------------------------
-test('a bomb destroys the 3 × 3 block round it, its own piece too, and scores 10 a square and 100 a glass', () => {
+test('a bomb destroys the 3 × 3 block round it, its own piece too, and scores 100 a glass and nothing for other squares', () => {
   const g = setGame(['...#g#....'], [{ shape: '2', specials: [[0, 'bomb']] }, { shape: '1' }]);
   play(g, ['hardDrop']);
   const ev = events(g), b = ev.find(e => e.type === 'blast');
@@ -285,7 +295,7 @@ test('a bomb destroys the 3 × 3 block round it, its own piece too, and scores 1
   assert.strictEqual(b.cells.filter(c => c.v === 0).length, 1);
   for (let x = 3; x <= 5; x++) assert.strictEqual(g.grid[Rules.HEIGHT - 1][x], null);
   assert.strictEqual(g.grid[Rules.HEIGHT - 2][5], null);
-  assert.strictEqual(g.score, 2 * 18 + 100 + 4 * 10);
+  assert.strictEqual(g.score, 2 * 18 + 100);
 });
 test('a row bomb clears its row whatever it holds, together with any full row', () => {
   const g = setGame(['#########.', '##g###g##.', '#........#'], [{ shape: '2', o: 1, specials: [[1, 'rowbomb']] }, { shape: '1' }]);

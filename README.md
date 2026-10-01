@@ -30,6 +30,8 @@ address, `davidryan59.github.io`, redirects there.
 - `merge-fractals/`, `moving-mondrian/` – mint pages for the two NFT
   collections, both still mintable onchain, each with its own artwork. See
   [docs/mint-pages.md](docs/mint-pages.md).
+- `guides/` – written guides, one folder each. `guides/salary-loan/` explains how to
+  save a salary as crypto and borrow stablecoins against it on Aave.
 - `audits/` – four published security audits: WETH9, Uniswap V2, DAI and
   Permit2.
 - `assets/` – files the pages share: `site.css` and `theme.js` for the
