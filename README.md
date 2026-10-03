@@ -7,6 +7,10 @@ address, `davidryan59.github.io`, redirects there.
   rendered from [docs/inventory.md](docs/inventory.md).
 - `app/` – the apps a visitor can run, one folder each, served at
   `drbuild.uk/app/<name>/`.
+  - `app/noble/` – a 3D explorer for the two infinite families and all 146
+    exceptional noble polyhedra. Select any face, isolate its neighbours and
+    combine solid, glass, X-ray, wire, exploded and cutaway views. See
+    [docs/noble-polyhedra.md](docs/noble-polyhedra.md).
   - `app/tiles/` – the tiling explorer: map-style viewers for the Hat and
     Spectre tilings, and the Hat with curved edges, sharing the engine in
     `app/tiles/engine/`. WebGL 2, no libraries. See
@@ -78,6 +82,7 @@ there first, then render it into `index.html`.
 ## Docs
 
 - [docs/site-layout.md](docs/site-layout.md) – how the site is filed, and the addresses that must keep working
+- [docs/noble-polyhedra.md](docs/noble-polyhedra.md) – the 3D noble polyhedra explorer, model data and view controls
 - [docs/screen-fit.md](docs/screen-fit.md) – how a game or app fills a monitor, a laptop, an iPad and a phone, and how to check it
 - [docs/tiling-explorer.md](docs/tiling-explorer.md) – how the Hat and Spectre viewers work
 - [docs/aperiodic-pairs.md](docs/aperiodic-pairs.md) – how each gallery tiling is generated and checked

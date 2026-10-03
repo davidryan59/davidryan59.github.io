@@ -1,0 +1,586 @@
+{
+  "T-1": {
+    "paperSymmetry": "*332",
+    "dual": "T-1"
+  },
+  "O-1": {
+    "paperSymmetry": "*432",
+    "dual": "C-1"
+  },
+  "C-1": {
+    "paperSymmetry": "*432",
+    "dual": "O-1"
+  },
+  "I-1": {
+    "paperSymmetry": "*532",
+    "dual": "D-1"
+  },
+  "I-2": {
+    "paperSymmetry": "*532",
+    "dual": "I-3"
+  },
+  "I-3": {
+    "paperSymmetry": "*532",
+    "dual": "I-2"
+  },
+  "I-4": {
+    "paperSymmetry": "*532",
+    "dual": "D-6"
+  },
+  "ID-1": {
+    "paperSymmetry": "*532",
+    "dual": "tI-5.1"
+  },
+  "ID-2": {
+    "paperSymmetry": "*532",
+    "dual": "gD-27.1"
+  },
+  "ID-3": {
+    "paperSymmetry": "*532",
+    "dual": "tI-3.1"
+  },
+  "ID-4": {
+    "paperSymmetry": "*532",
+    "dual": "gD-23.1"
+  },
+  "ID-5": {
+    "paperSymmetry": "*532",
+    "dual": "rD-5.2"
+  },
+  "ID-6": {
+    "paperSymmetry": "*532",
+    "dual": "gD-22.1"
+  },
+  "D-1": {
+    "paperSymmetry": "*532",
+    "dual": "I-1"
+  },
+  "D-2": {
+    "paperSymmetry": "*532",
+    "dual": "rD-5.1"
+  },
+  "D-3": {
+    "paperSymmetry": "*532",
+    "dual": "D-3"
+  },
+  "D-4": {
+    "paperSymmetry": "*532",
+    "dual": "D-F1"
+  },
+  "D-5": {
+    "paperSymmetry": "532",
+    "dual": "D-F2"
+  },
+  "D-6": {
+    "paperSymmetry": "*532",
+    "dual": "I-4"
+  },
+  "D-7": {
+    "paperSymmetry": "*532",
+    "dual": "tI-5.7"
+  },
+  "tO-1.1": {
+    "paperSymmetry": "*432",
+    "dual": "gC-3.1"
+  },
+  "tC-1.1": {
+    "paperSymmetry": "*432",
+    "dual": "rC-1.1"
+  },
+  "rC-1.1": {
+    "paperSymmetry": "*432",
+    "dual": "tC-1.1"
+  },
+  "tI-1.1": {
+    "paperSymmetry": "*532",
+    "dual": "rD-3.1"
+  },
+  "tI-1.2": {
+    "paperSymmetry": "532",
+    "dual": "rD-3.2"
+  },
+  "tI-2.1": {
+    "paperSymmetry": "*532",
+    "dual": "tD-3.2"
+  },
+  "tI-2.2": {
+    "paperSymmetry": "*532",
+    "dual": "rD-4.2"
+  },
+  "tI-3.1": {
+    "paperSymmetry": "*532",
+    "dual": "ID-3"
+  },
+  "tI-3.2": {
+    "paperSymmetry": "*532",
+    "dual": "tI-3.2"
+  },
+  "tI-4.1": {
+    "paperSymmetry": "532",
+    "dual": "tD-1.2"
+  },
+  "tI-4.2": {
+    "paperSymmetry": "*532",
+    "dual": "tI-4.2"
+  },
+  "tI-5.1": {
+    "paperSymmetry": "*532",
+    "dual": "ID-1"
+  },
+  "tI-5.2": {
+    "paperSymmetry": "*532",
+    "dual": "rD-5.3"
+  },
+  "tI-5.3": {
+    "paperSymmetry": "532",
+    "dual": "rD-5.4"
+  },
+  "tI-5.4": {
+    "paperSymmetry": "532",
+    "dual": "rD-5.6"
+  },
+  "tI-5.5": {
+    "paperSymmetry": "532",
+    "dual": "rD-5.5"
+  },
+  "tI-5.6": {
+    "paperSymmetry": "532",
+    "dual": "rD-5.7"
+  },
+  "tI-5.7": {
+    "paperSymmetry": "*532",
+    "dual": "D-7"
+  },
+  "tI-6.1": {
+    "paperSymmetry": "*532",
+    "dual": "tD-4.1"
+  },
+  "tI-7.1": {
+    "paperSymmetry": "*532",
+    "dual": "rD-7.2"
+  },
+  "tD-1.1": {
+    "paperSymmetry": "*532",
+    "dual": "tD-1.1"
+  },
+  "tD-1.2": {
+    "paperSymmetry": "532",
+    "dual": "tI-4.1"
+  },
+  "tD-2.1": {
+    "paperSymmetry": "*532",
+    "dual": "rD-2.1"
+  },
+  "tD-3.1": {
+    "paperSymmetry": "*532",
+    "dual": "rD-4.1"
+  },
+  "tD-3.2": {
+    "paperSymmetry": "*532",
+    "dual": "tI-2.1"
+  },
+  "tD-4.1": {
+    "paperSymmetry": "*532",
+    "dual": "tI-6.1"
+  },
+  "rD-1.1": {
+    "paperSymmetry": "*532",
+    "dual": "rD-8.1"
+  },
+  "rD-1.2": {
+    "paperSymmetry": "532",
+    "dual": "rD-8.2"
+  },
+  "rD-2.1": {
+    "paperSymmetry": "*532",
+    "dual": "tD-2.1"
+  },
+  "rD-3.1": {
+    "paperSymmetry": "*532",
+    "dual": "tI-1.1"
+  },
+  "rD-3.2": {
+    "paperSymmetry": "532",
+    "dual": "tI-1.2"
+  },
+  "rD-4.1": {
+    "paperSymmetry": "*532",
+    "dual": "tD-3.1"
+  },
+  "rD-4.2": {
+    "paperSymmetry": "*532",
+    "dual": "tI-2.2"
+  },
+  "rD-5.1": {
+    "paperSymmetry": "*532",
+    "dual": "D-2"
+  },
+  "rD-5.2": {
+    "paperSymmetry": "*532",
+    "dual": "ID-5"
+  },
+  "rD-5.3": {
+    "paperSymmetry": "*532",
+    "dual": "tI-5.2"
+  },
+  "rD-5.4": {
+    "paperSymmetry": "532",
+    "dual": "tI-5.3"
+  },
+  "rD-5.5": {
+    "paperSymmetry": "532",
+    "dual": "tI-5.5"
+  },
+  "rD-5.6": {
+    "paperSymmetry": "532",
+    "dual": "tI-5.4"
+  },
+  "rD-5.7": {
+    "paperSymmetry": "532",
+    "dual": "tI-5.6"
+  },
+  "rD-6.1": {
+    "paperSymmetry": "*532",
+    "dual": "rD-7.1"
+  },
+  "rD-7.1": {
+    "paperSymmetry": "*532",
+    "dual": "rD-6.1"
+  },
+  "rD-7.2": {
+    "paperSymmetry": "*532",
+    "dual": "tI-7.1"
+  },
+  "rD-8.1": {
+    "paperSymmetry": "*532",
+    "dual": "rD-1.1"
+  },
+  "rD-8.2": {
+    "paperSymmetry": "532",
+    "dual": "rD-1.2"
+  },
+  "sC-1.1": {
+    "paperSymmetry": "432",
+    "dual": "sC-6.1"
+  },
+  "sC-2.1": {
+    "paperSymmetry": "432",
+    "dual": "sC-4.1"
+  },
+  "sC-3.1": {
+    "paperSymmetry": "432",
+    "dual": "sC-3.1"
+  },
+  "sC-4.1": {
+    "paperSymmetry": "432",
+    "dual": "sC-2.1"
+  },
+  "sC-5.1": {
+    "paperSymmetry": "432",
+    "dual": "sC-5.1"
+  },
+  "sC-6.1": {
+    "paperSymmetry": "432",
+    "dual": "sC-1.1"
+  },
+  "sC-6.2": {
+    "paperSymmetry": "432",
+    "dual": "sC-6.2"
+  },
+  "gC-1.1": {
+    "paperSymmetry": "*432",
+    "dual": "gC-2.1"
+  },
+  "gC-2.1": {
+    "paperSymmetry": "*432",
+    "dual": "gC-1.1"
+  },
+  "gC-3.1": {
+    "paperSymmetry": "*432",
+    "dual": "tO-1.1"
+  },
+  "sD-1.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-11.1"
+  },
+  "sD-2.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-17.1"
+  },
+  "sD-3.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-23.1"
+  },
+  "sD-4.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-28.1"
+  },
+  "sD-5.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-5.2"
+  },
+  "sD-5.2": {
+    "paperSymmetry": "532",
+    "dual": "sD-5.1"
+  },
+  "sD-5.3": {
+    "paperSymmetry": "532",
+    "dual": "sD-5.3"
+  },
+  "sD-6.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-13.1"
+  },
+  "sD-7.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-14.1"
+  },
+  "sD-8.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-27.1"
+  },
+  "sD-9.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-9.1"
+  },
+  "sD-10.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-12.1"
+  },
+  "sD-11.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-1.1"
+  },
+  "sD-12.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-10.1"
+  },
+  "sD-13.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-6.1"
+  },
+  "sD-14.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-7.1"
+  },
+  "sD-15.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-24.1"
+  },
+  "sD-16.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-26.1"
+  },
+  "sD-17.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-2.1"
+  },
+  "sD-18.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-21.1"
+  },
+  "sD-19.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-19.1"
+  },
+  "sD-20.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-29.1"
+  },
+  "sD-21.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-18.1"
+  },
+  "sD-22.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-22.1"
+  },
+  "sD-23.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-3.1"
+  },
+  "sD-24.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-15.1"
+  },
+  "sD-25.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-25.2"
+  },
+  "sD-25.2": {
+    "paperSymmetry": "532",
+    "dual": "sD-25.1"
+  },
+  "sD-25.3": {
+    "paperSymmetry": "532",
+    "dual": "sD-25.3"
+  },
+  "sD-26.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-16.1"
+  },
+  "sD-27.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-8.1"
+  },
+  "sD-28.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-4.1"
+  },
+  "sD-29.1": {
+    "paperSymmetry": "532",
+    "dual": "sD-20.1"
+  },
+  "gD-1.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-25.1"
+  },
+  "gD-2.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-38.1"
+  },
+  "gD-3.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-17.1"
+  },
+  "gD-4.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-36.1"
+  },
+  "gD-5.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-35.1"
+  },
+  "gD-6.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-29.1"
+  },
+  "gD-7.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-20.1"
+  },
+  "gD-8.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-18.1"
+  },
+  "gD-9.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-33.1"
+  },
+  "gD-10.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-31.1"
+  },
+  "gD-11.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-24.1"
+  },
+  "gD-12.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-21.1"
+  },
+  "gD-13.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-30.1"
+  },
+  "gD-14.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-14.1"
+  },
+  "gD-15.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-16.1"
+  },
+  "gD-16.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-15.1"
+  },
+  "gD-17.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-3.1"
+  },
+  "gD-18.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-8.1"
+  },
+  "gD-19.1": {
+    "paperSymmetry": "*532",
+    "dual": "tI-F"
+  },
+  "gD-20.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-7.1"
+  },
+  "gD-21.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-12.1"
+  },
+  "gD-22.1": {
+    "paperSymmetry": "*532",
+    "dual": "ID-6"
+  },
+  "gD-23.1": {
+    "paperSymmetry": "*532",
+    "dual": "ID-4"
+  },
+  "gD-24.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-11.1"
+  },
+  "gD-25.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-1.1"
+  },
+  "gD-26.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-34.1"
+  },
+  "gD-27.1": {
+    "paperSymmetry": "*532",
+    "dual": "ID-2"
+  },
+  "gD-28.1": {
+    "paperSymmetry": "*532",
+    "dual": "rD-F"
+  },
+  "gD-29.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-6.1"
+  },
+  "gD-30.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-13.1"
+  },
+  "gD-31.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-10.1"
+  },
+  "gD-32.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-37.1"
+  },
+  "gD-33.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-9.1"
+  },
+  "gD-34.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-26.1"
+  },
+  "gD-35.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-5.1"
+  },
+  "gD-36.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-4.1"
+  },
+  "gD-37.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-32.1"
+  },
+  "gD-38.1": {
+    "paperSymmetry": "*532",
+    "dual": "gD-2.1"
+  }
+}

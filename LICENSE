@@ -25,4 +25,6 @@ SOFTWARE.
 This licence covers the site's own code and text: index.html, the CSS and JS,
 and the docs. It does not cover the headshot photograph, or the generative art
 under merge-fractals/ and moving-mondrian/, which are separate works with their
-own terms.
+own terms. The noble polyhedra explorer under app/noble/ is distributed under
+the GNU General Public License version 3 because it includes Connor Hill's
+GPL-licensed model data. Its terms and credits are recorded in that folder.

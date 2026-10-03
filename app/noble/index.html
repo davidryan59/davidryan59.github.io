@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08111f">
+<title>Noble Polyhedra · 3D explorer</title>
+<meta name="description" content="Explore the two infinite families and all 146 exceptional noble polyhedra in 3D.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 29 10 24 27 8 27 3 10Z' fill='%231bd7c4' stroke='%23fff' stroke-width='2'/%3E%3Cpath d='m3 10 13 7 13-7M16 17v13' fill='none' stroke='%2308111f' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="../../index.html" aria-label="David Ryan's Builder Page">
+    <span class="brand-mark" aria-hidden="true">◇</span>
+    <span>David Ryan</span>
+  </a>
+  <div class="title-block">
+    <h1>Noble polyhedra</h1>
+    <p>two infinite families · 146 exceptional forms</p>
+  </div>
+  <button class="icon-button" id="fullscreen" type="button" aria-label="Enter full screen" title="Full screen (F)">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+  </button>
+</header>
+
+<main class="workspace">
+  <aside class="catalogue" aria-label="Polyhedron catalogue">
+    <div class="catalogue-head">
+      <div class="tabs" role="tablist" aria-label="Collections">
+        <button class="tab active" role="tab" aria-selected="true" data-tab="sporadic">146 forms</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="families">2 families</button>
+      </div>
+      <label class="search-wrap" id="search-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
+        <span class="sr-only">Search the 146 forms</span>
+        <input id="search" type="search" placeholder="Search by symbol, e.g. gD-14" autocomplete="off">
+      </label>
+      <div class="filters" id="filters" aria-label="Filter by symmetry">
+        <button class="filter active" data-filter="all">All <span>146</span></button>
+        <button class="filter" data-filter="tetrahedral">Tetrahedral</button>
+        <button class="filter" data-filter="octahedral">Octahedral</button>
+        <button class="filter" data-filter="icosahedral">Icosahedral</button>
+      </div>
+    </div>
+    <div class="model-list" id="model-list" role="listbox" aria-label="Exceptional noble polyhedra"></div>
+    <div class="family-list" id="family-list" hidden>
+      <button class="family-card active" data-family="disphenoid">
+        <span class="eyebrow">Infinite family</span>
+        <strong>Disphenoids</strong>
+        <span>Four congruent triangular faces</span>
+      </button>
+      <button class="family-card" data-family="stephanoid">
+        <span class="eyebrow">Infinite family</span>
+        <strong>Stephanoids</strong>
+        <span>A crown of congruent quadrilaterals</span>
+      </button>
+    </div>
+  </aside>
+
+  <section class="stage" aria-label="Interactive 3D model">
+    <canvas id="viewer" tabindex="0" aria-label="Three-dimensional noble polyhedron. Drag to rotate and scroll to zoom."></canvas>
+    <div class="loading" id="loading" role="status">Loading geometry…</div>
+    <div class="gesture-hint" id="gesture-hint">drag to rotate · pinch or scroll to zoom</div>
+    <div class="view-controls" aria-label="View controls">
+      <button class="icon-button" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+      <button class="icon-button" id="zoom-out" type="button" aria-label="Zoom out">−</button>
+      <button class="icon-button" id="reset-view" type="button" aria-label="Reset view" title="Reset view (R)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg>
+      </button>
+    </div>
+    <div class="display-controls" aria-label="Display controls">
+      <div class="control-group view-options" aria-label="View style">
+        <button class="option-button active" type="button" data-view="solid" aria-pressed="true">Solid</button>
+        <button class="option-button" type="button" data-view="glass" aria-pressed="false">Glass</button>
+        <button class="option-button" type="button" data-view="xray" aria-pressed="false">X-ray</button>
+        <button class="option-button" type="button" data-view="wire" aria-pressed="false">Wire</button>
+        <button class="option-button" type="button" data-view="face" aria-pressed="false">Face</button>
+        <button class="option-button" type="button" data-view="neighbours" aria-pressed="false">Neighbours</button>
+        <button class="option-button" type="button" data-view="wire-face" aria-pressed="false">Wire + face</button>
+        <button class="option-button" type="button" data-view="wire-vertex" aria-pressed="false">Wire + vertex</button>
+      </div>
+      <div class="control-group motion-options" aria-label="Motion">
+        <button class="option-button active" type="button" data-spin="true" aria-pressed="true">Spin</button>
+        <button class="option-button" type="button" data-spin="false" aria-pressed="false">Static</button>
+      </div>
+    </div>
+    <div class="face-controls" aria-label="Face controls">
+      <button id="selection-toggle" type="button" aria-pressed="true">On</button>
+      <button id="previous-face" type="button" aria-label="Previous face">−</button>
+      <label><span id="selection-label">Face</span> <output id="face-output">1 / 4</output>
+        <input id="face-picker" type="range" min="1" max="4" value="1">
+      </label>
+      <button id="next-face" type="button" aria-label="Next face">+</button>
+      <button id="face-on" type="button">Face-on</button>
+    </div>
+    <div class="palette-controls" aria-label="Colour palette">
+      <span>Palette</span>
+      <button class="palette-button active" type="button" data-palette="prism" aria-pressed="true">Prism</button>
+      <button class="palette-button" type="button" data-palette="mineral" aria-pressed="false">Mineral</button>
+      <button class="palette-button" type="button" data-palette="aurora" aria-pressed="false">Aurora</button>
+      <button class="palette-button" type="button" data-palette="orbit" aria-pressed="false">Orbit</button>
+      <button class="palette-button" type="button" data-palette="mono" aria-pressed="false">Mono</button>
+    </div>
+  </section>
+
+  <aside class="details" aria-live="polite">
+    <div class="detail-heading">
+      <span class="eyebrow" id="kind">Exceptional form</span>
+      <h2 id="model-name">T-1</h2>
+      <p id="plain-name">Regular tetrahedron</p>
+    </div>
+    <dl class="facts">
+      <div><dt>Paper symbol</dt><dd id="paper-symbol">C-1</dd></div>
+      <div><dt>Schläfli type</dt><dd id="schlafli">{3, 3}</dd></div>
+      <div><dt>Vertices</dt><dd id="vertices">4</dd></div>
+      <div><dt>Edges</dt><dd id="edges">6</dd></div>
+      <div><dt>Faces</dt><dd id="faces">4</dd></div>
+      <div><dt>Symmetry</dt><dd id="symmetry">Tetrahedral</dd></div>
+      <div id="dual-row"><dt>Dual</dt><dd id="dual">O-1</dd></div>
+    </dl>
+
+    <div class="family-parameters" id="family-parameters" hidden>
+      <label id="sides-row">Crown size <output id="sides-output">7</output>
+        <input id="sides" type="range" min="5" max="18" value="7">
+      </label>
+      <div id="stephanoid-controls" hidden>
+        <label>Construction
+          <select id="stephanoid-kind"><option value="PC">Prismatic PC</option><option value="AC">Antiprismatic AC</option></select>
+        </label>
+        <label>Winding
+          <select id="winding"></select>
+        </label>
+      </div>
+      <label>Height <output id="height-output">1.00</output>
+        <input id="height" type="range" min="25" max="190" value="100">
+      </label>
+      <label id="shape-row">Shape <output id="shape-output">1.00</output>
+        <input id="shape" type="range" min="35" max="180" value="100">
+      </label>
+    </div>
+
+    <div class="appearance">
+      <label>Face opacity <output id="opacity-output">100%</output>
+        <input id="opacity" type="range" min="4" max="100" value="100">
+      </label>
+      <label>Explode faces <output id="explode-output">0%</output>
+        <input id="explode" type="range" min="0" max="70" value="0">
+      </label>
+      <label>Cutaway depth <output id="clip-output">0%</output>
+        <input id="clip" type="range" min="0" max="90" value="0">
+      </label>
+      <label class="projection-toggle"><input id="orthographic" type="checkbox"><span>Orthographic projection</span></label>
+    </div>
+
+    <div class="about">
+      <h3>What makes it noble?</h3>
+      <p id="explanation">Every vertex can be carried to every other vertex by a symmetry. The same is true of every face.</p>
+    </div>
+    <div class="about paper-name" id="paper-name">
+      <h3>How the paper names it</h3>
+      <p id="paper-name-explanation">C-1 is the first faceting of the cube vertex orbit.</p>
+    </div>
+    <nav class="sources" aria-label="Sources">
+      <a href="https://arxiv.org/pdf/2607.28711" target="_blank" rel="noopener">Classification paper</a>
+      <a href="https://www.youtube.com/watch?v=95335U-cUh8" target="_blank" rel="noopener">Numberphile video</a>
+      <a href="https://en.wikipedia.org/wiki/Noble_polyhedron" target="_blank" rel="noopener">Wikipedia</a>
+      <a href="https://github.com/Plasmath/noble-tools-revised" target="_blank" rel="noopener">Model source</a>
+      <a href="credits.html">Licence &amp; credits</a>
+    </nav>
+  </aside>
+</main>
+
+<script src="models.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>
