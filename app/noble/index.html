@@ -100,25 +100,31 @@
     <div class="render-controls" aria-label="Surface appearance controls">
       <div class="control-group palette-controls" aria-label="Colour palette">
         <span class="panel-label">Colour</span>
-        <button class="option-button active" type="button" data-palette="prism" aria-pressed="true">Prism</button>
+        <button class="option-button active" type="button" data-palette="aurora" aria-pressed="true">Aurora</button>
+        <button class="option-button" type="button" data-palette="prism" aria-pressed="false">Prism</button>
         <button class="option-button" type="button" data-palette="mineral" aria-pressed="false">Mineral</button>
-        <button class="option-button" type="button" data-palette="aurora" aria-pressed="false">Aurora</button>
         <button class="option-button" type="button" data-palette="orbit" aria-pressed="false">Orbit</button>
         <button class="option-button" type="button" data-palette="mono" aria-pressed="false">Mono</button>
       </div>
       <div class="control-group lighting-controls" aria-label="Lighting">
         <span class="panel-label">Lighting</span>
-        <button class="option-button active" type="button" data-lighting="flat" aria-pressed="true">Flat</button>
-        <button class="option-button" type="button" data-lighting="point" aria-pressed="false">Point</button>
+        <button class="option-button active" type="button" data-lighting="point" aria-pressed="true">Point</button>
+        <button class="option-button" type="button" data-lighting="flat" aria-pressed="false">Flat</button>
         <button class="option-button" type="button" data-lighting="diffuse" aria-pressed="false">Diffuse</button>
         <button class="option-button" type="button" data-lighting="depth" aria-pressed="false">Depth</button>
       </div>
       <div class="control-group texture-controls" aria-label="Face texture">
         <span class="panel-label">Texture</span>
-        <button class="option-button active" type="button" data-texture="clean" aria-pressed="true">Clean</button>
-        <button class="option-button" type="button" data-texture="grain" aria-pressed="false">Grain</button>
+        <button class="option-button active" type="button" data-texture="grain" aria-pressed="true">Grain</button>
+        <button class="option-button" type="button" data-texture="clean" aria-pressed="false">Clean</button>
         <button class="option-button" type="button" data-texture="paper" aria-pressed="false">Paper</button>
         <button class="option-button" type="button" data-texture="contours" aria-pressed="false">Contours</button>
+      </div>
+      <div class="control-group quality-controls" aria-label="Rendering quality">
+        <span class="panel-label">Render</span>
+        <button class="option-button active" type="button" data-quality="auto" aria-pressed="true">Auto</button>
+        <button class="option-button" type="button" data-quality="performance" aria-pressed="false">Performance</button>
+        <button class="option-button" type="button" data-quality="quality" aria-pressed="false">Quality</button>
       </div>
     </div>
   </section>

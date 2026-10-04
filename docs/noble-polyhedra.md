@@ -19,6 +19,8 @@ the browser.
 - [x] Offer flat, point, diffuse and camera-depth lighting.
 - [x] Offer clean, grain, paper and contour face textures.
 - [x] Disable face-dependent controls when face selection is off.
+- [x] Adapt rendering resolution and translucent layers to frame rate.
+- [x] Stop drawing while Static is idle or the page is hidden.
 - [x] Select any face by clicking it or moving the face control.
 - [x] Isolate one face or show it with its edge-neighbours.
 - [x] Overlay one face or every face at one vertex on the complete wireframe.
@@ -76,6 +78,18 @@ appearance. Point gives a strong local light, Diffuse gives broad soft light,
 and Depth brightens surfaces near the camera. Grain, Paper and Contours add
 procedural detail that stays attached to the rotating form. Clean keeps plain
 colour. No texture image files or network requests are required.
+
+The defaults are Aurora colour, Point lighting, Grain texture and Auto render
+quality. Auto measures frame time while the form spins. It reduces the raster
+resolution and translucent layer count when the rate falls below 30 frames per
+second, then restores detail when there is spare capacity. Performance keeps a
+lower resolution and two fewer translucent layers. Quality keeps full detail.
+Static renders after a change and then becomes idle. A hidden page also stops
+drawing until it becomes visible again.
+
+The depth renderer resolves coplanar faces with a stable face-index tie break.
+This prevents temporal shimmer on forms such as D-5, whose triangles occur in
+coplanar groups.
 
 The view modes form a button strip across the top of the stage. Spin and
 Static form a separate motion control. The strip scrolls horizontally when

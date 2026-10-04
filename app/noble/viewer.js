@@ -13,9 +13,14 @@
     geometry: null, current: null, family: null, tab: 'sporadic', filter: 'all',
     rx: -0.42, ry: 0.62, zoom: 1, dragging: false, lastX: 0, lastY: 0,
     spin: true, faces: true, edges: true, lastTime: 0, pinchDistance: 0,
-    view: 'solid', palette: 'prism', lighting: 'flat', texture: 'clean', faceSelected: true, selectedFace: 0, selectedVertex: 0, faceColours: [], opacity: 1, explode: 0, clip: 0, orthographic: false,
-    hitFaces: [], hitVertices: []
+    view: 'solid', palette: 'aurora', lighting: 'point', texture: 'grain', quality: 'auto', adaptiveScale: 1, frameTime: 16.7, lastQualityCheck: 0,
+    faceSelected: true, selectedFace: 0, selectedVertex: 0, faceColours: [], opacity: 1, explode: 0, clip: 0, orthographic: false,
+    hitFaces: [], hitVertices: [], dirty: true, frameRequested: 0
   };
+  function invalidate() {
+    state.dirty = true;
+    if (!state.frameRequested) state.frameRequested = requestAnimationFrame(draw);
+  }
   const labels = { tetrahedral: 'Tetrahedral', octahedral: 'Octahedral', icosahedral: 'Icosahedral' };
   const specialNames = { 'T-1': 'Regular tetrahedron', 'O-1': 'Regular octahedron', 'C-1': 'Cube', 'I-1': 'Regular icosahedron', 'D-1': 'Regular dodecahedron' };
   function paperNameExplanation(meta) {
@@ -128,6 +133,7 @@
     updateDetails(meta, true);
     updateFaceControls();
     $('loading').hidden = true;
+    invalidate();
   }
 
   function updateDetails(meta, family = false) {
@@ -173,6 +179,7 @@
       updateFaceControls();
       location.hash = encodeURIComponent(meta.name);
       if (reset) resetView();
+      invalidate();
     } catch (error) {
       $('loading').textContent = 'The model could not be loaded.';
       console.error(error);
@@ -303,12 +310,14 @@
     state.faceSelected = active;
     if (!active && document.querySelector(`[data-view="${state.view}"]`)?.hasAttribute('data-needs-selection')) setView('solid');
     else updateFaceControls();
+    invalidate();
   }
 
   function selectFace(index) {
     state.selectedFace = index;
     state.faceSelected = true;
     updateFaceControls();
+    invalidate();
   }
 
   function selectTarget(index) {
@@ -316,6 +325,7 @@
     else state.selectedFace = index;
     state.faceSelected = true;
     updateFaceControls();
+    invalidate();
   }
 
   function updateMotionControls() {
@@ -325,7 +335,7 @@
     });
   }
 
-  function setSpin(spin) { state.spin = spin; updateMotionControls(); }
+  function setSpin(spin) { state.spin = spin; updateMotionControls(); invalidate(); }
 
   function setView(view) {
     state.view = view;
@@ -334,6 +344,7 @@
       button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
     });
     updateFaceControls();
+    invalidate();
   }
 
   function setPalette(palette) {
@@ -342,6 +353,7 @@
       const active = button.dataset.palette === palette;
       button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
     });
+    invalidate();
   }
 
   function setLighting(lighting) {
@@ -350,6 +362,7 @@
       const active = button.dataset.lighting === lighting;
       button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
     });
+    invalidate();
   }
 
   function setTexture(texture) {
@@ -358,6 +371,25 @@
       const active = button.dataset.texture === texture;
       button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
     });
+    invalidate();
+  }
+
+  function updateAutoQualityLabel() {
+    const button = document.querySelector('[data-quality="auto"]');
+    const percentage = Math.round(state.adaptiveScale * 100);
+    button.title = `Automatically adjusted rendering resolution: ${percentage}%`;
+    button.setAttribute('aria-label', `Auto rendering quality, currently ${percentage}%`);
+  }
+
+  function setQuality(quality) {
+    state.quality = quality;
+    if (quality === 'auto') state.adaptiveScale = 1;
+    document.querySelectorAll('[data-quality]').forEach(button => {
+      const active = button.dataset.quality === quality;
+      button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
+    });
+    updateAutoQualityLabel();
+    invalidate();
   }
 
   function faceOn() {
@@ -486,12 +518,16 @@
     if (!visible.length) { state.hitRaster = null; return; }
     const translucent = visible.some(face => face.style.alpha < .995);
     const textured = state.texture !== 'clean';
-    const maxDimension = textured
+    const baseMaxDimension = textured
       ? (faces.length > 90 ? 600 : faces.length > 40 ? 760 : 900)
       : translucent ? (faces.length > 90 ? 440 : faces.length > 40 ? 560 : 760) : (faces.length > 90 ? 900 : 1080);
+    const qualityScale = state.quality === 'performance' ? .58 : state.quality === 'auto' ? state.adaptiveScale : 1;
+    const maxDimension = Math.max(260, Math.round(baseMaxDimension * qualityScale));
     const scale = Math.min(1, maxDimension / Math.max(rect.width, rect.height));
     const width = Math.max(1,Math.round(rect.width*scale)), height = Math.max(1,Math.round(rect.height*scale));
-    const layers = translucent ? (faces.length > 90 ? 4 : faces.length > 40 ? 5 : 6) : 1;
+    let layers = translucent ? (faces.length > 90 ? 4 : faces.length > 40 ? 5 : 6) : 1;
+    if (translucent && state.quality === 'performance') layers = Math.max(2, layers - 2);
+    if (translucent && state.quality === 'auto' && state.adaptiveScale < .9) layers = Math.max(2, layers - (state.adaptiveScale < .68 ? 2 : 1));
     const depths = new Float32Array(width*height*layers); depths.fill(-Infinity);
     const owners = new Int16Array(width*height*layers); owners.fill(-1);
 
@@ -523,9 +559,16 @@
               z=4.2-3.8*numerator/denominator;
             }
             const base=(y*width+x)*layers;
-            for (let layer=0;layer<layers;layer++) if (z>depths[base+layer]) {
-              for (let move=layers-1;move>layer;move--) { depths[base+move]=depths[base+move-1]; owners[base+move]=owners[base+move-1]; }
-              depths[base+layer]=z; owners[base+layer]=face.i; break;
+            for (let layer=0;layer<layers;layer++) {
+              const offset = base + layer;
+              if (Math.abs(z - depths[offset]) <= 1e-5) {
+                if (face.i < owners[offset]) owners[offset] = face.i;
+                break;
+              }
+              if (z > depths[offset] + 1e-5) {
+                for (let move=layers-1;move>layer;move--) { depths[base+move]=depths[base+move-1]; owners[base+move]=owners[base+move-1]; }
+                depths[offset]=z; owners[offset]=face.i; break;
+              }
             }
           }
         }
@@ -561,6 +604,20 @@
   }
 
   function draw(time) {
+    state.frameRequested = 0;
+    if (!state.dirty && !state.spin) return;
+    state.dirty = false;
+    if (state.lastTime && state.spin) {
+      const elapsed = time - state.lastTime;
+      if (elapsed > 0 && elapsed < 250) state.frameTime = state.frameTime * .9 + elapsed * .1;
+      if (state.quality === 'auto' && time - state.lastQualityCheck > 800) {
+        const previous = state.adaptiveScale;
+        if (state.frameTime > 34) state.adaptiveScale = Math.max(.48, state.adaptiveScale - .1);
+        else if (state.frameTime < 20) state.adaptiveScale = Math.min(1, state.adaptiveScale + .04);
+        if (state.adaptiveScale !== previous) updateAutoQualityLabel();
+        state.lastQualityCheck = time;
+      }
+    }
     const rect = canvas.getBoundingClientRect();
     const dpr = Math.min((devicePixelRatio || 1) * 1.5, 3);
     const width = Math.max(1, Math.round(rect.width * dpr)), height = Math.max(1, Math.round(rect.height * dpr));
@@ -607,7 +664,7 @@
         }
       }
     }
-    requestAnimationFrame(draw);
+    if (state.spin && !document.hidden) state.frameRequested = requestAnimationFrame(draw);
   }
 
   function resetView() { state.rx = -.42; state.ry = .62; state.zoom = 1; }
@@ -615,13 +672,13 @@
   function distance(touches) { return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY); }
   function useHint() { $('gesture-hint').classList.add('used'); }
   canvas.addEventListener('pointerdown', e => { state.dragging = true; state.moved = false; [state.lastX,state.lastY] = point(e); canvas.setPointerCapture(e.pointerId); useHint(); });
-  canvas.addEventListener('pointermove', e => { if (!state.dragging) return; const [x,y] = point(e); if(Math.abs(x-state.lastX)+Math.abs(y-state.lastY)>2)state.moved=true; state.ry += (x-state.lastX)*.008; state.rx += (y-state.lastY)*.008; state.lastX=x; state.lastY=y; });
+  canvas.addEventListener('pointermove', e => { if (!state.dragging) return; const [x,y] = point(e); if(Math.abs(x-state.lastX)+Math.abs(y-state.lastY)>2)state.moved=true; state.ry += (x-state.lastX)*.008; state.rx += (y-state.lastY)*.008; state.lastX=x; state.lastY=y; invalidate(); });
   canvas.addEventListener('pointerup', e => { state.dragging = false; if(!state.moved){ const rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top; if(selectingVertex()){ const hit=[...state.hitVertices].sort((a,b)=>b.z-a.z).find(vertex=>Math.hypot(vertex.x-x,vertex.y-y)<14); if(hit)selectTarget(hit.i); } else { const raster=state.hitRaster; const px=raster&&Math.floor(x*raster.scale),py=raster&&Math.floor(y*raster.scale); const owner=raster&&px>=0&&py>=0&&px<raster.width&&py<raster.height?raster.owners[(py*raster.width+px)*raster.layers]:-1; if(owner>=0)selectFace(owner); else { const hit=[...state.hitFaces].sort((a,b)=>b.z-a.z).find(face=>pointInPolygon(x,y,face.points)); if(hit)selectFace(hit.i); } } } });
   canvas.addEventListener('pointercancel', () => state.dragging = false);
-  canvas.addEventListener('wheel', e => { e.preventDefault(); state.zoom = Math.max(.38, Math.min(2.8, state.zoom * Math.exp(-e.deltaY*.001))); useHint(); }, { passive: false });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); state.zoom = Math.max(.38, Math.min(2.8, state.zoom * Math.exp(-e.deltaY*.001))); useHint(); invalidate(); }, { passive: false });
   canvas.addEventListener('touchstart', e => { if (e.touches.length === 2) state.pinchDistance = distance(e.touches); }, { passive: true });
-  canvas.addEventListener('touchmove', e => { if (e.touches.length !== 2 || !state.pinchDistance) return; const d=distance(e.touches); state.zoom=Math.max(.38,Math.min(2.8,state.zoom*d/state.pinchDistance)); state.pinchDistance=d; }, { passive: true });
-  canvas.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') state.ry-=.1; if(e.key==='ArrowRight')state.ry+=.1; if(e.key==='ArrowUp')state.rx-=.1; if(e.key==='ArrowDown')state.rx+=.1; });
+  canvas.addEventListener('touchmove', e => { if (e.touches.length !== 2 || !state.pinchDistance) return; const d=distance(e.touches); state.zoom=Math.max(.38,Math.min(2.8,state.zoom*d/state.pinchDistance)); state.pinchDistance=d; invalidate(); }, { passive: true });
+  canvas.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') state.ry-=.1; if(e.key==='ArrowRight')state.ry+=.1; if(e.key==='ArrowUp')state.rx-=.1; if(e.key==='ArrowDown')state.rx+=.1; invalidate(); });
   $('zoom-in').onclick = () => state.zoom = Math.min(2.8, state.zoom*1.16);
   $('zoom-out').onclick = () => state.zoom = Math.max(.38, state.zoom/1.16);
   $('reset-view').onclick = resetView;
@@ -630,6 +687,7 @@
   document.querySelectorAll('[data-palette]').forEach(button => button.onclick = () => setPalette(button.dataset.palette));
   document.querySelectorAll('[data-lighting]').forEach(button => button.onclick = () => setLighting(button.dataset.lighting));
   document.querySelectorAll('[data-texture]').forEach(button => button.onclick = () => setTexture(button.dataset.texture));
+  document.querySelectorAll('[data-quality]').forEach(button => button.onclick = () => setQuality(button.dataset.quality));
   $('selection-toggle').onclick = () => setSelection(!state.faceSelected);
   $('face-picker').oninput = e => selectTarget(+e.target.value-1);
   $('previous-face').onclick = () => selectTarget((selectingVertex() ? state.selectedVertex : state.selectedFace)-1);
@@ -650,7 +708,12 @@
   const requestFullscreen = () => (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)?.call(document.documentElement);
   $('fullscreen').hidden = !(document.fullscreenEnabled || document.webkitFullscreenEnabled);
   $('fullscreen').onclick = () => { requestFullscreen(); $('fullscreen').blur(); };
-  document.addEventListener('keydown', e => { if (e.key.toLowerCase()==='f' && e.target===document.body) requestFullscreen(); if(e.key.toLowerCase()==='r' && e.target===document.body) resetView(); });
+  document.addEventListener('keydown', e => { if (e.key.toLowerCase()==='f' && e.target===document.body) requestFullscreen(); if(e.key.toLowerCase()==='r' && e.target===document.body) { resetView(); invalidate(); } });
+  document.addEventListener('click', invalidate);
+  document.addEventListener('input', invalidate);
+  document.addEventListener('change', invalidate);
+  window.addEventListener('resize', invalidate);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) invalidate(); });
 
   const requestedView = new URLSearchParams(location.search).get('view');
   if ([...document.querySelectorAll('[data-view]')].some(button => button.dataset.view === requestedView)) setView(requestedView);
@@ -661,6 +724,8 @@
   if ([...document.querySelectorAll('[data-lighting]')].some(button => button.dataset.lighting === requestedLighting)) setLighting(requestedLighting);
   const requestedTexture = new URLSearchParams(location.search).get('texture');
   if ([...document.querySelectorAll('[data-texture]')].some(button => button.dataset.texture === requestedTexture)) setTexture(requestedTexture);
+  const requestedQuality = new URLSearchParams(location.search).get('quality');
+  if ([...document.querySelectorAll('[data-quality]')].some(button => button.dataset.quality === requestedQuality)) setQuality(requestedQuality);
   const requestedOpacity = +new URLSearchParams(location.search).get('opacity');
   if (requestedOpacity >= 4 && requestedOpacity <= 100) {
     state.opacity = requestedOpacity / 100;
@@ -678,5 +743,6 @@
     const button = [...document.querySelectorAll('.model-button')].find(el=>el.querySelector('strong').textContent===initial.name);
     selectModel(initial, button, false);
   }
-  requestAnimationFrame(draw);
+  updateAutoQualityLabel();
+  invalidate();
 })();

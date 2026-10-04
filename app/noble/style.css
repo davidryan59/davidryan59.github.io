@@ -95,7 +95,7 @@ a { color: var(--cyan); text-underline-offset: .2em; }
 #viewer:focus-visible { box-shadow: inset 0 0 0 2px var(--cyan); }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); background: rgba(7,16,28,.5); }
 .loading[hidden] { display: none; }
-.gesture-hint { position: absolute; left: 50%; bottom: 166px; transform: translateX(-50%); padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: rgba(7,16,28,.72); font-size: .72rem; white-space: nowrap; pointer-events: none; transition: opacity .5s; }
+.gesture-hint { position: absolute; left: 50%; bottom: 210px; transform: translateX(-50%); padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: rgba(7,16,28,.72); font-size: .72rem; white-space: nowrap; pointer-events: none; transition: opacity .5s; }
 .gesture-hint.used { opacity: 0; }
 .view-controls { position: absolute; top: 16px; left: 16px; display: flex; flex-direction: column; gap: 7px; }
 .view-controls .icon-button { background: rgba(7,16,28,.72); font-size: 1.25rem; }
