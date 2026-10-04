@@ -108,7 +108,8 @@ The explorer uses the builder page's warm light theme and charcoal dark
 theme. Its header includes the standard builder-page link and the shared
 theme switch. The builder page shows a lightweight animated I-2 thumbnail
 with Aurora colour, point lighting and clean solid faces. That animation
-pauses off-screen and becomes still when the user requests reduced motion.
+uses per-pixel depth testing so intersecting faces remain stable. It pauses
+off-screen and becomes still when the user requests reduced motion.
 
 The fill renderer calculates depth for each pixel rather than assigning one
 depth to a complete face. When two faces intersect, each visible portion is

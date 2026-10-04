@@ -50,9 +50,9 @@
 
   function colour(rgb, light) {
     var amount = Math.max(0.4, Math.min(1.18, light));
-    return 'rgb(' + rgb.map(function (channel) {
+    return rgb.map(function (channel) {
       return Math.round(Math.min(255, channel * amount));
-    }).join(',') + ')';
+    });
   }
 
   function resize() {
@@ -80,35 +80,81 @@
       return [width / 2 + point[0] * scale * perspective,
         height / 2 - point[1] * scale * perspective];
     });
-    var ordered = faces.map(function (face, index) {
-      var depth = face.reduce(function (sum, vertex) { return sum + points[vertex][2]; }, 0) / face.length;
-      return { face: face, index: index, depth: depth };
-    }).sort(function (a, b) { return a.depth - b.depth; });
     var lightDirection = [-0.38, 0.62, 0.69];
     var dark = document.documentElement.dataset.theme === 'dark' ||
       (!document.documentElement.dataset.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var faceColours = [];
+    var depths = new Float32Array(width * height);
+    var owners = new Int16Array(width * height);
+    depths.fill(-Infinity);
+    owners.fill(-1);
 
     context.clearRect(0, 0, width, height);
-    context.lineJoin = 'round';
-    ordered.forEach(function (entry) {
-      var face = entry.face;
+    faces.forEach(function (face, faceIndex) {
       var normal = cross(points[face[0]], points[face[1]], points[face[2]]);
       var length = Math.hypot(normal[0], normal[1], normal[2]) || 1;
       var lit = Math.abs((normal[0] * lightDirection[0] + normal[1] * lightDirection[1] + normal[2] * lightDirection[2]) / length);
       var intensity = 0.47 + Math.pow(lit, 0.8) * 0.68;
-      context.beginPath();
-      face.forEach(function (vertex, index) {
-        var point = projected[vertex];
-        if (index) context.lineTo(point[0], point[1]);
-        else context.moveTo(point[0], point[1]);
-      });
-      context.closePath();
-      context.fillStyle = colour(aurora[entry.index % aurora.length], intensity);
-      context.fill('evenodd');
-      context.strokeStyle = dark ? 'rgba(224, 236, 244, .42)' : 'rgba(25, 31, 40, .42)';
-      context.lineWidth = Math.max(0.8, width / 170);
-      context.stroke();
+      faceColours[faceIndex] = colour(aurora[faceIndex % aurora.length], intensity);
+
+      var polygon = face.map(function (vertex) { return projected[vertex]; });
+      var planePoint = points[face[0]];
+      var planeConstant = normal[0] * planePoint[0] + normal[1] * planePoint[1] + normal[2] * planePoint[2];
+      var minY = Math.max(0, Math.ceil(Math.min.apply(null, polygon.map(function (point) { return point[1]; })) - 0.5));
+      var maxY = Math.min(height - 1, Math.floor(Math.max.apply(null, polygon.map(function (point) { return point[1]; })) - 0.5));
+
+      for (var y = minY; y <= maxY; y++) {
+        var scanY = y + 0.5;
+        var crossings = [];
+        for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+          var a = polygon[i];
+          var b = polygon[j];
+          if ((a[1] > scanY) !== (b[1] > scanY)) {
+            crossings.push(a[0] + (scanY - a[1]) * (b[0] - a[0]) / (b[1] - a[1]));
+          }
+        }
+        crossings.sort(function (a, b) { return a - b; });
+        for (var pair = 0; pair + 1 < crossings.length; pair += 2) {
+          var minX = Math.max(0, Math.ceil(crossings[pair] - 0.5));
+          var maxX = Math.min(width - 1, Math.floor(crossings[pair + 1] - 0.5));
+          for (var x = minX; x <= maxX; x++) {
+            var px = (x + 0.5 - width / 2) / scale;
+            var py = -(y + 0.5 - height / 2) / scale;
+            var screenDot = normal[0] * px + normal[1] * py;
+            var denominator = normal[2] - screenDot / distance;
+            if (Math.abs(denominator) < 1e-10) continue;
+            var z = (planeConstant - screenDot) / denominator;
+            var pixel = y * width + x;
+            if (z > depths[pixel] + 1e-5 ||
+                (Math.abs(z - depths[pixel]) <= 1e-5 && faceIndex < owners[pixel])) {
+              depths[pixel] = z;
+              owners[pixel] = faceIndex;
+            }
+          }
+        }
+      }
     });
+
+    var image = context.createImageData(width, height);
+    var data = image.data;
+    var edgeColour = dark ? [215, 226, 236] : [34, 38, 44];
+    for (var pixel = 0; pixel < owners.length; pixel++) {
+      var owner = owners[pixel];
+      if (owner < 0) continue;
+      var x = pixel % width;
+      var y = Math.floor(pixel / width);
+      var edge = x === 0 || y === 0 || x === width - 1 || y === height - 1 ||
+        owners[pixel - 1] !== owner || owners[pixel + 1] !== owner ||
+        owners[pixel - width] !== owner || owners[pixel + width] !== owner;
+      var rgb = faceColours[owner];
+      var blend = edge ? 0.34 : 0;
+      var output = pixel * 4;
+      data[output] = rgb[0] * (1 - blend) + edgeColour[0] * blend;
+      data[output + 1] = rgb[1] * (1 - blend) + edgeColour[1] * blend;
+      data[output + 2] = rgb[2] * (1 - blend) + edgeColour[2] * blend;
+      data[output + 3] = 255;
+    }
+    context.putImageData(image, 0, 0);
     needsDraw = false;
   }
 
