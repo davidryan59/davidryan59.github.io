@@ -116,6 +116,14 @@ depth to a complete face. When two faces intersect, each visible portion is
 therefore composited in its true front-to-back order. The vector edge pass
 remains separate so that wireframes stay crisp.
 
+## Showcase video
+
+`tools/noble-video/` renders a silent, captioned 30-second showcase film at
+1080 × 1080 and 30 fps. It presents solid, glass, X-ray, wire + face and
+wire + vertex views. It also shows different palettes, lighting, textures,
+exploded faces and both infinite families. The renderer uses the same bundled
+model catalogue and per-pixel depth method as the explorer.
+
 ## Sources
 
 - [The complete set of noble polyhedra](https://arxiv.org/pdf/2607.28711),
