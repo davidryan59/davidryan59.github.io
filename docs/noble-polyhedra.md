@@ -24,7 +24,6 @@ the browser.
 - [x] Select any face by clicking it or moving the face control.
 - [x] Isolate one face or show it with its edge-neighbours.
 - [x] Overlay one face or every face at one vertex on the complete wireframe.
-- [x] Turn the selected face towards the viewer.
 - [x] Adjust opacity, face explosion and cutaway depth.
 - [x] Resolve intersecting faces per pixel, including translucent layers.
 - [x] Switch between perspective and orthographic projection.
@@ -71,7 +70,7 @@ original cool scheme. Mineral uses warm earth tones. Aurora is brighter.
 Orbit gives adjacent faces stronger categorical contrast. Mono gives a quieter
 blue-grey reading. A graph-colouring pass gives edge-neighbours different
 colours. Non-touching faces can reuse a colour. The selected face stays gold
-in every palette and the bottom-left On button can turn that selection off.
+in every palette and the bottom-left Face control can turn selection off.
 
 Lighting and texture are independent. Flat preserves the original unlit
 appearance. Point gives a strong local light, Diffuse gives broad soft light,
@@ -91,9 +90,9 @@ The depth renderer resolves coplanar faces with a stable face-index tie break.
 This prevents temporal shimmer on forms such as D-5, whose triangles occur in
 coplanar groups.
 
-The view modes form a button strip across the top of the stage. Spin and
-Static form a separate motion control. The strip scrolls horizontally when
-the screen is too narrow for every button.
+The eight view modes form one button strip across the top of the stage. The
+bottom-right stack contains Motion, Render, Lighting, Texture and Colour, in
+that order. The strips scroll horizontally when a screen is too narrow.
 
 Wire + face draws the complete edge structure behind one selected face. Wire
 + vertex draws the complete edge structure behind every face incident to one
@@ -101,9 +100,15 @@ selected vertex. Its slider and step buttons select the vertex. A vertex can
 also be selected directly on the model.
 
 Click a visible face to select it. The face control also steps through the
-complete face orbit. Face-on stops the spin and points that face towards the
-viewer. Opacity, explosion and cutaway controls can be combined with every
-view.
+complete face orbit. The viewer keeps the current motion setting when the
+selection changes. Opacity, explosion and cutaway controls can be combined
+with every view.
+
+The explorer uses the builder page's warm light theme and charcoal dark
+theme. Its header includes the standard builder-page link and the shared
+theme switch. The builder page shows a lightweight animated I-2 thumbnail
+with Aurora colour, point lighting and clean solid faces. That animation
+pauses off-screen and becomes still when the user requests reduced motion.
 
 The fill renderer calculates depth for each pixel rather than assigning one
 depth to a complete face. When two faces intersect, each visible portion is

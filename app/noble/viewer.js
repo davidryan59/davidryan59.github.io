@@ -297,10 +297,9 @@
     $('selection-label').textContent = vertexMode ? 'Vertex' : 'Face';
     $('previous-face').ariaLabel = `Previous ${vertexMode ? 'vertex' : 'face'}`;
     $('next-face').ariaLabel = `Next ${vertexMode ? 'vertex' : 'face'}`;
-    $('face-on').textContent = vertexMode ? 'Vertex-on' : 'Face-on';
     $('selection-toggle').textContent = state.faceSelected ? 'On' : 'Off';
     $('selection-toggle').setAttribute('aria-pressed', state.faceSelected);
-    const dependent = [$('previous-face'), $('face-picker'), $('next-face'), $('face-on')];
+    const dependent = [$('previous-face'), $('face-picker'), $('next-face')];
     dependent.forEach(control => control.disabled = !state.faceSelected);
     $('face-picker').closest('label').classList.toggle('disabled', !state.faceSelected);
     document.querySelectorAll('[data-needs-selection]').forEach(button => button.disabled = !state.faceSelected);
@@ -390,26 +389,6 @@
     });
     updateAutoQualityLabel();
     invalidate();
-  }
-
-  function faceOn() {
-    if (!state.geometry) return;
-    state.faceSelected = true;
-    updateFaceControls();
-    let n;
-    if (selectingVertex()) {
-      n = [...state.geometry.vertices[state.selectedVertex]];
-    } else {
-      const face = state.geometry.faces[state.selectedFace];
-      const a = state.geometry.vertices[face[0]], b = state.geometry.vertices[face[1]], c = state.geometry.vertices[face[2]];
-      const u = [b[0]-a[0], b[1]-a[1], b[2]-a[2]], v = [c[0]-a[0], c[1]-a[1], c[2]-a[2]];
-      n = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]];
-    }
-    const length = Math.hypot(...n) || 1; n = n.map(x => x/length);
-    state.ry = Math.atan2(-n[0], n[2]);
-    const z = Math.hypot(n[0], n[2]);
-    state.rx = Math.atan2(n[1], z);
-    setSpin(false);
   }
 
   function pointInPolygon(x, y, points) {
@@ -642,6 +621,7 @@
       for (const face of faces) face.style=faceStyle(face,neighbours,incident);
       state.hitFaces = [];
       rasteriseFaces(faces,rect,size,centreX,centreY);
+      const lightTheme = document.documentElement.dataset.theme === 'light';
       for (const face of faces) {
         if (state.clip > 0 && face.z < -1 + state.clip*2) continue;
         const points = face.points;
@@ -650,7 +630,7 @@
         ctx.closePath();
         const { highlighted, relevant } = face.style;
         const showEdge = state.view !== 'solid' && (state.view === 'wire' || state.view === 'xray' || wireHighlight || relevant);
-        if (showEdge) { ctx.strokeStyle = highlighted ? 'rgba(255,211,113,.98)' : `rgba(224,249,250,${relevant?.78:.3})`; ctx.lineWidth = highlighted ? 2.2 : Math.max(.65, size / 430); ctx.stroke(); }
+        if (showEdge) { ctx.strokeStyle = highlighted ? (lightTheme ? 'rgba(138,82,0,.95)' : 'rgba(255,211,113,.98)') : (lightTheme ? `rgba(45,48,52,${relevant?.7:.24})` : `rgba(224,249,250,${relevant?.78:.3})`); ctx.lineWidth = highlighted ? 2.2 : Math.max(.65, size / 430); ctx.stroke(); }
         state.hitFaces.push({ i: face.i, points, z: face.z });
       }
       state.hitVertices = rotated.map((vertex, i) => {
@@ -660,7 +640,7 @@
       if (state.view === 'wire-vertex') {
         for (const vertex of state.hitVertices) {
           ctx.beginPath(); ctx.arc(vertex.x, vertex.y, vertex.i === state.selectedVertex ? 5.5 : 2.2, 0, Math.PI*2);
-          ctx.fillStyle = vertex.i === state.selectedVertex ? 'rgba(255,211,113,1)' : 'rgba(224,249,250,.55)'; ctx.fill();
+          ctx.fillStyle = vertex.i === state.selectedVertex ? (lightTheme ? 'rgba(138,82,0,1)' : 'rgba(255,211,113,1)') : (lightTheme ? 'rgba(45,48,52,.55)' : 'rgba(224,249,250,.55)'); ctx.fill();
         }
       }
     }
@@ -692,7 +672,6 @@
   $('face-picker').oninput = e => selectTarget(+e.target.value-1);
   $('previous-face').onclick = () => selectTarget((selectingVertex() ? state.selectedVertex : state.selectedFace)-1);
   $('next-face').onclick = () => selectTarget((selectingVertex() ? state.selectedVertex : state.selectedFace)+1);
-  $('face-on').onclick = faceOn;
   $('opacity').oninput = e => { state.opacity=+e.target.value/100; $('opacity-output').value=`${e.target.value}%`; };
   $('explode').oninput = e => { state.explode=+e.target.value/100; $('explode-output').value=`${e.target.value}%`; };
   $('clip').oninput = e => { state.clip=+e.target.value/100; $('clip-output').value=`${e.target.value}%`; };
