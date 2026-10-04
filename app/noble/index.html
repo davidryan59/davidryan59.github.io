@@ -81,11 +81,6 @@
         <button class="option-button" type="button" data-view="wire-face" data-needs-selection aria-pressed="false">Wire + face</button>
         <button class="option-button" type="button" data-view="wire-vertex" data-needs-selection aria-pressed="false">Wire + vertex</button>
       </div>
-      <div class="control-group motion-options" aria-label="Motion">
-        <span class="panel-label">Motion</span>
-        <button class="option-button active" type="button" data-spin="true" aria-pressed="true">Spin</button>
-        <button class="option-button" type="button" data-spin="false" aria-pressed="false">Static</button>
-      </div>
     </div>
     <div class="face-controls" aria-label="Face controls">
       <span class="panel-label">Selection</span>
@@ -98,13 +93,16 @@
       <button id="face-on" type="button">Face-on</button>
     </div>
     <div class="render-controls" aria-label="Surface appearance controls">
-      <div class="control-group palette-controls" aria-label="Colour palette">
-        <span class="panel-label">Colour</span>
-        <button class="option-button active" type="button" data-palette="aurora" aria-pressed="true">Aurora</button>
-        <button class="option-button" type="button" data-palette="prism" aria-pressed="false">Prism</button>
-        <button class="option-button" type="button" data-palette="mineral" aria-pressed="false">Mineral</button>
-        <button class="option-button" type="button" data-palette="orbit" aria-pressed="false">Orbit</button>
-        <button class="option-button" type="button" data-palette="mono" aria-pressed="false">Mono</button>
+      <div class="control-group motion-options" aria-label="Motion">
+        <span class="panel-label">Motion</span>
+        <button class="option-button active" type="button" data-spin="true" aria-pressed="true">Spin</button>
+        <button class="option-button" type="button" data-spin="false" aria-pressed="false">Static</button>
+      </div>
+      <div class="control-group quality-controls" aria-label="Rendering quality">
+        <span class="panel-label">Render</span>
+        <button class="option-button active" type="button" data-quality="auto" aria-pressed="true">Auto</button>
+        <button class="option-button" type="button" data-quality="performance" aria-pressed="false">Performance</button>
+        <button class="option-button" type="button" data-quality="quality" aria-pressed="false">Quality</button>
       </div>
       <div class="control-group lighting-controls" aria-label="Lighting">
         <span class="panel-label">Lighting</span>
@@ -120,11 +118,13 @@
         <button class="option-button" type="button" data-texture="paper" aria-pressed="false">Paper</button>
         <button class="option-button" type="button" data-texture="contours" aria-pressed="false">Contours</button>
       </div>
-      <div class="control-group quality-controls" aria-label="Rendering quality">
-        <span class="panel-label">Render</span>
-        <button class="option-button active" type="button" data-quality="auto" aria-pressed="true">Auto</button>
-        <button class="option-button" type="button" data-quality="performance" aria-pressed="false">Performance</button>
-        <button class="option-button" type="button" data-quality="quality" aria-pressed="false">Quality</button>
+      <div class="control-group palette-controls" aria-label="Colour palette">
+        <span class="panel-label">Colour</span>
+        <button class="option-button active" type="button" data-palette="aurora" aria-pressed="true">Aurora</button>
+        <button class="option-button" type="button" data-palette="prism" aria-pressed="false">Prism</button>
+        <button class="option-button" type="button" data-palette="mineral" aria-pressed="false">Mineral</button>
+        <button class="option-button" type="button" data-palette="orbit" aria-pressed="false">Orbit</button>
+        <button class="option-button" type="button" data-palette="mono" aria-pressed="false">Mono</button>
       </div>
     </div>
   </section>
