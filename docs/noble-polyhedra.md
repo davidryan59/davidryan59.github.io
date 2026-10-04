@@ -126,6 +126,10 @@ wire + vertex views. It also shows different palettes, lighting, textures,
 exploded faces and both infinite families. The renderer uses the same bundled
 model catalogue and per-pixel depth method as the explorer.
 
+`tools/noble/card.js` draws `social/noble.jpg` from the live explorer. Both
+the canonical page and the `drbuild.uk/noble` redirect publish that image as
+a 1200 × 630 large share card.
+
 ## Sources
 
 - [The complete set of noble polyhedra](https://arxiv.org/pdf/2607.28711),
