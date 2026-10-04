@@ -13,7 +13,7 @@
     geometry: null, current: null, family: null, tab: 'sporadic', filter: 'all',
     rx: -0.42, ry: 0.62, zoom: 1, dragging: false, lastX: 0, lastY: 0,
     spin: true, faces: true, edges: true, lastTime: 0, pinchDistance: 0,
-    view: 'solid', palette: 'prism', faceSelected: true, selectedFace: 0, selectedVertex: 0, faceColours: [], opacity: 1, explode: 0, clip: 0, orthographic: false,
+    view: 'solid', palette: 'prism', lighting: 'flat', texture: 'clean', faceSelected: true, selectedFace: 0, selectedVertex: 0, faceColours: [], opacity: 1, explode: 0, clip: 0, orthographic: false,
     hitFaces: [], hitVertices: []
   };
   const labels = { tetrahedral: 'Tetrahedral', octahedral: 'Octahedral', icosahedral: 'Icosahedral' };
@@ -228,6 +228,13 @@
     return [x, v[1] * cx - z1 * sx, v[1] * sx + z1 * cx];
   }
 
+  function inverseRotate(v, rotation) {
+    const { cy, sy, cx, sx } = rotation;
+    const y = v[1] * cx + v[2] * sx;
+    const z1 = -v[1] * sx + v[2] * cx;
+    return [v[0] * cy - z1 * sy, y, v[0] * sy + z1 * cy];
+  }
+
   function faceNeighbours(index) {
     if (!state.geometry) return new Set();
     const selected = new Set(state.geometry.faces[index]);
@@ -286,6 +293,16 @@
     $('face-on').textContent = vertexMode ? 'Vertex-on' : 'Face-on';
     $('selection-toggle').textContent = state.faceSelected ? 'On' : 'Off';
     $('selection-toggle').setAttribute('aria-pressed', state.faceSelected);
+    const dependent = [$('previous-face'), $('face-picker'), $('next-face'), $('face-on')];
+    dependent.forEach(control => control.disabled = !state.faceSelected);
+    $('face-picker').closest('label').classList.toggle('disabled', !state.faceSelected);
+    document.querySelectorAll('[data-needs-selection]').forEach(button => button.disabled = !state.faceSelected);
+  }
+
+  function setSelection(active) {
+    state.faceSelected = active;
+    if (!active && document.querySelector(`[data-view="${state.view}"]`)?.hasAttribute('data-needs-selection')) setView('solid');
+    else updateFaceControls();
   }
 
   function selectFace(index) {
@@ -323,6 +340,22 @@
     state.palette = palette;
     document.querySelectorAll('[data-palette]').forEach(button => {
       const active = button.dataset.palette === palette;
+      button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
+    });
+  }
+
+  function setLighting(lighting) {
+    state.lighting = lighting;
+    document.querySelectorAll('[data-lighting]').forEach(button => {
+      const active = button.dataset.lighting === lighting;
+      button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
+    });
+  }
+
+  function setTexture(texture) {
+    state.texture = texture;
+    document.querySelectorAll('[data-texture]').forEach(button => {
+      const active = button.dataset.texture === texture;
       button.classList.toggle('active', active); button.setAttribute('aria-pressed', active);
     });
   }
@@ -385,6 +418,25 @@
     return hslToRgb(hue, 74 + colour % 3 * 7, 43 + depth * 20 + variation);
   }
 
+  function lightingFor(face, depth) {
+    if (state.lighting === 'flat') return 1;
+    if (state.lighting === 'depth') return .58 + depth * .55;
+    const plane = facePlane(face.points3);
+    if (!plane) return 1;
+    const length = Math.hypot(...plane.n) || 1;
+    const normal = plane.n.map(value => value / length);
+    const dot = direction => Math.abs(normal[0] * direction[0] + normal[1] * direction[1] + normal[2] * direction[2]);
+    if (state.lighting === 'diffuse') {
+      return .55 + .28 * dot([.16, .76, .63]) + .17 * dot([-.72, .22, .66]);
+    }
+    const centre = face.points3.reduce((sum, point) => [sum[0] + point[0] / face.points3.length, sum[1] + point[1] / face.points3.length, sum[2] + point[2] / face.points3.length], [0, 0, 0]);
+    const direction = [-1.4 - centre[0], 1.8 - centre[1], 3.2 - centre[2]];
+    const directionLength = Math.hypot(...direction) || 1;
+    const incidence = dot(direction.map(value => value / directionLength));
+    const distance = Math.hypot(...direction);
+    return .26 + .96 * Math.pow(incidence, 1.45) * Math.min(1, 4 / distance);
+  }
+
   function faceStyle(face, neighbours, incident) {
     const selected = state.faceSelected && face.i === state.selectedFace;
     const highlighted = state.view === 'wire-vertex' ? state.faceSelected && incident.has(face.i) : selected;
@@ -397,7 +449,9 @@
     if (state.view === 'wire') alpha = 0;
     if (state.view === 'wire-face' || state.view === 'wire-vertex') alpha = relevant ? alpha * .72 : 0;
     const depth = (face.z + 1) / 2;
-    return { selected, highlighted, relevant, alpha, colour: colourFor(face, highlighted, depth) };
+    const light = lightingFor(face, depth);
+    const colour = colourFor(face, highlighted, depth).map(value => Math.max(0, Math.min(255, value * light)));
+    return { selected, highlighted, relevant, alpha, colour };
   }
 
   function facePlane(points) {
@@ -411,11 +465,30 @@
     return null;
   }
 
+  function textureFor(point, owner) {
+    if (state.texture === 'clean') return 1;
+    const hash = value => {
+      const result = Math.sin(value) * 43758.5453123;
+      return result - Math.floor(result);
+    };
+    const grain = hash(Math.floor(point[0] * 190) * 12.9898 + Math.floor(point[1] * 190) * 78.233 + Math.floor(point[2] * 190) * 37.719 + owner * 19.19);
+    if (state.texture === 'grain') return .95 + grain * .1;
+    if (state.texture === 'paper') {
+      const fibres = Math.sin((point[0] + point[2] * .42) * 78 + owner * .7) * .018 + Math.sin((point[1] - point[2] * .28) * 23) * .014;
+      return .975 + grain * .05 + fibres;
+    }
+    const bands = Math.sin((point[0] + point[1] * .62 + point[2] * .31) * 31 + owner * .17);
+    return .98 + bands * .055 + (grain - .5) * .018;
+  }
+
   function rasteriseFaces(faces, rect, size, centreX, centreY) {
     const visible = faces.filter(face => face.style.alpha > 0 && !(state.clip > 0 && face.z < -1 + state.clip*2));
     if (!visible.length) { state.hitRaster = null; return; }
     const translucent = visible.some(face => face.style.alpha < .995);
-    const maxDimension = translucent ? (faces.length > 90 ? 440 : faces.length > 40 ? 560 : 760) : (faces.length > 90 ? 900 : 1080);
+    const textured = state.texture !== 'clean';
+    const maxDimension = textured
+      ? (faces.length > 90 ? 600 : faces.length > 40 ? 760 : 900)
+      : translucent ? (faces.length > 90 ? 440 : faces.length > 40 ? 560 : 760) : (faces.length > 90 ? 900 : 1080);
     const scale = Math.min(1, maxDimension / Math.max(rect.width, rect.height));
     const width = Math.max(1,Math.round(rect.width*scale)), height = Math.max(1,Math.round(rect.height*scale));
     const layers = translucent ? (faces.length > 90 ? 4 : faces.length > 40 ? 5 : 6) : 1;
@@ -461,12 +534,22 @@
 
     const image=rasterContext.createImageData(width,height), data=image.data;
     const styles=new Map(faces.map(face=>[face.i,face.style]));
+    const inverseRotation = { cy: Math.cos(state.ry), sy: Math.sin(state.ry), cx: Math.cos(state.rx), sx: Math.sin(state.rx) };
     for (let pixel=0;pixel<width*height;pixel++) {
       let pr=0,pg=0,pb=0,pa=0;
+      let px, py;
+      if (textured) {
+        const rasterX = pixel % width, rasterY = Math.floor(pixel / width);
+        const screenX = (rasterX + .5) / scale, screenY = (rasterY + .5) / scale;
+        px = (screenX - centreX) / size; py = -(screenY - centreY) / size;
+      }
       for (let layer=layers-1;layer>=0;layer--) {
-        const owner=owners[pixel*layers+layer]; if(owner<0)continue;
-        const style=styles.get(owner), alpha=style.alpha;
-        pr=style.colour[0]*alpha+pr*(1-alpha); pg=style.colour[1]*alpha+pg*(1-alpha); pb=style.colour[2]*alpha+pb*(1-alpha); pa=alpha+pa*(1-alpha);
+        const offset = pixel * layers + layer;
+        const owner=owners[offset]; if(owner<0)continue;
+        const style=styles.get(owner), alpha=style.alpha, z=depths[offset];
+        const perspective = state.orthographic ? 1 : 3.8 / (4.2 - z);
+        const texture = textured ? textureFor(inverseRotate([px / perspective, py / perspective, z], inverseRotation), owner) : 1;
+        pr=style.colour[0]*texture*alpha+pr*(1-alpha); pg=style.colour[1]*texture*alpha+pg*(1-alpha); pb=style.colour[2]*texture*alpha+pb*(1-alpha); pa=alpha+pa*(1-alpha);
       }
       const out=pixel*4;
       if(pa>0){data[out]=pr/pa;data[out+1]=pg/pa;data[out+2]=pb/pa;data[out+3]=pa*255;}
@@ -545,7 +628,9 @@
   document.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.querySelectorAll('[data-spin]').forEach(button => button.onclick = () => setSpin(button.dataset.spin === 'true'));
   document.querySelectorAll('[data-palette]').forEach(button => button.onclick = () => setPalette(button.dataset.palette));
-  $('selection-toggle').onclick = () => { state.faceSelected = !state.faceSelected; updateFaceControls(); };
+  document.querySelectorAll('[data-lighting]').forEach(button => button.onclick = () => setLighting(button.dataset.lighting));
+  document.querySelectorAll('[data-texture]').forEach(button => button.onclick = () => setTexture(button.dataset.texture));
+  $('selection-toggle').onclick = () => setSelection(!state.faceSelected);
   $('face-picker').oninput = e => selectTarget(+e.target.value-1);
   $('previous-face').onclick = () => selectTarget((selectingVertex() ? state.selectedVertex : state.selectedFace)-1);
   $('next-face').onclick = () => selectTarget((selectingVertex() ? state.selectedVertex : state.selectedFace)+1);
@@ -569,8 +654,13 @@
 
   const requestedView = new URLSearchParams(location.search).get('view');
   if ([...document.querySelectorAll('[data-view]')].some(button => button.dataset.view === requestedView)) setView(requestedView);
+  if (new URLSearchParams(location.search).get('selection') === 'off') setSelection(false);
   const requestedPalette = new URLSearchParams(location.search).get('palette');
   if ([...document.querySelectorAll('[data-palette]')].some(button => button.dataset.palette === requestedPalette)) setPalette(requestedPalette);
+  const requestedLighting = new URLSearchParams(location.search).get('lighting');
+  if ([...document.querySelectorAll('[data-lighting]')].some(button => button.dataset.lighting === requestedLighting)) setLighting(requestedLighting);
+  const requestedTexture = new URLSearchParams(location.search).get('texture');
+  if ([...document.querySelectorAll('[data-texture]')].some(button => button.dataset.texture === requestedTexture)) setTexture(requestedTexture);
   const requestedOpacity = +new URLSearchParams(location.search).get('opacity');
   if (requestedOpacity >= 4 && requestedOpacity <= 100) {
     state.opacity = requestedOpacity / 100;

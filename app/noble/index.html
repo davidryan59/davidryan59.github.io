@@ -71,21 +71,24 @@
     </div>
     <div class="display-controls" aria-label="Display controls">
       <div class="control-group view-options" aria-label="View style">
+        <span class="panel-label">View</span>
         <button class="option-button active" type="button" data-view="solid" aria-pressed="true">Solid</button>
         <button class="option-button" type="button" data-view="glass" aria-pressed="false">Glass</button>
         <button class="option-button" type="button" data-view="xray" aria-pressed="false">X-ray</button>
-        <button class="option-button" type="button" data-view="wire" aria-pressed="false">Wire</button>
-        <button class="option-button" type="button" data-view="face" aria-pressed="false">Face</button>
-        <button class="option-button" type="button" data-view="neighbours" aria-pressed="false">Neighbours</button>
-        <button class="option-button" type="button" data-view="wire-face" aria-pressed="false">Wire + face</button>
-        <button class="option-button" type="button" data-view="wire-vertex" aria-pressed="false">Wire + vertex</button>
+        <button class="option-button" type="button" data-view="wire" aria-pressed="false">Wireframe</button>
+        <button class="option-button" type="button" data-view="face" data-needs-selection aria-pressed="false">Selected face</button>
+        <button class="option-button" type="button" data-view="neighbours" data-needs-selection aria-pressed="false">Face neighbours</button>
+        <button class="option-button" type="button" data-view="wire-face" data-needs-selection aria-pressed="false">Wire + face</button>
+        <button class="option-button" type="button" data-view="wire-vertex" data-needs-selection aria-pressed="false">Wire + vertex</button>
       </div>
       <div class="control-group motion-options" aria-label="Motion">
+        <span class="panel-label">Motion</span>
         <button class="option-button active" type="button" data-spin="true" aria-pressed="true">Spin</button>
         <button class="option-button" type="button" data-spin="false" aria-pressed="false">Static</button>
       </div>
     </div>
     <div class="face-controls" aria-label="Face controls">
+      <span class="panel-label">Selection</span>
       <button id="selection-toggle" type="button" aria-pressed="true">On</button>
       <button id="previous-face" type="button" aria-label="Previous face">−</button>
       <label><span id="selection-label">Face</span> <output id="face-output">1 / 4</output>
@@ -94,13 +97,29 @@
       <button id="next-face" type="button" aria-label="Next face">+</button>
       <button id="face-on" type="button">Face-on</button>
     </div>
-    <div class="palette-controls" aria-label="Colour palette">
-      <span>Palette</span>
-      <button class="palette-button active" type="button" data-palette="prism" aria-pressed="true">Prism</button>
-      <button class="palette-button" type="button" data-palette="mineral" aria-pressed="false">Mineral</button>
-      <button class="palette-button" type="button" data-palette="aurora" aria-pressed="false">Aurora</button>
-      <button class="palette-button" type="button" data-palette="orbit" aria-pressed="false">Orbit</button>
-      <button class="palette-button" type="button" data-palette="mono" aria-pressed="false">Mono</button>
+    <div class="render-controls" aria-label="Surface appearance controls">
+      <div class="control-group palette-controls" aria-label="Colour palette">
+        <span class="panel-label">Colour</span>
+        <button class="option-button active" type="button" data-palette="prism" aria-pressed="true">Prism</button>
+        <button class="option-button" type="button" data-palette="mineral" aria-pressed="false">Mineral</button>
+        <button class="option-button" type="button" data-palette="aurora" aria-pressed="false">Aurora</button>
+        <button class="option-button" type="button" data-palette="orbit" aria-pressed="false">Orbit</button>
+        <button class="option-button" type="button" data-palette="mono" aria-pressed="false">Mono</button>
+      </div>
+      <div class="control-group lighting-controls" aria-label="Lighting">
+        <span class="panel-label">Lighting</span>
+        <button class="option-button active" type="button" data-lighting="flat" aria-pressed="true">Flat</button>
+        <button class="option-button" type="button" data-lighting="point" aria-pressed="false">Point</button>
+        <button class="option-button" type="button" data-lighting="diffuse" aria-pressed="false">Diffuse</button>
+        <button class="option-button" type="button" data-lighting="depth" aria-pressed="false">Depth</button>
+      </div>
+      <div class="control-group texture-controls" aria-label="Face texture">
+        <span class="panel-label">Texture</span>
+        <button class="option-button active" type="button" data-texture="clean" aria-pressed="true">Clean</button>
+        <button class="option-button" type="button" data-texture="grain" aria-pressed="false">Grain</button>
+        <button class="option-button" type="button" data-texture="paper" aria-pressed="false">Paper</button>
+        <button class="option-button" type="button" data-texture="contours" aria-pressed="false">Contours</button>
+      </div>
     </div>
   </section>
 

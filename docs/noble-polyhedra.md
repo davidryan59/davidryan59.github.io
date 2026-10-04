@@ -16,6 +16,9 @@ the browser.
 - [x] Show every official paper symbol with its exact symmetry and dual.
 - [x] Show solid, glass, X-ray and wire views.
 - [x] Offer five colour schemes, with a stable gold selected face.
+- [x] Offer flat, point, diffuse and camera-depth lighting.
+- [x] Offer clean, grain, paper and contour face textures.
+- [x] Disable face-dependent controls when face selection is off.
 - [x] Select any face by clicking it or moving the face control.
 - [x] Isolate one face or show it with its edge-neighbours.
 - [x] Overlay one face or every face at one vertex on the complete wireframe.
@@ -67,6 +70,12 @@ Orbit gives adjacent faces stronger categorical contrast. Mono gives a quieter
 blue-grey reading. A graph-colouring pass gives edge-neighbours different
 colours. Non-touching faces can reuse a colour. The selected face stays gold
 in every palette and the bottom-left On button can turn that selection off.
+
+Lighting and texture are independent. Flat preserves the original unlit
+appearance. Point gives a strong local light, Diffuse gives broad soft light,
+and Depth brightens surfaces near the camera. Grain, Paper and Contours add
+procedural detail that stays attached to the rotating form. Clean keeps plain
+colour. No texture image files or network requests are required.
 
 The view modes form a button strip across the top of the stage. Spin and
 Static form a separate motion control. The strip scrolls horizontally when
