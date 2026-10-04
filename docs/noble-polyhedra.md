@@ -5,7 +5,8 @@
 The explorer shows the two infinite families and all 146 exceptional noble
 polyhedra from Connor Hill's 2026 classification. It uses Hill's OFF models
 for the exceptional forms. The page generates disphenoids and stephanoids in
-the browser.
+the browser. The short address `drbuild.uk/noble` redirects to the explorer,
+which opens on I-2 unless its address names another model.
 
 ## Implementation Checklist
 
@@ -27,6 +28,7 @@ the browser.
 - [x] Adjust opacity, face explosion and cutaway depth.
 - [x] Resolve intersecting faces per pixel, including translucent layers.
 - [x] Switch between perspective and orthographic projection.
+- [x] Provide the short address `drbuild.uk/noble` and open on I-2 by default.
 - [ ] Try the explorer on a real phone, an iPad and Safari.
 
 ## Model data

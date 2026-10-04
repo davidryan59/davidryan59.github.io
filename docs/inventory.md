@@ -168,7 +168,7 @@ Ethereum & NFTs, with a thumbnail and a share card (`social/salary-loan.jpg`). N
 ### Maths apps
 | Item | Link | Status |
 |---|---|---|
-| Noble Polyhedra Explorer: all 146 exceptional forms from Connor Hill's classification, plus adjustable disphenoids and stephanoids. The 3D viewer includes face selection, face-neighbour views, transparency, explosion, cutaway depth and orthographic projection. Built 2026-10-03 | [drbuild.uk/app/noble/](https://drbuild.uk/app/noble/) | Built, not yet pushed |
+| Noble Polyhedra Explorer: all 146 exceptional forms from Connor Hill's classification, plus adjustable disphenoids and stephanoids. The 3D viewer includes face selection, face-neighbour views, transparency, explosion, cutaway depth and orthographic projection. Built 2026-10-03 | [drbuild.uk/app/noble/](https://drbuild.uk/app/noble/) | Built, not yet pushed. drbuild.uk/noble will redirect here |
 | Hat tiling viewer: pan, zoom and reshape the Hat family from chevron to comet, built 2026-09-23 | [drbuild.uk/app/tiles/hat/](https://drbuild.uk/app/tiles/hat/) | Live, checked 2026-09-26. The old address redirects here |
 | Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [drbuild.uk/app/tiles/spectre/](https://drbuild.uk/app/tiles/spectre/) | Live, checked 2026-09-26. The old address redirects here |
 | Hat (extended) viewer: the Hat with curved edges, where the mirrored hats become a second tile, built 2026-09-23. A third tab of the same explorer, so no separate entry on the page | [drbuild.uk/app/tiles/hat-extended/](https://drbuild.uk/app/tiles/hat-extended/) | Live, checked 2026-09-26. The old address redirects here |

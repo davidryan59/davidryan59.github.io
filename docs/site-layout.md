@@ -59,6 +59,7 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/audits/weth9/`, `/audits/uniswap-v2/`, `/audits/dai/`, `/audits/permit2/` | Posts and CVs that cite an audit | `audits/<name>/index.html` |
 | `/guides/salary-loan/` | Posts that link the guide | `guides/salary-loan/index.html` |
 | `/papers/polygonal-spectre.pdf` | Posts about the paper | `papers/` |
+| `/noble` | The Noble Polyhedra video and other shared links | `redirects/noble.html` |
 | `/tiles` | The paper, and the corner label of the tiling video | `redirects/tiles.html` |
 | `/demos/hat/`, `/demos/spectre/`, `/demos/hat-extended/` | Shared links to the explorer, each with its settings after the `#`. The `index.html` form of each is a link too | `redirects/demos-*.html` |
 | `/aperiodic-pairs/` | The builder page's first link to the gallery | `redirects/aperiodic-pairs.html` |

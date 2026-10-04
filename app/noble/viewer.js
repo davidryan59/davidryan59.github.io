@@ -23,6 +23,7 @@
   }
   const labels = { tetrahedral: 'Tetrahedral', octahedral: 'Octahedral', icosahedral: 'Icosahedral' };
   const specialNames = { 'T-1': 'Regular tetrahedron', 'O-1': 'Regular octahedron', 'C-1': 'Cube', 'I-1': 'Regular icosahedron', 'D-1': 'Regular dodecahedron' };
+  const defaultModel = () => window.NOBLE_MODELS.find(model => model.name === 'I-2') || window.NOBLE_MODELS[0];
   function paperNameExplanation(meta) {
     if (!meta.file) return '';
     const [orbit, suffix] = meta.name.split('-');
@@ -221,7 +222,7 @@
       state.family = document.querySelector('.family-card.active').dataset.family;
       updateFamily(); location.hash = state.family;
     } else {
-      const model = state.current && state.current.file ? state.current : window.NOBLE_MODELS[0];
+      const model = state.current && state.current.file ? state.current : defaultModel();
       renderList();
       const button = [...document.querySelectorAll('.model-button')].find(el => el.querySelector('strong').textContent === model.name);
       selectModel(model, button, false);
@@ -717,7 +718,7 @@
     document.querySelectorAll('.family-card').forEach(button => button.classList.toggle('active', button.dataset.family===requested));
     switchTab('families');
   } else {
-    const initial = window.NOBLE_MODELS.find(model => model.name===requested) || window.NOBLE_MODELS[0];
+    const initial = window.NOBLE_MODELS.find(model => model.name===requested) || defaultModel();
     state.current = initial; renderList();
     const button = [...document.querySelectorAll('.model-button')].find(el=>el.querySelector('strong').textContent===initial.name);
     selectModel(initial, button, false);

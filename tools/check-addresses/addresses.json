@@ -11,6 +11,8 @@
     { "path": "/audits/permit2/", "title": "Permit2 security audit", "direct": true },
     { "path": "/guides/salary-loan/", "title": "Spend a crypto salary without selling it", "direct": true },
     { "path": "/app/noble/", "title": "Noble Polyhedra", "direct": true },
+    { "path": "/noble", "title": "Noble Polyhedra", "stub": "/app/noble/" },
+    { "path": "/noble/index.html", "title": "Noble Polyhedra", "stub": "/app/noble/" },
     { "path": "/tiles", "title": "Hat tiling – a family of aperiodic monotiles", "stub": "/app/tiles/hat/" },
     { "path": "/demos/hat/", "title": "Hat tiling – a family of aperiodic monotiles", "stub": "/app/tiles/hat/" },
     { "path": "/demos/hat/index.html", "title": "Hat tiling – a family of aperiodic monotiles", "stub": "/app/tiles/hat/" },
