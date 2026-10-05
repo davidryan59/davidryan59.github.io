@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<title>E8 explorer video stage</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg:#16161a; --panel:rgba(30,30,35,.92); --ink:#f5f3ec; --muted:#aaa59a; --blue:#7aa6e0; --line:#3a3a3f; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; width:540px; height:540px; overflow:hidden; background:var(--bg); }
+  body { position:relative; color:var(--ink); font-family:Georgia,"Times New Roman",serif; -webkit-font-smoothing:antialiased; }
+  body::before { content:""; position:absolute; inset:0; background:
+    linear-gradient(rgba(200,196,185,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(200,196,185,.045) 1px,transparent 1px),
+    radial-gradient(circle at 50% 52%,#292e38 0,#1d2027 48%,#16161a 84%);
+    background-size:44px 44px,44px 44px,100% 100%; }
+  #roots { position:absolute; inset:0; width:540px; height:540px; }
+  .pill { position:absolute; padding:7px 12px; border:1px solid var(--line); border-radius:999px;
+    background:var(--panel); box-shadow:0 3px 14px rgba(0,0,0,.28); white-space:nowrap; }
+  #count { left:18px; top:18px; color:var(--blue); font:700 11px/1 ui-monospace,"SF Mono",Menlo,monospace; letter-spacing:.08em; }
+  #address { right:18px; top:18px; font-size:12.5px; }
+  #caption { position:absolute; left:24px; right:24px; top:58px; text-align:center; }
+  #caption .main { font-size:24px; line-height:1.18; text-wrap:balance; }
+  #caption .sub { margin-top:5px; color:var(--muted); font-size:13px; line-height:1.3; text-wrap:balance; }
+  #options { position:absolute; left:18px; right:18px; bottom:18px; display:flex; justify-content:center; flex-wrap:wrap; gap:6px; }
+  #options span { padding:6px 9px; border:1px solid var(--line); border-radius:7px; color:var(--muted);
+    background:var(--panel); font:600 9px/1 ui-monospace,"SF Mono",Menlo,monospace; letter-spacing:.06em; text-transform:uppercase; }
+  #options span:first-child { color:var(--blue); }
+  #pointer { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border:1.5px solid rgba(245,243,236,.9);
+    border-radius:50%; box-shadow:0 0 0 6px rgba(122,166,224,.13),0 2px 8px rgba(0,0,0,.4); }
+  #pointer::after { content:""; position:absolute; width:4px; height:4px; left:7.5px; top:7.5px; border-radius:50%; background:#f5f3ec; }
+  #fade { position:absolute; inset:0; pointer-events:none; background:var(--bg); opacity:0; }
+</style>
+</head>
+<body>
+<canvas id="roots" width="1080" height="1080"></canvas>
+<div class="pill" id="count">240 ROOTS</div>
+<div class="pill" id="address">drbuild.uk/e8</div>
+<div id="caption"><div class="main"></div><div class="sub"></div></div>
+<div id="options"></div>
+<div id="pointer"></div>
+<div id="fade"></div>
+<script src="/app/e8/model.js"></script>
+<script src="timeline.js"></script>
+<script>
+(function () {
+  'use strict';
+  var E = window.E8, T = window.E8Timeline;
+  var roots = E.buildRoots(), graph = E.buildEdges(roots), coxeter = E.buildCoxeterData(roots);
+  var presets = E.makePresets(), simple = E.FUNDAMENTAL_ROOTS;
+  var simpleSet = new Set(simple), canvas = document.getElementById('roots'), ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height, CX = W / 2, CY = H / 2 + 38, SCALE = 286;
+  var palette = ['#33bfa9','#62a2ef','#9670dc','#dc5ca0','#e96f7f','#e58b52','#c9a33b','#69a86e'];
+
+  function frameFor(scene) {
+    var frame = scene.from === scene.to ? E.copyFrame(presets[scene.from]) :
+      E.interpolateFrames(presets[scene.from], presets[scene.to], scene.mix);
+    scene.rotations.forEach(function (rotation) { E.rotateRows(frame, rotation[0], rotation[1], rotation[2]); });
+    return frame;
+  }
+  function projected(frame) {
+    return roots.map(function (root) { return [CX + E.dot(frame[0], root) * SCALE, CY - E.dot(frame[1], root) * SCALE]; });
+  }
+  function line(a, b, colour, width) {
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+    ctx.strokeStyle = colour; ctx.lineWidth = width; ctx.stroke();
+  }
+  function rootColour(scene, index, point) {
+    if (scene.colour === 'orbit') return palette[coxeter.orbit[index]];
+    if (scene.colour === 'family') return E.rootKind(roots[index]) === 'd8' ? '#65a8eb' : '#df6c9f';
+    if (scene.colour === 'projection') {
+      var hue = (Math.atan2(point[1] - CY, point[0] - CX) * 180 / Math.PI + 360) % 360;
+      return 'hsl(' + hue.toFixed(1) + ',68%,62%)';
+    }
+    return '#a8d2ee';
+  }
+  function draw(scene) {
+    var frame = frameFor(scene), points = projected(frame), adjacent = new Set(graph.adjacent[scene.selected]);
+    ctx.clearRect(0, 0, W, H);
+    ctx.beginPath(); ctx.arc(CX, CY, SCALE * Math.SQRT2, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(200,196,185,.11)'; ctx.lineWidth = 1; ctx.setLineDash([3, 10]); ctx.stroke(); ctx.setLineDash([]);
+
+    if (scene.edges === 'all') graph.edges.forEach(function (edge) {
+      line(points[edge[0]], points[edge[1]], 'rgba(181,205,226,' + scene.edgeAlpha.toFixed(3) + ')', 1.05);
+    });
+    if (scene.edges === 'local') graph.adjacent[scene.selected].forEach(function (index) {
+      line(points[scene.selected], points[index], 'rgba(241,194,105,.48)', 2.1);
+    });
+    if (scene.view === 'coxeter') coxeter.cycles.forEach(function (cycle, orbit) {
+      ctx.beginPath(); cycle.forEach(function (index, i) { var p = points[index]; if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); });
+      ctx.closePath(); ctx.strokeStyle = palette[orbit] + '99'; ctx.lineWidth = 2.1; ctx.stroke();
+    });
+    if (scene.view === 'simple') {
+      for (var a = 0; a < simple.length; a++) for (var b = a + 1; b < simple.length; b++) {
+        if (Math.abs(E.dot(roots[simple[a]], roots[simple[b]]) + 1) < E.EPSILON)
+          line(points[simple[a]], points[simple[b]], 'rgba(225,234,242,.86)', 4.1);
+      }
+    }
+
+    roots.forEach(function (root, index) {
+      var point = points[index], alpha = 1, radius = E.rootKind(root) === 'd8' ? 5.2 : 4.2;
+      if (scene.view === 'neighbourhood' && index !== scene.selected && !adjacent.has(index)) alpha = 0.095;
+      if (scene.view === 'simple' && !simpleSet.has(index)) alpha = 0.045;
+      if (scene.view === 'simple' && simpleSet.has(index)) radius = 10;
+      if (index === scene.selected && scene.view === 'neighbourhood') radius = 11;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath(); ctx.arc(point[0], point[1], radius, 0, Math.PI * 2);
+      ctx.fillStyle = index === scene.selected && scene.view === 'neighbourhood' ? '#ffd371' : rootColour(scene, index, point);
+      ctx.fill();
+      if (radius >= 10) { ctx.strokeStyle = 'rgba(22,22,26,.85)'; ctx.lineWidth = 2.4; ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    });
+    if (scene.view === 'simple') simple.forEach(function (index, number) {
+      var p = points[index]; ctx.fillStyle = '#f5f3ec'; ctx.font = '700 20px ui-monospace, monospace';
+      ctx.textAlign = 'center'; ctx.fillText(String(number + 1), p[0], p[1] - 17);
+    });
+  }
+  function labels(scene) {
+    if (scene.view === 'neighbourhood') return ['Neighbourhood', '56 edges', 'One root'];
+    if (scene.view === 'coxeter') return ['Coxeter cycles', '8 × 30-gons', 'Petrie'];
+    if (scene.view === 'simple') return ['Simple roots', 'Dynkin diagram', '8 roots'];
+    if (scene.edges === 'all') return ['Root system', '6,720 edges', '8D rotation'];
+    return ['Root system', scene.to === 'octagonal' ? 'Octagonal' : 'Petrie', '240 roots'];
+  }
+  window.frame = function (number) {
+    var time = number / T.FPS, scene = T.scene(time), caption = T.caption(time);
+    draw(scene);
+    var cap = document.getElementById('caption'); cap.style.opacity = caption.opacity;
+    cap.querySelector('.main').textContent = caption.main; cap.querySelector('.sub').textContent = caption.sub;
+    document.getElementById('count').textContent = scene.view === 'simple' ? '8 SIMPLE ROOTS' :
+      (scene.view === 'neighbourhood' ? '1 + 56 NEIGHBOURS' : '240 ROOTS');
+    document.getElementById('options').innerHTML = labels(scene).map(function (label) { return '<span>' + label + '</span>'; }).join('');
+    var pointer = document.getElementById('pointer');
+    pointer.style.opacity = scene.pointer ? scene.pointer.opacity : 0;
+    if (scene.pointer) { pointer.style.left = scene.pointer.x * 540 + 'px'; pointer.style.top = scene.pointer.y * 540 + 'px'; }
+    document.getElementById('fade').style.opacity = 0;
+  };
+  window.stageInfo = { frames:T.FRAMES, fps:T.FPS };
+  window.frame(0); window.stageReady = true;
+}());
+</script>
+</body>
+</html>

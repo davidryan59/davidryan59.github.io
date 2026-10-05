@@ -27,7 +27,10 @@
    coarse pointer, so touch controls show. A local file needs a local server,
    such as python3 -m http.server. */
 const fs = require('fs'), os = require('os'), path = require('path');
-const { chromium } = require('playwright');
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch (error) { ({ chromium } = require('../tiling-video/node_modules/playwright-core')); }
+const CHROME = process.env.CHROMIUM || undefined;
 
 const SIZES = [
   { id: 'monitor', w: 2560, h: 1300, touch: false },
@@ -57,7 +60,7 @@ function args() {
 }
 
 (async () => {
-  const opt = args(), browser = await chromium.launch();
+  const opt = args(), browser = await chromium.launch(CHROME ? { executablePath: CHROME } : undefined);
   let faults = 0;
   console.log('size'.padEnd(16) + 'play area'.padEnd(22) + 'width  height  faults');
   for (const s of SIZES) {

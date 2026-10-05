@@ -1,0 +1,349 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ink: #eef5ff;
+  --muted: #91a4bd;
+  --line: rgba(190, 214, 242, .14);
+  --panel: #0b1828;
+  --deep: #050b14;
+  background: var(--deep);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 50% -10%, #17304d 0, transparent 36rem),
+    var(--deep);
+}
+
+button {
+  color: inherit;
+  font: inherit;
+}
+
+.page-header {
+  min-height: 66px;
+  padding: 10px clamp(14px, 2.2vw, 32px);
+  display: grid;
+  grid-template-columns: 1fr auto 42px;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(5, 11, 20, .86);
+  backdrop-filter: blur(16px);
+}
+
+.eyebrow,
+.page-header h1,
+.instructions,
+.model-copy p,
+.model-copy h2,
+footer {
+  margin: 0;
+}
+
+.eyebrow,
+.status {
+  color: #6ddbd0;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.page-header h1 {
+  margin-top: 2px;
+  font-size: clamp(18px, 2.1vw, 25px);
+  font-weight: 650;
+  letter-spacing: -.025em;
+  line-height: 1.1;
+}
+
+.instructions {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .01em;
+}
+
+.icon-button,
+.model-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(198, 220, 245, .2);
+  background: rgba(10, 23, 38, .72);
+  cursor: pointer;
+  transition: border-color .18s, background .18s, transform .18s;
+}
+
+.icon-button:hover,
+.model-button:hover {
+  border-color: rgba(199, 227, 255, .5);
+  background: rgba(29, 54, 78, .82);
+}
+
+.icon-button:active,
+.model-button:active {
+  transform: scale(.96);
+}
+
+button:focus-visible,
+canvas:focus-visible {
+  outline: 2px solid #71e1d6;
+  outline-offset: -3px;
+}
+
+.icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.icon-button svg,
+.model-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.comparison {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+}
+
+.model-card {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(51, 107, 143, .22), transparent 44%),
+    linear-gradient(150deg, #0c1a2b, #07111e 62%, #091522);
+}
+
+.model-card--c11 {
+  background:
+    radial-gradient(circle at 50% 46%, rgba(133, 80, 155, .19), transparent 44%),
+    linear-gradient(150deg, #11172a, #090f1e 62%, #121323);
+}
+
+.model-card::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .018) 1px, transparent 1px);
+  background-size: 42px 42px;
+  content: "";
+  mask-image: radial-gradient(circle at 50% 50%, black, transparent 72%);
+}
+
+canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+canvas:active {
+  cursor: grabbing;
+}
+
+.model-copy {
+  position: absolute;
+  top: clamp(15px, 2.4vw, 28px);
+  left: clamp(16px, 2.4vw, 30px);
+  z-index: 2;
+  pointer-events: none;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .65);
+}
+
+.model-card--c11 .status {
+  color: #c5a4f2;
+}
+
+.model-copy h2 {
+  margin: 3px 0 1px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(31px, 4.2vw, 54px);
+  font-weight: 400;
+  letter-spacing: -.04em;
+  line-height: .95;
+}
+
+.model-copy sub {
+  font-size: .54em;
+  vertical-align: -.08em;
+}
+
+.model-copy p:last-child {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.model-controls {
+  position: absolute;
+  right: clamp(12px, 2vw, 24px);
+  bottom: clamp(12px, 2vw, 22px);
+  z-index: 3;
+  display: flex;
+  gap: 7px;
+}
+
+.model-button {
+  min-width: 42px;
+  height: 38px;
+  gap: 7px;
+  padding: 0 11px;
+  border-radius: 11px;
+  color: #c9d8e8;
+  font-size: 11px;
+  letter-spacing: .025em;
+}
+
+.pause-icon {
+  width: 13px;
+  height: 14px;
+  display: block;
+  border-right: 4px solid currentColor;
+  border-left: 4px solid currentColor;
+}
+
+.spin-button[aria-pressed="false"] .pause-icon {
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 11px solid currentColor;
+}
+
+footer {
+  min-height: 31px;
+  padding: 7px 18px;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  color: #71859e;
+  background: #060d17;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (orientation: portrait) {
+  .comparison {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .page-header {
+    min-height: 56px;
+    grid-template-columns: 1fr 38px;
+    gap: 10px;
+  }
+
+  .instructions {
+    display: none;
+  }
+
+  .icon-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .model-copy h2 {
+    font-size: 34px;
+  }
+
+  .control-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .model-button {
+    width: 38px;
+    min-width: 38px;
+    padding: 0;
+  }
+}
+
+@media (max-height: 430px) {
+  body {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .page-header {
+    min-height: 48px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  .eyebrow,
+  footer {
+    display: none;
+  }
+
+  .model-copy {
+    top: 12px;
+    left: 14px;
+  }
+
+  .model-copy h2 {
+    font-size: 31px;
+  }
+
+  .model-copy p:last-child {
+    font-size: 10px;
+  }
+
+  .model-controls {
+    right: 10px;
+    bottom: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button,
+  .model-button {
+    transition: none;
+  }
+}

@@ -8,6 +8,7 @@ it, then check the result with `frames.js`.
 
 | Picture | Script | What it shows |
 |---|---|---|
+| `assets/thumbs/e8.svg` | `e8.js` | A dark, near-full-circle view of all 240 E8 roots moving through the Petrie, Octagonal and Squares presets on a 6 s loop. `e8-light.svg` preserves the earlier light 12 s version |
 | `assets/thumbs/tiling-explorer.svg` | `tiling-explorer.js` | A patch of the Hat tiling that morphs from chevron to comet and back on a 10 s loop: 0.5 s still, 4.5 s sliding, each way. Light-mode Pastel colours, drawn from the explorer's own engine in `app/tiles/` |
 | `assets/thumbs/aperiodic-pairs.svg` | `aperiodic-pairs.js` | Penrose kites and darts in the gallery's light colours, zooming in and out about the central sun over 7 s |
 | `assets/thumbs/dice-to-seed.svg` | `dice-to-seed.js` | Six red dice thrown into the corner of a craps table. They settle, rest and fade on an 11 s loop |

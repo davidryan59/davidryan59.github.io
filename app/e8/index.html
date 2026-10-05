@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f6f3ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16161a" media="(prefers-color-scheme: dark)">
+<title>E8 Root System · 8D explorer</title>
+<meta name="description" content="Rotate the 240 roots of E8 through eight dimensions. Drag the projection or grab one root and move the whole system.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/app/e8/">
+<meta property="og:title" content="E8 Root System · 8D explorer">
+<meta property="og:description" content="Rotate, project and inspect the 240 roots and 6,720 edges of E8 in a direct-manipulation explorer.">
+<meta property="og:image" content="https://drbuild.uk/social/e8.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The 240 colourful roots of E8 arranged as eight concentric 30-gons">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="E8 Root System · 8D explorer">
+<meta name="twitter:description" content="Rotate, pull and inspect all 240 roots through eight dimensions.">
+<meta name="twitter:image:alt" content="The 240 colourful roots of E8 arranged as eight concentric 30-gons">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="canonical" href="https://drbuild.uk/app/e8/">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%2316161a' stroke='%237aa6e0' stroke-width='2'/%3E%3Cg fill='none' stroke='%23f5f3ec'%3E%3Cpath d='M6 16h20M16 6v20M9 9l14 14M23 9 9 23'/%3E%3C/g%3E%3C/svg%3E">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="../../index.html">← David Ryan's builder page</a>
+  <div class="title-block">
+    <h1>E<sub>8</sub> root system</h1>
+    <p>240 roots · 6,720 edges · eight dimensions</p>
+  </div>
+  <div class="top-actions">
+    <button class="theme-toggle" type="button" hidden>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.1"/><path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+      </svg>
+    </button>
+    <button class="icon-button" id="fullscreen" type="button" aria-label="Enter full screen" title="Full screen (F)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="workspace">
+  <aside class="control-panel" aria-label="E8 controls">
+    <section class="panel-section projection-section">
+      <div class="section-heading">
+        <span class="eyebrow">Viewing plane</span>
+        <output id="projection-name">Petrie · 12°</output>
+      </div>
+      <div class="choice-grid projection-options" role="group" aria-label="Projection preset">
+        <button class="choice active" type="button" data-preset="coxeter" aria-pressed="true"><strong>Petrie</strong><span>12° · 8 × 30</span></button>
+        <button class="choice" type="button" data-preset="octagonal" aria-pressed="false"><strong>Octagonal</strong><span>8-fold</span></button>
+        <button class="choice" type="button" data-preset="squares" aria-pressed="false"><strong>Squares</strong><span>grid view</span></button>
+        <button class="choice" type="button" data-preset="generic" aria-pressed="false"><strong>Generic</strong><span>few overlaps</span></button>
+      </div>
+      <label class="select-row" for="more-projections">More projections
+        <select id="more-projections">
+          <option value="">Choose a specialist view…</option>
+          <optgroup label="Other Coxeter planes">
+            <option value="coxeter7">84° · exponent 7</option>
+            <option value="coxeter11">132° · exponent 11</option>
+            <option value="coxeter13">156° · exponent 13</option>
+          </optgroup>
+          <optgroup label="Original explorer">
+            <option value="alternate">Alternate</option>
+            <option value="order24">10 × 24-gons</option>
+            <option value="order20">12 × 20-gons</option>
+            <option value="order18">18-fold · blurred</option>
+            <option value="order14">14-fold · blurred</option>
+          </optgroup>
+        </select>
+      </label>
+    </section>
+
+    <section class="panel-section">
+      <div class="section-heading">
+        <span class="eyebrow">Motion</span>
+        <output id="motion-output">Playing</output>
+      </div>
+      <div class="segmented motion-options" role="group" aria-label="Automatic motion">
+        <button class="segment active" id="play" type="button" aria-pressed="true">Play</button>
+        <button class="segment" id="pause" type="button" aria-pressed="false">Pause</button>
+      </div>
+      <label class="range-row">Rotation speed <output id="speed-output">40%</output>
+        <input id="speed" type="range" min="5" max="100" value="40">
+      </label>
+      <label class="range-row">Motion trails <output id="trails-output">5</output>
+        <input id="trails" type="range" min="0" max="12" value="5">
+      </label>
+      <label class="range-row">Drag through dimension <output id="depth-output">3</output>
+        <input id="depth" type="range" min="3" max="8" value="3">
+      </label>
+    </section>
+
+    <section class="panel-section">
+      <div class="section-heading"><span class="eyebrow">Connections</span></div>
+      <div class="segmented edge-options" role="group" aria-label="Edges">
+        <button class="segment active" type="button" data-edges="none" aria-pressed="true">None</button>
+        <button class="segment" type="button" data-edges="local" aria-pressed="false">Local</button>
+        <button class="segment" type="button" data-edges="all" aria-pressed="false">All</button>
+      </div>
+      <label class="range-row">Edge strength <output id="edge-output">18%</output>
+        <input id="edge-opacity" type="range" min="4" max="45" value="18">
+      </label>
+    </section>
+
+    <section class="panel-section colour-section">
+      <div class="section-heading"><span class="eyebrow">Colour</span></div>
+      <div class="choice-grid colour-options" role="group" aria-label="Root colours">
+        <button class="choice active" type="button" data-colour="orbit" aria-pressed="true"><strong>Orbits</strong><span>8 cycles</span></button>
+        <button class="choice" type="button" data-colour="family" aria-pressed="false"><strong>112 + 128</strong><span>root types</span></button>
+        <button class="choice" type="button" data-colour="projection" aria-pressed="false"><strong>Projection</strong><span>screen angle</span></button>
+        <button class="choice" type="button" data-colour="mono" aria-pressed="false"><strong>Mono</strong><span>quiet view</span></button>
+      </div>
+    </section>
+  </aside>
+
+  <section class="stage" id="stage" aria-label="Interactive projection of the E8 root system">
+    <canvas id="viewer" tabindex="0" aria-label="Two-dimensional projection of E8. Drag empty space to rotate through eight dimensions. Drag a root to move the whole projection."></canvas>
+    <div class="view-controls" aria-label="View controls">
+      <button class="icon-button" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+      <button class="icon-button" id="zoom-out" type="button" aria-label="Zoom out">−</button>
+      <button class="icon-button" id="reset-view" type="button" aria-label="Reset projection" title="Reset projection (R)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg>
+      </button>
+    </div>
+    <div class="display-controls" aria-label="Structure view">
+      <div class="control-group view-options" role="group" aria-label="Structure">
+        <span class="panel-label">Structure</span>
+        <button class="option-button active" type="button" data-view="roots" aria-pressed="true">Root system</button>
+        <button class="option-button" type="button" data-view="neighbourhood" aria-pressed="false">Neighbourhood</button>
+        <button class="option-button" type="button" data-view="coxeter" aria-pressed="false">Coxeter cycles</button>
+        <button class="option-button" type="button" data-view="simple" aria-pressed="false">Simple roots</button>
+      </div>
+    </div>
+    <div class="hover-card" id="hover-card" hidden></div>
+    <div class="gesture-hint" id="gesture-hint">drag space to rotate · grab a root to pull the 8D view</div>
+    <div class="stage-status" aria-live="polite">
+      <span id="view-status">Petrie projection</span>
+      <span id="selection-status">240 roots</span>
+    </div>
+  </section>
+
+  <aside class="details" aria-live="polite">
+    <div class="detail-heading">
+      <span class="eyebrow">Selected root</span>
+      <h2 id="root-name">Root 0</h2>
+      <p id="root-kind">D₈ coordinate root</p>
+    </div>
+    <dl class="facts">
+      <div class="coordinate-row"><dt>Coordinates</dt><dd id="coordinates">(−1, −1, 0, 0, 0, 0, 0, 0)</dd></div>
+      <div><dt>Coxeter cycle</dt><dd id="orbit">1 of 8</dd></div>
+      <div><dt>Cycle position</dt><dd id="orbit-position">1 of 30</dd></div>
+      <div><dt>Projection</dt><dd id="projection-coordinates">0.00, 0.00</dd></div>
+      <div><dt>Hidden radius</dt><dd id="hidden-radius">1.414</dd></div>
+    </dl>
+
+    <div class="relation-panel">
+      <h3>Relations from this root</h3>
+      <div class="relation"><i class="same"></i><span>itself</span><strong>1</strong></div>
+      <div class="relation"><i class="near"></i><span>60° · joined by an edge</span><strong>56</strong></div>
+      <div class="relation"><i class="orthogonal"></i><span>90° · orthogonal</span><strong>126</strong></div>
+      <div class="relation"><i class="far"></i><span>120°</span><strong>56</strong></div>
+      <div class="relation"><i class="opposite"></i><span>180° · opposite root</span><strong>1</strong></div>
+    </div>
+
+    <div class="appearance">
+      <label>Root size <output id="point-output">4.5</output>
+        <input id="point-size" type="range" min="25" max="80" value="45">
+      </label>
+    </div>
+
+    <div class="about">
+      <h3>How to explore</h3>
+      <p>Every movement preserves the eight-dimensional distances. The changing picture is a two-dimensional shadow.</p>
+      <p>Drag a root to request its screen movement. The explorer chooses the smallest rigid 8D rotation that can follow it.</p>
+    </div>
+    <nav class="sources" aria-label="Sources and further reading">
+      <a href="http://www.madore.org/~david/math/e8w.html" target="_blank" rel="noopener">David Madore's Weyl explorer</a>
+      <a href="http://www.madore.org/~david/math/e8rotate.html" target="_blank" rel="noopener">Madore's continuous G₂ rotation</a>
+      <a href="https://samim.io/p/2025-01-27-the-e8-root-system/" target="_blank" rel="noopener">The explorer that prompted this one</a>
+      <a href="credits.html">Method &amp; credits</a>
+    </nav>
+  </aside>
+</main>
+
+<script src="model.js"></script>
+<script src="viewer.js"></script>
+<script>Theme.wireThemeToggle();</script>
+</body>
+</html>

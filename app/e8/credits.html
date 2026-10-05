@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f6f3ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16161a" media="(prefers-color-scheme: dark)">
+<title>E8 explorer · method and credits</title>
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="info-page">
+<main>
+  <a class="back" href="index.html">← E8 explorer</a>
+  <h1>Method and credits</h1>
+
+  <h2>The model</h2>
+  <p>The explorer constructs all 240 roots directly in eight dimensions. It joins two roots when their inner product is 1. This produces 6,720 edges and 56 neighbours at each root.</p>
+  <p>Every screen position is an orthogonal projection onto two vectors from an orthonormal 8D frame. Rotations update that frame. The root coordinates and their distances remain fixed.</p>
+
+  <h2>Dragging a root</h2>
+  <p>A screen movement gives two constraints on an 8D rotation. The explorer solves for the smallest skew-symmetric rotation generator that satisfies those constraints. It then applies the resulting plane rotations to the complete frame.</p>
+  <p>This minimum-change rule resolves the hidden directions consistently. A projected root can resist an outward drag when it reaches its full 8D radius.</p>
+
+  <h2>Sources</h2>
+  <p><a href="http://www.madore.org/~david/math/e8w.html">David A. Madore's Weyl-group explorer</a> supplies the coordinate convention, the order-30 Weyl word and its matching Petrie projection. Madore placed that code and text in the public domain and requested recognition.</p>
+  <p>Madore's separate <a href="http://www.madore.org/~david/math/e8rotate.html">continuous rotation under G₂</a> demonstrated a smooth E8 projection in 2012.</p>
+  <p><a href="https://samim.io/p/2025-01-27-the-e8-root-system/">Samim's 2025 page</a> embedded Madore's first explorer and prompted this direct-manipulation version.</p>
+  <p>The four Coxeter-plane views use the conjugate exponent pairs 1, 7, 11 and 13. The Coxeter element rotates them by 12°, 84°, 132° and 156°. Each view has eight rings of 30 roots.</p>
+  <p>The specialist menu also preserves Madore's alternate, 24-fold, 20-fold, blurred 18-fold and blurred 14-fold projections.</p>
+
+  <h2>This implementation</h2>
+  <p>David Ryan commissioned this explorer in 2026. OpenAI Codex wrote its original implementation. It uses plain JavaScript and the browser's 2D canvas, with no external library or downloaded model.</p>
+</main>
+</body>
+</html>
