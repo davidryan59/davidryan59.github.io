@@ -168,7 +168,7 @@ Ethereum & NFTs, with a thumbnail and a share card (`social/salary-loan.jpg`). N
 ### Maths apps
 | Item | Link | Status |
 |---|---|---|
-| E8 Root System Explorer: all 240 roots and 6,720 edges, with smooth 8D rotation, direct root dragging, all four Coxeter planes, original-explorer projections, local neighbourhoods, eight Coxeter cycles and the simple-root Dynkin diagram. Built 2026-10-05 | [drbuild.uk/app/e8/](https://drbuild.uk/app/e8/) | Built, not yet pushed. drbuild.uk/e8 will redirect here |
+| E8 Root System Explorer: all 240 roots and 6,720 edges, with smooth 8D rotation, direct root dragging, all four Coxeter planes, original-explorer projections, local neighbourhoods, eight Coxeter cycles and the simple-root Dynkin diagram. Built 2026-10-05 | [drbuild.uk/app/e8/](https://drbuild.uk/app/e8/) | Live, checked 2026-10-05. drbuild.uk/e8 redirects here |
 | Noble Polyhedra Explorer: all 146 exceptional forms from Connor Hill's classification, plus adjustable disphenoids and stephanoids. The 3D viewer includes face selection, face-neighbour views, transparency, explosion, cutaway depth and orthographic projection. Built 2026-10-03 | [drbuild.uk/app/noble/](https://drbuild.uk/app/noble/) | Built, not yet pushed. drbuild.uk/noble will redirect here |
 | Hat tiling viewer: pan, zoom and reshape the Hat family from chevron to comet, built 2026-09-23 | [drbuild.uk/app/tiles/hat/](https://drbuild.uk/app/tiles/hat/) | Live, checked 2026-09-26. The old address redirects here |
 | Spectre tiling viewer: pan and zoom across the Spectre aperiodic monotile, built 2026-09-23 | [drbuild.uk/app/tiles/spectre/](https://drbuild.uk/app/tiles/spectre/) | Live, checked 2026-09-26. The old address redirects here |
