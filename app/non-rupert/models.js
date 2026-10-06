@@ -5,10 +5,168 @@
 }(typeof self !== "undefined" ? self : this, function makeModels() {
   "use strict";
 
+  const PHI = (1 + Math.sqrt(5)) / 2;
+
+  // Every choice of sign for the nonzero coordinates of each point.
+  function allSigns(points) {
+    const out = [];
+    for (const point of points) {
+      let signed = [[]];
+      for (const value of point) {
+        signed = signed.flatMap(prefix => value === 0
+          ? [[...prefix, 0]]
+          : [[...prefix, value], [...prefix, -value]]);
+      }
+      out.push(...signed);
+    }
+    return out;
+  }
+
+  // The three cyclic shifts (x, y, z), (y, z, x) and (z, x, y): the even permutations.
+  function cyclic(points) {
+    return points.flatMap(([x, y, z]) => [[x, y, z], [y, z, x], [z, x, y]]);
+  }
+
+  function unitRadius(points) {
+    const radius = Math.max(...points.map(point => Math.hypot(...point)));
+    return points.map(point => point.map(value => value / radius));
+  }
+
+  function cuboid(a, b, c) {
+    return unitRadius(allSigns([[a, b, c]]));
+  }
+
   const DEFINITIONS = {
+    tetrahedron: {
+      label: "Tetrahedron",
+      short: "Tetra",
+      kind: "Platonic solid",
+      group: "Platonic solids",
+      hue: 286,
+      turn: 0.4,
+      // Views found by tools/non-rupert/find-passages.js, as quaternions.
+      passage: {
+        hole: [0.262992, -0.156833, 0.873619, 0.378191],
+        copy: [-0.098108, 0.867625, -0.189499, -0.449102]
+      },
+      vertices: unitRadius([[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]])
+    },
+    cube: {
+      label: "Cube",
+      short: "Cube",
+      kind: "Platonic solid",
+      group: "Platonic solids",
+      hue: 212,
+      turn: 0.48,
+      passage: {
+        hole: [0.387227, -0.128398, 0.903803, -0.129262],
+        copy: [0, 0.754982, -0.655745, 0]
+      },
+      vertices: cuboid(1, 1, 1)
+    },
+    octahedron: {
+      label: "Octahedron",
+      short: "Octa",
+      kind: "Platonic solid",
+      group: "Platonic solids",
+      hue: 340,
+      turn: 0.3,
+      passage: {
+        hole: [-0.380951, 0.000805, 0.000337, 0.924595],
+        copy: [0.290298, 0.289215, 0.288134, 0.865483]
+      },
+      vertices: allSigns(cyclic([[1, 0, 0]]))
+    },
+    dodecahedron: {
+      label: "Dodecahedron",
+      short: "Dodeca",
+      kind: "Platonic solid",
+      group: "Platonic solids",
+      hue: 24,
+      turn: 0.5,
+      passage: {
+        hole: [0.384158, 0.743061, 0.069871, 0.543508],
+        copy: [0.179965, 0.71792, 0.663772, 0.107756]
+      },
+      vertices: unitRadius(allSigns([[1, 1, 1], ...cyclic([[0, 1 / PHI, PHI]])]))
+    },
+    icosahedron: {
+      label: "Icosahedron",
+      short: "Icosa",
+      kind: "Platonic solid",
+      group: "Platonic solids",
+      hue: 196,
+      turn: 0.35,
+      passage: {
+        hole: [0.575266, 0.108548, 0.077084, -0.807059],
+        copy: [0.550433, -0.398948, -0.65767, 0.324551]
+      },
+      vertices: unitRadius(allSigns(cyclic([[0, 1, PHI]])))
+    },
+    buckyball: {
+      label: "Buckyball",
+      short: "Buckyball",
+      kind: "Truncated icosahedron",
+      group: "Archimedean solid",
+      hue: 132,
+      turn: 0.45,
+      passage: {
+        hole: [0.093997, 0.957057, 0.192274, -0.195542],
+        copy: [0.924637, -0.193002, 0.274854, 0.179586]
+      },
+      vertices: unitRadius(allSigns(cyclic([
+        [0, 1, 3 * PHI],
+        [1, 2 + PHI, 2 * PHI],
+        [PHI, 2, 2 * PHI + 1]
+      ])))
+    },
+    "box-112": {
+      label: "1 × 1 × 2",
+      short: "1×1×2",
+      kind: "Cuboid",
+      group: "Cuboids",
+      hue: 48,
+      turn: 0.5,
+      passage: {
+        hole: [0.797177, 0.184091, -0.461636, -0.3428],
+        copy: [0.998724, -0.000649, -0.048713, -0.013313]
+      },
+      vertices: cuboid(1, 1, 2)
+    },
+    "box-123": {
+      label: "1 × 2 × 3",
+      short: "1×2×3",
+      kind: "Cuboid",
+      group: "Cuboids",
+      hue: 8,
+      turn: 0.5,
+      passage: {
+        hole: [0.789254, -0.343567, 0.486659, 0.149007],
+        copy: [-0.005274, 0.435483, 0.900178, 0.002552]
+      },
+      vertices: cuboid(1, 2, 3)
+    },
+    "box-133": {
+      label: "1 × 3 × 3",
+      short: "1×3×3",
+      kind: "Cuboid",
+      group: "Cuboids",
+      hue: 258,
+      turn: 0.5,
+      passage: {
+        hole: [-0.288233, 0.884284, -0.117435, 0.348098],
+        copy: [0, 0.967666, -0.252234, 0]
+      },
+      vertices: cuboid(1, 3, 3)
+    },
     // The Noperthedron of Steininger and Yurkevich, arXiv:2508.18475.
     c15: {
       name: "90-vertex C15 solid",
+      label: "C<sub>15</sub>",
+      short: "C<sub>15</sub>",
+      featured: 2,
+      kind: "Noperthedron",
+      group: "Odd-cyclic solids",
       order: 15,
       hue: 174,
       turn: 0.62,
@@ -20,6 +178,11 @@
     },
     c11: {
       name: "88-vertex C11 solid",
+      label: "C<sub>11</sub>",
+      short: "C<sub>11</sub>",
+      featured: 1,
+      kind: "Search result",
+      group: "Odd-cyclic solids",
       order: 11,
       hue: 38,
       turn: 0.77,
@@ -142,19 +305,49 @@
     return triangles;
   }
 
+  function edgesOf(facets) {
+    const edges = new Map();
+    for (const facet of facets) {
+      for (let i = 0; i < facet.length; i += 1) {
+        const a = facet[i];
+        const b = facet[(i + 1) % facet.length];
+        edges.set(a < b ? `${a},${b}` : `${b},${a}`, [Math.min(a, b), Math.max(a, b)]);
+      }
+    }
+    return [...edges.values()];
+  }
+
+  // A solid is centrally symmetric when every vertex's antipode is a vertex.
+  function isCentral(vertices, epsilon = 1e-9) {
+    return vertices.every(point => vertices.some(other =>
+      Math.abs(point[0] + other[0]) < epsilon &&
+      Math.abs(point[1] + other[1]) < epsilon &&
+      Math.abs(point[2] + other[2]) < epsilon
+    ));
+  }
+
   function buildModel(key) {
     const definition = DEFINITIONS[key];
     if (!definition) throw new Error(`Unknown model: ${key}`);
-    const vertices = verticesFromOrbit(definition);
+    const vertices = definition.vertices
+      ? definition.vertices.map(point => [...point])
+      : verticesFromOrbit(definition);
     const facets = convexHullFacets(vertices);
     return {
       key,
-      name: definition.name,
+      name: definition.name || definition.label.toLowerCase(),
+      label: definition.label,
+      short: definition.short || definition.label,
+      featured: definition.featured || 0,
+      kind: definition.kind,
       hue: definition.hue,
       turn: definition.turn,
       order: definition.order,
+      passage: definition.passage || null,
       vertices,
       facets,
+      edges: edgesOf(facets),
+      central: isCentral(vertices),
       triangles: triangulateFacets(facets)
     };
   }
@@ -164,6 +357,7 @@
     buildModel,
     convexHullFacets,
     cross,
+    edgesOf,
     dot,
     subtract,
     triangulateFacets,

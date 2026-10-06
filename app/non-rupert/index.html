@@ -4,69 +4,75 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07111f">
-  <meta name="description" content="Interactive 3D views of the Noperthedron and an 88-vertex C11 polyhedron from a search for non-Rupert solids.">
-  <title>Non-Rupert candidates · David Ryan</title>
+  <meta name="description" content="Cut a hole the shape of a solid's shadow, then try to push a copy of the solid through it. Start with an 88-vertex C11 solid and the Noperthedron, then compare the Platonic solids, a buckyball and three cuboids.">
+  <title>Through its own shadow · David Ryan</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="page-header">
-    <div>
-      <p class="eyebrow">Odd-cyclic polyhedra</p>
-      <h1>Non-Rupert candidates</h1>
+  <header class="topbar">
+    <a class="back" href="../../index.html">← David Ryan's builder page</a>
+    <div class="title-block">
+      <h1>Through its own shadow</h1>
+      <p>Rupert's problem · cut a hole, push a copy through</p>
     </div>
-    <p class="instructions">Drag to turn · scroll or pinch to zoom</p>
-    <button class="icon-button" id="fullscreen" type="button" aria-label="Enter full screen" title="Full screen">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>
-      </svg>
-    </button>
+    <div class="top-actions">
+      <button class="icon-button" id="fullscreen" type="button" aria-label="Enter full screen" title="Full screen">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>
+        </svg>
+      </button>
+    </div>
   </header>
 
-  <main class="comparison" aria-label="Interactive comparison of two polyhedra">
-    <article class="model-card">
-      <canvas data-model="c15" tabindex="0" aria-label="Interactive 3D view of the 90-vertex C15 solid, the Noperthedron"></canvas>
-      <div class="model-copy">
-        <p class="status">Noperthedron</p>
-        <h2>C<sub>15</sub></h2>
-        <p>90 vertices · 152 faces</p>
-      </div>
-      <div class="model-controls">
-        <button class="model-button spin-button" type="button" aria-pressed="true">
-          <span class="pause-icon" aria-hidden="true"></span>
-          <span class="control-label">Pause</span>
-        </button>
-        <button class="model-button reset-button" type="button" aria-label="Reset the view of the 90-vertex C15 solid">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
-          <span class="control-label">Reset</span>
-        </button>
-      </div>
-    </article>
+  <main class="stage" aria-label="Push a solid through a hole cut from its own shadow">
+    <section class="play">
+      <nav class="shapes" id="shapes" aria-label="Solid"></nav>
 
-    <article class="model-card">
-      <canvas data-model="c11" tabindex="0" aria-label="Interactive 3D view of the 88-vertex C11 solid"></canvas>
-      <div class="model-copy">
-        <p class="status">Search result</p>
-        <h2>C<sub>11</sub></h2>
-        <p>88 vertices · 156 faces</p>
+      <div class="steps">
+        <p class="hint" aria-live="polite"><span class="step" id="step">1</span><span id="hint"></span></p>
+        <div class="actions">
+          <button class="action" id="cut" type="button">Cut hole</button>
+          <button class="action" id="push" type="button">Push</button>
+          <span class="action-gap" aria-hidden="true"></span>
+          <button class="action quiet" id="passage" type="button" title="Load a pair of views that passes">Passage</button>
+          <button class="action quiet" id="search" type="button" title="Search pairs of views for the best fit">Search</button>
+        </div>
       </div>
-      <div class="model-controls">
-        <button class="model-button spin-button" type="button" aria-pressed="true">
-          <span class="pause-icon" aria-hidden="true"></span>
-          <span class="control-label">Pause</span>
-        </button>
-        <button class="model-button reset-button" type="button" aria-label="Reset the view of the 88-vertex C11 solid">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
-          <span class="control-label">Reset</span>
-        </button>
+
+      <div class="scene-card">
+        <canvas id="scene" tabindex="0" aria-label="3D view of the solid and the plate. Drag or use the arrow keys to turn the solid."></canvas>
+        <div class="scene-copy">
+          <p class="status" id="kind"></p>
+          <h2 id="shape-title"></h2>
+          <p id="shape-meta"></p>
+        </div>
       </div>
-    </article>
+    </section>
+
+    <aside class="fit-panel">
+      <div class="readout" title="The largest scale at which the copy's shadow fits inside the hole. Above 1, the copy passes.">
+        <span class="readout-label">Pass ratio</span>
+        <span class="ratio" id="ratio">–</span>
+        <span class="verdict" id="verdict" hidden></span>
+      </div>
+      <div class="fit-wrap">
+        <canvas id="fit" tabindex="0" aria-label="View straight through the hole. Drag or use the arrow keys to turn the solid."></canvas>
+        <p class="fit-caption">View through the hole</p>
+      </div>
+      <p class="legend" aria-hidden="true">
+        <span><i class="swatch rim"></i>Hole</span>
+        <span><i class="swatch copy"></i>Copy</span>
+        <span><i class="swatch red"></i>Sticks out</span>
+      </p>
+    </aside>
   </main>
 
   <footer>
-    C<sub>15</sub> is the Noperthedron of Steininger and Yurkevich (2025). Each solid is the convex hull of three or four points, their turns about the vertical axis and their reflections through the centre.
+    C<sub>15</sub> is the Noperthedron of Steininger and Yurkevich (2025). The app twists and slides the copy to its best fit. The pass ratio is the largest scale at which the copy's shadow fits inside the hole.
   </footer>
 
   <script src="models.js"></script>
+  <script src="shadow.js"></script>
   <script src="viewer.js"></script>
 </body>
 </html>
