@@ -40,12 +40,17 @@
       </div>
 
       <div class="scene-card">
-        <canvas id="scene" tabindex="0" aria-label="3D view of the solid and the plate. Drag or use the arrow keys to turn the solid."></canvas>
+        <canvas id="scene" tabindex="0" aria-label="3D view of the solid and the plate. Drag the solid or use the arrow keys to turn it. Drag around it or use Shift and the arrow keys to look from another side. Scroll, pinch or use plus and minus to zoom."></canvas>
         <div class="scene-copy">
           <p class="status" id="kind"></p>
           <h2 id="shape-title"></h2>
           <p id="shape-meta"></p>
         </div>
+        <button class="view-reset" id="reset-view" type="button" title="Return to the starting view" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+          <span>Reset view</span>
+        </button>
+        <p class="scene-tip"><span class="tip-long">Drag the solid to turn it · drag around it to look from another side · scroll or pinch to zoom</span><span class="tip-short">Drag solid: turn · drag around it: orbit · pinch: zoom</span></p>
       </div>
     </section>
 

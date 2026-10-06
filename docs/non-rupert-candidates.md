@@ -18,6 +18,8 @@ The app at `app/non-rupert/` lets a visitor run that test. They turn a solid and
 - [x] Search pairs of views by a restarted hill-climb.
 - [x] Store a passing pair of views for every solid except C15 and C11.
 - [x] Keep a dragged copy's twist near its last value, then ease it to the best twist on release.
+- [x] Orbit and zoom the camera round the plate, with a reset.
+- [x] Show the fixed solid as a glass ghost on the plate once the hole is cut.
 - [x] Fit the page on the six standard screen sizes.
 
 ## How to use it
@@ -29,6 +31,10 @@ The page opens on C11. The controls sit above the 3D view, in the order a visito
 3. Press **Cut hole**. The shadow becomes a hole, and a copy of the solid appears in front of the plate.
 4. Drag to turn the copy. The view through the hole shows the copy's shadow over the hole, red where it sticks out.
 5. Press **Push**. A copy that fits slides through. A copy that does not stops where its cross-section first meets the rim, and that slice shows in red.
+
+In the 3D view, dragging the solid turns it, and dragging anywhere else orbits the camera round the plate. Scroll, pinch or the plus and minus keys zoom. **Reset view** returns to the starting view. The cursor shows which drag a press will start: a hand over the solid, a move cross elsewhere. The view through the hole always turns the solid.
+
+Once the hole is cut, the fixed solid stays on the plate as a glass ghost. Its outline, seen along the push, is the rim of the hole. This is Rupert's own picture: the copy passes along a tunnel through the solid. From an angle the rim and the ghost's outline part company, because the edges that cast the outline lie at different depths. The copy starts 2.15 units from the plate, so at rest it never meets the ghost.
 
 A numbered hint beside the buttons names the current step, and the button for the next step is the bright one. **New hole** returns to turning the hole. **Passage** loads a stored passing pair of views; C15 and C11 have none. **Search** hill-climbs over pairs of views for ten seconds and shows the best pair found. The address keeps the solid, for example `#cube` or `#box-123`.
 

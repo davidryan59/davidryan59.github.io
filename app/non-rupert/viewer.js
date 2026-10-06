@@ -3,19 +3,36 @@
 
   const { DEFINITIONS, buildModel, cross, dot, subtract } = window.NonRupertModels;
   const Shadow = window.NonRupertShadow;
-  const { apply, axisRotation, multiply, orthonormalise, quaternionRotation, twist } = Shadow;
+  const { apply, axisRotation, multiply, orthonormalise, quaternionRotation, transpose, twist } = Shadow;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // The plate lies in the plane z = 0. The copy starts in front of it and is pushed along -z.
-  const START = 1.65;
-  const END = -1.65;
+  // The plate lies in the plane z = 0, and the ghost of the fixed solid sits on it.
+  // The copy starts clear of the ghost and is pushed along -z.
+  const START = 2.15;
+  const END = -2.15;
   const PLATE = 1.6;
   const CAMERA = 9;
-  const VIEW = multiply(axisRotation([1, 0, 0], 0.42), axisRotation([0, 1, 0], -0.62));
-  const CAMERA_POSITION = apply([VIEW[0], VIEW[3], VIEW[6], VIEW[1], VIEW[4], VIEW[7], VIEW[2], VIEW[5], VIEW[8]], [0, 0, CAMERA]);
-  const SCREEN_RIGHT = [VIEW[0], VIEW[1], VIEW[2]];
-  const SCREEN_UP = [VIEW[3], VIEW[4], VIEW[5]];
-  const LIGHT = normalise([-0.5, 0.8, 0.65]);
+  const HOME = { yaw: -0.62, pitch: 0.42 };
+  // How far the scene reaches from the screen's centre in the starting view: the
+  // plate's corners and the unit-radius copy at both ends of its push.
+  const HOME_REACH = (() => {
+    const view = viewFrom(HOME.yaw, HOME.pitch);
+    let x = 0;
+    let y = 0;
+    const add = (point, radius) => {
+      const v = apply(view, point);
+      const f = CAMERA / (CAMERA - v[2]);
+      x = Math.max(x, (Math.abs(v[0]) + radius) * f);
+      y = Math.max(y, (Math.abs(v[1]) + radius) * f);
+    };
+    for (const corner of [[-PLATE, -PLATE, 0], [PLATE, -PLATE, 0], [PLATE, PLATE, 0], [-PLATE, PLATE, 0]]) add(corner, 0);
+    add([0, 0, START], 1);
+    add([0, 0, END], 1);
+    return { x, y };
+  })();
+  // The light turns with the camera, so the solid looks the same from every side.
+  const LIGHT = apply(viewFrom(HOME.yaw, HOME.pitch), normalise([-0.5, 0.8, 0.65]));
+  const GHOST_FADE = 450;
   const PUSH_SPEED = 0.0019;
   const SETTLE_TIME = 320;
   const SETTLE_DELAY = 180;
@@ -29,6 +46,7 @@
   const metaText = document.querySelector("#shape-meta");
   const hintText = document.querySelector("#hint");
   const stepText = document.querySelector("#step");
+  const resetViewButton = document.querySelector("#reset-view");
   const ratioText = document.querySelector("#ratio");
   const verdictText = document.querySelector("#verdict");
   const shapeBar = document.querySelector("#shapes");
@@ -61,8 +79,30 @@
     settle: null,
     settleDue: false,
     lastTurn: 0,
+    yaw: HOME.yaw,
+    pitch: HOME.pitch,
+    zoom: 1,
+    ghostStart: -Infinity,
+    grab: [],
     lastTime: performance.now()
   };
+
+  function viewFrom(yaw, pitch) {
+    return multiply(axisRotation([1, 0, 0], pitch), axisRotation([0, 1, 0], yaw));
+  }
+
+  // The camera orbits the plate. Its view matrix maps world to view coordinates.
+  function camera() {
+    const view = viewFrom(state.yaw, state.pitch);
+    const back = transpose(view);
+    return {
+      view,
+      position: apply(back, [0, 0, CAMERA]),
+      right: [view[0], view[1], view[2]],
+      up: [view[3], view[4], view[5]],
+      light: apply(back, LIGHT)
+    };
+  }
 
   function normalise(vector) {
     const size = Math.hypot(vector[0], vector[1], vector[2]) || 1;
@@ -111,6 +151,7 @@
     resetPush();
     if (state.phase === "hole") {
       state.phase = "copy";
+      state.ghostStart = performance.now();
       state.copy = multiply(axisRotation([1, 1, 0], 0.9), state.hole);
     } else {
       state.phase = "hole";
@@ -401,48 +442,47 @@
     return out;
   }
 
-  // The unit-scale screen box that holds the plate and the solid at both ends of its push.
-  const SCENE_BOUNDS = (() => {
-    const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
-    const add = (x, y) => {
-      box.minX = Math.min(box.minX, x);
-      box.maxX = Math.max(box.maxX, x);
-      box.minY = Math.min(box.minY, y);
-      box.maxY = Math.max(box.maxY, y);
-    };
-    for (const x of [-PLATE, PLATE]) {
-      for (const y of [-PLATE, PLATE]) {
-        const v = apply(VIEW, [x, y, 0]);
-        const f = CAMERA / (CAMERA - v[2]);
-        add(v[0] * f, v[1] * f);
-      }
+  function worldPoints(solid, rotation, offset) {
+    return solid.vertices.map(point => {
+      const p = apply(rotation, point);
+      return [p[0] + offset[0], p[1] + offset[1], p[2] + offset[2]];
+    });
+  }
+
+  // Each face with its outward normal, and whether it faces the camera.
+  function facesOf(solid, world, cam) {
+    return solid.facets.map(facet => {
+      const points = facet.map(index => world[index]);
+      const normal = normalise(cross(subtract(points[1], points[0]), subtract(points[2], points[0])));
+      return { points, normal, front: dot(normal, subtract(cam.position, points[0])) > 0 };
+    });
+  }
+
+  function zRange(points) {
+    let low = Infinity;
+    let high = -Infinity;
+    for (const point of points) {
+      low = Math.min(low, point[2]);
+      high = Math.max(high, point[2]);
     }
-    for (const z of [START, END]) {
-      const v = apply(VIEW, [0, 0, z]);
-      const f = CAMERA / (CAMERA - v[2]);
-      add((v[0] - 1) * f, (v[1] - 1) * f);
-      add((v[0] + 1) * f, (v[1] + 1) * f);
-    }
-    return box;
-  })();
+    return [low, high];
+  }
 
   function drawScene(time) {
     const ratio = resize(sceneCanvas);
     const context = sceneCanvas.getContext("2d");
     const width = sceneCanvas.width;
     const height = sceneCanvas.height;
-    const box = SCENE_BOUNDS;
-    const top = height * 0.1;
-    const scale = Math.min(
-      (width * 0.9) / (box.maxX - box.minX),
-      (height * 0.84 - top) / (box.maxY - box.minY)
-    );
+    const cam = camera();
+    const top = height * 0.08;
+    // The scale fits the starting view and stays fixed while the camera orbits.
+    const scale = state.zoom * Math.min(width * 0.47 / HOME_REACH.x, (height - top) * 0.45 / HOME_REACH.y);
     const since = time - state.shake;
     const shake = since < 360 && !reducedMotion ? Math.sin(since / 22) * (1 - since / 360) * 5 * ratio : 0;
-    const originX = width / 2 - (box.minX + box.maxX) / 2 * scale + shake;
-    const originY = top + (height - top) / 2 + (box.minY + box.maxY) / 2 * scale;
+    const originX = width / 2 + shake;
+    const originY = top + (height - top) / 2;
     const screen = point => {
-      const v = apply(VIEW, point);
+      const v = apply(cam.view, point);
       const f = CAMERA / (CAMERA - v[2]);
       return [originX + v[0] * f * scale, originY - v[1] * f * scale];
     };
@@ -452,50 +492,91 @@
     const copyPhase = state.phase === "copy";
     const rotation = copyPhase ? state.copy : state.hole;
     const offset = copyPhase ? [state.shift[0], state.shift[1], state.depth] : [0, 0, START];
-    const world = solid.vertices.map(point => {
-      const p = apply(rotation, point);
-      return [p[0] + offset[0], p[1] + offset[1], p[2] + offset[2]];
-    });
+    const world = worldPoints(solid, rotation, offset);
+    const solidFaces = facesOf(solid, world, cam).filter(face => face.front);
+    state.grab = Shadow.hull(world.map(screen));
+
+    const ghostWorld = copyPhase ? worldPoints(solid, state.hole, [0, 0, 0]) : null;
+    const ghostFaces = ghostWorld ? facesOf(solid, ghostWorld, cam) : [];
+    const fade = Math.min(1, Math.max(0, (time - state.ghostStart) / GHOST_FADE));
+
+    context.clearRect(0, 0, width, height);
+    context.lineJoin = "round";
 
     // A convex solid shows only its front faces, and they never overlap.
-    const faces = [];
-    for (const facet of solid.facets) {
-      const points = facet.map(index => world[index]);
-      const normal = normalise(cross(subtract(points[1], points[0]), subtract(points[2], points[0])));
-      if (dot(normal, subtract(CAMERA_POSITION, points[0])) <= 0) continue;
-      const brightness = Math.max(0, dot(normal, LIGHT));
-      const lightness = 26 + brightness * 34 + (normal[0] + 1) * 2.5;
-      faces.push({ points, fill: `hsl(${solid.hue + normal[1] * 12} 55% ${lightness}%)` });
-    }
-    const edgeColour = `hsl(${solid.hue} 90% 88% / .28)`;
-    const drawFaces = side => {
-      context.lineJoin = "round";
+    const drawSolid = side => {
       context.lineWidth = Math.max(0.65 * ratio, 1);
-      context.strokeStyle = edgeColour;
-      for (const face of faces) {
+      context.strokeStyle = `hsl(${solid.hue} 90% 88% / .28)`;
+      for (const face of solidFaces) {
         const part = clipAtPlate(face.points, side);
         if (part.length < 3) continue;
+        const brightness = Math.max(0, dot(face.normal, cam.light));
+        const lightness = 26 + brightness * 34 + (dot(face.normal, cam.right) + 1) * 2.5;
         context.beginPath();
         trace(context, part.map(screen));
-        context.fillStyle = face.fill;
+        context.fillStyle = `hsl(${solid.hue + dot(face.normal, cam.up) * 12} 55% ${lightness}%)`;
         context.fill();
         context.stroke();
       }
     };
 
-    context.clearRect(0, 0, width, height);
+    // The ghost is glass: a faint tint on its near faces and fine lines on its far ones.
+    const drawGhost = (side, front) => {
+      context.lineWidth = Math.max(0.8 * ratio, 1);
+      context.strokeStyle = `rgba(226, 238, 252, ${(front ? 0.42 : 0.14) * fade})`;
+      context.fillStyle = `rgba(214, 230, 250, ${0.07 * fade})`;
+      for (const face of ghostFaces) {
+        if (face.front !== front) continue;
+        const part = clipAtPlate(face.points, side);
+        if (part.length < 3) continue;
+        context.beginPath();
+        trace(context, part.map(screen));
+        if (front) context.fill();
+        context.stroke();
+      }
+    };
 
-    // Behind the plate, then the plate, then in front of it.
-    drawFaces(-1);
+    // Draw the copy and the ghost in depth order. Two solids on either side of a
+    // plane z = c are ordered by the camera's side of that plane. Where they
+    // overlap in z, the copy goes between the ghost's far and near faces.
+    const copyRange = zRange(world);
+    const ghostRange = ghostWorld ? zRange(ghostWorld) : null;
+    const drawHalf = side => {
+      if (!ghostWorld) {
+        drawSolid(side);
+        return;
+      }
+      let copyNearer = null;
+      if (copyRange[0] >= ghostRange[1]) copyNearer = cam.position[2] > (copyRange[0] + ghostRange[1]) / 2;
+      else if (copyRange[1] <= ghostRange[0]) copyNearer = cam.position[2] < (copyRange[1] + ghostRange[0]) / 2;
+      if (copyNearer === true) {
+        drawGhost(side, false);
+        drawGhost(side, true);
+        drawSolid(side);
+      } else if (copyNearer === false) {
+        drawSolid(side);
+        drawGhost(side, false);
+        drawGhost(side, true);
+      } else {
+        drawGhost(side, false);
+        drawSolid(side);
+        drawGhost(side, true);
+      }
+    };
+
+    // The far side of the plate, then the plate, then the near side.
+    const near = cam.position[2] >= 0 ? 1 : -1;
+    drawHalf(-near);
 
     const corners = onPlate([[-PLATE, -PLATE], [PLATE, -PLATE], [PLATE, PLATE], [-PLATE, PLATE]]);
     const hole = onPlate(state.holeShadow);
     const platePath = new Path2D();
     trace(platePath, corners);
     if (copyPhase) trace(platePath, hole);
+    const shade = copyPhase ? 0.74 : 0.9;
     const gradient = context.createLinearGradient(corners[3][0], corners[3][1], corners[1][0], corners[1][1]);
-    gradient.addColorStop(0, "rgba(52, 78, 108, .9)");
-    gradient.addColorStop(1, "rgba(24, 40, 61, .9)");
+    gradient.addColorStop(0, `rgba(52, 78, 108, ${shade})`);
+    gradient.addColorStop(1, `rgba(24, 40, 61, ${shade})`);
     context.fillStyle = gradient;
     context.fill(platePath, "evenodd");
     context.lineWidth = 1.2 * ratio;
@@ -525,7 +606,7 @@
       context.stroke();
     }
 
-    drawFaces(1);
+    drawHalf(near);
 
     if (state.jam && state.jam.slice.length > 2) {
       context.beginPath();
@@ -621,43 +702,137 @@
 
   let dragging = false;
 
-  function attachDrag(canvas, axes) {
+  // Is a canvas point inside the solid's outline? A small margin makes it easier to grab.
+  function onSolid(x, y) {
+    const outline = state.grab;
+    if (outline.length < 3) return false;
+    const centre = outline.reduce((sum, p) => [sum[0] + p[0] / outline.length, sum[1] + p[1] / outline.length], [0, 0]);
+    let sign = 0;
+    for (let i = 0; i < outline.length; i += 1) {
+      const a = outline[i].map((value, axis) => centre[axis] + (value - centre[axis]) * 1.08);
+      const b = outline[(i + 1) % outline.length].map((value, axis) => centre[axis] + (value - centre[axis]) * 1.08);
+      const turn = Math.sign((b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]));
+      if (turn && sign && turn !== sign) return false;
+      if (turn) sign = turn;
+    }
+    return true;
+  }
+
+  function orbit(dx, dy) {
+    state.yaw += dx;
+    state.pitch = Math.max(-1.25, Math.min(1.25, state.pitch + dy));
+    resetViewButton.hidden = false;
+  }
+
+  function zoomBy(factor) {
+    state.zoom = Math.max(0.5, Math.min(2.2, state.zoom * factor));
+    resetViewButton.hidden = false;
+  }
+
+  // On the 3D view, dragging the solid turns it, and dragging around it orbits the camera.
+  // On the view through the hole, every drag turns the solid.
+  function attachDrag(canvas, axes, canOrbit) {
     let last = null;
+    const canvasPoint = event => {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = canvas.width / Math.max(1, rect.width);
+      return [(event.clientX - rect.left) * ratio, (event.clientY - rect.top) * ratio];
+    };
+    const touches = new Map();
+    let pinch = 0;
+    const spread = () => {
+      const [a, b] = [...touches.values()];
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    };
     canvas.addEventListener("pointerdown", event => {
       canvas.setPointerCapture(event.pointerId);
-      last = { id: event.pointerId, x: event.clientX, y: event.clientY };
-      dragging = true;
-      state.spinning = false;
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (canOrbit && touches.size === 2) {
+        // A second finger turns the drag into a pinch zoom.
+        pinch = spread();
+        last = null;
+        dragging = false;
+        return;
+      }
+      const orbiting = canOrbit && !onSolid(...canvasPoint(event));
+      last = { id: event.pointerId, x: event.clientX, y: event.clientY, orbiting };
+      dragging = !orbiting;
+      if (!orbiting) state.spinning = false;
+      canvas.style.cursor = orbiting ? "move" : "grabbing";
     });
     canvas.addEventListener("pointermove", event => {
-      if (!last || event.pointerId !== last.id) return;
+      if (touches.has(event.pointerId)) touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pinch && touches.size === 2) {
+        const now = spread();
+        if (now > 0) zoomBy(now / pinch);
+        pinch = now;
+        return;
+      }
+      if (!last) {
+        if (canOrbit && event.pointerType === "mouse") {
+          canvas.style.cursor = onSolid(...canvasPoint(event)) ? "grab" : "move";
+        }
+        return;
+      }
+      if (event.pointerId !== last.id) return;
       const dx = event.clientX - last.x;
       const dy = event.clientY - last.y;
       last.x = event.clientX;
       last.y = event.clientY;
-      if (dx) turn(axes.up, dx * 0.009);
-      if (dy) turn(axes.right, dy * 0.009);
+      if (last.orbiting) {
+        orbit(dx * 0.008, dy * 0.008);
+        return;
+      }
+      const { up, right } = axes();
+      if (dx) turn(up, dx * 0.009);
+      if (dy) turn(right, dy * 0.009);
     });
     const end = event => {
+      touches.delete(event.pointerId);
+      if (touches.size < 2) pinch = 0;
       if (!last || event.pointerId !== last.id) return;
       last = null;
       dragging = false;
+      canvas.style.cursor = "";
     };
     canvas.addEventListener("pointerup", end);
     canvas.addEventListener("pointercancel", end);
+    if (canOrbit) {
+      canvas.addEventListener("wheel", event => {
+        event.preventDefault();
+        zoomBy(Math.exp(-event.deltaY * 0.0015));
+      }, { passive: false });
+    }
     canvas.addEventListener("keydown", event => {
       const change = 0.09;
-      if (event.key === "ArrowLeft") turn(axes.up, -change);
-      else if (event.key === "ArrowRight") turn(axes.up, change);
-      else if (event.key === "ArrowUp") turn(axes.right, -change);
-      else if (event.key === "ArrowDown") turn(axes.right, change);
-      else return;
+      const keys = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      if (canOrbit && (event.key === "+" || event.key === "=" || event.key === "-")) {
+        event.preventDefault();
+        zoomBy(event.key === "-" ? 1 / 1.1 : 1.1);
+        return;
+      }
+      const step = keys[event.key];
+      if (!step) return;
       event.preventDefault();
+      if (canOrbit && event.shiftKey) {
+        orbit(step[0] * change, step[1] * change);
+        return;
+      }
+      const { up, right } = axes();
+      if (step[0]) turn(up, step[0] * change);
+      if (step[1]) turn(right, step[1] * change);
     });
   }
 
-  attachDrag(sceneCanvas, { up: SCREEN_UP, right: SCREEN_RIGHT });
-  attachDrag(fitCanvas, { up: [0, 1, 0], right: [1, 0, 0] });
+  attachDrag(sceneCanvas, () => camera(), true);
+  attachDrag(fitCanvas, () => ({ up: [0, 1, 0], right: [1, 0, 0] }), false);
+
+  resetViewButton.addEventListener("click", () => {
+    state.yaw = HOME.yaw;
+    state.pitch = HOME.pitch;
+    state.zoom = 1;
+    resetViewButton.hidden = true;
+  });
 
   // C11 leads, then C15, then the comparison solids, with a divider between groups.
   const order = Object.keys(DEFINITIONS).sort((a, b) =>
