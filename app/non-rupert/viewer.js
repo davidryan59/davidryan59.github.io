@@ -30,9 +30,12 @@
     const context = canvas.getContext("2d");
     const spinButton = card.querySelector(".spin-button");
     const resetButton = card.querySelector(".reset-button");
+    const edgeColour = `hsl(${model.hue} 90% 87% / .27)`;
+    const glowColour = `hsl(${model.hue} 68% 62% / .15)`;
+    card.style.setProperty("--hue", model.hue);
     const state = {
       rx: -0.35,
-      ry: model.key === "c13" ? 0.55 : 0.77,
+      ry: model.turn,
       zoom: 1,
       spinning: !reducedMotion,
       dragging: false,
@@ -45,13 +48,13 @@
     function setSpin(spinning) {
       state.spinning = spinning;
       spinButton.setAttribute("aria-pressed", String(spinning));
-      spinButton.setAttribute("aria-label", `${spinning ? "Pause" : "Resume"} ${model.key.toUpperCase()} rotation`);
+      spinButton.setAttribute("aria-label", `${spinning ? "Pause" : "Resume"} rotation of the ${model.name}`);
       spinButton.querySelector(".control-label").textContent = spinning ? "Pause" : "Spin";
     }
 
     function reset() {
       state.rx = -0.35;
-      state.ry = model.key === "c13" ? 0.55 : 0.77;
+      state.ry = model.turn;
       state.zoom = 1;
     }
 
@@ -120,9 +123,7 @@
         context.closePath();
         context.fillStyle = `hsl(${hue} 55% ${lightness}%)`;
         context.fill();
-        context.strokeStyle = model.key === "c13"
-          ? "rgba(183, 246, 236, .28)"
-          : "rgba(224, 205, 255, .25)";
+        context.strokeStyle = edgeColour;
         context.lineWidth = Math.max(0.65 * ratio, 1);
         context.stroke();
       }
@@ -131,7 +132,7 @@
         centreX, centreY + scale * 1.02, 0,
         centreX, centreY + scale * 1.02, scale * .72
       );
-      glow.addColorStop(0, model.key === "c13" ? "rgba(82, 221, 207, .16)" : "rgba(174, 122, 231, .14)");
+      glow.addColorStop(0, glowColour);
       glow.addColorStop(1, "rgba(0, 0, 0, 0)");
       context.save();
       context.globalCompositeOperation = "destination-over";

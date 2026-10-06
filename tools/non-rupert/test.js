@@ -8,9 +8,10 @@ const {
   subtract
 } = require("../../app/non-rupert/models.js");
 
+// SciPy's ConvexHull gives the same counts for both models.
 const expectations = {
-  c13: { vertices: 78, facets: 132, triangles: 152, cap: 13 },
-  c11: { vertices: 66, facets: 112, triangles: 128, cap: 11 }
+  c15: { vertices: 90, facets: 152, triangles: 176, cap: 15 },
+  c11: { vertices: 88, facets: 156, triangles: 172, cap: 11 }
 };
 
 for (const [key, expected] of Object.entries(expectations)) {

@@ -10,8 +10,8 @@ address, `davidryan59.github.io`, redirects there.
   - `app/e8/` – a direct-manipulation explorer for all 240 roots and 6,720
     edges of E8. Rotate its 2D projection through eight dimensions or grab
     one root and pull the complete system. See [docs/e8-explorer.md](docs/e8-explorer.md).
-  - `app/non-rupert/` – interactive 3D views of the C13 and C11 numerical
-    non-Rupert candidates. See [docs/non-rupert-candidates.md](docs/non-rupert-candidates.md).
+  - `app/non-rupert/` – interactive 3D views of the C15 Noperthedron and an
+    88-vertex C11 solid from a non-Rupert search. See [docs/non-rupert-candidates.md](docs/non-rupert-candidates.md).
   - `app/noble/` – a 3D explorer for the two infinite families and all 146
     exceptional noble polyhedra. Select any face, isolate its neighbours and
     combine solid, glass, X-ray, wire, exploded and cutaway views. See
@@ -90,7 +90,7 @@ there first, then render it into `index.html`.
 - [docs/site-layout.md](docs/site-layout.md) – how the site is filed, and the addresses that must keep working
 - [docs/e8-explorer.md](docs/e8-explorer.md) – the E8 roots, projection model, direct manipulation and structural views
 - [docs/noble-polyhedra.md](docs/noble-polyhedra.md) – the 3D noble polyhedra explorer, model data and view controls
-- [docs/non-rupert-candidates.md](docs/non-rupert-candidates.md) – the two numerical non-Rupert candidates and their 3D viewer
+- [docs/non-rupert-candidates.md](docs/non-rupert-candidates.md) – the Noperthedron, the 88-vertex C11 solid and their 3D viewer
 - [docs/screen-fit.md](docs/screen-fit.md) – how a game or app fills a monitor, a laptop, an iPad and a phone, and how to check it
 - [docs/tiling-explorer.md](docs/tiling-explorer.md) – how the Hat and Spectre viewers work
 - [docs/aperiodic-pairs.md](docs/aperiodic-pairs.md) – how each gallery tiling is generated and checked

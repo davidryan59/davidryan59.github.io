@@ -136,21 +136,17 @@ canvas:focus-visible {
   background: var(--line);
 }
 
+/* viewer.js sets --hue from each model's definition. */
 .model-card {
+  --hue: 205;
   position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   isolation: isolate;
   background:
-    radial-gradient(circle at 50% 46%, rgba(51, 107, 143, .22), transparent 44%),
+    radial-gradient(circle at 50% 46%, hsl(var(--hue) 45% 42% / .2), transparent 44%),
     linear-gradient(150deg, #0c1a2b, #07111e 62%, #091522);
-}
-
-.model-card--c11 {
-  background:
-    radial-gradient(circle at 50% 46%, rgba(133, 80, 155, .19), transparent 44%),
-    linear-gradient(150deg, #11172a, #090f1e 62%, #121323);
 }
 
 .model-card::after {
@@ -188,8 +184,8 @@ canvas:active {
   text-shadow: 0 2px 18px rgba(0, 0, 0, .65);
 }
 
-.model-card--c11 .status {
-  color: #c5a4f2;
+.model-card .status {
+  color: hsl(var(--hue) 68% 72%);
 }
 
 .model-copy h2 {
@@ -261,6 +257,10 @@ footer {
   text-align: center;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+footer sub {
+  line-height: 0;
 }
 
 @media (orientation: portrait) {
