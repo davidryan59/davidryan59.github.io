@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A two-parameter family of polygonal Spectres</title>
+<meta name="description" content="A pre-print by David Ryan. Put a triangle on each edge of Tile(1,1), and the 27-sided result is a strictly chiral aperiodic monotile for every triangle below a height bound.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://drbuild.uk/papers/polygonal-spectre/">
+<meta property="og:title" content="A two-parameter family of polygonal Spectres">
+<meta property="og:description" content="A pre-print, Draft 2. Put a triangle on each edge of Tile(1,1), and the 27-sided result tiles the plane only chirally and aperiodically, for every triangle below a height bound.">
+<meta property="og:image" content="https://drbuild.uk/social/polygonal-spectre-paper.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The title Polygonal Spectres beside the first page of the paper, Draft 2">
+<meta name="twitter:image:alt" content="The title Polygonal Spectres beside the first page of the paper, Draft 2">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../../assets/site.css">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../../index.html">← David Ryan's builder page</a>
+
+<h1>A two-parameter family of polygonal Spectres</h1>
+<p class="tagline">A pre-print by David Ryan. Draft 2, 2026&#8209;09&#8209;25.</p>
+
+<p><strong><a target="_blank" rel="noopener" href="draft-2.pdf">Read Draft 2 (PDF, 15 pages)</a></strong></p>
+
+<h2>Abstract</h2>
+<p>
+  Smith, Myers, Kaplan and Goodman-Strauss showed that the equilateral polygon
+  Tile(1,&nbsp;1) is a weakly chiral aperiodic monotile, and that replacing its
+  edges by suitable smooth curves gives the Spectres: shapes that tile the
+  plane, but only non-periodically and only with copies of one handedness,
+  even when reflected copies are allowed. They left open whether
+  piecewise-linear edge paths might permit other tilings. Goucher gave a short
+  argument that one equilateral 28-edge polygon is a Spectre. We extend this to
+  a two-parameter family. Replace each edge of Tile(1,&nbsp;1) by a triangular
+  bump or dent, alternating around the tile. The result is a polygon with 27
+  sides. It is a Spectre for every position of the triangle's peak along the
+  edge and every height below an explicit bound. The family contains
+  Goucher's polygon. In general the sides of our polygons have two lengths, so
+  a corner of one tile could lie inside a side of another. The proof follows
+  Goucher's plan, and is elementary apart from a short computer search for one
+  pair of tiles. Angle sums and side lengths show that the corners of
+  Tile(1,&nbsp;1) with angles 2π/3 and 4π/3 meet only each other. This pairs
+  every bump with a dent, and every tiling by the polygon then straightens
+  into a tiling by unreflected copies of Tile(1,&nbsp;1).
+</p>
+
+<h2>Drafts</h2>
+<p>
+  Each draft keeps its own address, and the newest is listed first.
+  <a target="_blank" rel="noopener" href="../polygonal-spectre.pdf">drbuild.uk/papers/polygonal-spectre.pdf</a>
+  always holds the newest draft.
+</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Draft</th><th>Date</th><th>Changes</th></tr></thead>
+  <tbody>
+    <tr><td class="id"><a target="_blank" rel="noopener" href="draft-2.pdf">Draft 2</a></td><td class="id">2026&#8209;09&#8209;25</td><td>Credits Goucher's 2023 proof for one such polygon, and extends it to every height below the bound with no exceptions</td></tr>
+    <tr><td class="id"><a target="_blank" rel="noopener" href="draft-1.pdf">Draft 1</a></td><td class="id">2026&#8209;09&#8209;25</td><td>First version. Its claim to the first proof that a polygon can be a Spectre was wrong</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Ancillary files</h2>
+<ul class="links">
+  <li><a href="../verify-polygonal-spectre.py">verify-polygonal-spectre.py</a> recomputes, in exact arithmetic, the facts about one tile that the paper uses</li>
+  <li><a href="../search-exceptional-tile.py">search-exceptional-tile.py</a> runs the computer search for the two tiles X(2/7,&nbsp;±√3/7), from Draft 2</li>
+</ul>
+
+<h2>Links</h2>
+<ul class="links">
+  <li><a href="../../app/tiles/spectre/index.html">Aperiodic Tiling Explorer</a>, where you can draw the Spectre with triangle edges</li>
+  <li><a target="_blank" rel="noopener" href="https://x.com/apgox/status/1663525044050436097">Adam Goucher's 2023 proof</a> for a single polygonal Spectre</li>
+  <li><a href="../../index.html">David Ryan's builder page</a></li>
+</ul>
+
+<script>Theme.wireThemeToggle();</script>
+
+</body>
+</html>

@@ -58,7 +58,9 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/merge-fractals/` | Links to the mint page | `merge-fractals/index.html` |
 | `/audits/weth9/`, `/audits/uniswap-v2/`, `/audits/dai/`, `/audits/permit2/` | Posts and CVs that cite an audit | `audits/<name>/index.html` |
 | `/guides/salary-loan/` | Posts that link the guide | `guides/salary-loan/index.html` |
-| `/papers/polygonal-spectre.pdf` | Posts about the paper | `papers/` |
+| `/papers/polygonal-spectre.pdf`, `/papers/undecanope.pdf` | Posts about each paper. Always the newest draft | `papers/` |
+| `/papers/polygonal-spectre/`, `/papers/undecanope/` | The paper pages, which carry the share cards. Share these | `papers/<name>/index.html` |
+| `/papers/<name>/draft-<n>.pdf` | Each draft, kept as it was published | `papers/<name>/` |
 | `/e8` | A short address for the E8 Root System Explorer | `redirects/e8.html` |
 | `/noble` | The Noble Polyhedra video and other shared links | `redirects/noble.html` |
 | `/nonrup` | A short address for the Non-Rupert Polyhedra Explorer | `redirects/nonrup.html` |
@@ -114,6 +116,22 @@ permalink page, because it sits in the folder it serves.
    with `permalink: /<name>/`.
 5. Push, wait for GitHub Pages to build (about a minute), then run the
    checker.
+
+## Publishing a paper
+
+A PDF carries no share card, so a paper that people will share gets a page.
+`papers/<name>/index.html` holds the title, the status, the abstract, the
+list of drafts and the `og:` tags. Each draft lives at
+`papers/<name>/draft-<n>.pdf` and never changes once published, as on arXiv.
+`papers/<name>.pdf` is a copy of the newest draft, so one address always
+gives the current version. To publish a new draft, add `draft-<n>.pdf`, copy
+it over `papers/<name>.pdf`, add a row to the page's table, and redraw the
+card with `tools/papers/card.js`. While a draft is still being finished, its
+`draft-<n>.pdf` may be replaced; once the next draft is published it is
+frozen.
+
+The ancillary files of the Polygonal Spectre paper stay at
+`papers/<file>.py`, the addresses the paper prints.
 
 ## Checking
 

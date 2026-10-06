@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Undecanope: an 88-vertex convex polyhedron without Rupert's property</title>
+<meta name="description" content="A pre-print by David Ryan. The Undecanope has 88 vertices, rotation group C11 and point symmetry, and a computer-assisted proof shows that it is not Rupert.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://drbuild.uk/papers/undecanope/">
+<meta property="og:title" content="The Undecanope: an 88-vertex convex polyhedron without Rupert's property">
+<meta property="og:description" content="A pre-print, Draft 1. The Undecanope has 88 vertices and C11 symmetry, and a computer-assisted proof shows that no copy of it can pass through a hole cut in it.">
+<meta property="og:image" content="https://drbuild.uk/social/undecanope-paper.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The title The Undecanope beside the first page of the paper, Draft 1">
+<meta name="twitter:image:alt" content="The title The Undecanope beside the first page of the paper, Draft 1">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../../assets/site.css">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../../index.html">← David Ryan's builder page</a>
+
+<h1>The Undecanope: an 88-vertex convex polyhedron without Rupert's property</h1>
+<p class="tagline">A pre-print by David Ryan. Draft 1, 2026&#8209;10&#8209;06.</p>
+
+<p><strong><a target="_blank" rel="noopener" href="draft-1.pdf">Read Draft 1 (PDF, 18 pages)</a></strong></p>
+
+<div class="panel">
+  <h2>Status</h2>
+  <p>
+    This draft has not been peer-reviewed. The proof is computer-assisted. The
+    new results of Sections 3 to 6 have passed numerical tests, but no
+    one outside this project has checked them, and nothing here is formalised
+    in Lean. Corrections are welcome.
+  </p>
+</div>
+
+<h2>Abstract</h2>
+<p>
+  A convex polyhedron is Rupert if a hole can be cut through it that lets a
+  congruent copy pass. Steininger and Yurkevich constructed the Noperthedron, a
+  90-vertex polyhedron that is not Rupert, with rotation group C<sub>15</sub>
+  and point symmetry. We construct a second solid of this kind, the Undecanope.
+  It has 88 vertices, rotation group C<sub>11</sub> and point symmetry, and we
+  prove that it is not Rupert. Near poses where the two shadows coincide, the
+  published method needs three shadow vertices with a radial property. The
+  Undecanope has a band of views where no such triple exists. We prove a local
+  theorem that uses every shadow vertex with both of its edge normals instead.
+  It has a first-order form and a second-order form, and both have exact
+  rational versions. An exact replay of a cover of the pose space by 3.4
+  million boxes completes the proof. We also show that a negative first-order
+  depth at a generic view makes a point-symmetric solid locally Rupert.
+</p>
+
+<h2>Drafts</h2>
+<p>
+  Each draft keeps its own address, and the newest is listed first.
+  <a target="_blank" rel="noopener" href="../undecanope.pdf">drbuild.uk/papers/undecanope.pdf</a> always
+  holds the newest draft.
+</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Draft</th><th>Date</th><th>Changes</th></tr></thead>
+  <tbody>
+    <tr><td class="id"><a target="_blank" rel="noopener" href="draft-1.pdf">Draft 1</a></td><td class="id">2026&#8209;10&#8209;06</td><td>First version</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Use of AI</h2>
+<p>
+  AI models did most of the computation and mathematics under my direction.
+  The work started in OpenAI's Codex with GPT-5.6 Sol, whose search found the
+  Undecanope's coordinates. It finished in Anthropic's Claude Code with Claude
+  Opus 5.5, which proved the new local theorems, built the certificate and
+  drafted the paper. The acknowledgements give the full split.
+</p>
+
+<h2>Links</h2>
+<ul class="links">
+  <li><a href="../../app/nonrup/index.html">Non-Rupert Polyhedra Explorer</a>, where you can try to pass the Undecanope through itself</li>
+  <li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2508.18475">Steininger and Yurkevich, <em>A convex polyhedron without Rupert's property</em></a>, the Noperthedron paper</li>
+  <li><a target="_blank" rel="noopener" href="https://github.com/jcreedcmu/Noperthedron">Reed and Renshaw's Lean formalisation of the Noperthedron</a></li>
+  <li><a href="../../index.html">David Ryan's builder page</a></li>
+</ul>
+
+<script>Theme.wireThemeToggle();</script>
+
+</body>
+</html>

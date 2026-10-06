@@ -119,6 +119,26 @@ The share card, `social/nonrup.jpg`, comes from the real app. [`tools/non-rupert
 NODE_PATH=tools/tiling-video/node_modules node tools/non-rupert/card.js
 ```
 
+## The paper
+
+The explorer's builder-page entry links to the Undecanope paper, which sits
+first under Pre-prints. Its page, `papers/undecanope/index.html`, carries
+the status, the abstract and the list of drafts, as
+[site-layout.md](site-layout.md#publishing-a-paper) describes. The paper's
+source and build live in the author's research repository, and only the
+built PDF comes here.
+
+The paper's share card, `social/undecanope-paper.jpg`, shows the title
+beside the first page of `papers/undecanope.pdf`. Redraw it after each new
+draft. It needs Poppler's `pdftoppm`:
+
+```sh
+NODE_PATH=tools/tiling-video/node_modules node tools/papers/card.js undecanope
+```
+
+The Pre-prints thumbnail, `assets/thumbs/undecanope.svg`, is a still drawn by
+[`tools/thumbnails/undecanope.js`](../tools/thumbnails/undecanope.js).
+
 ## Checks
 
 Run the geometry and fit checks with:
