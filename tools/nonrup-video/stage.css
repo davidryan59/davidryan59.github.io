@@ -1,0 +1,203 @@
+/* The video's layout of the Non-Rupert Polyhedra Explorer. render.js adds
+   this to the real page, app/nonrup/, at 540 CSS px square, drawn at twice
+   the density for 1080 px of video. It moves the app's own parts and hides
+   the header, the footer, the hint, the legend and the solid's name; the
+   captions carry the story instead. Everything that moves is the app's own.
+
+     8–54     the row of solids, the full width, cut off at the right
+     62–94    the action buttons, and the address at the right
+     104–540  the 3D view, with the captions over its top, the pass ratio
+              at top right and the view through the hole at top left */
+
+html, body {
+  width: 540px !important;
+  height: 540px !important;
+  min-height: 0 !important;
+}
+
+body {
+  display: block !important;
+  position: relative !important;
+}
+
+.topbar, footer, .hint, .scene-copy, .scene-tip, .view-reset, .legend {
+  display: none !important;
+}
+
+.stage, .play, .fit-panel {
+  display: block !important;
+  position: absolute !important;
+  inset: 0 !important;
+  padding: 0 !important;
+}
+
+.stage, .fit-panel {
+  background: none !important;
+}
+
+/* The pass ratio and the view through the hole sit over the 3D view, and
+   pass the mouse through everywhere else. */
+.fit-panel {
+  pointer-events: none;
+}
+
+.fit-panel > * {
+  pointer-events: auto;
+}
+
+.shapes {
+  position: absolute !important;
+  left: 0;
+  right: 0;
+  top: 8px;
+  padding: 0 10px !important;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 34px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 34px), transparent);
+}
+
+.steps {
+  position: absolute !important;
+  left: 0;
+  top: 62px;
+  display: block !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+}
+
+.actions {
+  display: flex !important;
+}
+
+.action {
+  flex: none !important;
+  height: 32px !important;
+  padding: 0 14px !important;
+  font-size: 12.5px !important;
+}
+
+.action-gap {
+  display: block !important;
+  width: 6px !important;
+}
+
+.scene-card {
+  position: absolute !important;
+  left: 0;
+  right: 0;
+  top: 104px;
+  bottom: 0;
+}
+
+.readout {
+  position: absolute !important;
+  right: 12px;
+  top: 182px;
+  min-height: 0 !important;
+  gap: 10px !important;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(6, 13, 24, .8);
+}
+
+.ratio {
+  font-size: 22px !important;
+}
+
+.verdict {
+  margin-left: 0 !important;
+  padding: 4px 9px !important;
+  font-size: 10.5px !important;
+}
+
+.fit-wrap {
+  position: absolute !important;
+  left: 12px;
+  top: 182px;
+  width: 136px;
+  height: 126px;
+}
+
+/* In so small a view, the hole sits below its label rather than under it. */
+#fit {
+  top: 18px !important;
+  height: auto !important;
+}
+
+.fit-caption {
+  top: 8px !important;
+  left: 10px !important;
+  font-size: 7.5px !important;
+  letter-spacing: .1em !important;
+}
+
+/* The video's own layer: captions, address and pointer. It never takes
+   the mouse. */
+.video-layer {
+  position: absolute;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.video-card {
+  border: 1px solid rgba(190, 214, 242, .2);
+  border-radius: 12px;
+  background: rgba(7, 15, 27, .9);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, .55);
+}
+
+/* The address, clear of the badges X puts in the bottom corners. */
+.video-address {
+  right: 12px;
+  top: 64px;
+  height: 28px;
+  padding: 0 13px;
+  border-radius: 999px;
+  color: #eef5ff;
+  font: 12.5px/26px Georgia, "Times New Roman", serif;
+  white-space: nowrap;
+}
+
+.video-caption {
+  top: 112px;
+  max-width: 500px;
+  padding: 8px 18px 10px;
+  text-align: center;
+  visibility: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.video-caption .main {
+  color: #e6eef8;
+  font-size: 19px;
+  line-height: 1.26;
+  text-wrap: balance;
+}
+
+.video-caption .sub {
+  margin-top: 3px;
+  color: #a3b4c9;
+  font-size: 12.5px;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.video-caption.title .main {
+  color: #f5f8fc;
+  font-size: 24px;
+}
+
+.video-pointer {
+  left: 0;
+  top: 0;
+  z-index: 60;
+  transform-origin: 3px 3px;
+  filter: drop-shadow(0 1.5px 2px rgba(0, 0, 0, .6));
+}
+
+.video-ripple {
+  z-index: 59;
+  border: 1.5px solid rgba(245, 248, 252, .9);
+  border-radius: 50%;
+  visibility: hidden;
+}

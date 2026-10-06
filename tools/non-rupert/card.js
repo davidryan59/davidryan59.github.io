@@ -65,7 +65,7 @@ function serve() {
     await page.evaluate(() => {
       document.body.insertAdjacentHTML('beforeend', '<div class="share-shade"></div><div class="share-copy">' +
         '<div class="eyebrow">Non-Rupert Polyhedra Explorer</div><h1>The<br>Undecanope</h1>' +
-        '<p>A candidate non-Rupert polyhedron: C<sub>11</sub> symmetry, 88 vertices. Can a copy pass through a hole cut in it?</p>' +
+        '<p>A non-Rupert polyhedron with only 88 vertices. Try to pass a copy through a hole cut in it.</p>' +
         '<div class="site">drbuild.uk/nonrup</div></div>');
       window.dispatchEvent(new Event('resize'));
     });
