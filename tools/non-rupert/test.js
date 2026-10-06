@@ -6,7 +6,7 @@ const {
   buildModel,
   dot,
   subtract
-} = require("../../app/non-rupert/models.js");
+} = require("../../app/nonrup/models.js");
 
 // SciPy's ConvexHull gives the same counts for both models.
 const expectations = {
@@ -47,7 +47,7 @@ for (const [key, expected] of Object.entries(expectations)) {
   console.log(`${key}: ${model.vertices.length} vertices, ${model.facets.length} outward faces`);
 }
 
-const Shadow = require("../../app/non-rupert/shadow.js");
+const Shadow = require("../../app/nonrup/shadow.js");
 const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
 for (const key of Object.keys(DEFINITIONS)) {
@@ -79,6 +79,11 @@ for (const key of Object.keys(DEFINITIONS).filter(key => DEFINITIONS[key].passag
   }
   console.log(`${key}: passage with pass ratio ${fit.scale.toFixed(6)}`);
 }
+
+// A narrow passage still counts as a pass, and a near miss as sticking out.
+assert.equal(Shadow.classify(1.0000481), "passes", "a passage 4.8e-5 above 1 passes");
+assert.equal(Shadow.classify(0.9999997), "sticks", "a near miss 3e-7 below 1 sticks out");
+assert.equal(Shadow.classify(1 + 1e-12), "touches", "rounding error at 1 counts as a touch");
 
 // The cube's best passage has pass ratio 3√2/4.
 {

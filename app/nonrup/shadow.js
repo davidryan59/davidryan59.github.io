@@ -5,8 +5,10 @@
 }(typeof self !== "undefined" ? self : this, function makeShadow() {
   "use strict";
 
-  // A pass ratio within this margin of 1 shows as 1.0000, so it counts as a touch.
-  const MARGIN = 5e-5;
+  // A pass ratio within this margin of 1 counts as a touch. It sits far above
+  // rounding error, about 1e-15, and far below the narrowest real passages,
+  // which clear 1 by about 5e-5.
+  const MARGIN = 1e-8;
   const clock = typeof performance !== "undefined" ? performance : Date;
 
   // A 3x3 matrix is a flat array of nine numbers in row order.

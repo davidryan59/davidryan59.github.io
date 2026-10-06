@@ -374,6 +374,7 @@
       const tried = `The best of ${count(state.searched)} pairs of views`;
       if (state.verdict === "passes") return ["2", `${tried} has room to spare. Push it through.`];
       if (state.verdict === "touches") return ["2", `${tried} lines the copy up with the hole, so it only touches the rim.`];
+      if (state.fit.scale > 1 - 1e-3) return ["2", `${tried} lines the copy up with the hole, and it still sticks out.`];
       return ["2", `${tried} still sticks out.`];
     }
     if (state.note === "passage") return ["2", "These views leave room to spare. Push the copy through."];
@@ -387,7 +388,8 @@
     stepText.textContent = step;
     hintText.textContent = text;
     if (state.phase === "copy" && state.fit) {
-      ratioText.textContent = state.fit.scale.toFixed(4);
+      // Near 1, four decimals would hide the difference between a touch and a narrow pass.
+      ratioText.textContent = state.fit.scale.toFixed(Math.abs(state.fit.scale - 1) < 1e-3 ? 7 : 4);
       verdictText.hidden = false;
       verdictText.dataset.verdict = state.verdict;
       verdictText.textContent = VERDICTS[state.verdict];
@@ -834,7 +836,7 @@
     resetViewButton.hidden = true;
   });
 
-  // C11 leads, then C15, then the comparison solids, with a divider between groups.
+  // The Undecanope (C11) leads, then the Noperthedron (C15), then the comparison solids, with a divider between groups.
   const order = Object.keys(DEFINITIONS).sort((a, b) =>
     (DEFINITIONS[a].featured || 99) - (DEFINITIONS[b].featured || 99));
   let lastGroup = null;

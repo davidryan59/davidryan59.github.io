@@ -1,15 +1,15 @@
-# Through its own shadow: the non-Rupert app
+# Non-Rupert Polyhedra Explorer
 
 ## Summary
 
 A solid is Rupert when a hole can be cut through it that a copy of the same solid passes through. The test reduces to shadows. The hole is the solid's shadow in one view. The copy passes when its shadow in another view, turned and slid in the plane, fits strictly inside that hole. A solid is non-Rupert when no pair of views works.
 
-The app at `app/non-rupert/` lets a visitor run that test. They turn a solid and cut its shadow out of a plate as a hole. Then they turn a copy and push it through. The five Platonic solids, the buckyball and three cuboids have views that pass. The 90-vertex C15 Noperthedron of Steininger and Yurkevich and an 88-vertex C11 solid from a search for its smaller relatives are the contrast. The page uses no external libraries.
+The app at `app/nonrup/`, served at `drbuild.uk/app/nonrup/` with the short address `drbuild.uk/nonrup`, lets a visitor run that test. They turn a solid and cut its shadow out of a plate as a hole. Then they turn a copy and push it through. The five Platonic solids, the buckyball and three cuboids have views that pass. The 90-vertex C15 Noperthedron of Steininger and Yurkevich and the Undecanope, an 88-vertex C11 solid from a search for its smaller relatives, are the contrast. The page calls the Undecanope a candidate non-Rupert polyhedron, because its certificate has not yet been independently checked. The Undecanope's name joins *undecim*, Latin for eleven, to the Noperthedron's "nope". The page uses no external libraries.
 
 ## Implementation Checklist
 
 - [x] Generate the C15 Noperthedron from its three published generators and their antipodes.
-- [x] Generate the C11 model from four rotational orbits and their antipodes.
+- [x] Generate the C11 Undecanope from four rotational orbits and their antipodes.
 - [x] Add the five Platonic solids, the buckyball and three cuboids, scaled to unit circumradius.
 - [x] Recover each polygonal convex hull and its edges in the browser.
 - [x] Compute the pass ratio, with the best twist and shift, for any pair of views.
@@ -20,11 +20,12 @@ The app at `app/non-rupert/` lets a visitor run that test. They turn a solid and
 - [x] Keep a dragged copy's twist near its last value, then ease it to the best twist on release.
 - [x] Orbit and zoom the camera round the plate, with a reset.
 - [x] Show the fixed solid as a glass ghost on the plate once the hole is cut.
+- [x] Draw the builder page's animated thumbnail and the share card from the Undecanope.
 - [x] Fit the page on the six standard screen sizes.
 
 ## How to use it
 
-The page opens on C11. The controls sit above the 3D view, in the order a visitor uses them.
+The page opens on the Undecanope, C11. The controls sit above the 3D view, in the order a visitor uses them.
 
 1. Choose a solid from the row of buttons. C11 and C15 lead as large cards. The Platonic solids, the buckyball and the cuboids follow as smaller buttons. On a phone the row scrolls sideways.
 2. Drag either view to turn the solid. Its shadow falls on the plate.
@@ -42,7 +43,7 @@ The header follows the site's other explorers: a link back to the builder page a
 
 ## Geometry
 
-[`models.js`](../app/non-rupert/models.js) holds each solid's vertices or generators, colour and starting turn. It applies the cyclic rotation and central inversion to build every orbit vertex. The Noperthedron's generators are the ones published in [arXiv:2508.18475](https://arxiv.org/abs/2508.18475).
+[`models.js`](../app/nonrup/models.js) holds each solid's vertices or generators, colour and starting turn. It applies the cyclic rotation and central inversion to build every orbit vertex. The Noperthedron's generators are the ones published in [arXiv:2508.18475](https://arxiv.org/abs/2508.18475).
 
 | Solid | Vertices | Edges | Faces | Centrally symmetric |
 | --- | ---: | ---: | ---: | --- |
@@ -54,7 +55,7 @@ The header follows the site's other explorers: a link back to the builder page a
 | Buckyball (truncated icosahedron) | 60 | 90 | 32 | yes |
 | Cuboids 1 × 1 × 2, 1 × 2 × 3, 1 × 3 × 3 | 8 | 12 | 6 | yes |
 | C15 Noperthedron | 90 | 240 | 152 | yes |
-| C11 | 88 | 242 | 156 | yes |
+| C11 Undecanope | 88 | 242 | 156 | yes |
 
 The Platonic solids and the buckyball come from their standard coordinates, built from signs and cyclic shifts in `models.js`.
 
@@ -62,7 +63,7 @@ The page finds each supporting plane directly. SciPy's `ConvexHull` gives the sa
 
 ## The pass ratio
 
-[`shadow.js`](../app/non-rupert/shadow.js) holds the fit. The plate lies in the plane z = 0, and the copy moves along the z axis. A shadow is the convex hull of the solid's vertices projected onto that plane.
+[`shadow.js`](../app/nonrup/shadow.js) holds the fit. The plate lies in the plane z = 0, and the copy moves along the z axis. A shadow is the convex hull of the solid's vertices projected onto that plane.
 
 The hole's edges give half-planes n<sub>i</sub> · x ≤ b<sub>i</sub>. Turn the copy's shadow Q by an angle θ, and let h<sub>i</sub>(θ) be its reach along n<sub>i</sub>. The pass ratio at θ is the largest s with a shift v that satisfies
 
@@ -74,7 +75,7 @@ The app samples 120 twists, over half a turn for a symmetric solid and a full tu
 
 A symmetric shadow often has two or more twists with almost equal ratios. During a drag, the best twist overall can then jump between them from one frame to the next. On the octahedron it jumped by 90° on most steps of a test drag. So while the visitor turns the copy, the app searches only within 0.04 radians of the copy's last twist, and the copy follows the pointer. When the visitor stops for 180 ms, the app finds the best twist overall and eases the copy round to it over 320 ms.
 
-A ratio above 1 means the copy passes with room to spare. A ratio within 0.00005 of 1 shows as 1.0000 and counts as a touch: the copy meets the rim and cannot pass. A copy in the same view as the hole always has ratio 1.
+A ratio above 1 means the copy passes with room to spare. A ratio within 10⁻⁸ of 1 counts as a touch: the copy meets the rim and cannot pass. That margin sits far above rounding error, about 10⁻¹⁵, and far below the narrowest real passages found in the C11 search, which clear 1 by about 5 × 10⁻⁵. Within 0.001 of 1 the page shows seven decimals, so a narrow pass and a near miss look different. A copy in the same view as the hole always has ratio 1.
 
 ## Pushing the copy through
 
@@ -98,7 +99,7 @@ From seeded runs of 6 to 8 seconds for each solid:
 | Cuboid 1 × 2 × 3 | 1.581136 | |
 | Cuboid 1 × 3 × 3 | 1.195705 | |
 | C15 | 0.9999997 | The copy lined up with the hole |
-| C11 | 0.9999995 | The copy lined up with the hole |
+| C11 Undecanope | 0.9999995 | The copy lined up with the hole |
 
 These are the best ratios the search found in that time, not proven maxima.
 
@@ -107,6 +108,16 @@ These are the best ratios the search found in that time, not proven maxima.
 ## Controls
 
 Drag either view to turn the solid that is in play: the hole's solid before **Cut hole**, the copy after it. The 3D view turns about the screen's axes, and the straight-on view about the plate's axes. The arrow keys do the same on a focused view. Before the first drag, the hole's solid spins slowly, unless the visitor prefers reduced motion.
+
+## Thumbnail and share card
+
+The builder page lists the explorer first under Apps & Websites. Its thumbnail is a canvas, `assets/nonrup-thumb.js`, that turns the Undecanope about its eleven-fold axis. [`tools/thumbnails/nonrup.js`](../tools/thumbnails/nonrup.js) writes that script with the solid's vertices and faces baked in, so the builder page never computes a hull. Rerun it if the Undecanope's generators change. The thumbnail stops when it is off screen, and holds still for a visitor who prefers reduced motion.
+
+The share card, `social/nonrup.jpg`, comes from the real app. [`tools/non-rupert/card.js`](../tools/non-rupert/card.js) cuts the Undecanope's hole, pushes the copy until it jams, and captures the 3D view beside the title:
+
+```sh
+NODE_PATH=tools/tiling-video/node_modules node tools/non-rupert/card.js
+```
 
 ## Checks
 
@@ -121,5 +132,5 @@ They confirm the face counts and the outward faces. They check that a copy in th
 Run the screen check from a local server with:
 
 ```sh
-node tools/screen-fit/check.js 'http://127.0.0.1:8765/app/non-rupert/' .stage --controls '.actions button'
+node tools/screen-fit/check.js 'http://127.0.0.1:8765/app/nonrup/' .stage --controls '.actions button'
 ```

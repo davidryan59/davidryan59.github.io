@@ -1,11 +1,11 @@
 "use strict";
 
 // Searches each solid that has no rotational order for a passage, and prints
-// the views as quaternions for the `passage` field in app/non-rupert/models.js.
+// the views as quaternions for the `passage` field in app/nonrup/models.js.
 // Run with: node tools/non-rupert/find-passages.js [seconds per solid] [solid ...]
 
-const { DEFINITIONS, buildModel } = require("../../app/non-rupert/models.js");
-const { createSearch, fitPoses, quaternionRotation } = require("../../app/non-rupert/shadow.js");
+const { DEFINITIONS, buildModel } = require("../../app/nonrup/models.js");
+const { createSearch, fitPoses, quaternionRotation } = require("../../app/nonrup/shadow.js");
 
 function quaternion(m) {
   const trace = m[0] + m[4] + m[8];

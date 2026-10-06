@@ -177,11 +177,12 @@
       ]
     },
     c11: {
-      name: "88-vertex C11 solid",
+      // The Undecanope: undecim, Latin for eleven, with the Noperthedron's "nope".
+      name: "Undecanope, the 88-vertex C11 solid",
       label: "C<sub>11</sub>",
       short: "C<sub>11</sub>",
       featured: 1,
-      kind: "Search result",
+      kind: "Undecanope",
       group: "Odd-cyclic solids",
       order: 11,
       hue: 38,

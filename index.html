@@ -166,7 +166,12 @@
     border-radius: 50%;
     box-shadow: 0 0 0 1px var(--ring);
   }
-  .noble-thumb {
+  /* A subscript, as in C11 with the 11 lowered, must not open up the gap between lines. */
+  li sub {
+    line-height: 0;
+  }
+  .noble-thumb,
+  .solid-thumb {
     background: light-dark(
       radial-gradient(circle at 42% 36%, #fffdf8 0, #eee9de 58%, #ddd5c6 100%),
       radial-gradient(circle at 42% 36%, #303542 0, #20232b 58%, #16161a 100%)
@@ -441,12 +446,14 @@
 <h3>Apps &amp; Websites</h3>
 <ul>
   <li class="thumb-item">
-    <a class="thumb-link" href="app/e8/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/e8.svg" width="120" height="120" alt="" loading="lazy">
+    <a class="thumb-link" href="app/nonrup/index.html" tabindex="-1" aria-hidden="true">
+      <canvas class="thumb solid-thumb" id="nonrup-thumb" width="120" height="120"></canvas>
     </a>
-    <a href="app/e8/index.html">E8 Root System Explorer</a>
-    – rotate all 240 roots through eight dimensions, grab a root to pull the complete projection,
-    and reveal its 6,720 edges, four Coxeter planes, local neighbourhoods, cycles and simple roots.
+    <a href="app/nonrup/index.html">Non-Rupert Polyhedra Explorer</a>
+    – a solid is Rupert if a copy of it can pass through a hole cut in it. In 2025 Steininger and Yurkevich
+    proved that the 90-vertex Noperthedron, with C<sub>15</sub> symmetry, is not Rupert. My search found
+    the Undecanope, a candidate non-Rupert polyhedron with C<sub>11</sub> symmetry and only 88 vertices.
+    Use the explorer to try to fit various solids through themselves!
   </li>
   <li class="thumb-item">
     <a class="thumb-link" href="app/noble/index.html" tabindex="-1" aria-hidden="true">
@@ -455,6 +462,14 @@
     <a href="app/noble/index.html">Noble Polyhedra Explorer</a>
     – in 2026 Connor Hill classified all the Noble Polyhedra into 2 infinite families and 146 exceptional objects.
     Use this explorer to view them all and customise how they look.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link" href="app/e8/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/e8.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="app/e8/index.html">E8 Root System Explorer</a>
+    – rotate all 240 roots through eight dimensions, grab a root to pull the complete projection,
+    and reveal its 6,720 edges, four Coxeter planes, local neighbourhoods, cycles and simple roots.
   </li>
   <li class="thumb-item">
     <a class="thumb-link" href="app/tiles/hat/index.html" tabindex="-1" aria-hidden="true">
@@ -995,5 +1010,6 @@
 </script>
 
 <script src="assets/noble-thumb.js"></script>
+<script src="assets/nonrup-thumb.js"></script>
 </body>
 </html>

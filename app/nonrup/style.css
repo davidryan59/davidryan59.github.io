@@ -601,6 +601,11 @@ footer {
   text-overflow: ellipsis;
 }
 
+footer a {
+  color: var(--link);
+  text-underline-offset: .2em;
+}
+
 @media (max-width: 1080px) {
   .back {
     font-size: 0;

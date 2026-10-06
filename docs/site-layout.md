@@ -13,7 +13,7 @@ addresses other people hold, and how a redirect keeps an old address alive.
 ```
 index.html                       the builder page
 app/<name>/                      one folder for each app a visitor can run
-    e8/  noble/  tiles/  aperiodic-pairs/  smash/  sieve/  pentrys/  parfly/
+    e8/  noble/  nonrup/  tiles/  aperiodic-pairs/  smash/  sieve/  pentrys/  parfly/
 assets/                          files the pages share
     site.css  theme.js           the document pages: audits, guides, gallery, Smash Screen, sieve, Pentrys, 404
     mint.css  mint.js            the two mint pages
@@ -61,6 +61,7 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/papers/polygonal-spectre.pdf` | Posts about the paper | `papers/` |
 | `/e8` | A short address for the E8 Root System Explorer | `redirects/e8.html` |
 | `/noble` | The Noble Polyhedra video and other shared links | `redirects/noble.html` |
+| `/nonrup` | A short address for the Non-Rupert Polyhedra Explorer | `redirects/nonrup.html` |
 | `/tiles` | The paper, and the corner label of the tiling video | `redirects/tiles.html` |
 | `/demos/hat/`, `/demos/spectre/`, `/demos/hat-extended/` | Shared links to the explorer, each with its settings after the `#`. The `index.html` form of each is a link too | `redirects/demos-*.html` |
 | `/aperiodic-pairs/` | The builder page's first link to the gallery | `redirects/aperiodic-pairs.html` |
@@ -68,7 +69,7 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/sieve` | A short address to share | `redirects/sieve.html` |
 | `/pentrys` | A short address to share | `redirects/pentrys.html` |
 | `/social/*.jpg` | Share cards that social sites have cached. An image cannot redirect, so these stay put | `social/` |
-| `/app/e8/`, `/app/noble/`, `/app/tiles/`, `/app/tiles/hat/`, `/app/tiles/spectre/`, `/app/tiles/hat-extended/`, `/app/aperiodic-pairs/`, `/app/smash/`, `/app/sieve/`, `/app/pentrys/`, `/app/parfly/` | The real addresses of the apps. Apple's listing for Parfly takes `/app/parfly/` as its support address | `app/` |
+| `/app/e8/`, `/app/noble/`, `/app/nonrup/`, `/app/tiles/`, `/app/tiles/hat/`, `/app/tiles/spectre/`, `/app/tiles/hat-extended/`, `/app/aperiodic-pairs/`, `/app/smash/`, `/app/sieve/`, `/app/pentrys/`, `/app/parfly/` | The real addresses of the apps. Apple's listing for Parfly takes `/app/parfly/` as its support address | `app/` |
 
 `tools/check-addresses/addresses.json` holds this list in a form the checker
 reads. Add an address there when you publish one.
