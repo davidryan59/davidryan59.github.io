@@ -23,9 +23,15 @@
     var btn = document.querySelector('.theme-toggle');
     if (!btn) return;
     btn.hidden = false;
+    function syncThumbnails() {
+      document.querySelectorAll('img[data-theme-light][data-theme-dark]').forEach(function (image) {
+        image.src = root.dataset.theme === 'dark' ? image.dataset.themeDark : image.dataset.themeLight;
+      });
+    }
     function describe() {
       btn.title = 'Switch to ' + (root.dataset.theme === 'dark' ? 'light' : 'dark') + ' mode';
       btn.setAttribute('aria-label', btn.title);
+      syncThumbnails();
     }
     describe();
     btn.addEventListener('click', function () {

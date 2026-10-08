@@ -78,6 +78,12 @@ li:last-child { margin-bottom: 0; }
   border: 1px solid var(--rule);
   border-radius: 10px;
 }
+.paper-thumb.solid-thumb {
+  background: light-dark(
+    radial-gradient(circle at 42% 36%, #fffdf8 0, #eee9de 58%, #ddd5c6 100%),
+    radial-gradient(circle at 42% 36%, #303542 0, #20232b 58%, #16161a 100%)
+  );
+}
 /* A 42-character address has no break opportunity of its own, so on a narrow
    screen it sets the page's minimum width and pushes every paragraph past the
    viewport. break-all lets it wrap mid-address instead. */

@@ -3,7 +3,7 @@
 (function () {
   'use strict';
 
-  var canvas = document.getElementById('nonrup-thumb');
+  var canvas = document.getElementById('undecanope-paper-thumb');
   if (!canvas || !canvas.getContext) return;
 
   var context = canvas.getContext('2d');

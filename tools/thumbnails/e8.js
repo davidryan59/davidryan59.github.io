@@ -67,7 +67,7 @@ function draw(theme) {
 }
 
 draw({
-  file: 'e8-light.svg', scale: 31.5, duration: 12, largeRadius: 1.35, smallRadius: 1.02,
+  file: 'e8-light.svg', radius: 55.5, duration: 12, largeRadius: 1.35, smallRadius: 1.02,
   palette: ['#087f72', '#2563b8', '#7447b8', '#b52b75', '#c63d55', '#bf5a24', '#947000', '#387b42'],
   gradient: '<stop stop-color="#fffdf8"/><stop offset="1" stop-color="#e8e2d7"/>',
   guide: '<circle cx="60" cy="60" r="43.8" fill="none" stroke="#8b8578" stroke-width=".5" stroke-dasharray="1.5 3" opacity=".45"/>',

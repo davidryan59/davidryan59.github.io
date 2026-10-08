@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" font-family="Georgia, serif">
+<defs><clipPath id="bar"><rect x="10" y="64" width="100" height="20" rx="6"/></clipPath></defs>
+<rect width="120" height="120" fill="#1e1e23"/>
+<g clip-path="url(#bar)">
+<rect x="10" y="64" width="50" height="20" fill="#63c58d"/>
+<rect x="60" y="64" width="30" height="20" fill="#f0c866"/>
+<rect x="90" y="64" width="20" height="20" fill="#ef7a8c"/>
+</g>
+<path d="M 90 54 V 94" stroke="#ef7a8c" stroke-width="2" stroke-dasharray="4 3"/>
+<path d="M 28 48 H 42 L 35 61 Z" fill="#e6e2d8"/>
+<text x="35" y="40" text-anchor="middle" font-size="16" fill="#e6e2d8">25%</text>
+</svg>

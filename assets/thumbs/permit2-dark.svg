@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" font-family="Georgia, serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 10 5 0 10z" fill="#7aa6e0"/></marker></defs>
+<rect width="120" height="120" fill="#1e1e23"/>
+<circle cx="24" cy="60" r="15" fill="#36304b" stroke="#5b5a8a" stroke-width="2"/><path d="M 36 52 C 46 36, 52 31, 61 31" fill="none" stroke="#7aa6e0" stroke-width="2" marker-end="url(#a)"/><path d="M 36 68 C 46 84, 52 89, 61 89" fill="none" stroke="#7aa6e0" stroke-width="2" marker-end="url(#a)"/><rect x="64" y="14" width="46" height="34" rx="8" fill="#293243" stroke="#7aa6e0" stroke-width="2"/><text x="87" y="36" text-anchor="middle" font-size="13" fill="#e6e2d8">83%</text><rect x="64" y="72" width="46" height="34" rx="8" fill="#293243" stroke="#7aa6e0" stroke-width="2"/><text x="87" y="94" text-anchor="middle" font-size="13" fill="#e6e2d8">17%</text>
+</svg>

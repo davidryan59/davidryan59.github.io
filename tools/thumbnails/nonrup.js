@@ -7,16 +7,17 @@ const fs = require('fs'), path = require('path');
 const { buildModel } = require('../../app/nonrup/models.js');
 
 const ROOT = path.join(__dirname, '..', '..');
-const OUT = path.join(ROOT, 'assets', 'nonrup-thumb.js');
-const model = buildModel('c11');
+const [modelKey = 'c11', canvasId = 'nonrup-thumb', output = 'nonrup-thumb.js'] = process.argv.slice(2);
+const OUT = path.join(ROOT, 'assets', output);
+const model = buildModel(modelKey);
 const vertices = model.vertices.map(point => point.map(value => Number(value.toFixed(5))));
 
-const script = `/* The Undecanope, turning, for the builder page's thumbnail.
+const script = `/* ${model.kind}, turning, for the builder page's thumbnail.
    Written by tools/thumbnails/nonrup.js from app/nonrup/models.js. */
 (function () {
   'use strict';
 
-  var canvas = document.getElementById('nonrup-thumb');
+  var canvas = document.getElementById('${canvasId}');
   if (!canvas || !canvas.getContext) return;
 
   var context = canvas.getContext('2d');
@@ -93,7 +94,7 @@ const script = `/* The Undecanope, turning, for the builder page's thumbnail.
         if (i) context.lineTo(p[0], p[1]); else context.moveTo(p[0], p[1]);
       });
       context.closePath();
-      context.fillStyle = 'hsl(' + (38 + ny / size * 12) + ' 58% ' + lightness + '%)';
+      context.fillStyle = 'hsl(' + (${model.hue} + ny / size * 12) + ' 58% ' + lightness + '%)';
       context.fill();
       context.stroke();
     });
@@ -136,5 +137,5 @@ const script = `/* The Undecanope, turning, for the builder page's thumbnail.
 `;
 
 fs.writeFileSync(OUT, script);
-console.log('assets/nonrup-thumb.js: ' + Math.round(script.length / 1024) + ' KB, ' +
+console.log(path.relative(ROOT, OUT) + ': ' + Math.round(script.length / 1024) + ' KB, ' +
   vertices.length + ' vertices, ' + model.facets.length + ' faces');
