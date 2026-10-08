@@ -27,6 +27,11 @@ const PAPERS = {
     card: 'polygonal-spectre-paper.jpg', draft: 2, hue: 215,
     title: 'Polygonal<br>Spectres',
     line: 'A two-parameter family of 27-sided strictly chiral aperiodic monotiles.'
+  },
+  'monotile-clusters': {
+    card: 'monotile-clusters-paper.jpg', draft: 1, hue: 158, label: 'Working draft',
+    title: 'Small Hat and<br>Spectre clusters',
+    line: 'Exact calculations for connected tile clusters through five tiles.'
   }
 };
 
@@ -45,7 +50,7 @@ function html(name, paper, page1) {
   .page img { display: block; width: 100%; }
 </style></head><body>
   <div class="copy">
-    <div class="eyebrow">Pre-print · Draft ${paper.draft}</div>
+    <div class="eyebrow">${paper.label || 'Pre-print'} · Draft ${paper.draft}</div>
     <h1>${paper.title}</h1>
     <p>${paper.line}</p>
     <div class="site">drbuild.uk/papers/${name}</div>

@@ -17,9 +17,9 @@
 <meta property="og:image" content="https://drbuild.uk/social/builder.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A mosaic of David Ryan's work: Merge Fractals, Moving Mondrians, hat and spectre tilings, Dino Dash, ReTuner and a Uniswap curve">
+<meta property="og:image:alt" content="A mosaic of David Ryan's work: a non-Rupert polyhedron, the E8 root system, a Noble polyhedron, a hat tiling, a Merge Fractal, a Moving Mondrian, Dino Dash, ReTuner, Smash Screen and a Uniswap curve">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image:alt" content="A mosaic of David Ryan's work: Merge Fractals, Moving Mondrians, hat and spectre tilings, Dino Dash, ReTuner and a Uniswap curve">
+<meta name="twitter:image:alt" content="A mosaic of David Ryan's work: a non-Rupert polyhedron, the E8 root system, a Noble polyhedron, a hat tiling, a Merge Fractal, a Moving Mondrian, Dino Dash, ReTuner, Smash Screen and a Uniswap curve">
 <meta name="twitter:creator" content="@davidryan59">
 <style>
   /* Text brightness runs h1 > h2 > h3 > body in even steps. The body colour is
@@ -452,7 +452,11 @@
     <a href="app/nonrup/index.html">Nopert Polyhedra Explorer</a>
     – a solid is Rupert if a copy of it can pass through a hole cut in it. In 2025 Steininger and Yurkevich found and
     <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2508.18475">proved</a> the first Nopert (non-Rupert) shape, the 90-vertex Noperthedron.
-    My search found the 88-vertex Undecanope. Since then Bence Hervay also <a target="_blank" rel="noopener" href="https://github.com/bence-hervay/nopert-rid">published</a> a Nopert proof for the 60-vertex rhombicosidodecahedron.
+    My search found the 88-vertex Undecanope.
+    Bence Hervay has since <a target="_blank" rel="noopener" href="https://github.com/bence-hervay/nopert-rid/blob/main/paper/article.pdf">published</a> a pre-print
+    proving that the 60-vertex rhombicosidodecahedron is Nopert.
+    I independently <a target="_blank" rel="noopener" href="https://github.com/davidryan59/rid-nopert-audit">audited</a>
+    the proof and confirmed it subject to stated assumptions.
     Explore these shapes and try to fit them through themselves!
     See: <a href="papers/undecanope/index.html">paper</a>
   </li>
@@ -763,6 +767,13 @@
     <a href="papers/undecanope/index.html">The Undecanope: an 88-vertex convex polyhedron without Rupert's property</a> (2026, draft, <a target="_blank" rel="noopener" href="papers/undecanope.pdf">PDF</a>)
     – Builds the Undecanope, a solid with C<sub>11</sub> symmetry and 88 vertices, and proves by computer using a new local theorem that no copy of it can pass through a hole cut in it.
   </li>
+  <li class="thumb-item" id="rid-nopert">
+    <a class="thumb-link square" target="_blank" rel="noopener" href="https://github.com/bence-hervay/nopert-rid/blob/main/paper/article.pdf" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/undecanope.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a target="_blank" rel="noopener" href="https://github.com/bence-hervay/nopert-rid/blob/main/paper/article.pdf">Non-Rupertness of the Rhombicosidodecahedron</a> (Bence Hervay, 2026 pre-print, PDF)
+    – A computer-assisted proof that the 60-vertex rhombicosidodecahedron is Nopert. I <a target="_blank" rel="noopener" href="https://github.com/davidryan59/rid-nopert-audit">independently audited the repository</a> and confirmed the proof subject to stated assumptions.
+  </li>
   <li class="thumb-item" id="polygonal-spectre">
     <a class="thumb-link square" href="papers/polygonal-spectre/index.html" tabindex="-1" aria-hidden="true">
       <img class="thumb" src="assets/thumbs/polygonal-spectre.svg" width="120" height="120" alt="" loading="lazy">
@@ -770,6 +781,13 @@
     <a href="papers/polygonal-spectre/index.html">A two-parameter family of polygonal Spectres</a> (2026, draft, <a target="_blank" rel="noopener" href="papers/polygonal-spectre.pdf">PDF</a>)
     – Starting with the underlying polygon for the Spectre aperiodic monotile, put a triangle on each edge, then the 27-sided result can tile only chirally and aperiodically, for every triangle below a height bound.
     It extends <a target="_blank" rel="noopener" href="https://x.com/apgox/status/1663525044050436097">Adam Goucher's 2023 proof</a> for a single such polygon.
+  </li>
+  <li class="thumb-item" id="monotile-clusters">
+    <a class="thumb-link square" href="papers/monotile-clusters/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/tiling-explorer.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="papers/monotile-clusters/index.html">Small clusters of the Hat and Spectre do not tile the plane</a> (2026, working draft, <a target="_blank" rel="noopener" href="papers/monotile-clusters.pdf">PDF</a>)
+    – Exact calculations show that no topological-disc cluster of two through five Hat-family tiles or Spectres tiles the plane, with reflected cluster copies allowed. The result awaits an independent implementation and compact rejection certificates.
   </li>
   <li class="thumb-item">
     <a class="thumb-link square" target="_blank" rel="noopener" href="https://arxiv.org/abs/1612.01860" tabindex="-1" aria-hidden="true">

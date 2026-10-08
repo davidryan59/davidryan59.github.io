@@ -5,7 +5,8 @@
    Run from anywhere: node tools/social-cards/render.js [card ...]
    With no arguments it renders every card. It needs Playwright and its
    Chromium (npm install playwright, then npx playwright install chromium),
-   and a network connection: it screenshots Dino Dash and ReTuner live, and
+   and a network connection: it screenshots Dino Dash and ReTuner live, drives the Nopert, E8 and Noble
+   explorers, and
    reads the four audited contracts' bytecode from a public Ethereum RPC.
 
    Stage 1 draws the pictures the cards are made from into a temporary
@@ -31,8 +32,7 @@ const STANDALONE = ['parfly', 'salary-loan'];
 const TILINGS = {
   hat: '/app/tiles/hat/#v=0,0,14,0,0,0&c=pastel&t=30',
   spectre: '/app/tiles/spectre/#v=0,0,16,0&c=rainbow2&e=curve&b=0.18&a=alt&p=waves%3A1',
-  'hat-extended': '/app/tiles/hat-extended/#v=0,0,34,0,0,0&c=pastel&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55',
-  'hat-curves': '/app/tiles/hat-extended/#v=0,0,30,0,0,0&c=pastel&t=30&e=curve&ha=0.22&hb=0.22&a=alt&p=waves%3A1'
+  'hat-extended': '/app/tiles/hat-extended/#v=0,0,34,0,0,0&c=pastel&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55'
 };
 // Merge Fractals animate: every few seconds the two diamonds break into
 // fractal shapes and back. Each is caught at a moment of seconds into its
@@ -40,8 +40,42 @@ const TILINGS = {
 const FRACTALS = { '1509': 17.5, '1904': 17.5, '2757': 11.5 };
 // Live sites for the builder page's mosaic, cropped to their liveliest part.
 const SITES = {
-  'dino-dash': { url: 'https://pacman-dino-dash.netlify.app', clip: { x: 305, y: 195, width: 590, height: 413 } },
+  'dino-dash': { url: 'https://pacman-dino-dash.netlify.app', clip: { x: 305, y: 305, width: 590, height: 413 } },
   retuner: { url: 'https://re-tuner.web.app/', clip: { x: 120, y: 100, width: 700, height: 490 } }
+};
+// The builder page's three 3D and 8D explorers, with their controls hidden and
+// each shot cropped (in a 1000 x 700 view) to its figure, at the tile's shape.
+const EXPLORERS = {
+  'tile-nonrup': {
+    url: '/app/nonrup/#c11', clip: { x: 135, y: 135, width: 700, height: 488 },
+    css: `.topbar, footer, .shapes, .steps, .fit-panel, .scene-copy, .scene-tip, .view-reset { display: none !important; }
+      body { display: block !important; }
+      .stage, .play, .scene-card { position: absolute !important; inset: 0 !important; display: block !important; }`,
+    prep: async page => {
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.click('#cut'); await page.waitForTimeout(700);
+      await page.click('#push'); await page.waitForTimeout(2600);
+    }
+  },
+  'tile-e8': {
+    url: '/app/e8/#v=coxeter&s=coxeter&pause=1', clip: { x: 150, y: 106, width: 700, height: 488 },
+    css: `.topbar, .control-panel, .details, .display-controls, .view-controls, .gesture-hint, .stage-status, .hover-card { display: none !important; }
+      .workspace { position: absolute !important; inset: 0 !important; display: block !important; height: 700px !important; }
+      .stage { position: absolute !important; inset: 0 !important; width: 1000px !important; height: 700px !important; }
+      #viewer { inset: 0 !important; width: 1000px !important; height: 700px !important; }`,
+    prep: page => page.waitForFunction(() => window.__e8Explorer)
+  },
+  'tile-noble': {
+    url: '/app/noble/#I-2', clip: { x: 142, y: 106, width: 700, height: 488 },
+    css: `.topbar, .catalogue, .details, .display-controls, .face-controls, .render-controls, .view-controls, .gesture-hint { display: none !important; }
+      .workspace { position: absolute !important; inset: 0 !important; display: block !important; height: 700px !important; }
+      .stage { position: absolute !important; inset: 0 !important; width: 1000px !important; height: 700px !important; }
+      #viewer { left: 0 !important; width: 1000px !important; }`,
+    prep: async page => {
+      await page.waitForFunction(() => document.getElementById('loading').hidden);
+      await page.click('[data-spin="false"]');
+    }
+  }
 };
 // The audited contracts. Uniswap V2's card uses the USDC/WETH pair.
 const CONTRACTS = {
@@ -72,12 +106,17 @@ function serve() {
 async function stageOne(browser, base) {
   const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 2 });
   for (const [name, view] of Object.entries(TILINGS)) {
-    const page = await ctx.newPage();
-    await page.goto(base + view);
-    await page.addStyleTag({ content: '.card { display: none !important; }' });
-    await page.waitForTimeout(5000);
-    await page.screenshot({ path: path.join(TMP, name + '.png') });
-    await page.close();
+    // WebGL sometimes loses its context on the first load and draws a blank
+    // page, which is under 50 KB. Draw again, up to three times.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const page = await ctx.newPage();
+      await page.goto(base + view);
+      await page.addStyleTag({ content: '.card { display: none !important; }' });
+      await page.waitForTimeout(5000);
+      await page.screenshot({ path: path.join(TMP, name + '.png') });
+      await page.close();
+      if (fs.statSync(path.join(TMP, name + '.png')).size > 50 * 1024) break;
+    }
     console.log('drew ' + name + '.png', Math.round(fs.statSync(path.join(TMP, name + '.png')).size / 1024) + ' KB');
   }
   await ctx.close();
@@ -100,6 +139,18 @@ async function stageOne(browser, base) {
     await page.close();
   }
   await web.close();
+  const lab = await browser.newContext({ viewport: { width: 1000, height: 700 }, deviceScaleFactor: 2 });
+  for (const [name, view] of Object.entries(EXPLORERS)) {
+    const page = await lab.newPage();
+    await page.addInitScript(() => localStorage.setItem('theme', 'dark'));
+    await page.goto(base + view.url, { waitUntil: 'networkidle' });
+    await view.prep(page);
+    await page.addStyleTag({ content: 'html, body { width: 1000px !important; height: 700px !important; overflow: hidden !important; }' + view.css });
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(TMP, name + '.png'), clip: view.clip });
+    await page.close();
+  }
+  await lab.close();
   for (const [name, address] of Object.entries(CONTRACTS)) {
     const res = await fetch(RPC, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

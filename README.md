@@ -36,6 +36,11 @@ address, `davidryan59.github.io`, redirects there.
   - `app/sieve/` – the Sieve of Eratosthenes as a toy: choose any numbers as
     primes, and each colours its multiples, on a grid of any width, in bases
     from 2 to 60. See [docs/sieve.md](docs/sieve.md).
+  - `app/traffic-sim/` – traffic-sim, a 3D traffic simulator, being built
+    and not yet linked from the builder page. A visitor watches a jam form
+    on a ring road, then adds selfish or coordinated self-driving cars. Its
+    engine, in `app/traffic-sim/engine/`, runs in the browser and in Node.
+    See [docs/traffic-sim.md](docs/traffic-sim.md).
   - `app/parfly/` – a placeholder page for the Parfly Android app, and its
     privacy policy, which is served at `drbuild.uk/parfly/privacy`, where the
     app's store listing holds it.
@@ -72,7 +77,8 @@ address, `davidryan59.github.io`, redirects there.
   30-second looping video of the sieve, with captions. See its
   [README](tools/sieve-video/README.md). `tools/pentrys/` holds Pentrys's
   tests and simulated player, run in Node, and the still frame and colour
-  sheet the game's look was chosen from.
+  sheet the game's look was chosen from. `tools/traffic-sim/` runs
+  traffic-sim's engine in Node: the ring sweep, its tables and the checks.
 
 How the site is filed, and which addresses must never stop working, is in
 [docs/site-layout.md](docs/site-layout.md).
@@ -102,6 +108,7 @@ there first, then render it into `index.html`.
 - [docs/sieve/original-prompt.md](docs/sieve/original-prompt.md) – the prompt that started the sieve, word for word
 - [docs/pentrys.md](docs/pentrys.md) – the rules and look of Pentrys, how it is built and measured, and the games like it
 - [docs/pentrys/original-prompt.md](docs/pentrys/original-prompt.md) – the messages that started Pentrys, word for word
+- [docs/traffic-sim.md](docs/traffic-sim.md) – the traffic simulator: its engine, driver models and lane changes, how it was checked, and the 3D view
 - [docs/hat-edge-research.md](docs/hat-edge-research.md) – why curved edges make the Hat two tiles, and how that was checked
 - [docs/inventory.md](docs/inventory.md) – the source list the page renders
 - [docs/mint-pages.md](docs/mint-pages.md) – how the two mint pages work
