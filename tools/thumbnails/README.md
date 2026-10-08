@@ -24,6 +24,7 @@ it, then check the result with `frames.js`.
 | `assets/thumbs/salary-loan.svg` | `salary-loan.js` | A still: a risk scale for loan-to-value, green on the left where low is safe, amber, then red where liquidation starts at 80%. A marker sits at 25%. It is the diagram on the guide's social card |
 | `assets/thumbs/polygonal-spectre.svg` | `polygonal-spectre.js` | A still of the paper's default tile, p = 29/50 and h = 13/50, with the plain Spectre dashed beneath. Built as in `papers/verify-polygonal-spectre.py` |
 | `assets/thumbs/undecanope.svg` | `undecanope.js` | A still of the Undecanope for its paper, in the view and shading of the explorer's thumbnail at its first frame, on the Polygonal Spectre still's paper colour |
+| `assets/thumbs/rid.svg` | `rid.js` | A still of the purple rhombicosidodecahedron for the independent audit of its Nopert certificate, in the same view and shading format as the Undecanope paper still |
 | `assets/thumbs/rcn.svg` | `rcn.js` | A still: C4 D4 E'4 G4 on a staff, with the numeric accidental 5 before E'4 |
 | `assets/thumbs/harmony.svg` | `harmony.js` | A still: the divisors of 60 as tiles, with the major triad 4:5:6 in blue and the minor triad 10:12:15 in red |
 

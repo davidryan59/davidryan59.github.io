@@ -70,6 +70,14 @@ li { margin-bottom: var(--gap-tight); }
 li:last-child { margin-bottom: 0; }
 
 .tagline { color: var(--muted); margin: 0 0 var(--gap-para); }
+.paper-thumb {
+  float: right;
+  width: 132px;
+  height: 132px;
+  margin: 3.2rem 0 var(--gap-item) var(--gap-item);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+}
 /* A 42-character address has no break opportunity of its own, so on a narrow
    screen it sets the page's minimum width and pushes every paragraph past the
    viewport. break-all lets it wrap mid-address instead. */
@@ -190,3 +198,7 @@ h3 .sev { margin-left: 0.45rem; vertical-align: 0.12em; }
 
 .links { margin: var(--gap-item) 0 0; padding: 0; list-style: none; }
 .links li { margin-bottom: var(--gap-tight); }
+
+@media (max-width: 420px) {
+  .paper-thumb { width: 104px; height: 104px; }
+}
