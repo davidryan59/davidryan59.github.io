@@ -176,6 +176,23 @@
         [0.8193990033, 0.5298215096, 0.1230614493]
       ]
     },
+    rid: {
+      // The rhombicosidodecahedron. Hervay's 2026 public certificate claims
+      // that it is non-Rupert; the proof is still awaiting independent audit.
+      name: "Rhombicosidodecahedron, the 60-vertex solid",
+      label: "RID",
+      short: "RID",
+      featured: 3,
+      kind: "Rhombicosidodecahedron",
+      group: "Non-Rupert solids",
+      hue: 304,
+      turn: 0.58,
+      vertices: unitRadius(allSigns(cyclic([
+        [1, 1, PHI ** 3],
+        [PHI ** 2, PHI, 2 * PHI],
+        [2 + PHI, 0, PHI ** 2]
+      ])))
+    },
     c11: {
       // The Undecanope: undecim, Latin for eleven, with the Noperthedron's "nope".
       name: "Undecanope, the 88-vertex C11 solid",

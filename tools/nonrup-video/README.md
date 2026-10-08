@@ -1,6 +1,6 @@
-# Non-Rupert explorer video
+# Nopert explorer video
 
-Renders the 30-second looping video of the Non-Rupert Polyhedra Explorer,
+Renders the 30-second looping video of the Nopert Polyhedra Explorer,
 made to promote the Undecanope: 1080 × 1080, 60 fps, silent, with captions.
 The last frame flows into the first. The video is the real app page,
 `app/nonrup/`, driven by a real mouse on a scripted clock, so it always shows

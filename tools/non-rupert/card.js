@@ -1,4 +1,4 @@
-/* Draws social/nonrup.jpg from the real Non-Rupert Polyhedra Explorer: the
+/* Draws social/nonrup.jpg from the real Nopert Polyhedra Explorer: the
    Undecanope cut its hole, then pushed until it jams against the rim.
 
    Run from the repository root:
@@ -64,9 +64,9 @@ function serve() {
     ` });
     await page.evaluate(() => {
       document.body.insertAdjacentHTML('beforeend', '<div class="share-shade"></div><div class="share-copy">' +
-        '<div class="eyebrow">Non-Rupert Polyhedra Explorer</div><h1>The<br>Undecanope</h1>' +
+        '<div class="eyebrow">Nopert Polyhedra Explorer</div><h1>The<br>Undecanope</h1>' +
         '<p>A non-Rupert polyhedron with only 88 vertices. Try to pass a copy through a hole cut in it.</p>' +
-        '<div class="site">drbuild.uk/nonrup</div></div>');
+        '<div class="site">drbuild.uk/nopert</div></div>');
       window.dispatchEvent(new Event('resize'));
     });
     await page.waitForTimeout(600);

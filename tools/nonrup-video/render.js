@@ -1,4 +1,4 @@
-/* Render the 30-second Non-Rupert Polyhedra Explorer video from the real
+/* Render the 30-second Nopert Polyhedra Explorer video from the real
    app page, app/nonrup/. See README.md.
 
      node tools/nonrup-video/render.js                the video, undecanope.mp4

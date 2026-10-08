@@ -1,4 +1,4 @@
-/* The video's layout of the Non-Rupert Polyhedra Explorer. render.js adds
+/* The video's layout of the Nopert Polyhedra Explorer. render.js adds
    this to the real page, app/nonrup/, at 540 CSS px square, drawn at twice
    the density for 1080 px of video. It moves the app's own parts and hides
    the header, the footer, the hint, the legend and the solid's name; the

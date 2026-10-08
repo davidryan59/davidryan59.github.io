@@ -836,7 +836,7 @@
     resetViewButton.hidden = true;
   });
 
-  // The Undecanope (C11) leads, then the Noperthedron (C15), then the comparison solids, with a divider between groups.
+  // The Undecanope, Noperthedron and rhombicosidodecahedron lead, then the comparison solids.
   const order = Object.keys(DEFINITIONS).sort((a, b) =>
     (DEFINITIONS[a].featured || 99) - (DEFINITIONS[b].featured || 99));
   let lastGroup = null;

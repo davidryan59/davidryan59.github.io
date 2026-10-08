@@ -63,7 +63,7 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/papers/<name>/draft-<n>.pdf` | Each draft, kept as it was published | `papers/<name>/` |
 | `/e8` | A short address for the E8 Root System Explorer | `redirects/e8.html` |
 | `/noble` | The Noble Polyhedra video and other shared links | `redirects/noble.html` |
-| `/nonrup` | A short address for the Non-Rupert Polyhedra Explorer | `redirects/nonrup.html` |
+| `/nonrup`, `/nopert` | Short addresses for the Nopert Polyhedra Explorer | `redirects/nonrup.html`, `redirects/nopert.html` |
 | `/tiles` | The paper, and the corner label of the tiling video | `redirects/tiles.html` |
 | `/demos/hat/`, `/demos/spectre/`, `/demos/hat-extended/` | Shared links to the explorer, each with its settings after the `#`. The `index.html` form of each is a link too | `redirects/demos-*.html` |
 | `/aperiodic-pairs/` | The builder page's first link to the gallery | `redirects/aperiodic-pairs.html` |

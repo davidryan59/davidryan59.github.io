@@ -1,6 +1,6 @@
-# Non-Rupert explorer video: storyboard
+# Nopert explorer video: storyboard
 
-A 30-second square video of the Non-Rupert Polyhedra Explorer at
+A 30-second square video of the Nopert Polyhedra Explorer at
 drbuild.uk/nonrup, made to promote the Undecanope. It plays as a seamless
 loop: it starts and ends on the Undecanope turning before its hole is cut,
 with the title showing. There is no voice and no end card. `timeline.js`

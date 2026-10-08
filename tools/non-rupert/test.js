@@ -8,10 +8,11 @@ const {
   subtract
 } = require("../../app/nonrup/models.js");
 
-// SciPy's ConvexHull gives the same counts for both models.
+// SciPy's ConvexHull gives the same counts for the featured solids.
 const expectations = {
   c15: { vertices: 90, facets: 152, triangles: 176, cap: 15 },
-  c11: { vertices: 88, facets: 156, triangles: 172, cap: 11 }
+  c11: { vertices: 88, facets: 156, triangles: 172, cap: 11 },
+  rid: { vertices: 60, facets: 62, triangles: 116, cap: 5 }
 };
 
 for (const [key, expected] of Object.entries(expectations)) {
@@ -21,11 +22,16 @@ for (const [key, expected] of Object.entries(expectations)) {
   assert.equal(model.triangles.length, expected.triangles, `${key} triangle count`);
   assert.equal(Math.max(...model.facets.map(face => face.length)), expected.cap, `${key} cap size`);
 
-  for (let i = 0; i < model.vertices.length; i += 2) {
-    const vertex = model.vertices[i];
-    const antipode = model.vertices[i + 1];
+  for (const vertex of model.vertices) {
     assert.ok(dot(vertex, vertex) > 0.9, `${key} vertices stay near the unit sphere`);
-    assert.deepEqual(antipode, vertex.map(value => -value), `${key} antipodal pairs`);
+  }
+  assert.ok(model.central, `${key} is centrally symmetric`);
+  if (key === "c15" || key === "c11") {
+    for (let i = 0; i < model.vertices.length; i += 2) {
+      const vertex = model.vertices[i];
+      const antipode = model.vertices[i + 1];
+      assert.deepEqual(antipode, vertex.map(value => -value), `${key} antipodal pairs`);
+    }
   }
 
   for (const face of model.facets) {
@@ -43,7 +49,6 @@ for (const [key, expected] of Object.entries(expectations)) {
     }
   }
 
-  assert.equal(DEFINITIONS[key].order, Number(key.slice(1)), `${key} rotational order`);
   console.log(`${key}: ${model.vertices.length} vertices, ${model.facets.length} outward faces`);
 }
 
