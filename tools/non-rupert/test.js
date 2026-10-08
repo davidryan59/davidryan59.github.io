@@ -12,7 +12,9 @@ const {
 const expectations = {
   c15: { vertices: 90, facets: 152, triangles: 176, cap: 15 },
   c11: { vertices: 88, facets: 156, triangles: 172, cap: 11 },
-  rid: { vertices: 60, facets: 62, triangles: 116, cap: 5 }
+  rid: { vertices: 60, facets: 62, triangles: 116, cap: 5 },
+  // Four pyramids of three triangles each; the low apexes sit at radius 11/20.
+  stellated: { vertices: 8, facets: 12, triangles: 12, cap: 3, inner: 0.3, central: false }
 };
 
 for (const [key, expected] of Object.entries(expectations)) {
@@ -23,9 +25,9 @@ for (const [key, expected] of Object.entries(expectations)) {
   assert.equal(Math.max(...model.facets.map(face => face.length)), expected.cap, `${key} cap size`);
 
   for (const vertex of model.vertices) {
-    assert.ok(dot(vertex, vertex) > 0.9, `${key} vertices stay near the unit sphere`);
+    assert.ok(dot(vertex, vertex) > (expected.inner || 0.9), `${key} vertices stay near the unit sphere`);
   }
-  assert.ok(model.central, `${key} is centrally symmetric`);
+  assert.equal(model.central, expected.central !== false, `${key} central symmetry`);
   if (key === "c15" || key === "c11") {
     for (let i = 0; i < model.vertices.length; i += 2) {
       const vertex = model.vertices[i];
@@ -57,7 +59,7 @@ const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
 for (const key of Object.keys(DEFINITIONS)) {
   const model = buildModel(key);
-  assert.equal(model.central, key !== "tetrahedron", `${key} central symmetry`);
+  assert.equal(model.central, key !== "tetrahedron" && key !== "stellated", `${key} central symmetry`);
   // A copy in the same view as the hole fills it exactly.
   const same = Shadow.fitPoses(model, IDENTITY, IDENTITY);
   assert.ok(Math.abs(same.scale - 1) < 1e-9, `${key} copy in the same view has pass ratio 1`);

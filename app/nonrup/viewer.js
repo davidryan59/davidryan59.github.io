@@ -836,7 +836,7 @@
     resetViewButton.hidden = true;
   });
 
-  // The Undecanope, Noperthedron and rhombicosidodecahedron lead, then the comparison solids.
+  // The Undecanope, Noperthedron, rhombicosidodecahedron and stellated tetrahedron lead, then the comparison solids.
   const order = Object.keys(DEFINITIONS).sort((a, b) =>
     (DEFINITIONS[a].featured || 99) - (DEFINITIONS[b].featured || 99));
   let lastGroup = null;

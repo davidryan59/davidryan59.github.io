@@ -4,20 +4,21 @@
 
 A solid is Rupert when a hole can be cut through it that a copy of the same solid passes through. The test reduces to shadows. The hole is the solid's shadow in one view. The copy passes when its shadow in another view, turned and slid in the plane, fits strictly inside that hole. A solid is non-Rupert when no pair of views works. “Nopert” means non-Rupert.
 
-The app at `app/nonrup/`, served at `drbuild.uk/app/nonrup/` with the short addresses `drbuild.uk/nonrup` and `drbuild.uk/nopert`, lets a visitor run that test. They turn a solid and cut its shadow out of a plate as a hole. Then they turn a copy and push it through. The five Platonic solids, the buckyball and three cuboids have views that pass. The 90-vertex C15 Noperthedron of Steininger and Yurkevich, the 88-vertex C11 Undecanope and the 60-vertex rhombicosidodecahedron are the contrast. Hervay's public computer-assisted proof for the rhombicosidodecahedron awaits independent audit. The page calls the Undecanope non-Rupert and links its paper, Draft 1, whose status box says the proof is computer-assisted and not yet reviewed outside the project. David dropped the word "candidate" on 2026-10-06. The Undecanope's name joins *undecim*, Latin for eleven, to the Noperthedron's "nope". The page uses no external libraries.
+The app at `app/nonrup/`, served at `drbuild.uk/app/nonrup/` with the short addresses `drbuild.uk/nonrup` and `drbuild.uk/nopert`, lets a visitor run that test. They turn a solid and cut its shadow out of a plate as a hole. Then they turn a copy and push it through. The five Platonic solids, the buckyball and three cuboids have views that pass. The 90-vertex C15 Noperthedron of Steininger and Yurkevich, the 88-vertex C11 Undecanope, the 60-vertex rhombicosidodecahedron and the 8-vertex stellated tetrahedron are the contrast. Hervay's public computer-assisted proof for the rhombicosidodecahedron awaits independent audit. Renshaw's proof for the stellated tetrahedron is a complete Lean formalisation. The page calls the Undecanope non-Rupert and links its paper, Draft 1, whose status box says the proof is computer-assisted and not yet reviewed outside the project. David dropped the word "candidate" on 2026-10-06. The Undecanope's name joins *undecim*, Latin for eleven, to the Noperthedron's "nope". The page uses no external libraries.
 
 ## Implementation Checklist
 
 - [x] Generate the C15 Noperthedron from its three published generators and their antipodes.
 - [x] Generate the C11 Undecanope from four rotational orbits and their antipodes.
 - [x] Generate the 60-vertex rhombicosidodecahedron from its standard golden-ratio coordinates.
+- [x] Add Zeng's 11/20 stellated tetrahedron from its eight published vertices.
 - [x] Add the five Platonic solids, the buckyball and three cuboids, scaled to unit circumradius.
 - [x] Recover each polygonal convex hull and its edges in the browser.
 - [x] Compute the pass ratio, with the best twist and shift, for any pair of views.
 - [x] Draw the plate, the hole, the copy and the red overlap in a 3D scene and a straight-on view.
 - [x] Push the copy through, or stop it at its first contact with the rim.
 - [x] Search pairs of views by a restarted hill-climb.
-- [x] Store a passing pair of views for every solid except C15, C11 and the rhombicosidodecahedron.
+- [x] Store a passing pair of views for every solid except the four Nopert solids.
 - [x] Keep a dragged copy's twist near its last value, then ease it to the best twist on release.
 - [x] Orbit and zoom the camera round the plate, with a reset.
 - [x] Show the fixed solid as a glass ghost on the plate once the hole is cut.
@@ -28,7 +29,7 @@ The app at `app/nonrup/`, served at `drbuild.uk/app/nonrup/` with the short addr
 
 The page opens on the Undecanope, C11. The controls sit above the 3D view, in the order a visitor uses them.
 
-1. Choose a solid from the row of buttons. C11, C15 and the rhombicosidodecahedron lead as large cards. The Platonic solids, the buckyball and the cuboids follow as smaller buttons. On a phone the row scrolls sideways.
+1. Choose a solid from the row of buttons. C11, C15, the rhombicosidodecahedron and the stellated tetrahedron lead as large cards. The Platonic solids, the buckyball and the cuboids follow as smaller buttons. On a phone the row scrolls sideways.
 2. Drag either view to turn the solid. Its shadow falls on the plate.
 3. Press **Cut hole**. The shadow becomes a hole, and a copy of the solid appears in front of the plate.
 4. Drag to turn the copy. The view through the hole shows the copy's shadow over the hole, red where it sticks out.
@@ -38,7 +39,7 @@ In the 3D view, dragging the solid turns it, and dragging anywhere else orbits t
 
 Once the hole is cut, the fixed solid stays on the plate as a glass ghost. Its outline, seen along the push, is the rim of the hole. This is Rupert's own picture: the copy passes along a tunnel through the solid. From an angle the rim and the ghost's outline part company, because the edges that cast the outline lie at different depths. The copy starts 2.15 units from the plate, so at rest it never meets the ghost.
 
-A numbered hint beside the buttons names the current step, and the button for the next step is the bright one. **New hole** returns to turning the hole. **Passage** loads a stored passing pair of views; C15, C11 and the rhombicosidodecahedron have none. **Search** hill-climbs over pairs of views for ten seconds and shows the best pair found. The address keeps the solid, for example `#cube` or `#box-123`.
+A numbered hint beside the buttons names the current step, and the button for the next step is the bright one. **New hole** returns to turning the hole. **Passage** loads a stored passing pair of views; the four Nopert solids have none. **Search** hill-climbs over pairs of views for ten seconds and shows the best pair found. The address keeps the solid, for example `#cube` or `#box-123`.
 
 The header follows the site's other explorers: a link back to the builder page at top left, the title in the middle and the full-screen button at right.
 
@@ -58,10 +59,11 @@ The header follows the site's other explorers: a link back to the builder page a
 | C15 Noperthedron | 90 | 240 | 152 | yes |
 | C11 Undecanope | 88 | 242 | 156 | yes |
 | Rhombicosidodecahedron | 60 | 120 | 62 | yes |
+| Stellated tetrahedron P<sub>11/20</sub> | 8 | 18 | 12 | no |
 
 The Platonic solids and the buckyball come from their standard coordinates, built from signs and cyclic shifts in `models.js`.
 
-The page finds each supporting plane directly. SciPy's `ConvexHull` gives the same face counts for C15, C11 and the rhombicosidodecahedron.
+The page finds each supporting plane directly. SciPy's `ConvexHull` gives the same face counts for the four Nopert solids.
 
 ## The pass ratio
 
@@ -103,6 +105,7 @@ From seeded runs of 6 to 8 seconds for each solid:
 | C15 | 0.9999997 | The copy lined up with the hole |
 | C11 Undecanope | 0.9999995 | The copy lined up with the hole |
 | Rhombicosidodecahedron | 1.0000000 | The copy lined up with the hole |
+| Stellated tetrahedron | 0.999999 | The copy lined up with the hole |
 
 These are the best ratios the search found in that time, not proven maxima.
 

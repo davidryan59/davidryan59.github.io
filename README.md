@@ -13,7 +13,8 @@ address, `davidryan59.github.io`, redirects there.
   - `app/nonrup/` – Nopert Polyhedra Explorer: cut a solid's shadow out of a
     plate, then try to push a copy through it. “Nopert” means non-Rupert. It
     compares the Platonic solids, a buckyball and three cuboids with the C11
-    Undecanope, C15 Noperthedron and 60-vertex rhombicosidodecahedron. See
+    Undecanope, C15 Noperthedron, 60-vertex rhombicosidodecahedron and 8-vertex
+    stellated tetrahedron. See
     [docs/non-rupert-polyhedra.md](docs/non-rupert-polyhedra.md).
   - `app/noble/` – a 3D explorer for the two infinite families and all 146
     exceptional noble polyhedra. Select any face, isolate its neighbours and

@@ -193,6 +193,24 @@
         [2 + PHI, 0, PHI ** 2]
       ])))
     },
+    stellated: {
+      // Zeng's 11/20 stellated tetrahedron, arXiv:2604.26531: a regular
+      // tetrahedron with a low pyramid on each face. Renshaw proved it
+      // non-Rupert in Lean in 2026, github.com/dwrensha/StellatedTetrahedron.
+      name: "Stellated tetrahedron, the 8-vertex solid",
+      label: "P<sub>11/20</sub>",
+      short: "P<sub>11/20</sub>",
+      featured: 4,
+      kind: "Stellated tetrahedron",
+      group: "Non-Rupert solids",
+      hue: 96,
+      turn: 0.4,
+      vertices: unitRadius([
+        [1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1],
+        [-11 / 20, 11 / 20, 11 / 20], [11 / 20, -11 / 20, 11 / 20],
+        [11 / 20, 11 / 20, -11 / 20], [-11 / 20, -11 / 20, -11 / 20]
+      ])
+    },
     c11: {
       // The Undecanope: undecim, Latin for eleven, with the Noperthedron's "nope".
       name: "Undecanope, the 88-vertex C11 solid",
