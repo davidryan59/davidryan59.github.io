@@ -1,5 +1,10 @@
 /* The driver models. Humans follow the Intelligent Driver Model (Treiber,
-   Hennecke and Helbing 2000) with a response lag and noise. Self-driving
+   Hennecke and Helbing 2000), each with their own parameters. Each human's
+   reaction time acts either as a first-order lag between what they want
+   and what the car does, as in the reference model, or as the pure delay
+   of the Human Driver Model (Treiber, Kesting and Helbing 2006). That
+   model's estimation errors and anticipation of several cars ahead work
+   with either. White noise remains for the reference model. Self-driving
    cars follow a constant-time-gap controller with an actuator lag, capped
    by Gipps's safe speed (Gipps 1981). Lane changes follow MOBIL (Kesting,
    Treiber and Helbing 2007), with the politeness factor set by driver type.
@@ -22,18 +27,33 @@ export const PROFILE_NAMES = ['selfish', 'timid', 'cooperative', 'platoon', 'abs
 export const DEFAULTS = {
   dt: 0.1,               // fixed time step (s)
   carLength: 5,
-  speedLimit: 30,        // a human's desired speed, and the self-driving cars' limit
+  speedLimit: 30,        // the self-driving cars' limit (m/s). Humans have their own desired speeds
   human: {
-    T: 1.2,              // time gap (s)
-    a: 1.0,              // acceleration (m/s²)
-    b: 1.5,              // comfortable braking (m/s²)
+    // Each human's traits are drawn from these distributions (population.js).
+    // link: how strongly one assertiveness score sets every trait, 0 to 1.
+    // The defaults are the reference model's identical humans.
+    link: 0,
+    traits: {
+      desiredSpeed: { dist: 'fixed', value: 30, assertive: 1 },     // m/s
+      timeGap: { dist: 'fixed', value: 1.2, assertive: -1 },        // s
+      acceleration: { dist: 'fixed', value: 1.0, assertive: 1 },    // m/s²
+      braking: { dist: 'fixed', value: 1.5, assertive: 1 },         // comfortable braking (m/s²)
+      reactionTime: { dist: 'fixed', value: 0.5, assertive: -1 },   // s
+      politeness: { dist: 'fixed', value: 0.25, assertive: -1 }     // MOBIL's politeness factor
+    },
     s0: 2,               // jam gap (m)
     delta: 4,            // acceleration exponent
     minGap: 0.1,         // the gap below which IDM stops growing its braking (m)
     maxAccel: 3,
     maxBrake: 9,
-    lag: 0.5,            // first-order response lag (s)
-    noise: 0.3           // acceleration noise per step (m/s²)
+    reactionAs: 'lag',   // how reaction time acts: 'lag', a first-order lag, or 'delay', HDM's delay
+    noise: 0.3,          // white acceleration noise per step (m/s²)
+    // The Human Driver Model. With one car anticipated, no delay and no
+    // estimation errors, it is the plain Intelligent Driver Model.
+    anticipate: 1,       // the number of cars ahead a driver responds to
+    distanceError: 0,    // the relative error in judging a gap
+    speedError: 0,       // the error in judging the closing speed, per metre of gap (1/s)
+    errorTime: 20        // how long an error persists (s)
   },
   av: {
     s0: 2,
@@ -63,20 +83,31 @@ export const DEFAULTS = {
   mobil: {
     threshold: 0.1,      // the least gain worth a lane change (m/s²)
     safeBrake: 4,        // the hardest braking a lane change may force on anyone (m/s²)
+    minGap: 0,           // the least gap a lane change may leave ahead or behind (m)
     cooldown: 4,         // the least time between one car's lane changes (s)
-    politeness: { human: 0.25, selfish: 0, timid: 1, cooperative: 1, coordinated: 1, absorber: 1 }
+    // Keep left: the pull back to the left lane (m/s²), the speed below
+    // which traffic counts as queueing and may pass on the left (m/s), and
+    // the cost of keeping to the rule above which a selfish car passes on
+    // the left anyway (m/s²).
+    keepLeftBias: 0.3,
+    queueSpeed: 60 / 3.6,
+    undertakeGain: 0.5,
+    // Politeness for self-driving cars. Each human has their own.
+    politeness: { selfish: 0, timid: 1, cooperative: 1, coordinated: 1, absorber: 1 }
   },
   tap: { brake: 4, time: 2 }   // a tap on a car: brake this hard (m/s²) for this long (s)
 };
 
 // The defaults with some values replaced, group by group:
-// makeParams({ human: { T: 1.4 }, mobil: { politeness: { human: 0.5 } } }).
+// makeParams({ human: { noise: 0.2 }, mobil: { politeness: { selfish: 0.1 } } }).
+// A distribution, an object with a dist key, is replaced whole.
 export function makeParams(over = {}) {
   const merge = (base, add) => {
     const out = {};
     for (const key of Object.keys(base)) {
       const b = base[key], a = add ? add[key] : undefined;
-      out[key] = b && typeof b === 'object' ? merge(b, a) : (a === undefined ? b : a);
+      if (b && typeof b === 'object' && !('dist' in b)) out[key] = merge(b, a);
+      else out[key] = a === undefined ? b : a;
     }
     return out;
   };
@@ -101,26 +132,35 @@ export function profileFor(type, leaderType, absorb) {
 export function compileParams(par) {
   const order = ['selfish', 'timid', 'cooperative', 'platoon', 'absorber'];
   const col = key => Float64Array.from(order, name => par.profiles[name][key]);
-  const h = par.human, av = par.av;
+  const h = par.human, av = par.av, m = par.mobil;
+  // Renormalised jam gap and time gap for a driver who anticipates k cars,
+  // so that the equilibrium gap stays that of one car ahead (HDM eq. 19–20).
+  const gamma = [1];
+  for (let k = 1, sum = 0; k <= h.anticipate; k++) gamma[k] = Math.sqrt(sum += 1 / (k * k));
   return {
     dt: par.dt, len: par.carLength, vMax: par.speedLimit,
-    hT: h.T, hA: h.a, hS0: h.s0, hDelta: h.delta, hMinGap: h.minGap, hMaxAccel: h.maxAccel,
-    hMaxBrake: h.maxBrake, hLag: h.lag, hNoise: h.noise, hSqrtAB: Math.sqrt(h.a * h.b),
+    hS0: h.s0, hDelta: h.delta, hMinGap: h.minGap, hMaxAccel: h.maxAccel, hMaxBrake: h.maxBrake,
+    hDelay: h.reactionAs === 'delay', hNoise: h.noise,
+    hAnticipate: h.anticipate, hGamma: Float64Array.from(gamma),
+    hDistanceError: h.distanceError, hSpeedError: h.speedError, hErrorTime: h.errorTime,
     aS0: av.s0, aLimitGain: av.limitGain, aMaxAccel: av.maxAccel, aMaxBrake: av.maxBrake,
     aLag: av.lag, aHardBrake: av.hardBrake, aBrakeLag: av.brakeLag, aNoise: av.noise,
     aSafeBrake: av.safeBrake, aReaction: av.reaction, aReactionV2V: av.reactionV2V,
     aSafeMargin: av.safeMargin, aAverageTime: av.averageTime,
     pT: col('T'), pK1: col('k1'), pK2: col('k2'), pKU: col('kU'), pFF: col('ff'),
-    politeness: Float64Array.from(TYPE_NAMES, name => par.mobil.politeness[name]),
-    mThreshold: par.mobil.threshold, mSafeBrake: par.mobil.safeBrake, mCooldown: par.mobil.cooldown,
+    politeness: Float64Array.from(TYPE_NAMES, name => name === 'human' ? NaN : m.politeness[name]),
+    mThreshold: m.threshold, mSafeBrake: m.safeBrake, mMinGap: m.minGap, mCooldown: m.cooldown,
+    mBias: m.keepLeftBias, mQueueSpeed: m.queueSpeed, mUndertake: m.undertakeGain,
     tapBrake: par.tap.brake, tapTime: par.tap.time
   };
 }
 
 /* The acceleration car i asks for behind car j at the given gap, before
    noise and lag. j = -1 means an empty road ahead, with an infinite gap.
-   The step loop and MOBIL's what-if tests both call this, so a lane change
-   is judged by the same model that drives the car. */
+   For a human it is the plain Intelligent Driver Model with the driver's
+   own parameters, on the present positions. The step loop uses it for every
+   car unless the Human Driver Model is on (ring.js). MOBIL's what-if tests
+   always use it, so a lane change is judged by the driver's own model. */
 export function command(ring, i, j, gap) {
   const c = ring.c;
   const v = ring.v[i];
@@ -128,11 +168,11 @@ export function command(ring, i, j, gap) {
   const type = ring.type[i];
 
   if (type === HUMAN) {
-    const sStar = c.hS0 + Math.max(0, v * c.hT + v * (v - vl) / (2 * c.hSqrtAB));
-    const r = v / c.vMax;
+    const sStar = c.hS0 + Math.max(0, v * ring.timeGap[i] + v * (v - vl) / (2 * ring.sqrtAB[i]));
+    const r = v / ring.desiredSpeed[i];
     const free = c.hDelta === 4 ? (r * r) * (r * r) : Math.pow(r, c.hDelta);
     const q = sStar / Math.max(gap, c.hMinGap);
-    const a = c.hA * (1 - free - q * q);
+    const a = ring.acceleration[i] * (1 - free - q * q);
     return a < -c.hMaxBrake ? -c.hMaxBrake : a > c.hMaxAccel ? c.hMaxAccel : a;
   }
 

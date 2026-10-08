@@ -1,0 +1,157 @@
+{
+  "settings": "traffic-sim 1",
+  "name": "uk-motorway",
+  "about": "UK motorway drivers, from observed data where it exists. Each human has their own desired speed, time gap, acceleration, braking and reaction time, linked by one assertiveness score. Reaction time acts as a first-order lag. Drivers misjudge gaps and closing speeds with the persistent errors of the Human Driver Model, and respond to the car ahead only. The reaction time is calibrated so that, with humans alone on the ring, flow peaks near 2,000 vehicles per hour per lane at 30 to 35 per km, stop-and-go waves start at 35 to 40 per km and travel back at about 20 km/h, with no collisions. Self-driving cars keep to the 70 mph limit. Keep left is on.",
+  "seed": 11,
+  "road": {
+    "layout": "ring",
+    "lanes": 2,
+    "laneLength": "800 m",
+    "density": 30,
+    "keepLeft": true
+  },
+  "mix": {
+    "coordinated": 0,
+    "selfish": 0,
+    "absorb": false
+  },
+  "params": {
+    "dt": "0.1 s",
+    "carLength": "5 m",
+    "speedLimit": "70 mph",
+    "human": {
+      "link": 0.5,
+      "traits": {
+        "desiredSpeed": {
+          "dist": "normal",
+          "mean": "111 km/h",
+          "sd": "14 km/h",
+          "percentiles": [1, 99],
+          "assertive": 1,
+          "source": "DfT vehicle speed compliance statistics 2024, table SPE0102: cars on motorways in free flow, a normal fit to the 5 mph bands"
+        },
+        "timeGap": {
+          "dist": "lognormal",
+          "median": "1.2 s",
+          "sigma": 0.25,
+          "percentiles": [1, 99],
+          "assertive": -1,
+          "source": "Median: Zhang and Sun (2024), highD, recorded 2017-2018, population mean 1.18 s. Spread: provisional, between the 0.34 s spread of Mu et al. (2023) and none"
+        },
+        "acceleration": {
+          "dist": "lognormal",
+          "median": "0.17 g",
+          "sigma": 0.34,
+          "percentiles": [1, 99],
+          "assertive": 1,
+          "source": "Approximate: accident-reconstruction and telematics ranges for pulling away, 0.10 to 0.30 g for 90% of drivers"
+        },
+        "braking": {
+          "dist": "lognormal",
+          "median": "0.17 g",
+          "sigma": 0.34,
+          "percentiles": [1, 99],
+          "assertive": 1,
+          "source": "Comfortable braking, set equal to acceleration in distribution: the same disposition"
+        },
+        "reactionTime": {
+          "dist": "lognormal",
+          "median": "0.8 s",
+          "sigma": 0.25,
+          "percentiles": [1, 99],
+          "assertive": -1,
+          "source": "Calibrated: the median that puts the start of waves on the ring near observed motorway breakdown (speeds collapse from about 40 vehicles per km per lane on highD, recorded 2017-2018) with waves travelling back at 15 to 20 km/h (I-24 MOTION, 2022). Spread provisional"
+        },
+        "politeness": {
+          "dist": "fixed",
+          "value": 0.25,
+          "assertive": -1,
+          "source": "The middle of MOBIL's typical range, 0 to 0.5, until highD calibrates it"
+        }
+      },
+      "s0": "2 m",
+      "delta": 4,
+      "minGap": "0.1 m",
+      "maxAccel": "3 m/s²",
+      "maxBrake": "9 m/s²",
+      "reactionAs": "lag",
+      "noise": "0 m/s²",
+      "anticipate": 1,
+      "distanceError": 0.05,
+      "speedError": "0.01 /s",
+      "errorTime": "20 s"
+    },
+    "av": {
+      "s0": "2 m",
+      "limitGain": "0.5 /s",
+      "maxAccel": "2 m/s²",
+      "maxBrake": "8 m/s²",
+      "lag": "0.4 s",
+      "hardBrake": "2 m/s²",
+      "brakeLag": "0.2 s",
+      "noise": "0.02 m/s²",
+      "safeBrake": "7 m/s²",
+      "reaction": "0.5 s",
+      "reactionV2V": "0.3 s",
+      "safeMargin": "1 m",
+      "averageTime": "60 s"
+    },
+    "profiles": {
+      "selfish": {
+        "T": "0.7 s",
+        "k1": "0.2 /s²",
+        "k2": "0.5 /s",
+        "kU": "0 /s",
+        "ff": 0
+      },
+      "timid": {
+        "T": "2 s",
+        "k1": "0.2 /s²",
+        "k2": "0.8 /s",
+        "kU": "0 /s",
+        "ff": 0
+      },
+      "cooperative": {
+        "T": "1.2 s",
+        "k1": "0.2 /s²",
+        "k2": "0.8 /s",
+        "kU": "0 /s",
+        "ff": 0
+      },
+      "platoon": {
+        "T": "0.6 s",
+        "k1": "0.2 /s²",
+        "k2": "0.8 /s",
+        "kU": "0 /s",
+        "ff": 0.8
+      },
+      "absorber": {
+        "T": "2 s",
+        "k1": "0.02 /s²",
+        "k2": "0.3 /s",
+        "kU": "0.3 /s",
+        "ff": 0
+      }
+    },
+    "mobil": {
+      "threshold": "0.1 m/s²",
+      "safeBrake": "4 m/s²",
+      "minGap": "2 m",
+      "cooldown": "4 s",
+      "keepLeftBias": "0.3 m/s²",
+      "queueSpeed": "60 km/h",
+      "undertakeGain": "0.5 m/s²",
+      "politeness": {
+        "selfish": 0,
+        "timid": 1,
+        "cooperative": 1,
+        "coordinated": 1,
+        "absorber": 1
+      }
+    },
+    "tap": {
+      "brake": "4 m/s²",
+      "time": "2 s"
+    }
+  }
+}

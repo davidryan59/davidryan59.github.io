@@ -1,0 +1,141 @@
+{
+  "settings": "traffic-sim 1",
+  "name": "reference",
+  "about": "The Python reference model's population: identical humans on the Intelligent Driver Model with a response lag and white noise, and the five self-driving controllers. With every spread switched off, the engine must reproduce the reference model's ring tables. Lane changes are symmetric, as in the engine before keep left.",
+  "seed": 11,
+  "road": {
+    "layout": "ring",
+    "lanes": 1,
+    "laneLength": "1111.111 m",
+    "density": 45,
+    "keepLeft": false
+  },
+  "mix": {
+    "coordinated": 0,
+    "selfish": 0,
+    "absorb": false
+  },
+  "params": {
+    "dt": "0.1 s",
+    "carLength": "5 m",
+    "speedLimit": "30 m/s",
+    "human": {
+      "link": 0,
+      "traits": {
+        "desiredSpeed": {
+          "dist": "fixed",
+          "value": "30 m/s",
+          "assertive": 1
+        },
+        "timeGap": {
+          "dist": "fixed",
+          "value": "1.2 s",
+          "assertive": -1
+        },
+        "acceleration": {
+          "dist": "fixed",
+          "value": "1 m/s²",
+          "assertive": 1
+        },
+        "braking": {
+          "dist": "fixed",
+          "value": "1.5 m/s²",
+          "assertive": 1
+        },
+        "reactionTime": {
+          "dist": "fixed",
+          "value": "0.5 s",
+          "assertive": -1
+        },
+        "politeness": {
+          "dist": "fixed",
+          "value": 0.25,
+          "assertive": -1
+        }
+      },
+      "s0": "2 m",
+      "delta": 4,
+      "minGap": "0.1 m",
+      "maxAccel": "3 m/s²",
+      "maxBrake": "9 m/s²",
+      "reactionAs": "lag",
+      "noise": "0.3 m/s²",
+      "anticipate": 1,
+      "distanceError": 0,
+      "speedError": "0 /s",
+      "errorTime": "20 s"
+    },
+    "av": {
+      "s0": "2 m",
+      "limitGain": "0.5 /s",
+      "maxAccel": "2 m/s²",
+      "maxBrake": "8 m/s²",
+      "lag": "0.4 s",
+      "hardBrake": "2 m/s²",
+      "brakeLag": "0.2 s",
+      "noise": "0.02 m/s²",
+      "safeBrake": "7 m/s²",
+      "reaction": "0.5 s",
+      "reactionV2V": "0.3 s",
+      "safeMargin": "1 m",
+      "averageTime": "60 s"
+    },
+    "profiles": {
+      "selfish": {
+        "T": "0.7 s",
+        "k1": "0.2 /s²",
+        "k2": "0.5 /s",
+        "kU": "0 /s",
+        "ff": 0
+      },
+      "timid": {
+        "T": "2 s",
+        "k1": "0.2 /s²",
+        "k2": "0.8 /s",
+        "kU": "0 /s",
+        "ff": 0
+      },
+      "cooperative": {
+        "T": "1.2 s",
+        "k1": "0.2 /s²",
+        "k2": "0.8 /s",
+        "kU": "0 /s",
+        "ff": 0
+      },
+      "platoon": {
+        "T": "0.6 s",
+        "k1": "0.2 /s²",
+        "k2": "0.8 /s",
+        "kU": "0 /s",
+        "ff": 0.8
+      },
+      "absorber": {
+        "T": "2 s",
+        "k1": "0.02 /s²",
+        "k2": "0.3 /s",
+        "kU": "0.3 /s",
+        "ff": 0
+      }
+    },
+    "mobil": {
+      "threshold": "0.1 m/s²",
+      "safeBrake": "4 m/s²",
+      "minGap": "0 m",
+      "cooldown": "4 s",
+      "keepLeftBias": "0.3 m/s²",
+      "queueSpeed": "60 km/h",
+      "undertakeGain": "0.5 m/s²",
+      "politeness": {
+        "selfish": 0,
+        "timid": 1,
+        "cooperative": 1,
+        "coordinated": 1,
+        "absorber": 1
+      }
+    },
+    "tap": {
+      "brake": "4 m/s²",
+      "time": "2 s"
+    }
+  }
+}

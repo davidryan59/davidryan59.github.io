@@ -1,10 +1,12 @@
 /* traffic-sim: the page. It builds a ring from the controls, runs it on the
    engine's fixed 0.1 s step at the chosen speed, and draws each frame with
    view.js, placing every car between its last two steps so that motion is
-   smooth at any speed. The settings and the seed live in the address after
-   the #, so any run can be shared and repeated. */
+   smooth at any speed. Every driver parameter comes from the settings file
+   settings/uk-motorway.json. The controls and the seed live in the address
+   after the #, so any run can be shared and repeated. */
 
 import { Ring } from './engine/ring.js';
+import { readSettings } from './engine/settings.js';
 import { HUMAN, SELFISH, COORDINATED, P_PLATOON } from './engine/drivers.js';
 import { makeRng, hashSeed } from './engine/rng.js';
 import { roundHalfEven } from './engine/mix.js';
@@ -21,8 +23,11 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ------------------------------------------------------------ settings */
 
+// The drivers: UK motorway humans and the self-driving controllers.
+const population = readSettings(await (await fetch('settings/uk-motorway.json')).text());
+
 const settings = {
-  lanes: 1, density: 45, av: 0, selfish: 50, absorb: false,
+  lanes: 1, density: 45, av: 0, selfish: 50, absorb: false, keep: true,
   speed: 5, colour: 'type', camera: 'top', seed: Math.floor(Math.random() * 1e6)
 };
 const LIMITS = { lanes: [1, 2], density: [10, 80], av: [0, 100], selfish: [0, 100], seed: [0, 1e9] };
@@ -33,6 +38,7 @@ function readHash() {
     if (!(key in settings) || raw === undefined) continue;
     const value = decodeURIComponent(raw);
     if (key === 'absorb') settings.absorb = value === '1';
+    else if (key === 'keep') settings.keep = value !== '0';
     else if (key === 'colour') settings.colour = value === 'speed' ? 'speed' : 'type';
     else if (key === 'camera') settings.camera = ['top', 'tilt', 'ride'].includes(value) ? value : 'top';
     else if (key === 'speed') settings.speed = SPEEDS.includes(+value) ? +value : 5;
@@ -47,7 +53,7 @@ function writeHash() {
   clearTimeout(hashTimer);
   hashTimer = setTimeout(() => {
     const s = settings;
-    const parts = [`lanes=${s.lanes}`, `density=${s.density}`, `av=${s.av}`, `selfish=${s.selfish}`,
+    const parts = [`lanes=${s.lanes}`, `keep=${s.keep ? 1 : 0}`, `density=${s.density}`, `av=${s.av}`, `selfish=${s.selfish}`,
       `absorb=${s.absorb ? 1 : 0}`, `speed=${s.speed}`, `colour=${s.colour}`, `camera=${s.camera}`, `seed=${s.seed}`];
     try { history.replaceState(null, '', '#' + parts.join('&')); } catch (e) { /* a sandboxed frame may refuse */ }
   }, 300);
@@ -100,7 +106,10 @@ function build() {
     [order[q], order[r]] = [order[r], order[q]];
   }
   rank = Float64Array.from({ length: n }, () => rng.uniform());
-  ring = new Ring({ length: LANE_LENGTH, lanes: settings.lanes, types: new Uint8Array(n), seed: settings.seed, absorb: settings.absorb });
+  ring = new Ring({
+    length: LANE_LENGTH, lanes: settings.lanes, types: new Uint8Array(n), seed: settings.seed,
+    absorb: settings.absorb, keepLeft: settings.keep, params: population.params
+  });
   retype();
   oval = makeOval(LANE_LENGTH, settings.lanes);
   view.setRoad(oval);
@@ -295,6 +304,8 @@ function renderControls() {
   $('selfish').value = settings.selfish;
   $('selfish-out').textContent = settings.selfish + '%';
   $('absorb').checked = settings.absorb;
+  $('keep').checked = settings.keep;
+  $('keep').disabled = settings.lanes === 1;
   $('run').textContent = running ? 'Pause' : 'Run';
   $('run').setAttribute('aria-pressed', String(!running));
   $('step').disabled = running;
@@ -338,6 +349,7 @@ for (const b of document.querySelectorAll('[data-lanes]')) {
     changed();
   });
 }
+$('keep').addEventListener('change', e => { settings.keep = e.target.checked; ring.keepLeft = settings.keep; changed(); });
 // The traffic slider rebuilds the ring, so it applies on release; only its
 // number follows the drag.
 $('density').addEventListener('input', e => { $('density-out').textContent = e.target.value; });
