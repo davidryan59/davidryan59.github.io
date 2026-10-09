@@ -1,5 +1,5 @@
-/* Draws social/nonrup.jpg from the real Nopert Polyhedra Explorer: the
-   Undecanope cut its hole, then pushed until it jams against the rim.
+/* Draws social/nonrup.jpg from the real Nopert Polyhedra Explorer: P11/20
+   cuts its hole, then pushes until it jams against the rim.
 
    Run from the repository root:
      NODE_PATH=tools/tiling-video/node_modules node tools/non-rupert/card.js
@@ -38,7 +38,7 @@ function serve() {
   try {
     const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('http://127.0.0.1:' + server.address().port + '/app/nonrup/#c11', { waitUntil: 'networkidle' });
+    await page.goto('http://127.0.0.1:' + server.address().port + '/app/nonrup/#stellated', { waitUntil: 'networkidle' });
     await page.click('#cut');
     await page.waitForTimeout(700);
     await page.click('#push');
@@ -64,8 +64,8 @@ function serve() {
     ` });
     await page.evaluate(() => {
       document.body.insertAdjacentHTML('beforeend', '<div class="share-shade"></div><div class="share-copy">' +
-        '<div class="eyebrow">Nopert Polyhedra Explorer</div><h1>The<br>Undecanope</h1>' +
-        '<p>A non-Rupert polyhedron with only 88 vertices. Try to pass a copy through a hole cut in it.</p>' +
+        '<h1>Nopert<br>Polyhedra<br>Explorer</h1>' +
+        '<p>P<sub>11/20</sub> is an 8-vertex non-Rupert polyhedron. Its copy jams against the hole.</p>' +
         '<div class="site">drbuild.uk/nopert</div></div>');
       window.dispatchEvent(new Event('resize'));
     });

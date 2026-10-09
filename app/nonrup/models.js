@@ -164,7 +164,7 @@
       name: "90-vertex C15 solid",
       label: "C<sub>15</sub>",
       short: "C<sub>15</sub>",
-      featured: 2,
+      featured: 4,
       kind: "Noperthedron",
       group: "Odd-cyclic solids",
       order: 15,
@@ -177,12 +177,12 @@
       ]
     },
     rid: {
-      // The rhombicosidodecahedron. Hervay's 2026 public certificate claims
-      // that it is non-Rupert; the proof is still awaiting independent audit.
+      // The rhombicosidodecahedron. Hervay's 2026 public certificate says
+      // that it is non-Rupert; David Ryan audited it subject to stated assumptions.
       name: "Rhombicosidodecahedron, the 60-vertex solid",
       label: "RID",
       short: "RID",
-      featured: 3,
+      featured: 2,
       kind: "Rhombicosidodecahedron",
       group: "Non-Rupert solids",
       hue: 304,
@@ -200,7 +200,7 @@
       name: "Stellated tetrahedron, the 8-vertex solid",
       label: "P<sub>11/20</sub>",
       short: "P<sub>11/20</sub>",
-      featured: 4,
+      featured: 1,
       kind: "Stellated tetrahedron",
       group: "Non-Rupert solids",
       hue: 96,
@@ -216,7 +216,7 @@
       name: "Undecanope, the 88-vertex C11 solid",
       label: "C<sub>11</sub>",
       short: "C<sub>11</sub>",
-      featured: 1,
+      featured: 3,
       kind: "Undecanope",
       group: "Odd-cyclic solids",
       order: 11,

@@ -121,7 +121,7 @@
   // Setting up and changing the poses
 
   function chooseShape(key) {
-    if (!DEFINITIONS[key]) key = "c11";
+    if (!DEFINITIONS[key]) key = "stellated";
     stopSearch();
     state.model = model(key);
     state.phase = "hole";
@@ -836,7 +836,7 @@
     resetViewButton.hidden = true;
   });
 
-  // The Undecanope, Noperthedron, rhombicosidodecahedron and stellated tetrahedron lead, then the comparison solids.
+  // P11/20, the rhombicosidodecahedron, the Undecanope and Noperthedron lead, then the comparison solids.
   const order = Object.keys(DEFINITIONS).sort((a, b) =>
     (DEFINITIONS[a].featured || 99) - (DEFINITIONS[b].featured || 99));
   let lastGroup = null;

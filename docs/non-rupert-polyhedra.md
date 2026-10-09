@@ -4,7 +4,7 @@
 
 A solid is Rupert when a hole can be cut through it that a copy of the same solid passes through. The test reduces to shadows. The hole is the solid's shadow in one view. The copy passes when its shadow in another view, turned and slid in the plane, fits strictly inside that hole. A solid is non-Rupert when no pair of views works. “Nopert” means non-Rupert.
 
-The app at `app/nonrup/`, served at `drbuild.uk/app/nonrup/` with the short addresses `drbuild.uk/nonrup` and `drbuild.uk/nopert`, lets a visitor run that test. They turn a solid and cut its shadow out of a plate as a hole. Then they turn a copy and push it through. The five Platonic solids, the buckyball and three cuboids have views that pass. The 90-vertex C15 Noperthedron of Steininger and Yurkevich, the 88-vertex C11 Undecanope, the 60-vertex rhombicosidodecahedron and the 8-vertex stellated tetrahedron are the contrast. Hervay's public computer-assisted proof for the rhombicosidodecahedron awaits independent audit. Renshaw's proof for the stellated tetrahedron is a complete Lean formalisation. The page calls the Undecanope non-Rupert and links its paper, Draft 1, whose status box says the proof is computer-assisted and not yet reviewed outside the project. David dropped the word "candidate" on 2026-10-06. The Undecanope's name joins *undecim*, Latin for eleven, to the Noperthedron's "nope". The page uses no external libraries.
+The app at `app/nonrup/`, served at `drbuild.uk/app/nonrup/` with the short addresses `drbuild.uk/nonrup` and `drbuild.uk/nopert`, lets a visitor run that test. They turn a solid and cut its shadow out of a plate as a hole. Then they turn a copy and push it through. The five Platonic solids, the buckyball and three cuboids have views that pass. P11/20, the 60-vertex rhombicosidodecahedron, the 88-vertex C11 Undecanope and the 90-vertex C15 Noperthedron lead the contrast solids. Renshaw's proof for P11/20 is a complete Lean formalisation. The independent audit of Hervay's rhombicosidodecahedron certificate confirmed it subject to stated assumptions. The page calls the Undecanope non-Rupert and links its paper, Draft 1, whose status box says the proof is computer-assisted and not yet reviewed outside the project. David dropped the word "candidate" on 2026-10-06. The Undecanope's name joins *undecim*, Latin for eleven, to the Noperthedron's "nope". The page uses no external libraries.
 
 ## Implementation Checklist
 
@@ -22,14 +22,14 @@ The app at `app/nonrup/`, served at `drbuild.uk/app/nonrup/` with the short addr
 - [x] Keep a dragged copy's twist near its last value, then ease it to the best twist on release.
 - [x] Orbit and zoom the camera round the plate, with a reset.
 - [x] Show the fixed solid as a glass ghost on the plate once the hole is cut.
-- [x] Draw the builder page's animated thumbnail and the share card from the Undecanope.
+- [x] Draw the builder page's animated thumbnail and the share card from P11/20.
 - [x] Fit the page on the six standard screen sizes.
 
 ## How to use it
 
-The page opens on the Undecanope, C11. The controls sit above the 3D view, in the order a visitor uses them.
+The page opens on P11/20. The controls sit above the 3D view, in the order a visitor uses them.
 
-1. Choose a solid from the row of buttons. C11, C15, the rhombicosidodecahedron and the stellated tetrahedron lead as large cards. The Platonic solids, the buckyball and the cuboids follow as smaller buttons. On a phone the row scrolls sideways.
+1. Choose a solid from the row of buttons. P11/20, the rhombicosidodecahedron, C11 and C15 lead as large cards. The Platonic solids, the buckyball and the cuboids follow as smaller buttons. On a phone the row scrolls sideways.
 2. Drag either view to turn the solid. Its shadow falls on the plate.
 3. Press **Cut hole**. The shadow becomes a hole, and a copy of the solid appears in front of the plate.
 4. Drag to turn the copy. The view through the hole shows the copy's shadow over the hole, red where it sticks out.
@@ -117,9 +117,9 @@ Drag either view to turn the solid that is in play: the hole's solid before **Cu
 
 ## Thumbnail and share card
 
-The builder page lists the explorer first under Apps & Websites. Its thumbnail is a canvas, `assets/nonrup-thumb.js`, that turns the Undecanope about its eleven-fold axis. [`tools/thumbnails/nonrup.js`](../tools/thumbnails/nonrup.js) writes that script with the solid's vertices and faces baked in, so the builder page never computes a hull. Rerun it if the Undecanope's generators change. The thumbnail stops when it is off screen, and holds still for a visitor who prefers reduced motion.
+The builder page lists the explorer first under Apps & Websites. Its thumbnail is a canvas, `assets/nonrup-thumb.js`, that turns P11/20. [`tools/thumbnails/nonrup.js`](../tools/thumbnails/nonrup.js) writes that script with the solid's vertices and faces baked in, so the builder page never computes a hull. Rerun it if P11/20's vertices change. The thumbnail stops when it is off screen, and holds still for a visitor who prefers reduced motion.
 
-The share card, `social/nonrup.jpg`, comes from the real app. [`tools/non-rupert/card.js`](../tools/non-rupert/card.js) cuts the Undecanope's hole, pushes the copy until it jams, and captures the 3D view beside the title:
+The share card, `social/nonrup.jpg`, comes from the real app. [`tools/non-rupert/card.js`](../tools/non-rupert/card.js) cuts P11/20's hole, pushes the copy until it jams, and captures the 3D view beside the title:
 
 ```sh
 NODE_PATH=tools/tiling-video/node_modules node tools/non-rupert/card.js
@@ -127,8 +127,9 @@ NODE_PATH=tools/tiling-video/node_modules node tools/non-rupert/card.js
 
 ## The paper
 
-The explorer's builder-page entry links to the Undecanope paper, which sits
-first under Pre-prints. Its page, `papers/undecanope/index.html`, carries
+The explorer's builder-page entry links to the Undecanope paper. The independent
+rhombicosidodecahedron audit sits first under Pre-prints. Its page,
+`papers/rid-nopert-audit/index.html`, carries
 the status, the abstract and the list of drafts, as
 [site-layout.md](site-layout.md#publishing-a-paper) describes. The paper's
 source and build live in the author's research repository, and only the
