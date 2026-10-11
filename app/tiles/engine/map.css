@@ -81,12 +81,12 @@ a { color: var(--link); }
 .title p { margin: 0; font-size: 0.9rem; color: var(--muted); }
 .title .row { display: flex; gap: 0.5rem; margin-top: 0.55rem; flex-wrap: wrap; align-items: center; }
 
-/* The Hat | Spectre | Hat (extended) switch, styled as joined tabs of
-   equal width. */
+/* The Hat | Spectre | Hat (extended) | Krinkle switch, styled as joined
+   tabs. Each tab takes the width of its label, so all four fit the card. */
 .switch {
   display: inline-grid;
   grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  grid-auto-columns: auto;
   border: 1px solid var(--ring);
   border-radius: 7px;
   overflow: hidden;

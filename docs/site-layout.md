@@ -65,13 +65,14 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/noble` | The Noble Polyhedra video and other shared links | `redirects/noble.html` |
 | `/nonrup`, `/nopert` | Short addresses for the Nopert Polyhedra Explorer | `redirects/nonrup.html`, `redirects/nopert.html` |
 | `/tiles` | The paper, and the corner label of the tiling video | `redirects/tiles.html` |
+| `/krinkle` | A short address for the Krinkle tab of the tiling explorer | `redirects/krinkle.html` |
 | `/demos/hat/`, `/demos/spectre/`, `/demos/hat-extended/` | Shared links to the explorer, each with its settings after the `#`. The `index.html` form of each is a link too | `redirects/demos-*.html` |
 | `/aperiodic-pairs/` | The builder page's first link to the gallery | `redirects/aperiodic-pairs.html` |
 | `/smash` | A short address to share. The first address, `/smash/`, also works | `redirects/smash.html` |
 | `/sieve` | A short address to share | `redirects/sieve.html` |
 | `/pentrys` | A short address to share | `redirects/pentrys.html` |
 | `/social/*.jpg` | Share cards that social sites have cached. An image cannot redirect, so these stay put | `social/` |
-| `/app/e8/`, `/app/noble/`, `/app/nonrup/`, `/app/tiles/`, `/app/tiles/hat/`, `/app/tiles/spectre/`, `/app/tiles/hat-extended/`, `/app/aperiodic-pairs/`, `/app/smash/`, `/app/sieve/`, `/app/pentrys/`, `/app/parfly/` | The real addresses of the apps. Apple's listing for Parfly takes `/app/parfly/` as its support address | `app/` |
+| `/app/e8/`, `/app/noble/`, `/app/nonrup/`, `/app/tiles/`, `/app/tiles/hat/`, `/app/tiles/spectre/`, `/app/tiles/hat-extended/`, `/app/tiles/krinkle/`, `/app/aperiodic-pairs/`, `/app/smash/`, `/app/sieve/`, `/app/pentrys/`, `/app/parfly/` | The real addresses of the apps. Apple's listing for Parfly takes `/app/parfly/` as its support address | `app/` |
 
 `tools/check-addresses/addresses.json` holds this list in a form the checker
 reads. Add an address there when you publish one.

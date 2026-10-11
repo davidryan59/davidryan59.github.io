@@ -11,7 +11,19 @@
    reflected. A shape with hands: 2 has a second outline for mirrored
    tiles, as the Hat (extended) page needs once its edges curve. With
    handByTurn as well, the second outline is for tiles at odd turns instead:
-   the Spectre page uses it when its two edge lengths differ. */
+   the Spectre page uses it when its two edge lengths differ.
+
+   The Krinkle page passes record: 'krinkle' and maxCorners: 64. Its tiles
+   carry a plain centre and an 8-bit turn of 2 pi / info.turns, it has no
+   grid tool (grid: false), and its steppers change the tiling itself, so it
+   calls map.rebuild(options, wait) for new workers and a fresh cache. Its
+   startScale is a function of the tiling's info and the window, so the
+   opening zoom suits each tile.
+
+   Krinkle also has a construction clock, map.setPlayback(tau). Tau runs from
+   0 to w + 1 and only hides tiles, in the vertex shader: stage g < w grows
+   wedge g row by row, and stage w grows every other copy together. See
+   docs/krinkle.md, phase 4. */
 (function (global) {
   'use strict';
 
@@ -227,11 +239,26 @@
 
   /* ----------------------------------------------------------- shaders */
 
+  /* The tile shaders are compiled per page with two constants. NC is the
+     most corners a tile can have: 14 for the Hat and Spectre, 64 for
+     Krinkle. FORMAT is the tile record: 0 for the Hat and Spectre (see
+     tiling-core.js), 1 for Krinkle (see krinkle/tiling.js). In format 1 a
+     tile has a plain centre, row r and column c, an 8-bit turn and two
+     wedge boundary flags, and is never mirrored. */
   var TILE_VS = [
     '#version 300 es',
     'layout(location=0) in vec2 a_local;',
     'layout(location=1) in vec4 a_pr;',
     'layout(location=2) in uvec3 a_bits;',
+    '#if FORMAT == 1',
+    'layout(location=3) in ivec2 a_rc;',
+    'flat out ivec2 v_rc;',
+    'uniform int u_w;',
+    // The construction clock: below 0 every tile shows. u_rows is the row
+    // count that passes the farthest screen corner.
+    'uniform float u_tau;',
+    'uniform float u_rows;',
+    '#endif',
     'uniform vec2 u_chunk;',
     'uniform vec2 u_ab;',
     'uniform mat2 u_view;',
@@ -239,26 +266,50 @@
     'uniform vec2 u_anchor;',
     'uniform int u_hand;',
     'uniform int u_handTurn;',
+    'uniform float u_turnStep;',
     'out vec2 v_local;',
     'out vec2 v_rel;',
     'flat out uvec3 v_bits;',
     'void main() {',
-    '  uint turn = a_bits.x & 15u;',
+    '  uint turn = a_bits.x & TURN_MASK;',
+    '  bool flip = (a_bits.x & FLIP_BIT) != 0u;',
     // A tile's hand is its mirror flag, or the parity of its turn when the
     // page draws odd turns with their own outline.
-    '  int hand = u_handTurn == 1 ? int(turn & 1u) : int((a_bits.x >> 4u) & 1u);',
+    '  int hand = u_handTurn == 1 ? int(turn & 1u) : int(flip);',
     // A mesh for one hand only: tiles of the other hand go off screen.
-    '  if (u_hand >= 0 && hand != u_hand) {',
+    '  bool hide = u_hand >= 0 && hand != u_hand;',
+    '#if FORMAT == 1',
+    // Tile (r, c) of a wedge comes in at r + (c + 1) / (r + 1), which runs
+    // row by row and, inside a row, tile by tile. A wedge of the first copy
+    // grows in the stage of its place in the fan, and every wedge of the
+    // other copies in the last stage.
+    '  if (u_tau >= 0.0) {',
+    '    int wedge = int(turn);',
+    '    float stage = wedge < u_w ? float(wedge) : float(u_w);',
+    '    float f = clamp(u_tau - stage, 0.0, 1.0);',
+    '    float key = float(a_rc.x) + float(a_rc.y + 1) / float(a_rc.x + 1);',
+    '    if (f < 1.0 && key > f * u_rows) hide = true;',
+    '  }',
+    '#endif',
+    '  if (hide) {',
     '    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);',
     '    v_local = vec2(0.0); v_rel = vec2(0.0); v_bits = uvec3(0u);',
+    '#if FORMAT == 1',
+    '    v_rc = ivec2(0);',
+    '#endif',
     '    return;',
     '  }',
     '  vec2 v = a_local;',
-    '  if ((a_bits.x & 16u) != 0u) v.y = -v.y;',
-    '  float t = float(turn) * 0.52359877559829887;',
+    '  if (flip) v.y = -v.y;',
+    '  float t = float(turn) * u_turnStep;',
     '  float c = cos(t), s = sin(t);',
+    '#if FORMAT == 1',
+    '  vec2 w = u_chunk + a_pr.xy + vec2(c * v.x - s * v.y, s * v.x + c * v.y);',
+    '  v_rc = a_rc;',
+    '#else',
     '  vec2 zr = vec2(0.8660254037844386 * a_pr.z - 0.5 * a_pr.w, 0.5 * a_pr.z + 0.8660254037844386 * a_pr.w);',
     '  vec2 w = u_chunk + u_ab.x * a_pr.xy + u_ab.y * zr + vec2(c * v.x - s * v.y, s * v.x + c * v.y);',
+    '#endif',
     '  gl_Position = vec4((u_view * w) / u_half, 0.0, 1.0);',
     '  v_local = a_local;',
     '  v_rel = w - u_anchor;',
@@ -270,6 +321,12 @@
   // other half, so every line is whole and antialiased. A tile also draws a
   // disc at any corner that a thicker line passes through, which fills the
   // corner where it meets that line only at a point.
+  //
+  // The corners live in a texture, one row per hand, since 64 of them would
+  // overflow the uniforms a phone allows. Texel i holds corner i in x and y,
+  // and edge i's code in z: its symmetry for unmirrored tiles in bits 0-1,
+  // for mirrored tiles in bits 2-3, and in bit 4 whether it takes profile B.
+  // The class colours live in a second texture of up to 256 entries.
   var TILE_FS = [
     '#version 300 es',
     'precision highp float;',
@@ -277,9 +334,17 @@
     'in vec2 v_local;',
     'in vec2 v_rel;',
     'flat in uvec3 v_bits;',
-    'uniform vec2 u_corners[14];',
+    '#if FORMAT == 1',
+    'flat in ivec2 v_rc;',
+    'uniform int u_k;',
+    'uniform int u_w;',
+    '#endif',
+    'uniform highp sampler2D u_shapeTex;',
+    'uniform int u_shapeRow;',
+    'uniform int u_nc;',
+    'uniform highp sampler2D u_palette;',
+    'uniform float u_turnStep;',
     'uniform float u_scale;',
-    'uniform vec3 u_class[12];',
     'uniform int u_classMode;',
     'uniform bool u_levels;',
     'uniform float u_width[6];',
@@ -288,15 +353,11 @@
     'uniform vec3 u_line;',
     'uniform vec3 u_edgeAlt;',
     'uniform vec3 u_lineAlt;',
-    // Up to two edge profiles of 65 points each, A then B. u_profSel picks
-    // B for an edge, one bit per edge. u_profSym holds each edge's symmetry,
-    // two bits per edge (1 backwards, 2 reflected), for unmirrored tiles in
-    // x and mirrored tiles in y.
+    // Up to two edge profiles of 65 points each, A then B. Each edge's code
+    // picks the profile and its symmetry (1 backwards, 2 reflected).
     'uniform vec2 u_prof[130];',
     'uniform ivec2 u_profN;',
     'uniform vec2 u_profMax;',
-    'uniform ivec2 u_profSym;',
-    'uniform int u_profSel;',
     'uniform float u_reach;',
     'uniform int u_pass;',
     'uniform vec3 u_hot;',
@@ -307,11 +368,45 @@
     'uniform float u_dotRange;',
     'uniform float u_dotR;',
     'out vec4 outColor;',
+    'vec4 corner(int i) { return texelFetch(u_shapeTex, ivec2(i, u_shapeRow), 0); }',
+    '#if FORMAT == 1',
+    // Krinkle draws wedge outlines. A tile on a wedge's lower boundary
+    // (c = 0) has edges 0 to k - 1 on it, and one on the upper boundary
+    // (c = r) has edges k + 2 to 2k + 1. The seams between copies, below the
+    // first wedge of each copy and above its last, draw at level 4, and the
+    // other wedge boundaries at level 2.
+    'uint wedgeLevel(int i, bool vert) {',
+    '  int j = int(v_bits.x & 255u) % u_w;',
+    '  uint lv = 0u;',
+    '  if ((v_bits.x & 256u) != 0u && (vert ? i <= u_k : i < u_k)) lv = j == 0 ? 4u : 2u;',
+    '  if ((v_bits.x & 512u) != 0u && (i >= u_k + 2 || (vert && i == 0))) lv = max(lv, j == u_w - 1 ? 4u : 2u);',
+    '  return lv;',
+    '}',
+    'uint edgeLevel(int i) { return wedgeLevel(i, false); }',
+    'uint vertLevel(int i) { return wedgeLevel(i, true); }',
+    '#else',
     'uint edgeLevel(int i) {',
     '  return i < 8 ? (v_bits.x >> uint(8 + 3 * i)) & 7u : (v_bits.y >> uint(3 * (i - 8))) & 7u;',
     '}',
     'uint vertLevel(int i) {',
     '  return i < 4 ? (v_bits.y >> uint(18 + 3 * i)) & 7u : (v_bits.z >> uint(3 * (i - 4))) & 7u;',
+    '}',
+    '#endif',
+    // Class modes 0 and 1 serve the Hat and Spectre: the turn, or the turn
+    // in 60-degree steps and the hand. Modes 2 to 7 serve Krinkle: the turn
+    // mod 2, the copy q, rings of two rows, columns mod 2, one colour, and
+    // the lattice cell (r mod 2, c mod 2).
+    'int classOf(uint turn, bool flip) {',
+    '  if (u_classMode == 0) return int(turn);',
+    '  if (u_classMode == 1) return int(turn / 2u) + (flip ? 6 : 0);',
+    '#if FORMAT == 1',
+    '  if (u_classMode == 2) return int(turn & 1u);',
+    '  if (u_classMode == 3) return int(turn) / u_w;',
+    '  if (u_classMode == 4) return (v_rc.x >> 1) & 1;',
+    '  if (u_classMode == 5) return v_rc.y & 1;',
+    '  if (u_classMode == 7) return (v_rc.x & 1) + 2 * (v_rc.y & 1);',
+    '#endif',
+    '  return 0;',
     '}',
     'float segDist(vec2 p, vec2 a, vec2 b) {',
     '  vec2 pa = p - a, ba = b - a;',
@@ -321,9 +416,9 @@
     // Distance to edge i, following its profile when it has one. The
     // edge's symmetry is applied to the point, which measures the same
     // distance as applying it to the profile.
-    'float edgeDist(vec2 p, vec2 a, vec2 b, int i, bool flip) {',
+    'float edgeDist(vec2 p, vec2 a, vec2 b, int code, bool flip) {',
     '  float d = segDist(p, a, b);',
-    '  int pb = (u_profSel >> i) & 1;',
+    '  int pb = (code >> 4) & 1;',
     '  int np = pb == 1 ? u_profN.y : u_profN.x;',
     '  if (np < 2) return d;',
     '  float mx = pb == 1 ? u_profMax.y : u_profMax.x;',
@@ -333,7 +428,7 @@
     '  if (d > (mx + u_reach) * L) return d - mx * L;',
     '  vec2 ue = e / L, n = vec2(-ue.y, ue.x), q = p - a;',
     '  vec2 pp = vec2(dot(q, ue), dot(q, n)) / L;',
-    '  int g = ((flip ? u_profSym.y : u_profSym.x) >> (2 * i)) & 3;',
+    '  int g = (flip ? code >> 2 : code) & 3;',
     '  if ((g & 1) != 0) pp.x = 1.0 - pp.x;',
     '  if ((g & 2) != 0) pp.y = -pp.y;',
     '  int off = pb * 65;',
@@ -345,21 +440,23 @@
     '  return best * L;',
     '}',
     'void main() {',
-    '  uint turn = v_bits.x & 15u;',
-    '  bool flip = (v_bits.x & 16u) != 0u;',
+    '  uint turn = v_bits.x & TURN_MASK;',
+    '  bool flip = (v_bits.x & FLIP_BIT) != 0u;',
     '  if (u_pass == 1) {',
     '    float st = mod(gl_FragCoord.x + gl_FragCoord.y, 10.0) < 5.0 ? 1.0 : 0.0;',
     '    outColor = vec4(mix(u_hot, u_hot2, st), 1.0);',
     '    return;',
     '  }',
-    '  int cls = u_classMode == 0 ? int(turn) : int(turn / 2u) + (flip ? 6 : 0);',
-    '  vec3 fill = u_class[cls];',
+    '  vec3 fill = texelFetch(u_palette, ivec2(classOf(turn, flip), 0), 0).rgb;',
     '  float cov[6];',
     '  for (int k = 0; k < 6; k++) cov[k] = 0.0;',
-    '  for (int i = 0; i < 14; i++) {',
-    '    vec2 a = u_corners[i];',
-    '    vec2 b = u_corners[i == 13 ? 0 : i + 1];',
-    '    float d = edgeDist(v_local, a, b, i, flip) * u_scale;',
+    '  vec4 c0 = corner(0), ca = c0;',
+    '  for (int i = 0; i < NC; i++) {',
+    '    if (i >= u_nc) break;',
+    '    vec4 cb = i + 1 == u_nc ? c0 : corner(i + 1);',
+    '    vec2 a = ca.xy, b = cb.xy;',
+    '    float d = edgeDist(v_local, a, b, int(ca.z), flip) * u_scale;',
+    '    ca = cb;',
     '    int lv = u_levels ? int(min(edgeLevel(i), 5u)) : 0;',
     '    cov[lv] = max(cov[lv], clamp(u_width[lv] + 0.5 - d, 0.0, 1.0));',
     '    if (u_levels) {',
@@ -379,10 +476,11 @@
     '  for (int k = 1; k < 6; k++) col = mix(col, alt ? u_lineAlt : u_line, cov[k]);',
     // Grid dots: a disc on each corner of this tile that sits on a grid.
     '  if (u_gridOn != 0) {',
-    '    float t = float(turn) * 0.52359877559829887;',
+    '    float t = float(turn) * u_turnStep;',
     '    float c = cos(t), s = sin(t);',
-    '    for (int j = 0; j < 14; j++) {',
-    '      vec2 off = u_corners[j] - v_local;',
+    '    for (int j = 0; j < NC; j++) {',
+    '      if (j >= u_nc) break;',
+    '      vec2 off = corner(j).xy - v_local;',
     '      if (flip) off.y = -off.y;',
     '      off = vec2(c * off.x - s * off.y, s * off.x + c * off.y);',
     '      float dpx = length(off) * u_scale;',
@@ -455,7 +553,9 @@
 
   function start(cfg) {
     var CHUNK = cfg.chunkSize || 128;
-    var MIN_S = 1, MAX_S = 400, START_S = cfg.startScale || 8;
+    var NC = cfg.maxCorners || 14, FORMAT = cfg.record === 'krinkle' ? 1 : 0;
+    var MIN_S = 1, MAX_S = 400;
+    var START_S = typeof cfg.startScale === 'function' ? 8 : (cfg.startScale || 8);
     var MAX_CHUNKS = 900;
     var store = cfg.name + '-options';
 
@@ -518,13 +618,30 @@
       names.forEach(function (n) { U[n] = gl.getUniformLocation(p, n); });
       return { p: p, U: U };
     }
-    var tileProg = program(TILE_VS, TILE_FS, ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_hand', 'u_handTurn', 'u_corners',
-      'u_scale', 'u_class', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line', 'u_edgeAlt',
-      'u_lineAlt', 'u_prof', 'u_profN', 'u_profMax', 'u_profSym', 'u_profSel',
+    var defs = '#version 300 es\n#define NC ' + NC + '\n#define FORMAT ' + FORMAT +
+      '\n#define TURN_MASK ' + (FORMAT ? '255u' : '15u') + '\n#define FLIP_BIT ' + (FORMAT ? '0u' : '16u');
+    var tileProg = program(TILE_VS.replace('#version 300 es', defs), TILE_FS.replace('#version 300 es', defs),
+      ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_hand', 'u_handTurn', 'u_turnStep', 'u_shapeTex', 'u_shapeRow',
+      'u_nc', 'u_palette', 'u_k', 'u_w', 'u_tau', 'u_rows', 'u_scale', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line',
+      'u_edgeAlt', 'u_lineAlt', 'u_prof', 'u_profN', 'u_profMax',
       'u_reach', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat', 'u_dotCol', 'u_dotRange', 'u_dotR']);
     var overProg = program(OVERLAY_VS, OVERLAY_FS, ['u_half', 'u_inv', 'u_anchor', 'u_on', 'u_lat', 'u_gap',
       'u_col', 'u_scale', 'u_px', 'u_picks', 'u_nPicks', 'u_pickCol']);
     var overVao = gl.createVertexArray();
+
+    // Float textures read with texelFetch: the corners and edge codes, one
+    // row per hand, and the palette of class colours.
+    function floatTexture(w, h) {
+      var t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA32F, w, h);
+      [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(function (p) { gl.texParameteri(gl.TEXTURE_2D, p, gl.NEAREST); });
+      [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(function (p) { gl.texParameteri(gl.TEXTURE_2D, p, gl.CLAMP_TO_EDGE); });
+      return t;
+    }
+    var PALETTE = 256;
+    var shapeTex = floatTexture(NC, 2), paletteTex = floatTexture(PALETTE, 1);
+    var shapeData = new Float32Array(NC * 2 * 4), paletteData = new Float32Array(PALETTE * 4);
 
     /* -------------------------------------------------- tile meshes */
 
@@ -571,39 +688,53 @@
         buf = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, buf);
         gl.bufferData(gl.ARRAY_BUFFER, m.buffer, gl.STATIC_DRAW);
+        // Format 1 keeps r and c as integers in words 2 and 3.
         gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 28, 0);
+        gl.vertexAttribPointer(1, FORMAT ? 2 : 4, gl.FLOAT, false, 28, 0);
         gl.vertexAttribDivisor(1, 1);
         gl.enableVertexAttribArray(2);
         gl.vertexAttribIPointer(2, 3, gl.UNSIGNED_INT, 28, 16);
         gl.vertexAttribDivisor(2, 1);
+        if (FORMAT) {
+          gl.enableVertexAttribArray(3);
+          gl.vertexAttribIPointer(3, 2, gl.INT, 28, 8);
+          gl.vertexAttribDivisor(3, 1);
+        }
       }
       gl.bindVertexArray(null);
       return { vao: vao, buf: buf, count: m.count, i: m.i, j: m.j, P0: m.P0, R0: m.R0, lo: m.lo, hi: m.hi, used: frame };
     }
 
+    function dropChunk(c) {
+      gl.deleteVertexArray(c.vao);
+      if (c.buf) gl.deleteBuffer(c.buf);
+      cache.delete(c.i + ',' + c.j);
+    }
     function evict() {
       if (cache.size <= MAX_CHUNKS) return;
       var list = Array.from(cache.values()).filter(function (c) { return c.used < frame; });
       list.sort(function (a, b) { return a.used - b.used; });
-      for (var k = 0; k < list.length && cache.size > MAX_CHUNKS * 0.8; k++) {
-        gl.deleteVertexArray(list[k].vao);
-        if (list[k].buf) gl.deleteBuffer(list[k].buf);
-        cache.delete(list[k].i + ',' + list[k].j);
-      }
+      for (var k = 0; k < list.length && cache.size > MAX_CHUNKS * 0.8; k++) dropChunk(list[k]);
     }
 
     /* ------------------------------------------------------ workers */
 
     // Workers build chunks off the main thread. Opened from disk, a browser
     // may refuse to start a worker, so the page falls back to building
-    // chunks itself between frames.
+    // chunks itself between frames. Each start of the workers is a new
+    // generation, and replies from an older one are dropped.
     var workers = [], ready = false, cornerCalls = new Map(), cornerId = 0;
+    var options = cfg.options || {}, gen = 0, errorGen = -1;
 
     function onMessage(m, w) {
+      if (w.gen !== gen) return;
       if (m.type === 'ready') {
         w.ready = true;
-        if (!ready) { ready = true; begin(m.info); }
+        if (!ready) { ready = true; if (info) rebuilt(m.info); else begin(m.info); }
+      } else if (m.type === 'error') {
+        // Every worker rejects the same options, so report it once.
+        rebuilding = false;
+        if (errorGen !== gen && cfg.onError) { errorGen = gen; cfg.onError(m.message); }
       } else if (m.type === 'chunk') {
         w.busy--;
         var k = m.i + ',' + m.j;
@@ -618,19 +749,23 @@
       }
     }
 
+    // A tiling file answers messages through TilingCore.serve(cfg.build), or
+    // through its own cfg.handler() when it does not build on TilingCore.
     function localWorker() {
-      var w = { busy: 0, ready: false, queue: [] };
+      var w = { busy: 0, ready: false, queue: [], gen: gen, dead: false };
       var handle = null;
       function step() {
-        if (!w.queue.length) return;
+        if (w.dead || !w.queue.length) return;
         var m = w.queue.shift();
         handle(m, function (msg) { onMessage(msg, w); });
         if (w.queue.length) setTimeout(step, 0);
       }
       w.postMessage = function (m) { w.queue.push(m); setTimeout(step, 0); };
+      w.terminate = function () { w.dead = true; w.queue = []; };
       setTimeout(function () {
-        handle = TilingCore.serve(cfg.build);
-        handle({ type: 'init' }, function (msg) { onMessage(msg, w); });
+        if (w.dead) return;
+        handle = cfg.handler ? cfg.handler() : TilingCore.serve(cfg.build);
+        handle({ type: 'init', options: options }, function (msg) { onMessage(msg, w); });
       }, 0);
       return w;
     }
@@ -648,14 +783,61 @@
           var w = new Worker(cfg.worker);
           w.busy = 0;
           w.ready = false;
+          w.gen = gen;
           (function (w) { w.onmessage = function (ev) { onMessage(ev.data, w); }; })(w);
           w.onerror = fallback;
-          w.postMessage({ type: 'init' });
+          w.postMessage({ type: 'init', options: options });
           workers.push(w);
         }
       } catch (e) {
         fallback();
       }
+    }
+
+    // A custom set belongs to a grouping with a fixed number of groups. When
+    // a rebuild changes that number, as a new Krinkle n does, the set no
+    // longer fits, so it goes and the grouping's first preset takes over.
+    function keepCustoms() {
+      Object.keys(customs).forEach(function (id) {
+        if (groupings[id] && customs[id].length === groupings[id].n) return;
+        delete customs[id];
+        if (sel === 'custom:' + id) {
+          sel = cfg.presets.filter(function (p) { return p.grouping === id; })[0].id;
+          saveOptions();
+        }
+      });
+    }
+
+    /* A new tiling from new options: fresh workers, an empty chunk cache
+       and the same view. The old tiles stay on screen until the new
+       workers are ready, so a rebuild never shows a blank map. A run of
+       calls within `wait` milliseconds builds once, with the last options. */
+    var rebuildTimer = 0, rebuilding = false;
+    function rebuild(opts, wait) {
+      clearTimeout(rebuildTimer);
+      rebuilding = true;
+      rebuildTimer = setTimeout(function () {
+        options = opts || {};
+        gen++;
+        workers.forEach(function (w) { if (w.terminate) w.terminate(); });
+        workers = [];
+        inFlight.clear();
+        cornerCalls.clear();
+        ready = false;
+        startWorkers();
+      }, wait || 0);
+    }
+    function rebuilt(inf) {
+      rebuilding = false;
+      info = inf;
+      CHUNK = info.chunkSize || cfg.chunkSize || 128;
+      Array.from(cache.values()).forEach(dropChunk);
+      START_S = startFor(info);
+      if (cfg.onReady) cfg.onReady(info);
+      keepCustoms();
+      renderSchemeSelect();
+      renderLegend();
+      changed();
     }
 
     function freeWorker(limit) {
@@ -707,10 +889,22 @@
       if (sel.indexOf('custom:') === 0) return customs[sel.slice(7)].map(hex);
       return presets[sel].colours(dark);
     }
+    // The classes the shader colours. A page whose classes depend on the
+    // grouping, as Krinkle's do, passes a function of the grouping. A
+    // grouping may set its own class mode (see classOf in the shader).
+    function classList() { return typeof cfg.classes === 'function' ? cfg.classes(currentGrouping()) : cfg.classes; }
+    function classMode() { var g = currentGrouping(); return g.mode !== undefined ? g.mode : cfg.classMode || 0; }
     function classColours() {
       var g = currentGrouping(), cols = groupColours();
-      return cfg.classes.map(function (c, k) { return cols[g.of(k)]; });
+      return classList().map(function (c, k) { return cols[g.of(k)]; });
     }
+    // The zoom the page opens at, and the home button returns to. A page
+    // passes a number, or a function of the tiling's info and the window.
+    function startFor(inf) {
+      return typeof cfg.startScale === 'function' ? clampS(cfg.startScale(inf, W, Hh)) : START_S;
+    }
+    // The angle of one turn: 30 degrees unless the tiling declares its turns.
+    function turnStep() { return 2 * Math.PI / ((info && info.turns) || 12); }
 
     function applyTheme() {
       dark = document.documentElement.dataset.theme === 'dark';
@@ -828,10 +1022,10 @@
     // One small tile, turned and flipped as it appears on the map, and turned
     // with the view so it matches the screen. SVG runs y down, so y flips.
     function tileSvg(cls, colour) {
-      var c = cfg.classes[cls];
+      var c = classList()[cls];
       var pts = cfg.shape.outline(1, cfg.shape.handByTurn ? c.turn & 1 : c.flip), cx = 0, cy = 0;
       pts.forEach(function (p) { cx += p[0] / pts.length; cy += p[1] / pts.length; });
-      var ang = c.turn * Math.PI / 6 + view.rot, co = Math.cos(ang), si = Math.sin(ang), rmax = 0;
+      var ang = c.turn * turnStep() + view.rot, co = Math.cos(ang), si = Math.sin(ang), rmax = 0;
       var out = pts.map(function (p) {
         var x = p[0] - cx, y = p[1] - cy;
         if (c.flip) y = -y;
@@ -868,12 +1062,13 @@
       if (legendOpen) {
         var order = g.order || Array.from({ length: g.n }, function (x, i) { return i; });
         html += '<div class="groups" style="grid-template-columns: repeat(' + (g.cols || 1) + ', auto)">';
+        var classes = classList();
         order.forEach(function (q) {
           // Six tiles to a row at most, so a big group wraps evenly.
-          var count = cfg.classes.filter(function (c, k) { return g.of(k) === q; }).length;
+          var count = classes.filter(function (c, k) { return g.of(k) === q; }).length;
           html += '<button type="button" class="group" data-group="' + q + '" title="Pick a colour for these tiles"' +
             ' style="grid-template-columns: repeat(' + Math.min(count, 6) + ', auto)">';
-          cfg.classes.forEach(function (c, k) {
+          classes.forEach(function (c, k) {
             if (g.of(k) !== q) return;
             html += '<figure>' + tileSvg(k, cols[q]) + '<figcaption>' + c.caption + '</figcaption></figure>';
           });
@@ -902,6 +1097,9 @@
 
     /* --------------------------------------------------- grid tool */
 
+    // A page turns the grid off with grid: false, as Krinkle does, and then
+    // needs none of its controls.
+    var hasGrid = cfg.grid !== false && !!document.getElementById('grid');
     var grid = { on: false, on0: true, on30: true, picks: [] };
     var gridEl = document.getElementById('grid');
     var grid0El = document.getElementById('grid0'), grid30El = document.getElementById('grid30');
@@ -945,10 +1143,12 @@
       });
     }
     function gridChanged() {
-      gridSubEl.hidden = !grid.on;
-      canvas.classList.toggle('picking', grid.on);
-      if (grid.on && !grid.picks.length) {
-        pickNear([0, 0], function (c) { if (c) { grid.picks = [c]; requestDraw(); } });
+      if (hasGrid) {
+        gridSubEl.hidden = !grid.on;
+        canvas.classList.toggle('picking', grid.on);
+        if (grid.on && !grid.picks.length) {
+          pickNear([0, 0], function (c) { if (c) { grid.picks = [c]; requestDraw(); } });
+        }
       }
       saveOptions();
       renderGridHint();
@@ -956,20 +1156,22 @@
     }
     function renderGridHint() {
       var el = document.getElementById('grid-hint');
-      if (!el) return;
+      if (!hasGrid || !el) return;
       var n = grid.picks.length;
       el.textContent = n <= 1 ? 'Click a corner to move the grid there. Click two or three corners to fit a grid through them.'
         : n === 2 ? 'The grid takes the spacing and angle of the two corners. Click a third to slant it.'
         : 'A slanted grid through three corners. Click again to start over.';
       grid0El.disabled = grid30El.disabled = n >= 2;
     }
-    gridEl.addEventListener('change', function () { grid.on = gridEl.checked; gridChanged(); });
-    grid0El.addEventListener('change', function () { grid.on0 = grid0El.checked; gridChanged(); });
-    grid30El.addEventListener('change', function () { grid.on30 = grid30El.checked; gridChanged(); });
-    document.getElementById('grid-clear').addEventListener('click', function () {
-      grid.picks = [];
-      gridChanged();
-    });
+    if (hasGrid) {
+      gridEl.addEventListener('change', function () { grid.on = gridEl.checked; gridChanged(); });
+      grid0El.addEventListener('change', function () { grid.on0 = grid0El.checked; gridChanged(); });
+      grid30El.addEventListener('change', function () { grid.on30 = grid30El.checked; gridChanged(); });
+      document.getElementById('grid-clear').addEventListener('click', function () {
+        grid.picks = [];
+        gridChanged();
+      });
+    }
     function clickAt(px, py) {
       if (!grid.on) return;
       var rel = screenToRel(px - W / 2, py - Hh / 2);
@@ -997,6 +1199,21 @@
     /* -------------------------------------------------------- draw */
 
     var drawPending = false, statusEl = document.getElementById('status');
+
+    // The construction clock: null shows every tile, and a number from 0 to
+    // w + 1 shows the tiling part built. See TILE_VS for the stages.
+    var tau = null;
+    // How many rows of a wedge reach the farthest screen corner, so a stage
+    // takes the same time to cross the screen at any zoom. The count follows
+    // the view, which is what a still or a scripted frame wants.
+    function playbackRows() {
+      var cw = camWorld(), c = info.centre || [0, 0], far = 0;
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (q) {
+        var rel = screenToRel(q[0] * W / 2, q[1] * Hh / 2);
+        far = Math.max(far, Math.hypot(cw[0] + rel[0] - c[0], cw[1] + rel[1] - c[1]));
+      });
+      return Math.ceil((far + info.rowBase) / info.rowStep) + 1;
+    }
 
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1028,8 +1245,14 @@
       gl.uniform2f(U.u_half, canvas.width / 2, canvas.height / 2);
       gl.uniform2f(U.u_ab, ab[0], ab[1]);
       gl.uniform1f(U.u_scale, k);
-      gl.uniform1i(U.u_classMode, cfg.classMode || 0);
-      gl.uniform3fv(U.u_class, new Float32Array([].concat.apply([], classColours())));
+      gl.uniform1i(U.u_classMode, classMode());
+      gl.uniform1f(U.u_turnStep, turnStep());
+      paletteData.fill(0);
+      classColours().slice(0, PALETTE).forEach(function (c, i) { paletteData.set(c, 4 * i); });
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, paletteTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, PALETTE, 1, gl.RGBA, gl.FLOAT, paletteData);
+      gl.uniform1i(U.u_palette, 0);
       gl.uniform1i(U.u_levels, outlines ? 1 : 0);
       gl.uniform3fv(U.u_edge, theme.edge);
       gl.uniform3fv(U.u_line, theme.line);
@@ -1038,12 +1261,14 @@
       gl.uniform3fv(U.u_hot, theme.hot);
       gl.uniform3fv(U.u_hot2, theme.hot2);
       gl.uniform1i(U.u_handTurn, cfg.shape.handByTurn ? 1 : 0);
-      // Each hand's corners, for edge strokes. They differ only when odd
-      // turns have their own outline.
-      var cornerSets = hands.map(function (h) {
-        return new Float32Array([].concat.apply([], cfg.shape.corners(h > 0 ? 1 : 0)));
-      });
-      gl.uniform2fv(U.u_corners, cornerSets[0]);
+      if (FORMAT) {
+        gl.uniform1i(U.u_k, info.k);
+        gl.uniform1i(U.u_w, info.w);
+        // The clock has finished, or is off, once every stage is done.
+        var playing = tau !== null && info.arrangement !== 'repeat' && tau < info.w + 1;
+        gl.uniform1f(U.u_tau, playing ? tau : -1);
+        gl.uniform1f(U.u_rows, playing ? playbackRows() : 0);
+      }
       // Supertile lines thicken with the supertile's size on screen, about
       // 2.8 times per level, so small supertiles never bury their tiles.
       var widths = [1.0];
@@ -1070,9 +1295,28 @@
       gl.uniform2fv(U.u_prof, arr);
       gl.uniform2i(U.u_profN, np[0], np[1]);
       gl.uniform2f(U.u_profMax, mx[0], mx[1]);
-      var sym = prof.sym || [0, 0];
-      gl.uniform2i(U.u_profSym, sym[0], sym[1]);
-      gl.uniform1i(U.u_profSel, prof.sel || 0);
+      // Each hand's corners, for edge strokes, with each edge's code. The
+      // corners differ only when odd turns have their own outline. A
+      // profile gives each edge's symmetry and profile as symAt(i, flip) and
+      // selAt(i), or for up to 14 edges as masks: sym, two bits per edge for
+      // unmirrored and mirrored tiles, and sel, one bit per edge.
+      var symAt = prof.symAt || function (i, f) { return ((prof.sym || [0, 0])[f] >> (2 * i)) & 3; };
+      var selAt = prof.selAt || function (i) { return ((prof.sel || 0) >> i) & 1; };
+      var nc = 0;
+      hands.forEach(function (h, row) {
+        var cs = cfg.shape.corners(h > 0 ? 1 : 0) || [];
+        nc = Math.min(NC, cs.length);
+        for (var i = 0; i < nc; i++) {
+          var o = 4 * (row * NC + i);
+          shapeData[o] = cs[i][0]; shapeData[o + 1] = cs[i][1];
+          shapeData[o + 2] = symAt(i, 0) + 4 * symAt(i, 1) + 16 * selAt(i);
+        }
+      });
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, shapeTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, NC, 2, gl.RGBA, gl.FLOAT, shapeData);
+      gl.uniform1i(U.u_shapeTex, 1);
+      gl.uniform1i(U.u_nc, nc);
       gl.uniform1f(U.u_reach, (Math.max.apply(null, widths) * dpr / 2 + 1.5) / k);
 
       // Grid.
@@ -1094,6 +1338,9 @@
       });
       var cr = camRef();
       var marginRef = 6 * Math.max(ab[0], ab[1] || 0, 1);
+      // A Krinkle tile can be far larger than a Hat, so a tile whose centre
+      // lies outside the view may still reach into it.
+      if (FORMAT && info.circumradius) marginRef = Math.max(marginRef, 1.25 * info.circumradius + 2);
       if (slope && info.spread) {
         var dev = Math.abs(refB * ab[0] - ab[1]) / Math.hypot(slope[0] + refB, slope[1]) * info.spread * 1.5;
         var M = Math.hypot.apply(null, cdiv([slope[0] + refB, slope[1]], [ab[0] * slope[0] + ab[1], ab[0] * slope[1]]));
@@ -1137,7 +1384,7 @@
           var m = ms[hi], first = pass ? m.hotFirst : m.first, count = pass ? m.hotCount : m.count;
           if (!count) return;
           gl.uniform1i(U.u_hand, h);
-          gl.uniform2fv(U.u_corners, cornerSets[hi]);
+          gl.uniform1i(U.u_shapeRow, hi);
           draws.forEach(function (d) {
             gl.uniform2f(U.u_chunk, d.o[0], d.o[1]);
             gl.bindVertexArray(d.c.vao);
@@ -1283,7 +1530,8 @@
       var parts = ['v=' + v.join(','), 'c=' + encodeURIComponent(sel)];
       if (sel.indexOf('custom:') === 0) parts.push('k=' + customs[sel.slice(7)].map(function (h) { return h.slice(1); }).join('-'));
       var extra = cfg.hashGet ? cfg.hashGet() : {};
-      Object.keys(extra).forEach(function (key) { parts.push(key + '=' + encodeURIComponent(extra[key])); });
+      // A comma stays as it is, so a pair such as mk=3,7 reads plainly.
+      Object.keys(extra).forEach(function (key) { parts.push(key + '=' + encodeURIComponent(extra[key]).replace(/%2C/gi, ',')); });
       try { history.replaceState(null, '', '#' + parts.join('&')); } catch (e) {}
     }
     function readHash() {
@@ -1331,7 +1579,7 @@
         });
         if (o.sel && (presets[o.sel] || (o.sel.indexOf('custom:') === 0 && customs[o.sel.slice(7)]))) sel = o.sel;
         outlines = !!o.outlines;
-        if (o.grid) { grid.on = !!o.grid.on; grid.on0 = o.grid.on0 !== false; grid.on30 = o.grid.on30 !== false; }
+        if (o.grid && hasGrid) { grid.on = !!o.grid.on; grid.on0 = o.grid.on0 !== false; grid.on30 = o.grid.on30 !== false; }
       } catch (e) {}
     }
 
@@ -1515,8 +1763,10 @@
       requestDraw();
     });
 
-    function goHome() {
+    // A number as the argument sets the zoom to return to, once.
+    function goHome(scale) {
       anim.vx = anim.vy = anim.panX = anim.panY = 0;
+      START_S = typeof scale === 'number' ? clampS(scale) : startFor(info);
       var rel = relOf(info.start.P, info.start.R), sc = relToScreen(rel);
       if (Math.hypot(sc[0], sc[1]) < 4 * Math.max(W, Hh) && !reduceMotion) {
         anim.panX = -sc[0]; anim.panY = -sc[1];
@@ -1572,10 +1822,10 @@
     // grid. The view stays put, since the home button already resets it.
     document.getElementById('reset-options').addEventListener('click', function () {
       outlines = outlinesEl.checked = false;
-      grid.on = gridEl.checked = false;
-      grid.on0 = grid0El.checked = true;
-      grid.on30 = grid30El.checked = true;
+      grid.on = false;
+      grid.on0 = grid.on30 = true;
       grid.picks = [];
+      if (hasGrid) { gridEl.checked = false; grid0El.checked = grid30El.checked = true; }
       if (cfg.onReset) cfg.onReset();
       gridChanged();
       renderLegend();
@@ -1586,11 +1836,14 @@
 
     function begin(inf) {
       info = inf;
+      CHUNK = info.chunkSize || CHUNK;
       if (info.kappa) slope = info.kappa;
       view.P = info.start.P.slice();
       view.R = info.start.R.slice();
+      START_S = view.s = startFor(info);
       readHash();
       if (cfg.onReady) cfg.onReady(info);
+      keepCustoms();
       renderSchemeSelect();
       renderLegend();
       if (grid.on) gridChanged();
@@ -1599,11 +1852,13 @@
 
     loadOptions();
     outlinesEl.checked = outlines;
-    gridEl.checked = grid.on;
-    grid0El.checked = grid.on0;
-    grid30El.checked = grid.on30;
-    gridSubEl.hidden = !grid.on;
-    canvas.classList.toggle('picking', grid.on);
+    if (hasGrid) {
+      gridEl.checked = grid.on;
+      grid0El.checked = grid.on0;
+      grid30El.checked = grid.on30;
+      gridSubEl.hidden = !grid.on;
+      canvas.classList.toggle('picking', grid.on);
+    }
     renderGridHint();
     renderSchemeSelect();
 
@@ -1626,6 +1881,39 @@
     map.renderLegend = renderLegend;
     map.scale = function () { return view.s; };
     map.zoomTo = function (s) { zoomTowards(s / view.s, W / 2, Hh / 2); };
+    map.rebuild = rebuild;
+    // True from a rebuild call until the new workers are ready.
+    map.busy = function () { return rebuilding; };
+    map.home = goHome;
+    // The construction clock, read or set. A number from 0 to w + 1, or null
+    // to show every tile; w + 1 or more is the same as null. Krinkle only.
+    map.setPlayback = function (t) {
+      var v = typeof t === 'number' && isFinite(t) ? Math.max(0, t) : null;
+      if (v === tau) return;
+      tau = v;
+      changed();
+    };
+    map.playback = function () { return tau; };
+    // The colour scheme, read or set by preset id.
+    map.scheme = function (id) {
+      if (id === undefined) return sel;
+      if (!presets[id] || id === sel) return;
+      sel = id;
+      renderSchemeSelect();
+      saveOptions();
+      renderLegend();
+      changed();
+    };
+    // Supertile or wedge outlines, read or set.
+    map.outlines = function (on) {
+      if (on === undefined) return outlines;
+      on = !!on;
+      if (on === outlines) return;
+      outlines = outlinesEl.checked = on;
+      saveOptions();
+      renderLegend();
+      requestDraw();
+    };
     return map;
   }
 

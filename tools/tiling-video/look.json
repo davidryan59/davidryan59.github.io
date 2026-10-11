@@ -73,5 +73,19 @@
    50,
    52
   ]
+ },
+ "krinkle": {
+  "hash": "mk=3,7&t=2&o=1&c=pastel",
+  "w": 11,
+  "startPb": 0.3,
+  "seconds": 20,
+  "holdSeconds": 3,
+  "fps": 30,
+  "q": [
+   0,
+   0
+  ],
+  "s": 24,
+  "rot": 0
  }
 }

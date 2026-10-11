@@ -1,4 +1,4 @@
-# Tiling explorer: Hat, Spectre and Hat (extended)
+# Tiling explorer: Hat, Spectre, Hat (extended) and Krinkle
 
 ## Summary
 
@@ -7,9 +7,11 @@ Map-style viewers for the aperiodic monotiles found in 2023: the Hat at
 `app/tiles/hat-extended/`, draws the Hat with curved edges. Curved edges force
 the mirrored hats to become a second tile, as
 [hat-edge-research.md](hat-edge-research.md) explains, so that page keeps
-the Hat and Spectre pages one tile each. All three pan, zoom and turn like a
-web map, build their tiles on demand so the plane has no edge, and share one
-engine. Plain JavaScript and WebGL 2, no libraries, no build step.
+the Hat and Spectre pages one tile each. A fourth page, `app/tiles/krinkle/`,
+shows Miki Imura's Modulo Krinkle tilings, set out in [krinkle.md](krinkle.md).
+All four pan, zoom and turn like a web map, build their tiles on demand so
+the plane has no edge, and share one engine. Plain JavaScript and WebGL 2, no
+libraries, no build step.
 
 The explorer is served at drbuild.uk/app/tiles/, which opens on the Hat page.
 The short address drbuild.uk/tiles goes there too, and the old addresses under
@@ -29,6 +31,9 @@ drbuild.uk/demos/ redirect to the new ones.
 | `app/tiles/spectre/tiling.js` | Spectre substitution rules, run as a worker |
 | `app/tiles/spectre/index.html` | Spectre page: controls, colour presets, About text |
 | `app/tiles/hat-extended/index.html` | Hat (extended) page: the a:b slider, curved edges with the two-tile rule, About text. It runs the Hat's worker |
+| `app/tiles/krinkle/tiling.js` | Modulo Krinkle maths and chunk queries, run as a worker and under Node |
+| `app/tiles/krinkle/index.html` | Krinkle page: presets, steppers, tile figure, arrangement, edge controls, colour groupings, About text |
+| `tools/krinkle/check.js` | The Krinkle checks, run under Node |
 | `tools/hat-edges/` | The research scripts behind the Hat (extended) page, run under Node and Python |
 
 ## How it works
@@ -42,7 +47,11 @@ drbuild.uk/demos/ redirect to the new ones.
   recently drawn.
 - **Tile data.** 28 bytes per tile. Two float pairs hold the position. Three
   words hold the turn (30° steps), the mirror flag, and a level for each of
-  the 14 edges and 14 corners.
+  the 14 edges and 14 corners. Krinkle has its own record, with a plain
+  centre, row and column, an 8-bit turn and two wedge boundary flags. A page
+  picks the record with `record: 'krinkle'`, and the shaders compile for it.
+- **Turns.** A tiling declares its turn count as `info.turns`, and a turn is
+  2π divided by it. The Hat and Spectre leave it out and get 12.
 - **Two-part positions.** A corner sits at `a*p + b*zeta*r`, where `a` and
   `b` are the edge lengths and `zeta` turns by 30°. The Hat page moves `a`
   and `b` along its slider, and the GPU reshapes every loaded tile. The
@@ -54,13 +63,20 @@ drbuild.uk/demos/ redirect to the new ones.
 - **Strokes.** Each tile strokes the inner half of its own edges and its
   neighbour strokes the other half. Curved edges use the distance to the edge
   profile, uploaded as up to 65 points. There can be two profiles, A and B,
-  and a mask picks B for some edges: the Hat (extended) page gives b-edges
-  their own height this way. Each tile takes whichever of two inks contrasts
-  with it more, so outlines survive any key.
+  and each edge picks one: the Hat (extended) page gives b-edges their own
+  height this way. Each tile takes whichever of two inks contrasts with it
+  more, so outlines survive any key.
+- **Shape and palette textures.** The corners go to the shader in a small
+  float texture, one row per hand, with each edge's profile and symmetries
+  coded beside its corner. The class colours go in a second texture of 256
+  entries. Uniform arrays would overflow on a phone once a tile has 64
+  corners. A page sets the most corners with `maxCorners`: 14 by default,
+  64 for Krinkle.
 - **Edge symmetries.** Each edge places the profile after one of four
   symmetries: as it is, backwards, reflected in the edge's line, or a half
-  turn. The shader gets them as masks of two bits per edge, one mask for
-  unmirrored tiles and one for mirrored. The Spectre's Single half turns its
+  turn. A page gives them as masks of two bits per edge, one mask for
+  unmirrored tiles and one for mirrored, or for more than 14 edges as
+  functions `symAt(i, flip)` and `selAt(i)`. The Spectre's Single half turns its
   odd edges. The Hat (extended) rule is in
   [hat-edge-research.md](hat-edge-research.md).
 - **Hands.** A shape with `hands: 2` has a second outline for mirrored tiles.
@@ -129,7 +145,40 @@ drbuild.uk/demos/ redirect to the new ones.
   b-edges, since the two never meet. Each height slider shows its collision
   limit with the other height held. With Line, the default, the page looks
   the same as the Hat page.
-- **Tabs.** Hat, Spectre and Hat (extended), joined and of equal width.
+- **Tabs.** Hat, Spectre, Hat (extended) and Krinkle, joined, each as wide as
+  its label. Four tabs of equal width would not fit the title card.
+- **Krinkle options.** The page builds its tile in two places: the workers
+  build the tiling the map shows, and the page builds the same tile at once
+  so the steppers, read-out and tile figure answer a click without waiting.
+  A stepper, preset, Offset or arrangement change calls
+  `map.rebuild(options, 250)`, which waits 250 ms so a run of clicks builds
+  once, and keeps the old tiles on screen until the new workers are ready.
+  Presets and the dice also call `map.home()`. The edge controls reshape the
+  loaded tiles with no rebuild, as on the Spectre page.
+- **Krinkle colours.** Every grouping has one class per group, and the counts
+  follow the tiling: n wedges, or t copies (2 with offset). The page's
+  groupings are read at draw time, so they change with a rebuild. A custom
+  colour set whose group count no longer fits is dropped, and the grouping's
+  first preset takes over. Repeating has one orientation, so wedge colourings
+  show one colour. The page switches to the Lattice colouring, class mode 7,
+  which colours by (r mod 2, c mod 2), and back again.
+- **Krinkle address bar.** `mk=m,k`, `t`, `o`, `a=fan|rep`, `wo=1` for wedge
+  outlines, and for edges `e`, `b`, `ea=alt|S` and `p`. The Spectre uses `a`
+  for its edge arrangement, so Krinkle names that one `ea`, and still reads
+  an old-style `a=alt` or `a=S` as the edge arrangement. A tile that a link
+  names wrongly falls back to the opening one. `pb` is the construction
+  position, 0 to w + 1. A link with no `pb`, or one past w + 1, shows the
+  whole tiling, and so does any `pb` with `a=rep`.
+- **Krinkle construction.** The Construction control plays the fan being
+  built, in 20 seconds whatever w is. It only hides tiles in the vertex
+  shader, so the scrubber follows the drag. Tile (r, c) of wedge i shows once
+  the clock passes its stage and `r + (c + 1) / (r + 1)` is within the share
+  of `u_rows` that the stage has reached. `u_rows` is the row count that
+  passes the farthest screen corner, which the engine works out from
+  `info.rowStep` and `info.rowBase` and the view. The clock is the page's
+  own state, so it resets with a stepper click, a preset or Reset options,
+  and a link brings it back. The faint outline of the current front that the
+  plan lists as optional is not drawn.
 - **Sticky stops.** A slider near a stop snaps to it, within 4% of its
   range: each Height at 0, Peak position at 0, 0.5 and 1, Rising and Falling side
   at 0 and 0.5. The Hat slider snaps within 3° at Hat, Spectre and Turtle,
@@ -166,19 +215,43 @@ hats for the first method alone. The reshaped tiling was sampled at 0°, 15°,
 ## Checking a change
 
 - Serve the site with `python3 -m http.server` from the repo root and open
-  `/app/tiles/spectre/`, `/app/tiles/hat/` and `/app/tiles/hat-extended/`. Opened from
+  `/app/tiles/spectre/`, `/app/tiles/hat/`, `/app/tiles/hat-extended/` and
+  `/app/tiles/krinkle/`. Opened from
   disk, the pages build
   chunks on the main thread instead of in workers, which is slower but
   works.
 - The workers run under Node: `require('./app/tiles/hat/tiling.js').build()`
   returns the root and the chunk functions. The checks above were run this
   way, by decoding chunks and testing edge pairing and point coverage.
+- After a change to the Krinkle maths, run `node tools/krinkle/check.js`.
 - After a change to `edges.js` or the Hat (extended) rule, run
   `node tools/hat-edges/verify-page.js`. It checks that every shared edge
   still carries one curve from both sides.
 - `tools/tiling-video/capture.js` hooks two lines of `map.js` to film the
   pages: `statusEl.hidden = missing === 0;` and the `return map;` that ends
-  `start()`. After changing either, update the hook there.
+  `start()`. After changing either, update the hook there. Its `krinkle`
+  mode films the construction on a scripted clock, one `pb` per frame.
+
+## Page API for the engine
+
+`TilingMap.start(cfg)` returns `map`. Beyond the options that the Hat and
+Spectre pages use:
+
+- `startScale` may be a function of `(info, width, height)`. Krinkle uses it
+  to open with about 8 tile lengths across the shorter side.
+- `map.home(scale)` returns to the tiling's start. A number sets the zoom to
+  return to, once.
+- `map.scheme(id)` reads or sets the colour scheme by preset id.
+- `map.outlines(on)` reads or sets supertile or wedge outlines.
+- `map.rebuild(options, wait)` starts new workers and flushes the chunk cache.
+  `map.busy()` is true from the call until the new workers are ready.
+- `map.setPlayback(tau)` sets the Krinkle construction clock, 0 to w + 1, and
+  `map.playback()` reads it. `null`, or w + 1 or more, shows every tile.
+- The Krinkle page also adds `map.setParams({m, k, t, offset, arrangement,
+  pb})`. It returns `null`, or the message for a set that is not valid and
+  was not applied. Poll `map.busy()` for the build.
+- A Krinkle tile can be far larger than a Hat, so the chunk margin grows to
+  1.25 times `info.circumradius` plus 2 for that record format.
 
 ## Removed: colour by label
 

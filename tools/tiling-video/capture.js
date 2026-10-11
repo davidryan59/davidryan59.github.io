@@ -4,6 +4,7 @@
    node capture.js shots list.json           test stills from a list of settings
    node capture.js hat [from to] [--resume]  Hat page frames into frames/hat/
    node capture.js spectre [from to] [--resume]
+   node capture.js krinkle [from to] [--resume]  Krinkle construction into frames/krinkle/
 
    Frames are overwritten, so a change to the look needs no delete. With
    --resume, frames already on disk are kept: use it after a crash.
@@ -11,7 +12,13 @@
 
    It serves the site repo locally. The served copy of the engine gets a
    small hook, window.__tm, so the script can place the camera exactly and
-   wait until every chunk in view is drawn. The repo itself is not changed. */
+   wait until every chunk in view is drawn. The repo itself is not changed.
+
+   The Krinkle page films on a scripted clock. Its address bar takes the
+   tile (mk, t, o, a) and the construction position pb, from 0 to w + 1, so
+   each frame is a pb value and no real time passes. The settings are in
+   look.json under "krinkle". Frame 0 is at startPb, since pb = 0 is an
+   empty map and a blank frame is taken for a crashed page. */
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright-core');
 const T = require('./timeline.js');
@@ -52,7 +59,10 @@ const HOOK = `
       // World displacement per unit of q, as a complex factor.
       worldPerQ: function () { return slope ? [ab[0] * slope[0] + ab[1], ab[0] * slope[1]] : [ab[0], 0]; },
       setCustom: function (gid, list) { customs[gid] = list; sel = 'custom:' + gid; requestDraw(); },
-      redraw: requestDraw
+      redraw: requestDraw,
+      // The map object, for the page's own hooks: setParams, setPlayback, busy.
+      map: map,
+      busy: function () { return map.busy ? map.busy() : false; }
     };
     return map;`;
 
@@ -110,7 +120,7 @@ async function apply(page, o) {
     window.__tm.redraw();
     (function check() {
       const s = window.__tm.state();
-      if (s.draws > d0 && s.missing === 0 && s.inFlight === 0) resolve(performance.now() - t0);
+      if (s.draws > d0 && s.missing === 0 && s.inFlight === 0 && !window.__tm.busy()) resolve(performance.now() - t0);
       else if (performance.now() - t0 > 20000) resolve(-1);
       else requestAnimationFrame(check);
     })();
@@ -183,6 +193,24 @@ async function applySpectre(page, st) {
   await apply(page, { hash: 'c=' + st.colour + '&' + st.edges, view: [st.q, st.s, st.rot] });
 }
 
+/* ------------------------------------------------------- the Krinkle */
+
+// Frame n of the construction. The clock runs from 0 to w + 1 over
+// look.krinkle.seconds, and holds still at the whole tiling for the last
+// look.krinkle.holdSeconds. Each frame is the address bar a visitor could
+// paste: the tile, then pb.
+function krinkleFrames() {
+  const K = LOOK.krinkle, fps = K.fps || 30;
+  return Math.round((K.seconds + (K.holdSeconds || 0)) * fps);
+}
+function krinkleHash(n) {
+  const K = LOOK.krinkle, fps = K.fps || 30;
+  const u = Math.min(1, n / fps / K.seconds);            // 0 to 1 along the play
+  const w = K.w, p0 = K.startPb || 0;                    // the fan's wedge count; where frame 0 sits
+  const pb = u >= 1 ? '' : '&pb=' + (p0 + u * (w + 1 - p0)).toFixed(4);
+  return K.hash + pb;
+}
+
 /* ---------------------------------------------------------------- run */
 
 // A crashed page screenshots as a small grey icon on white, so a frame
@@ -222,6 +250,27 @@ async function capture(browser, base, which, from, to, resume) {
     if (++done % 50 === 0) console.log(which, 'frame', n, ((Date.now() - t0) / done / 1000).toFixed(2) + ' s/frame');
   }
   console.log(which, 'done:', done, 'frames in', ((Date.now() - t0) / 1000).toFixed(0), 's');
+}
+
+async function captureKrinkle(browser, base, from, to, resume) {
+  const K = LOOK.krinkle, dir = path.join(OUT, 'krinkle');
+  fs.mkdirSync(dir, { recursive: true });
+  const page = await openPage(browser, base, '/app/tiles/krinkle/#' + K.hash);
+  await apply(page, { view: [K.q || [0, 0], K.s, K.rot || 0] });
+  const t0 = Date.now();
+  let done = 0;
+  for (let n = from; n < to; n++) {
+    const file = path.join(dir, String(n).padStart(4, '0') + '.jpg');
+    if (resume && fs.existsSync(file) && fs.statSync(file).size > 0) continue;
+    await apply(page, { hash: krinkleHash(n), view: [K.q || [0, 0], K.s, K.rot || 0] });
+    const shot = await page.screenshot({ type: 'jpeg', quality: 94 });
+    // The opening frames hold only a few tiles and are small by nature, so
+    // a crash is caught by asking the page rather than by the file size.
+    if (!(await page.evaluate(() => window.__tm.state().ready))) throw new Error('frame ' + n + ': the page is not ready');
+    fs.writeFileSync(file, shot);
+    if (++done % 50 === 0) console.log('krinkle frame', n, ((Date.now() - t0) / done / 1000).toFixed(2) + ' s/frame');
+  }
+  console.log('krinkle done:', done, 'frames in', ((Date.now() - t0) / 1000).toFixed(0), 's');
 }
 
 async function probe(browser, base) {
@@ -273,7 +322,8 @@ async function shots(browser, base, list) {
     if (mode === 'probe') await probe(browser, base);
     else if (mode === 'shots') await shots(browser, base, JSON.parse(fs.readFileSync(from, 'utf8')));
     else if (mode === 'hat' || mode === 'spectre') await capture(browser, base, mode, +(from || 0), +(to || T.FRAMES), resume);
-    else console.error('usage: node capture.js probe | shots list.json | hat|spectre [from to] [--resume]');
+    else if (mode === 'krinkle') await captureKrinkle(browser, base, +(from || 0), +(to || krinkleFrames()), resume);
+    else console.error('usage: node capture.js probe | shots list.json | hat|spectre|krinkle [from to] [--resume]');
   } finally {
     await browser.close();
     server.close();

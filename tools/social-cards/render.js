@@ -23,7 +23,7 @@ const ROOT = path.join(__dirname, '..', '..');
 const OUT = path.join(ROOT, 'social');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'social-cards-'));
 const MAX_BYTES = 300 * 1024;
-const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'merge-fractals', 'moving-mondrian',
+const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'krinkle', 'merge-fractals', 'moving-mondrian',
                'weth9', 'uniswap-v2', 'dai', 'permit2', 'parfly', 'salary-loan'];
 // Cards drawn from their own words and diagram, with no picture from stage 1.
 const STANDALONE = ['parfly', 'salary-loan'];
@@ -32,7 +32,9 @@ const STANDALONE = ['parfly', 'salary-loan'];
 const TILINGS = {
   hat: '/app/tiles/hat/#v=0,0,14,0,0,0&c=pastel&t=30',
   spectre: '/app/tiles/spectre/#v=0,0,16,0&c=rainbow2&e=curve&b=0.18&a=alt&p=waves%3A1',
-  'hat-extended': '/app/tiles/hat-extended/#v=0,0,34,0,0,0&c=pastel&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55'
+  'hat-extended': '/app/tiles/hat-extended/#v=0,0,34,0,0,0&c=pastel&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55',
+  // The centre of the fan sits right of the card's panel, so the swirl shows.
+  krinkle: '/app/tiles/krinkle/#v=-30,0,13,0&c=pastel&mk=3,7&t=2&o=1&a=fan'
 };
 // Merge Fractals animate: every few seconds the two diamonds break into
 // fractal shapes and back. Each is caught at a moment of seconds into its
@@ -103,7 +105,7 @@ function serve() {
   return new Promise(resolve => server.listen(0, () => resolve(server)));
 }
 
-async function stageOne(browser, base) {
+async function stageOne(browser, base, ids) {
   const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 2 });
   for (const [name, view] of Object.entries(TILINGS)) {
     // WebGL sometimes loses its context on the first load and draws a blank
@@ -120,6 +122,8 @@ async function stageOne(browser, base) {
     console.log('drew ' + name + '.png', Math.round(fs.statSync(path.join(TMP, name + '.png')).size / 1024) + ' KB');
   }
   await ctx.close();
+  // A run that asks only for tiling cards needs nothing from the network.
+  if (ids.every(id => id in TILINGS)) return;
   const art = await browser.newContext({ viewport: { width: 400, height: 400 }, deviceScaleFactor: 2 });
   for (const [id, t] of Object.entries(FRACTALS)) {
     const page = await art.newPage();
@@ -194,7 +198,7 @@ async function stageTwo(browser, base, ids) {
     args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader']
   });
   try {
-    if (ids.some(id => !STANDALONE.includes(id))) await stageOne(browser, base);
+    if (ids.some(id => !STANDALONE.includes(id))) await stageOne(browser, base, ids);
     await stageTwo(browser, base, ids);
   } finally {
     await browser.close();

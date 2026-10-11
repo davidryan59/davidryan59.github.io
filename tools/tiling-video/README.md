@@ -11,8 +11,8 @@ as it is. [storyboard.md](storyboard.md) says what happens on each beat.
 - `timeline.js` — the single source of timing: 80 BPM, 60 beats, the shape,
   colours, edges and zoom on each beat, and the caption text. The capture, the
   captions and the music all read it.
-- `look.json` — how the tiling looks: zoom, pan speed, dice seeds, and the
-  Spectre's palette and edge heights.
+- `look.json` — how the tiling looks: zoom, pan speed, dice seeds, the
+  Spectre's palette and edge heights, and the Krinkle tile, view and clock.
 - `capture.js` — the tiling layer. It serves this repo locally and adds a
   small hook to the served copy of `app/tiles/engine/map.js`, so it can place the
   camera exactly and wait until every chunk in view is drawn. Output:
@@ -59,6 +59,7 @@ Run each step from this folder. Times are from an Apple silicon Mac.
 |---|---|---|
 | Tiling, Hat | `node capture.js hat` | 3 min |
 | Tiling, Spectre | `node capture.js spectre` | 4 min |
+| Krinkle construction | `node capture.js krinkle` | 1.5 min |
 | Captions | `node overlay/render.js` | 30 s |
 | Music | `python3 music/loop_export.py EXPORT.wav` | 5 s |
 | Picture | `python3 compose.py` | 1 min |
@@ -66,6 +67,12 @@ Run each step from this folder. Times are from an Apple silicon Mac.
 | Loop candidates for X | `python3 loop_trim.py tiling-explorer.mp4 music/tiling-loop.wav out 2 3 4` | 1 min each |
 
 - The two captures can run at the same time.
+- `node capture.js krinkle` films the Krinkle construction into
+  `frames/krinkle/`: 20 seconds of growth and 3 of the whole tiling, 690
+  frames at 30 fps. Each frame is the address bar a visitor could paste, the
+  tile and then `pb`, so no real time passes. Change the tile, `w` (the
+  fan's wedge count), the view or the timing in `look.json` under
+  `krinkle`. It is not yet part of the video's timeline.
 - A capture overwrites its frames. After a crash, add `--resume` to keep the
   frames already taken.
 - `node capture.js probe` renders test stills into `probe/` and prints each
