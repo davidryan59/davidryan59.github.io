@@ -630,15 +630,26 @@
       },
 
       /* Takes back the last placement. The first tile stays. */
-      undo: function () {
-        if (tiles.length <= 1) return false;
-        const keep = tiles.slice(0, -1).map(function (t) { return { turn: t.turn, flip: t.flip, x: t.x, y: t.y, parent: t.parent }; });
-        const kept = history.slice(0, -1);
+      undo: function () { return board.undoTo(tiles.length - 1); },
+
+      /* Takes back placements until `count` tiles remain, rebuilding once.
+         The first tile stays. */
+      undoTo: function (count) {
+        count = Math.max(1, count);
+        if (count >= tiles.length) return false;
+        const keep = tiles.slice(0, count).map(function (t) { return { turn: t.turn, flip: t.flip, x: t.x, y: t.y, parent: t.parent }; });
+        const kept = history.slice(0, count);
         reset();
         keep.forEach(function (p) { insert(p.turn, p.flip, p.x, p.y, p.parent); });
         kept.forEach(function (d) { history.push(d); });
         dead = history.length ? history[history.length - 1] : new Map();
         return true;
+      },
+
+      /* The number of dead corners when the board held `count` tiles. */
+      deadCountAt: function (count) {
+        const d = history[count - 1];
+        return d ? d.size : 0;
       },
 
       /* Back to the single first tile. */

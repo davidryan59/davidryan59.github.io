@@ -1,7 +1,10 @@
 /* The Tiling Puzzle page: input, drawing and panels, on Canvas 2D. The
-   geometry is in board.js and the specification is docs/tiling-puzzle.md,
-   "The board (phase 5)". This phase gives no verdicts: the page shows how
-   many rings are complete and marks corners where no piece can fit. */
+   geometry is in board.js, the Hat and Spectre verdicts come from
+   checker.js in a worker, and the specification is docs/tiling-puzzle.md,
+   "The board (phase 5)" and "The Hat and Spectre checker (phase 6)". The
+   page shows how many rings are complete, marks corners where no piece can
+   fit, and for the Hat and Spectre says whether the patch fits a tiling.
+   Krinkle pieces get no verdict yet. */
 (function () {
   'use strict';
 
@@ -23,6 +26,15 @@
   let info = { ring: new Int32Array(1), complete: 0 };
   let usedHand = false;       // the visitor has turned or lifted the piece
   let dirty = true;
+  let steps = [1];            // the tile count after each undo step
+  let verdict = null;         // the checker's answer for the current board
+  let version = 0;            // counts board changes, so stale answers are dropped
+  let changedAt = 0;          // when the current board change began
+  let verdictMs = 0;          // from that change to its verdict on screen
+  let ghosts = null;          // Hint: {tiles, t0}
+  let incoming = null;        // Add one: a piece sliding in from the hand
+  let filling = null;         // Fill a ring: {queue, timer}
+  let redSegs = null;         // the red edges of the current verdict, cached
   const look = { grouping: 'ring', palette: 'pastel' };
   const LIFT = 60;            // px a touched piece rides above the finger
   const store = {
@@ -223,15 +235,56 @@
                   m[1] * P.x0 + m[3] * P.y1 + m[5], m[1] * P.x1 + m[3] * P.y1 + m[5]];
       if (Math.max.apply(null, sx) < 0 || Math.min.apply(null, sx) > W ||
           Math.max.apply(null, sy) < 0 || Math.min.apply(null, sy) > H) continue;
-      const lk = tileLook(t, info.ring[i]);
+      const lk = tileLook(t, info.ring[i]), red = i === redTile;
       ctx.setTransform(dpr * m[0], dpr * m[1], dpr * m[2], dpr * m[3],
                        dpr * (m[0] * t.x + m[2] * t.y + m[4]), dpr * (m[1] * t.x + m[3] * t.y + m[5]));
       const path = pathFor(t.flip, t.turn);
-      ctx.fillStyle = lk.fill;
+      ctx.fillStyle = red ? (dark ? '#b8293f' : '#e0465c') : lk.fill;
       ctx.fill(path);
-      ctx.strokeStyle = lk.ink;
-      ctx.lineWidth = lw;
+      if (red) hatch(path);
+      ctx.strokeStyle = red ? (dark ? '#ffd0d6' : '#7a0f1f') : lk.ink;
+      ctx.lineWidth = red ? 2.5 / view.scale : lw;
       ctx.stroke(path);
+    }
+
+    // Hint: a faint ghost at every legal next placement, stronger at the
+    // hand's own turn. They fade over the last 0.6 of their 4 seconds.
+    if (ghosts) {
+      const age = (performance.now() - ghosts.t0) / 1000;
+      if (age >= 4) ghosts = null;
+      else {
+        const fade = Math.min(1, (4 - age) / 0.6);
+        ghosts.tiles.forEach(g => {
+          const strong = g.flip === hand.flip && g.turn === hand.turn;
+          ctx.setTransform(dpr * m[0], dpr * m[1], dpr * m[2], dpr * m[3],
+                           dpr * (m[0] * g.x + m[2] * g.y + m[4]), dpr * (m[1] * g.x + m[3] * g.y + m[5]));
+          const path = pathFor(g.flip, g.turn);
+          ctx.globalAlpha = fade * (strong ? 0.32 : 0.12);
+          ctx.fillStyle = dark ? '#7aa6e0' : '#1552a1';
+          ctx.fill(path);
+          ctx.globalAlpha = fade * (strong ? 0.95 : 0.4);
+          ctx.strokeStyle = dark ? '#7aa6e0' : '#1552a1';
+          ctx.lineWidth = (strong ? 2 : 1.2) / view.scale;
+          if (!strong) ctx.setLineDash([4 / view.scale, 4 / view.scale]);
+          ctx.stroke(path);
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+        });
+        requestDraw();
+      }
+    }
+
+    // Shared edges that no tiling holds, in red.
+    const segs = redEdgeSegments();
+    if (segs.length) {
+      ctx.setTransform(dpr * m[0], dpr * m[1], dpr * m[2], dpr * m[3], dpr * m[4], dpr * m[5]);
+      ctx.strokeStyle = dark ? '#ff6b7d' : '#d41f3c';
+      ctx.lineWidth = 5 / view.scale;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      segs.forEach(q => { ctx.moveTo(q[0], q[1]); ctx.lineTo(q[2], q[3]); });
+      ctx.stroke();
+      ctx.lineCap = 'butt';
     }
 
     // Dead corners, as red wedges in the gaps.
@@ -264,10 +317,16 @@
       ctx.setLineDash([]);
     }
 
-    // The piece in the air, or sliding back to the hand.
+    // The piece in the air, sliding back to the hand, or sliding in for
+    // Add one.
     let air = null;
     if (drag) air = { cx: drag.cx, cy: drag.cy, flip: hand.flip, turn: hand.turn };
-    else if (slide) {
+    else if (incoming) {
+      const k = Math.min(1, (performance.now() - incoming.t0) / incoming.dur), e = 1 - Math.pow(1 - k, 3);
+      const r = handCanvas.getBoundingClientRect(), from = toWorld(r.left + r.width / 2, r.top + r.height / 2);
+      air = { cx: from[0] + (incoming.cx - from[0]) * e, cy: from[1] + (incoming.cy - from[1]) * e, flip: incoming.t.flip, turn: incoming.t.turn };
+      if (k >= 1) setTimeout(finishIncoming, 0); else requestDraw();
+    } else if (slide) {
       const k = Math.min(1, (performance.now() - slide.t0) / slide.dur), e = 1 - Math.pow(1 - k, 3);
       const r = handCanvas.getBoundingClientRect(), to = toWorld(r.left + r.width / 2, r.top + r.height / 2);
       air = { cx: slide.cx + (to[0] - slide.cx) * e, cy: slide.cy + (to[1] - slide.cy) * e, flip: slide.flip, turn: slide.turn };
@@ -287,6 +346,50 @@
       ctx.stroke(path);
     }
     drawHand();
+  }
+
+  /* Light diagonal stripes over the red tile, so it reads as marked in any
+     palette. */
+  function hatch(path) {
+    ctx.save();
+    ctx.clip(path);
+    const V = TB.variant(piece, 0, 0), r = piece.radius * 2.2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 3 / view.scale;
+    ctx.beginPath();
+    for (let d = -r; d <= r; d += 10 / view.scale) {
+      ctx.moveTo(V.cx + d - r, V.cy - r);
+      ctx.lineTo(V.cx + d + r, V.cy + r);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* The red tile: the drop that emptied the match set. */
+  let redTile = -1;
+
+  /* The segments of every shared edge the verdict marks, as x0, y0, x1, y1. */
+  function redEdgeSegments() {
+    if (redSegs) return redSegs;
+    redSegs = [];
+    if (!verdict || !verdict.redEdges) return redSegs;
+    const tol = 1e-7;
+    verdict.redEdges.forEach(pair => {
+      const a = board.tiles[pair[0]], b = board.tiles[pair[1]];
+      if (!a || !b) return;
+      const P = a.poly, Q = b.poly;
+      for (let e = 0; e < P.n; e++) {
+        const e1 = (e + 1) % P.n;
+        for (let f = 0; f < Q.n; f++) {
+          const f1 = (f + 1) % Q.n;
+          if (Math.abs(P.xs[e] - Q.xs[f1]) < tol && Math.abs(P.ys[e] - Q.ys[f1]) < tol &&
+              Math.abs(P.xs[e1] - Q.xs[f]) < tol && Math.abs(P.ys[e1] - Q.ys[f]) < tol) {
+            redSegs.push([P.xs[e], P.ys[e], P.xs[e1], P.ys[e1]]);
+          }
+        }
+      }
+    });
+    return redSegs;
   }
 
   function drawHand() {
@@ -317,6 +420,7 @@
   }
 
   function loadPiece(p, b) {
+    stopAnimations();
     piece = p;
     pathCache.clear();
     colourCache.clear();
@@ -326,6 +430,11 @@
     const res = TB.decode(p, b || '');
     board = res.board;
     notice = res.error || '';
+    steps = [];
+    for (let i = 1; i <= board.count; i++) steps.push(i);
+    changed();
+    verdict = null;
+    checkerFor(p.kind);
     resize();
     fitView();
     syncPanels();
@@ -337,27 +446,267 @@
     loadPiece(p, '');
   }
 
-  /* Tile count, ring counter and dead corners, the steps, the saved board
-     and the address bar. */
+  /* Tile count, ring counter and dead corners, the verdict, the steps, the
+     saved board and the address bar. */
   function refresh() {
     info = board.rings();
+    requestVerdict();
     refreshText();
     persist();
     requestDraw();
+  }
+
+  /* Call before every change to the board: later answers about the old
+     board are dropped, and the Hint ghosts go. */
+  function changed() {
+    version++;
+    changedAt = performance.now();
+    if (verdict) verdict.stale = true;
+    redTile = -1;
+    redSegs = null;
+    ghosts = null;
+    // A slow answer shows "Checking…" rather than the last board's verdict.
+    setTimeout(refreshText, 260);
   }
 
   function refreshText() {
     const n = board.count, r = info.complete, dead = board.deadCorners().length;
     const el = $('status');
     let s = n + (n === 1 ? ' tile' : ' tiles') + ' · ' + (r > 0 ? 'ring ' + r + ' complete' : 'no ring complete yet');
-    if (dead) s += ' · No piece fits at the red corner' + (dead > 1 ? 's' : '');
-    if (notice) s = notice + ' ' + s;
+    let cls = '';
+    const vt = verdictText();
+    if (vt) { s += ' · ' + vt.text; cls = vt.cls; }
+    if (dead) { s += ' · No piece fits at the red corner' + (dead > 1 ? 's' : ''); cls = 'bad'; }
+    if (notice) { s = notice + ' ' + s; cls = 'bad'; }
     el.textContent = s;
-    el.classList.toggle('bad', dead > 0 || !!notice);
-    $('undo').disabled = n <= 1;
-    $('clear').disabled = n <= 1;
+    el.classList.toggle('bad', cls === 'bad');
+    el.classList.toggle('good', cls === 'good');
+    const busy = !!(incoming || filling);
+    $('undo').disabled = steps.length <= 1 || busy;
+    $('clear').disabled = n <= 1 || busy;
+    const c = checkerFor(piece.kind), help = helpReady();
+    ['hint', 'add-one', 'fill-ring'].forEach(id => {
+      $(id).disabled = !help;
+      $(id).title = c ? HELP_TITLES[id] : 'Computer help covers the Hat and the Spectre';
+    });
+    const good = c ? lastGood() : 0;
+    $('undo-good').disabled = !(c && isRed() && good >= 1 && good < n) || busy;
+    $('undo-good').title = c ? 'Step back to the last patch that fits a tiling' : 'Computer help covers the Hat and the Spectre';
     const step = n === 1 ? (usedHand ? 1 : 0) : (r >= 1 ? 3 : 2);
     Array.prototype.forEach.call($('steps').children, (li, i) => li.classList.toggle('on', i === step));
+  }
+  const HELP_TITLES = {
+    'hint': 'Show every place the next piece can go',
+    'add-one': 'The computer adds one piece',
+    'fill-ring': 'The computer completes the next ring'
+  };
+
+  /* ------------------------------------------------------------ checker */
+
+  // One checker per piece kind, built on first use. Each runs checker.js in
+  // a worker, or in the page when the browser has no workers or refuses
+  // one, as a page opened from a file may.
+  const checkers = {};
+  let requestId = 0;
+
+  function checkerFor(kind) {
+    if (!TilingChecker.KINDS[kind]) return null;
+    if (checkers[kind]) return checkers[kind];
+    const c = { kind: kind, ready: false, info: null, failed: '', waiting: new Map(), send: null };
+    checkers[kind] = c;
+    const receive = msg => {
+      if (msg.type === 'ready') {
+        c.ready = true;
+        c.info = msg.info;
+        if (piece && piece.kind === kind) { requestVerdict(); refreshText(); }
+        return;
+      }
+      if (msg.type === 'error' && msg.request === 'init') { c.failed = msg.message; refreshText(); return; }
+      const w = c.waiting.get(msg.id);
+      if (w) { c.waiting.delete(msg.id); w.resolve(msg); }
+    };
+    const inPage = () => {
+      const handle = TilingChecker.createHandler();
+      c.send = msg => setTimeout(() => handle(msg, receive), 0);
+    };
+    let worker = null;
+    try { worker = typeof Worker === 'function' ? new Worker('checker.js') : null; } catch (e) { worker = null; }
+    if (worker) {
+      worker.onmessage = e => receive(e.data);
+      worker.onerror = e => {
+        if (e && e.preventDefault) e.preventDefault();
+        worker.terminate();
+        inPage();
+        c.ready = false;
+        c.send({ type: 'init', kind: kind });
+        c.waiting.forEach(w => c.send(w.msg));
+      };
+      c.send = msg => worker.postMessage(msg);
+    } else {
+      inPage();
+    }
+    c.send({ type: 'init', kind: kind });
+    return c;
+  }
+
+  function ask(msg) {
+    const c = checkerFor(piece.kind);
+    msg.id = ++requestId;
+    return new Promise(resolve => { c.waiting.set(msg.id, { msg: msg, resolve: resolve }); c.send(msg); });
+  }
+  function flatTiles() {
+    const out = [];
+    board.tiles.forEach(t => out.push(t.flip, t.turn, t.x, t.y));
+    return out;
+  }
+  const unpackTiles = flat => TilingChecker.unpack(flat || []);
+
+  function requestVerdict() {
+    const c = checkerFor(piece.kind), v = version, started = changedAt;
+    if (!c || !c.ready) return;
+    ask({ type: 'verdict', tiles: flatTiles() }).then(msg => {
+      if (v !== version || piece.kind !== c.kind) return;
+      verdict = msg.type === 'error' ? { status: 'error', message: msg.message, count: board.count } : msg;
+      redTile = verdict.status === 'dead' && verdict.redTile < board.count ? verdict.redTile : -1;
+      redSegs = null;
+      refreshText();
+      requestDraw();
+      requestAnimationFrame(() => { verdictMs = performance.now() - started; shown = { count: msg.count, ms: verdictMs }; });
+    });
+  }
+  let shown = { count: 0, ms: 0 };
+
+  function fresh() { return !!(verdict && !verdict.stale && verdict.count === board.count); }
+  function isRed() {
+    if (!fresh()) return false;
+    return verdict.status === 'dead' || (verdict.status === 'large' && board.deadCorners().length > 0);
+  }
+  function helpReady() {
+    const c = checkerFor(piece.kind);
+    return !!(c && c.ready && fresh() && verdict.status === 'fits' && !incoming && !filling && !drag);
+  }
+
+  function verdictText() {
+    const c = checkerFor(piece.kind);
+    if (!c) return null;
+    const name = piece.name;
+    if (c.failed) return { text: 'The ' + name + ' checker failed: ' + c.failed, cls: 'bad' };
+    if (!c.ready) return { text: 'Building the ' + name + ' reference…', cls: '' };
+    if (filling) return { text: 'Filling ring ' + (filling.ring + 1) + '…', cls: '' };
+    const v = verdict;
+    if (!v || (v.stale && performance.now() - changedAt > 250)) return { text: 'Checking…', cls: '' };
+    if (v.status === 'error') return { text: v.message, cls: 'bad' };
+    if (v.status === 'fits') return { text: 'Fits a ' + name + ' tiling, so it can go on forever', cls: 'good' };
+    if (v.status === 'dead') return { text: 'Dead end: this patch is in no ' + name + ' tiling', cls: 'bad' };
+    return { text: 'Too large to check. Up to ' + (v.largeFrom - 1) + ' tiles it fitted a ' + name + ' tiling', cls: 'good' };
+  }
+
+  /* The latest state whose match set is not empty and that has no dead
+     corner, as a tile count, or 0. */
+  function lastGood() {
+    if (!verdict || verdict.stale) return 0;
+    let top = board.count;
+    if (verdict.deadFrom) top = Math.min(top, verdict.deadFrom - 1);
+    if (verdict.largeFrom) top = Math.min(top, verdict.largeFrom - 1);
+    for (let n = top; n >= 1; n--) if (board.deadCountAt(n) === 0) return n;
+    return 0;
+  }
+
+  /* --------------------------------------------------------- computer help */
+
+  function undoTo(count) {
+    stopAnimations();
+    while (steps.length > 1 && steps[steps.length - 1] > count) steps.pop();
+    if (steps[steps.length - 1] !== count) steps.push(count);
+    changed();
+    board.undoTo(count);
+    notice = '';
+    refresh();
+  }
+
+  function showHint() {
+    if (!helpReady()) return;
+    const v = version;
+    ask({ type: 'hint', tiles: flatTiles() }).then(msg => {
+      if (v !== version) return;
+      if (msg.type === 'error') { notice = msg.message; refreshText(); return; }
+      ghosts = { tiles: unpackTiles(msg.tiles), t0: performance.now() };
+      requestDraw();
+    });
+  }
+
+  function addOne() {
+    if (!helpReady()) return;
+    const v = version;
+    ask({ type: 'add-one', tiles: flatTiles(), rings: Array.from(info.ring) }).then(msg => {
+      if (v !== version || incoming || filling) return;
+      if (msg.type === 'error' || !msg.tile) { notice = msg.message || 'No piece can be added here.'; refreshText(); return; }
+      const t = unpackTiles(msg.tile)[0];
+      if (!board.canPlace(t.flip, t.turn, t.x, t.y)) { notice = 'The added piece does not fit the board.'; refreshText(); return; }
+      const V = TB.variant(piece, t.flip, t.turn);
+      incoming = { t: t, cx: t.x + V.cx, cy: t.y + V.cy, t0: performance.now(), dur: 280 };
+      ghosts = null;
+      refreshText();
+      requestDraw();
+    });
+  }
+  function finishIncoming() {
+    if (!incoming) return;
+    const t = incoming.t;
+    incoming = null;
+    changed();
+    board.place(t);
+    steps.push(board.count);
+    notice = '';
+    refresh();
+  }
+
+  function fillRing() {
+    if (!helpReady()) return;
+    const v = version;
+    ask({ type: 'fill-ring', tiles: flatTiles(), rings: Array.from(info.ring), complete: info.complete }).then(msg => {
+      if (v !== version || incoming || filling) return;
+      if (msg.type === 'error') { notice = msg.message; refreshText(); return; }
+      const list = unpackTiles(msg.tiles);
+      if (!list.length) return;
+      changed();
+      // About 1.5 seconds in all, one piece at a time.
+      const every = Math.max(20, Math.min(160, 1500 / list.length));
+      filling = { queue: list, ring: info.complete, timer: setInterval(fillTick, every) };
+      refreshText();
+    });
+  }
+  /* Places the next piece of the ring that shares an edge with the patch. */
+  function fillTick() {
+    const q = filling.queue;
+    let k = q.findIndex(t => board.canPlace(t.flip, t.turn, t.x, t.y));
+    if (k >= 0) board.place(q.splice(k, 1)[0]);
+    if (k < 0 || !q.length) { endFill(); return; }
+    info = board.rings();
+    requestDraw();
+  }
+  function endFill() {
+    clearInterval(filling.timer);
+    filling = null;
+    steps.push(board.count);
+    refresh();
+  }
+  /* Completes any piece still moving in, so the next action starts from a
+     settled board. */
+  function finishAnimations() {
+    if (incoming) finishIncoming();
+    if (filling) {
+      while (filling.queue.length) {
+        const k = filling.queue.findIndex(t => board.canPlace(t.flip, t.turn, t.x, t.y));
+        if (k < 0) break;
+        board.place(filling.queue.splice(k, 1)[0]);
+      }
+      endFill();
+    }
+  }
+  function stopAnimations() {
+    incoming = null;
+    if (filling) { clearInterval(filling.timer); filling = null; }
   }
 
   function persist() {
@@ -499,6 +848,7 @@
 
   function startDrag(e) {
     if (drag) return;
+    finishAnimations();
     slide = null;
     drag = { id: e.pointerId, touch: e.pointerType !== 'mouse', sx: e.clientX, sy: e.clientY, cx: 0, cy: 0, snap: null, twist: null };
     usedHand = true;
@@ -508,12 +858,15 @@
   }
 
   function drop() {
-    const d = drag;
+    const d = drag, t0 = performance.now();
     updateSnap();
     const s = drag.snap;
     drag = null;
     if (s) {
+      changed();
+      changedAt = t0;
       board.place({ turn: s.turn, flip: s.flip, x: s.x, y: s.y }, { a: s.a, ea: s.ea, ej: s.ej });
+      steps.push(board.count);
       notice = '';
       refresh();
     } else {
@@ -656,9 +1009,18 @@
   $('home').addEventListener('click', fitView);
 
   $('undo').addEventListener('click', () => {
-    if (board.undo()) { notice = ''; refresh(); }
+    finishAnimations();
+    if (steps.length > 1) undoTo(steps[steps.length - 2]);
   });
+  $('undo-good').addEventListener('click', () => {
+    const n = lastGood();
+    if (n >= 1 && n < board.count) undoTo(n);
+  });
+  $('hint').addEventListener('click', showHint);
+  $('add-one').addEventListener('click', addOne);
+  $('fill-ring').addEventListener('click', fillRing);
   $('clear').addEventListener('click', () => {
+    finishAnimations();
     if (board.count <= 1 || !confirmLoss('Clear')) return;
     newBoard(piece);
   });
@@ -765,6 +1127,26 @@
       fsButton.title = (on ? 'Exit' : 'Enter') + ' full screen';
     });
   }
+
+  /* For tools/tiling-puzzle/check-phase6.js and the screenshots: read-only
+     views of the page, and the screen point of a drop that snaps. */
+  window.TilingPuzzle = {
+    board: () => board,
+    ready: () => { const c = checkerFor(piece.kind); return !!(c && c.ready && fresh()); },
+    checkerInfo: () => { const c = checkerFor(piece.kind); return c && c.info; },
+    verdict: () => (fresh() ? verdict : { count: -1 }),
+    shown: () => shown,
+    dropTarget: () => {
+      fitView();
+      const V = TB.variant(piece, hand.flip, hand.turn);
+      const list = board.candidates(hand.flip, hand.turn).filter(c => c.valid);
+      for (let i = 0; i < list.length; i++) {
+        const p = toScreen(list[i].x + V.cx, list[i].y + V.cy);
+        if (p[0] > W * 0.3 && p[0] < W * 0.7 && p[1] > H * 0.3 && p[1] < H * 0.7) return p;
+      }
+      return null;
+    }
+  };
 
   /* --------------------------------------------------------------- start */
 

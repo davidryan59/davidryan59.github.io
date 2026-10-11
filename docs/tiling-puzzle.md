@@ -26,8 +26,8 @@ explorer's tiling files and on the Krinkle worker from
 - [x] Phase 5: The board: pieces, hand, turning, snapping, undo, rings,
       share link and screen fit; no legality checks yet (built 2026-10-11;
       check 6, the phone, is David's)
-- [ ] Phase 6: The Hat and Spectre checker: reference tiling, match set,
-      verdicts, Add one, Hint and Fill a ring
+- [x] Phase 6: The Hat and Spectre checker: reference tiling, match set,
+      verdicts, Add one, Hint and Fill a ring (built 2026-10-11)
 - [ ] Phase 7: Krinkle pieces: corner check, matching against the fan and
       repeating tilings
 - [ ] Release: builder page entry, share card, short address, and a "Build it
@@ -308,6 +308,8 @@ file's `build()`, and walks `ctx.root` with `TilingCore.walk`. Using
   - Start at R_ref = 120 tile widths, and grow it until every sample is
     found with an anchor inside R_in.
   - Ship twice the passing radius, and record the number in this document.
+  - **Shipped:** R_ref = 240 tile widths for the Hat and the Spectre. Both
+    pass at the starting 120.
 
 ### Matches
 
@@ -367,6 +369,23 @@ Measured from the reference and written into this document:
 
 These answer "how many ways can a tile be surrounded?".
 
+Measured 2026-10-11 by `tools/tiling-puzzle/check-phase6.js`, check 6. The
+central tile is turned, never mirrored, into its own frame:
+
+| Central tile | Distinct first rings | Distinct edge contacts |
+| --- | --- | --- |
+| Hat | 120 | 23 |
+| Mirrored Hat | 8 | 4 |
+| Spectre | 18 | 25 |
+
+- The first-ring counts are the same over the tiles within 60 and within
+  100 widths: 27,774 and 77,161 Hats, 4,050 and 11,264 mirrored Hats, and
+  35,036 and 97,327 Spectres.
+- A mirrored Hat has only 4 edge neighbours, each sharing several edges,
+  and 2 more that touch it at a point.
+- When matches may mirror, as the checker's catalogue allows for the Hat,
+  the Hat has 25 edge contacts.
+
 ### Phase 6 checks
 
 1. **Calibration**, as above, passes at the shipped R_ref.
@@ -379,6 +398,106 @@ These answer "how many ways can a tile be surrounded?".
 4. **Speed:** the verdict arrives within 100 ms of a drop, with 60 tiles on
    the board, on a laptop with Chrome's CPU throttled 4×. The reference
    builds in under 2 seconds.
+
+### As built
+
+Phase 6 follows the plan above, with these departures and additions:
+
+- **Files.** `app/tiling-puzzle/checker.js` is the worker. It also runs in
+  the page when the browser has no workers or refuses one, and under Node
+  through `createHandler`, as `krinkle/tiling.js` does. The checks are in
+  `tools/tiling-puzzle/check-phase6.js`.
+- **The reference.** It is centred on the tile nearest the hierarchy's
+  start, `info.start`, whose corner 0 becomes the origin. Every position is
+  subtracted in exact two-part form before it becomes a float. The Hat
+  reference holds 509,328 tiles and the Spectre's 560,613.
+- **The index.** The plan hashes the rounded reference point. The checker
+  uses a grid of cells one tile width across, over the area centroids. A
+  centroid within 1e-6 of a cell's side goes in both cells, so rounding
+  never splits a lookup. A lookup must agree on the centroid to 1e-6 and on
+  the orientation, and then on the full corner set.
+- **Radii have a slack of 1e-9.** The Hat's width is √39, so a centroid can
+  lie exactly on a rim measured in whole widths. The slack settles such a
+  tie the same way in both routes of check 5.
+- **Shift templates.** Each class of anchor keeps exactly one shift: the
+  Hat keeps one proper shift and, for mirrored anchors, one reversed shift.
+  The Spectre keeps one proper shift. So every anchor gives one motion, and
+  the match set starts at 408,731 motions for the Hat and 449,896 for the
+  Spectre.
+- **Diameter.** A patch's diameter is the largest distance between two tile
+  centroids. Above 25 widths the status reads "Too large to check. Up to N
+  tiles it fitted a Hat tiling". A dead patch stays dead however large it
+  grows, so its red verdict stays.
+- **One request syncs the whole board.** Each request carries every tile.
+  The worker keeps the match set of each prefix it has seen, so a drop
+  filters once and an undo restores a saved set. The requests are `init`,
+  `match`, `verdict`, `add-one`, `hint` and `fill-ring`.
+- **The edge contact catalogue** is read within 30 widths of the centre, to
+  keep the build short. Check 6 confirms that the whole reference holds the
+  same 25 contacts for each piece.
+- **Hint** builds every placement that meets the patch by a catalogued
+  contact, then keeps those that some match carries onto the reference.
+  That is the plan's union, found from the other side. A candidate that
+  overlaps a placed tile, or meets one by an unknown contact, is ruled out
+  before the scan over M. The answers do not change, and the Spectre's
+  slowest hint dropped from 445 ms to 75 ms.
+- **Fill a ring** places, each time, the first remaining tile that shares an
+  edge with the patch. A ring tile can touch the patch only at a point until
+  a neighbour goes in. The status reads "Filling ring N…" meanwhile, and
+  any other action completes the fill first.
+- **Red marking.** The red tile is a saturated red with light stripes,
+  since the pastel ring 0 colour is pink. Unknown shared edges are drawn
+  as thick red lines.
+- **Undo steps.** The page keeps the tile count after each step, so a Fill
+  a ring undoes as one. `board.js` gained `undoTo(count)`, which rebuilds
+  once, and `deadCountAt(count)` for Undo to last good.
+- **Layout.** The play panel holds seven buttons. On a window under 480 px
+  tall the view-turn buttons go, as they already do under 500 px wide, so
+  the play panel's status line clears the zoom column on a phone held
+  sideways.
+- **A hook for checks.** `window.TilingPuzzle` gives read-only views of the
+  board and verdict, and the screen point of a drop that snaps. Check 4 and
+  the screenshots use it.
+- **Krinkle** shows no verdict, and Undo to last good, Hint, Add one and
+  Fill a ring stay disabled.
+
+Results, 2026-10-11:
+
+- `node tools/tiling-puzzle/check-phase6.js --url <page>`: all six checks
+  pass.
+  1. Calibration: 2,000 patches per piece of 2 to 60 tiles, up to 25.0
+     widths across, a quarter of them grown as snakes, from about 10^4
+     widths away. All are found at 120 widths and at the shipped 240. Below
+     120 the Hat first passes at 70 widths and the Spectre at 60.
+  2. Add-one soak: 1,000 Add ones per piece, with about 100 Fill a rings and
+     75 undos, in runs of up to 158 tiles and ring 6. Every patch fits at
+     2 R_ref, every placement is snap-valid, no legal patch has a dead
+     corner, and every undo restores the saved match set.
+  3. Stable verdicts: 500 patches per piece, each a legal patch plus one
+     random drop. 421 Hat and 415 Spectre patches are dead at R_ref, and
+     every verdict is the same at 2 R_ref.
+  4. Speed: the reference builds in 0.4 s for the Hat and 0.65 s for the
+     Spectre in Node, and in 0.4 s and 0.53 s in a Chrome worker. A drop
+     onto 60 tiles, with Chrome's CPU throttled 4x, reaches its verdict on
+     screen in 21 to 38 ms. Chrome's throttle does not slow a worker, so
+     the check runs again with the checker in the page. The drops still
+     take 23 to 38 ms, and the reference takes 1.5 s and 2.0 s.
+  5. Second route: for 200 patches per piece, a brute-force search finds
+     exactly the checker's match set. It reads every corner again from the
+     two-part outline, tries all twelve 30° turns and both mirrors, and
+     looks tiles up by sorted x. The patches are legal cuts, cuts plus one
+     random drop, and random builds: 83 Hat and 78 Spectre patches fit, and
+     43,739 and 58,765 matches agree one by one.
+  6. By-products: the table above.
+- `node tools/tiling-puzzle/check.js`: checks 1 to 5 still pass.
+- `tools/screen-fit/check.js` on `#board`, with `.hand button` as the
+  controls: all six sizes pass. The longest status, a dead end with red
+  corners, fits on a phone held either way.
+- `node tools/krinkle/check.js --quick --random 40` and
+  `node tools/hat-edges/verify-page.js`: both pass. Phase 6 changed no
+  explorer file.
+- Screenshots: a green verdict at ring 2, Hint ghosts, Fill a ring
+  mid-animation, and a dead end with its red tile and red edge.
 
 ## Krinkle pieces (phase 7)
 
