@@ -28,8 +28,8 @@ explorer's tiling files and on the Krinkle worker from
       check 6, the phone, is David's)
 - [x] Phase 6: The Hat and Spectre checker: reference tiling, match set,
       verdicts, Add one, Hint and Fill a ring (built 2026-10-11)
-- [ ] Phase 7: Krinkle pieces: corner check, matching against the fan and
-      repeating tilings
+- [x] Phase 7: Krinkle pieces: corner check, matching against the fan and
+      repeating tilings (built 2026-10-11)
 - [ ] Release: builder page entry, share card, short address, and a "Build it
       yourself" link on each explorer tab
 
@@ -458,8 +458,8 @@ Phase 6 follows the plan above, with these departures and additions:
 - **A hook for checks.** `window.TilingPuzzle` gives read-only views of the
   board and verdict, and the screen point of a drop that snaps. Check 4 and
   the screenshots use it.
-- **Krinkle** shows no verdict, and Undo to last good, Hint, Add one and
-  Fill a ring stay disabled.
+- **Krinkle** showed no verdict in phase 6, and Undo to last good, Hint,
+  Add one and Fill a ring stayed disabled. Phase 7 adds them below.
 
 Results, 2026-10-11:
 
@@ -501,23 +501,63 @@ Results, 2026-10-11:
 
 ## Krinkle pieces (phase 7)
 
+A Krinkle tile gets the same matcher as the Hat and Spectre, over four
+references of that one tile. The tile tiles in many ways, so a patch that no
+reference holds is "unknown", not a dead end.
+
 - **References:** two tilings of the same (m, k, n) tile from the phase 1
   worker, the fan and the repeating lattice, plus their mirror images.
-  - For odd n, a mirror image lands on half-hour turns. Turn the mirrored
-    reference by half an hour so it uses whole hours.
+  - The Krinkle tile is mirror-symmetric, so a mirrored tiling still holds
+    unflipped tiles.
+  - The board's mirror x → −x sends a tile at turn j with centroid (cx, cy)
+    to a tile at turn −j − k with centroid (−cx, cy), where k is the length
+    of the zigzag. The turn stays a whole number of hours for odd n and for
+    even n. The explorer's mirror y → −y would land on half hours for odd n,
+    and the half-turn adjustment this section once planned is not needed.
   - Matching and the index work as in phase 6.
 - **Verdicts:**
-  - Green: "Fits the fan tiling" or "Fits the repeating tiling".
-  - Amber: "Not part of either tiling the app knows. It may still
-    continue". The tile tiles in other ways too, so this is not a dead end.
+  - Green: "Fits the fan tiling" or "Fits the repeating tiling". The fan
+    comes first when a patch fits both.
+  - Amber: "Not part of either tiling the app knows. It may still continue".
+    The tile tiles in other ways too, so this is not a dead end.
   - Red: only from the corner check, "No piece fits at the red corner".
 - **Computer help:**
   - Add one, Hint and Fill a ring work from whichever reference matches,
-    preferring the fan.
+    preferring the fan. Hint shows the union over the fan and its mirror,
+    or over the repeating tiling and its mirror.
   - In the amber state they are disabled, with the note "Needs a patch that
-    fits a known tiling".
+    fits a known tiling" as the button's title.
+  - Undo to last good is lit in the amber state, and steps back to the last
+    patch that fits a known tiling.
 - **Turning:** one hour per step. For large n, holding a turn button repeats,
   and a twist or the wheel moves in whole hours in proportion to the angle.
+
+### The reference size
+
+The fan is not periodic, so the reference must hold every patch that occurs
+anywhere in it. Wedge i of the fan is the repeating tiling turned by i hours,
+and each wedge boundary repeats every row. So a patch of diameter d occurs
+within s = (d + 1)·n / (2π) tile widths of the centre, where a wedge is
+narrower than the patch, or else along a boundary at any distance, or else
+inside one wedge. Boundaries and interiors recur at small radius, so the
+reference needs only s plus a margin.
+
+- **Plan:** `krinklePlan` in `checker.js`.
+  - R_in = 1.25·s + 3 tile widths, and R_ref = R_in + d.
+  - The checked diameter d, called D_MAX for Hat and Spectre, is the
+    largest of 12, 11.5 … 2 tile widths for which the fan reference holds
+    at most 300,000 tiles. Its mirror image doubles the count.
+  - The repeating reference is ⌈d⌉ + 2 widths in radius, since every tile
+    of a lattice is alike.
+- **Where the budget fails:** a tile for which d would fall below 2 has no
+  check, and the page says "No tiling check for this tile". The board, the
+  corner check and the share link still work. None of the 13 presets is
+  affected. Of the valid tiles, every one up to n = 59 has a check, 96% of
+  those from 60 to 99 have one, a third of those from 100 to 119, and none
+  from 120 up.
+- **Calibration:** check 1 below finds every sampled patch at the shipped
+  radius, and misses some at 40% of it, so the sampling can see a
+  shortfall.
 
 ### Phase 7 checks
 
@@ -527,6 +567,98 @@ Results, 2026-10-11:
    mirror images of fan patches, for one odd-n preset.
 3. **Dead corner:** two tiles placed to leave an angle smaller than the
    tile's smallest corner show a red corner.
+
+`tools/tiling-puzzle/check-phase7.js` runs these and five more: a
+calibration of the radius, stable verdicts at twice the radius, a second
+route by brute force, a test of the edge contacts, and speed and limits.
+
+### As built
+
+Phase 7 follows the plan above, with these departures and additions:
+
+- **Files.** `app/tiling-puzzle/checker.js` gains `krinklePlan`,
+  `buildKrinkleReferences`, `createKrinkleChecker` and `createKrinkleSession`.
+  The worker's `init` takes `opts` (m, k, t, offset), and it also loads
+  `../tiles/krinkle/tiling.js`. The checks are in
+  `tools/tiling-puzzle/check-phase7.js`.
+- **Shared matcher.** `indexTiles` was cut out of `buildReference`, so the
+  Krinkle references use the same grid, `find`, `near` and outlines as the
+  Hat and Spectre. A reference now carries its own `dmax`. The Hat and
+  Spectre checks are unchanged: phase 5's five checks and phase 6's six
+  (`--quick`) still pass.
+- **A lookup trusts the centroid.** Many thousands of tiles of one shape
+  make a patch inside one wedge fit at every interior anchor, so a filter
+  can run over 200,000 motions. For Krinkle the matcher accepts a tile at
+  the same centroid and orientation without comparing its corners again.
+  A lookup that succeeds then takes 73 ns, not 343 ns. Check 6 agrees
+  with it.
+- **Tiles with a half turn.** For k = 1 and k = 2 the Krinkle tile has a
+  half turn of its own, so one tile is stored at turn j or turn j + n / 2.
+  A lookup then decides by corners and not by the stored turn, and the tile
+  gets two shift templates, so two motions at each anchor.
+- **Edge contacts.** The catalogue is the union over the four references,
+  read within about 6,000 tiles of each centre, as dedupe by position
+  (`contactsWithin` takes a `fast` flag). Check 7 reads the whole reference
+  and finds no contact outside it. It serves Hint and Add one only, since
+  the Krinkle verdict marks no red edge: an edge that no known tiling holds
+  can still occur in another tiling.
+- **Answers.** The reply to `match` and `verdict` gains `status` of `fits`,
+  `unknown`, `large` or `off`, and `source` of `fan` or `repeat`. The
+  checker prefers a fan group over a repeating group, and within a group the
+  plain tiling over its mirror. `unknown` sets `deadFrom` to the tile that
+  emptied the last match set, for Undo to last good. No tile is red.
+- **One Krinkle checker at a time.** The page retires the worker of the
+  previous Krinkle tile when the visitor picks another, since four
+  references take up to 20 MB. The Hat and Spectre checkers stay.
+- **The wheel.** Up to 12 turns a notch is 50 units. Above that it is
+  600 / n units, at least 6, so a notch turns the piece about the same
+  angle for every tile.
+- **No verdict for a tile that is too fine.** The worker answers `off` and
+  the page says "No tiling check for this tile: its n turns are too fine
+  for the check". Check 8 tests (1, 1, 240).
+- **Status colour.** Amber is a `--warn` token, in the page's two themes,
+  and a red corner turns the line red as before.
+
+Results, 2026-10-11:
+
+- `node tools/tiling-puzzle/check-phase7.js`: all eight checks pass, in
+  about 52 minutes.
+  1. Calibration: patches of up to d widths across, from five zones (the
+     centre, the zone where a wedge is narrower than the patch, and 10^4
+     widths out), for all 13 presets: 120 to 500 patches each, fewer for
+     the big references. Every patch is found. A reference at 40% of the
+     radius missed 35 of 200 patches for (3, 7, 14).
+  2. Known patches: 201 fan patches and 201 mirror images found as the
+     fan, for (2, 9, 27) with its odd n, (3, 7, 14) and (5, 16, 54). Mirror
+     images of repeating patches are found too.
+  3. Add-one soak: 500 Add ones on the fan and on the repeating tiling for
+     five presets, with 40 to 65 Fill a rings and 21 to 39 undos for each.
+     Every patch is legal at twice the radius and has no red corner. The
+     runs reach 283 tiles and ring 6.
+  4. Stable verdicts: 300 patches per preset, each a legal patch plus one
+     random snap-valid drop, for three presets. Between 92 and 257 are
+     unknown, and every verdict is the same at twice the radius.
+  5. Dead corner: for four presets, patches of a tile and two more with a
+     red corner exist, and none of them fits a known tiling.
+  6. Second route: for three presets, 200 patches (cuts of the fan and of
+     the repeating tiling, their mirror images, and legal patches plus one
+     drop) against all four references. The brute-force match count agrees
+     in all 2,388 cases, with 1,881 patches fitting and 150 million matches.
+  7. Contacts: for four presets the whole references hold no contact that
+     the catalogue misses.
+  8. Speed and limits, in Node: the four references build in 0.1 to 1.1 s.
+     The first drop after a single tile costs up to 104 ms, for a
+     (1, 1, 30, offset) tile with 584,000 tiles, and 36 ms for
+     (5, 16, 54, offset). Later drops cost under 2 ms. The page with
+     `--url`: green, Hint, Add one, amber with help off, and Undo to last
+     good.
+- `tools/screen-fit/check.js` on `#board`, with `.hand button` as the
+  controls, for an amber patch with a red corner, the longest status: all
+  six sizes pass.
+- `node tools/tiling-puzzle/check.js` and
+  `node tools/tiling-puzzle/check-phase6.js --quick`: both pass.
+- Screenshots: a green verdict at ring 2 with Hint ghosts, an amber verdict,
+  and an amber verdict with red corners.
 
 ## Release
 

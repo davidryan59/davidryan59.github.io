@@ -1,10 +1,11 @@
 /* The Tiling Puzzle page: input, drawing and panels, on Canvas 2D. The
-   geometry is in board.js, the Hat and Spectre verdicts come from
-   checker.js in a worker, and the specification is docs/tiling-puzzle.md,
-   "The board (phase 5)" and "The Hat and Spectre checker (phase 6)". The
-   page shows how many rings are complete, marks corners where no piece can
-   fit, and for the Hat and Spectre says whether the patch fits a tiling.
-   Krinkle pieces get no verdict yet. */
+   geometry is in board.js, the verdicts come from checker.js in a worker,
+   and the specification is docs/tiling-puzzle.md, "The board (phase 5)",
+   "The Hat and Spectre checker (phase 6)" and "Krinkle pieces (phase 7)".
+   The page shows how many rings are complete, marks corners where no piece
+   can fit, and says whether the patch fits a tiling. For the Hat and
+   Spectre a patch that fits no tiling is a dead end. For a Krinkle tile it
+   is only unknown, since the tile tiles in other ways. */
 (function () {
   'use strict';
 
@@ -434,7 +435,7 @@
     for (let i = 1; i <= board.count; i++) steps.push(i);
     changed();
     verdict = null;
-    checkerFor(p.kind);
+    checkerFor();
     resize();
     fitView();
     syncPanels();
@@ -481,17 +482,19 @@
     el.textContent = s;
     el.classList.toggle('bad', cls === 'bad');
     el.classList.toggle('good', cls === 'good');
+    el.classList.toggle('warn', cls === 'warn');
     const busy = !!(incoming || filling);
     $('undo').disabled = steps.length <= 1 || busy;
     $('clear').disabled = n <= 1 || busy;
-    const c = checkerFor(piece.kind), help = helpReady();
+    const c = checkerFor(), help = helpReady();
+    const unknown = piece.kind === 'krinkle' && fresh() && verdict.status === 'unknown';
     ['hint', 'add-one', 'fill-ring'].forEach(id => {
       $(id).disabled = !help;
-      $(id).title = c ? HELP_TITLES[id] : 'Computer help covers the Hat and the Spectre';
+      $(id).title = !help && unknown ? 'Needs a patch that fits a known tiling' : HELP_TITLES[id];
     });
     const good = c ? lastGood() : 0;
     $('undo-good').disabled = !(c && isRed() && good >= 1 && good < n) || busy;
-    $('undo-good').title = c ? 'Step back to the last patch that fits a tiling' : 'Computer help covers the Hat and the Spectre';
+    $('undo-good').title = 'Step back to the last patch that fits a tiling';
     const step = n === 1 ? (usedHand ? 1 : 0) : (r >= 1 ? 3 : 2);
     Array.prototype.forEach.call($('steps').children, (li, i) => li.classList.toggle('on', i === step));
   }
@@ -503,22 +506,37 @@
 
   /* ------------------------------------------------------------ checker */
 
-  // One checker per piece kind, built on first use. Each runs checker.js in
-  // a worker, or in the page when the browser has no workers or refuses
-  // one, as a page opened from a file may.
+  // One checker per piece, built on first use. Each runs checker.js in a
+  // worker, or in the page when the browser has no workers or refuses one,
+  // as a page opened from a file may. A Krinkle checker holds four
+  // references, so only the current Krinkle tile keeps one.
   const checkers = {};
   let requestId = 0;
 
-  function checkerFor(kind) {
-    if (!TilingChecker.KINDS[kind]) return null;
-    if (checkers[kind]) return checkers[kind];
-    const c = { kind: kind, ready: false, info: null, failed: '', waiting: new Map(), send: null };
-    checkers[kind] = c;
+  function retire(c) {
+    if (c.worker) { try { c.worker.terminate(); } catch (e) { /* already gone */ } }
+    c.retired = true;
+  }
+
+  function checkerFor() {
+    if (!TilingChecker.KINDS[piece.kind]) return null;
+    const key = piece.key, kind = piece.kind;
+    if (checkers[key]) return checkers[key];
+    if (kind === 'krinkle') {
+      Object.keys(checkers).forEach(k => {
+        if (checkers[k].kind === 'krinkle') { retire(checkers[k]); delete checkers[k]; }
+      });
+    }
+    const opts = kind === 'krinkle' ? { m: piece.opts.m, k: piece.opts.k, t: piece.opts.t, offset: piece.opts.offset } : undefined;
+    const c = { key: key, kind: kind, ready: false, info: null, failed: '', waiting: new Map(), send: null, worker: null, retired: false };
+    checkers[key] = c;
+    const init = { type: 'init', kind: kind, opts: opts };
     const receive = msg => {
+      if (c.retired) return;
       if (msg.type === 'ready') {
         c.ready = true;
         c.info = msg.info;
-        if (piece && piece.kind === kind) { requestVerdict(); refreshText(); }
+        if (piece && piece.key === key) { requestVerdict(); refreshText(); }
         return;
       }
       if (msg.type === 'error' && msg.request === 'init') { c.failed = msg.message; refreshText(); return; }
@@ -527,30 +545,32 @@
     };
     const inPage = () => {
       const handle = TilingChecker.createHandler();
-      c.send = msg => setTimeout(() => handle(msg, receive), 0);
+      c.send = msg => setTimeout(() => { if (!c.retired) handle(msg, receive); }, 0);
     };
     let worker = null;
     try { worker = typeof Worker === 'function' ? new Worker('checker.js') : null; } catch (e) { worker = null; }
     if (worker) {
+      c.worker = worker;
       worker.onmessage = e => receive(e.data);
       worker.onerror = e => {
         if (e && e.preventDefault) e.preventDefault();
         worker.terminate();
+        c.worker = null;
         inPage();
         c.ready = false;
-        c.send({ type: 'init', kind: kind });
+        c.send(init);
         c.waiting.forEach(w => c.send(w.msg));
       };
       c.send = msg => worker.postMessage(msg);
     } else {
       inPage();
     }
-    c.send({ type: 'init', kind: kind });
+    c.send(init);
     return c;
   }
 
   function ask(msg) {
-    const c = checkerFor(piece.kind);
+    const c = checkerFor();
     msg.id = ++requestId;
     return new Promise(resolve => { c.waiting.set(msg.id, { msg: msg, resolve: resolve }); c.send(msg); });
   }
@@ -562,10 +582,10 @@
   const unpackTiles = flat => TilingChecker.unpack(flat || []);
 
   function requestVerdict() {
-    const c = checkerFor(piece.kind), v = version, started = changedAt;
+    const c = checkerFor(), v = version, started = changedAt;
     if (!c || !c.ready) return;
     ask({ type: 'verdict', tiles: flatTiles() }).then(msg => {
-      if (v !== version || piece.kind !== c.kind) return;
+      if (v !== version || piece.key !== c.key) return;
       verdict = msg.type === 'error' ? { status: 'error', message: msg.message, count: board.count } : msg;
       redTile = verdict.status === 'dead' && verdict.redTile < board.count ? verdict.redTile : -1;
       redSegs = null;
@@ -579,26 +599,38 @@
   function fresh() { return !!(verdict && !verdict.stale && verdict.count === board.count); }
   function isRed() {
     if (!fresh()) return false;
-    return verdict.status === 'dead' || (verdict.status === 'large' && board.deadCorners().length > 0);
+    return verdict.status === 'dead' || verdict.status === 'unknown' ||
+           (verdict.status === 'large' && board.deadCorners().length > 0);
   }
   function helpReady() {
-    const c = checkerFor(piece.kind);
+    const c = checkerFor();
     return !!(c && c.ready && fresh() && verdict.status === 'fits' && !incoming && !filling && !drag);
   }
 
   function verdictText() {
-    const c = checkerFor(piece.kind);
+    const c = checkerFor();
     if (!c) return null;
-    const name = piece.name;
+    const name = piece.name, krinkle = piece.kind === 'krinkle';
+    // What the verdict names: "a Hat tiling", or "the fan tiling" for Krinkle.
+    const which = v => krinkle ? 'the ' + (v.source === 'repeat' ? 'repeating' : 'fan') + ' tiling' : 'a ' + name + ' tiling';
     if (c.failed) return { text: 'The ' + name + ' checker failed: ' + c.failed, cls: 'bad' };
-    if (!c.ready) return { text: 'Building the ' + name + ' reference…', cls: '' };
+    if (c.ready && c.info && c.info.off) {
+      return { text: 'No tiling check for this tile: its ' + c.info.n + ' turns are too fine for the check', cls: '' };
+    }
+    if (!c.ready) return { text: 'Building the ' + name + ' reference' + (krinkle ? 's' : '') + '…', cls: '' };
     if (filling) return { text: 'Filling ring ' + (filling.ring + 1) + '…', cls: '' };
     const v = verdict;
     if (!v || (v.stale && performance.now() - changedAt > 250)) return { text: 'Checking…', cls: '' };
     if (v.status === 'error') return { text: v.message, cls: 'bad' };
-    if (v.status === 'fits') return { text: 'Fits a ' + name + ' tiling, so it can go on forever', cls: 'good' };
+    if (v.status === 'off') return null;
+    if (v.status === 'fits') {
+      return krinkle ? { text: 'Fits ' + which(v), cls: 'good' } : { text: 'Fits a ' + name + ' tiling, so it can go on forever', cls: 'good' };
+    }
+    if (v.status === 'unknown') {
+      return { text: 'Not part of either tiling the app knows. It may still continue', cls: 'warn' };
+    }
     if (v.status === 'dead') return { text: 'Dead end: this patch is in no ' + name + ' tiling', cls: 'bad' };
-    return { text: 'Too large to check. Up to ' + (v.largeFrom - 1) + ' tiles it fitted a ' + name + ' tiling', cls: 'good' };
+    return { text: 'Too large to check. Up to ' + (v.largeFrom - 1) + ' tiles it fitted ' + which(v), cls: 'good' };
   }
 
   /* The latest state whose match set is not empty and that has no dead
@@ -955,27 +987,27 @@
   }
 
   // The wheel zooms the board, and turns the piece while it is in the air.
+  // A tile with many turns moves in whole hours in proportion to the wheel:
+  // 50 units a turn up to 12 turns, and 600 / n below that, so that a notch
+  // turns the piece by about the same angle for every tile.
   let wheelAcc = 0;
+  function wheelTurn(dy) {
+    const unit = piece.turns <= 12 ? 50 : Math.max(6, 600 / piece.turns);
+    wheelAcc += dy;
+    while (Math.abs(wheelAcc) >= unit) {
+      turnHand(wheelAcc > 0 ? -1 : 1);
+      wheelAcc -= Math.sign(wheelAcc) * unit;
+    }
+  }
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    if (drag) {
-      wheelAcc += e.deltaY;
-      while (Math.abs(wheelAcc) >= 50) {
-        turnHand(wheelAcc > 0 ? -1 : 1);
-        wheelAcc -= Math.sign(wheelAcc) * 50;
-      }
-      return;
-    }
+    if (drag) { wheelTurn(e.deltaY); return; }
     const k = e.ctrlKey ? 0.01 : 0.0016;
     zoomAbout(e.clientX, e.clientY, Math.exp(-e.deltaY * k), 0);
   }, { passive: false });
   handCanvas.addEventListener('wheel', e => {
     e.preventDefault();
-    wheelAcc += e.deltaY;
-    while (Math.abs(wheelAcc) >= 50) {
-      turnHand(wheelAcc > 0 ? -1 : 1);
-      wheelAcc -= Math.sign(wheelAcc) * 50;
-    }
+    wheelTurn(e.deltaY);
   }, { passive: false });
 
   canvas.addEventListener('pointerdown', onBoardDown);
@@ -1132,8 +1164,8 @@
      views of the page, and the screen point of a drop that snaps. */
   window.TilingPuzzle = {
     board: () => board,
-    ready: () => { const c = checkerFor(piece.kind); return !!(c && c.ready && fresh()); },
-    checkerInfo: () => { const c = checkerFor(piece.kind); return c && c.info; },
+    ready: () => { const c = checkerFor(); return !!(c && c.ready && fresh()); },
+    checkerInfo: () => { const c = checkerFor(); return c && c.info; },
     verdict: () => (fresh() ? verdict : { count: -1 }),
     shown: () => shown,
     dropTarget: () => {

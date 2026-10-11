@@ -26,15 +26,22 @@
    filters M with one lookup per motion.
 
    The file has a Node fallback, createHandler, so tools/tiling-puzzle runs
-   the same code under Node, and the page runs it without workers. */
+   the same code under Node, and the page runs it without workers.
+
+   Krinkle pieces (phase 7, "Krinkle pieces" in the same document) use the
+   same matcher over four references of one tile: the fan tiling, the
+   repeating tiling, and the mirror image of each. The tile tiles in many
+   other ways, so a patch that none of the four holds is "unknown", not a
+   dead end. */
 (function (global) {
   'use strict';
 
   const inWorker = typeof importScripts === 'function' && typeof window === 'undefined';
   if (inWorker && !global.TilingBoard) {
-    importScripts('../tiles/engine/tiling-core.js', '../tiles/hat/tiling.js', '../tiles/spectre/tiling.js', 'board.js');
+    importScripts('../tiles/engine/tiling-core.js', '../tiles/hat/tiling.js', '../tiles/spectre/tiling.js',
+                  '../tiles/krinkle/tiling.js', 'board.js');
   }
-  const C = global.TilingCore || require('../tiles/engine/tiling-core.js');
+  const C = global.TilingCore || (typeof require === 'function' ? require('../tiles/engine/tiling-core.js') : null);
   const TB = global.TilingBoard || require('./board.js');
 
   const D_MAX = 25;          // the largest patch checked, in tile widths
@@ -51,7 +58,8 @@
 
   const KINDS = {
     hat: { global: 'HatTiling', path: '../tiles/hat/tiling.js', tp: 'HAT_TP', b: Math.sqrt(3), name: 'Hat', reflect: true },
-    spectre: { global: 'SpectreTiling', path: '../tiles/spectre/tiling.js', tp: 'SPECTRE_TP', b: 1, name: 'Spectre', reflect: false }
+    spectre: { global: 'SpectreTiling', path: '../tiles/spectre/tiling.js', tp: 'SPECTRE_TP', b: 1, name: 'Spectre', reflect: false },
+    krinkle: { global: 'KrinkleTiling', path: '../tiles/krinkle/tiling.js', name: 'Krinkle', reflect: false, multi: true }
   };
   function tilingFile(kind) {
     const k = KINDS[kind];
@@ -107,9 +115,10 @@
     }
     if (j0 < 0) return false;
     for (let dir = 1; dir >= -1; dir -= 2) {
-      let ok = true;
+      let ok = true, j = j0;
       for (let i = 1; i < n && ok; i++) {
-        const j = mod(j0 + dir * i, n);
+        j += dir;
+        if (j >= n) j -= n; else if (j < 0) j += n;
         ok = Math.abs(pxs[i] - qxs[j]) < TOL && Math.abs(pys[i] - qys[j]) < TOL;
       }
       if (ok) return true;
@@ -210,6 +219,20 @@
     });
     CX = CX.slice(0, count); CY = CY.slice(0, count); OR = OR.slice(0, count);
 
+    return indexTiles({
+      kind: kind, name: K.name, reflect: K.reflect, piece: piece, ctx: ctx, VAR: VAR,
+      radius: radius, dmax: D_MAX, R: R, Rin: Rin, width: width, centre: centre, origin: O,
+      ms: { tiling: builtAt - started, reference: 0 }
+    }, CX, CY, OR, count, builtAt);
+  }
+
+  /* The lookups over a list of tile centroids: a grid of cells one tile
+     width across, `find` for the tile at a point, `near` for the tiles
+     within a radius, and the outlines. `base` carries the reference's
+     radius, centre, pieces and orientations. */
+  function indexTiles(base, CX, CY, OR, count, builtAt) {
+    const piece = base.piece, T = piece.turns, VAR = base.VAR;
+    const width = base.width, R = base.R, centre = base.centre;
     // A grid of cells one tile width across, over the centroids. A centroid
     // within TOL of a cell's side goes in both cells, so a lookup only ever
     // reads the one cell its point falls in.
@@ -267,13 +290,12 @@
     }
     function distance(i) { return Math.hypot(CX[i] - centre[0], CY[i] - centre[1]); }
 
-    return {
-      kind: kind, name: K.name, reflect: K.reflect, piece: piece, ctx: ctx, VAR: VAR,
-      radius: radius, R: R, Rin: Rin, width: width, centre: centre, origin: O,
+    const ref = Object.assign({}, base, {
       count: count, CX: CX, CY: CY, OR: OR,
-      find: find, near: near, tileOf: tileOf, poly: poly, distance: distance,
-      ms: { tiling: builtAt - started, reference: Date.now() - builtAt }
-    };
+      find: find, near: near, tileOf: tileOf, poly: poly, distance: distance
+    });
+    ref.ms = { tiling: base.ms.tiling, reference: Date.now() - builtAt };
+    return ref;
   }
 
   /* --------------------------------------------------------- the matcher */
@@ -283,6 +305,10 @@
   function createMatcher(ref, opts) {
     opts = opts || {};
     const piece = ref.piece, n = piece.n, T = piece.turns, VAR = ref.VAR;
+    // The Krinkle references hold many tiles of one shape, and trust the
+    // centroid and the orientation to name a tile. The Hat and Spectre
+    // compare corners as well.
+    const centroidOnly = !!opts.centroidOnly;
     const kit = motionKit(piece);
     const COS = kit.COS, SIN = kit.SIN;
     const classes = piece.flips ? 2 : 1;
@@ -320,6 +346,10 @@
       templates.push(list);
     }
     const NT = Math.max(1, Math.max.apply(null, templates.map(function (l) { return l.length; })));
+    // A tile with a half turn of its own, as the Krinkle tile has for k = 1
+    // and k = 2, is one physical tile at turn j and at turn j + n / 2. A
+    // lookup then decides by the corners, not by the stored turn.
+    const rotSym = templates[0].filter(function (tp) { return !tp.rev; }).length > 1;
 
     // For each anchor orientation and template, the motion's mirror, turn
     // and the part of its move that the orientation fixes. The first tile
@@ -371,8 +401,16 @@
       const cx = c * x - s * u.cy + g.tx, cy = s * x + c * u.cy + g.ty;
       const i = ref.find(cx, cy);
       if (i < 0) return -1;
-      const o = (g.f ^ u.flip) * T + mod(g.k + (g.f ? -u.turn : u.turn), T);
-      if (ref.OR[i] !== o) return -1;
+      let tk = g.k + (g.f ? -u.turn : u.turn);
+      if (tk >= T) tk -= T; else if (tk < 0) tk += T;
+      const o = (g.f ^ u.flip) * T + tk;
+      if (ref.OR[i] !== o) {
+        if (!rotSym) return -1;
+      } else if (centroidOnly) {
+        // The same orientation at the same centroid is the same tile, so
+        // the corner set cannot differ.
+        return i;
+      }
       const V = u.V, R = VAR[o], ox = ref.CX[i] - R.cx, oy = ref.CY[i] - R.cy;
       for (let j = 0; j < n; j++) {
         x = V.xs[j] + u.x;
@@ -386,9 +424,14 @@
 
     /* The motions of M that also carry u onto the reference. */
     function filter(M, u) {
-      const out = new Int32Array(M.length);
+      const out = new Int32Array(M.length), g = { f: 0, k: 0, tx: 0, ty: 0 };
       let k = 0;
-      for (let q = 0; q < M.length; q++) if (lookup(motion(M[q]), u) >= 0) out[k++] = M[q];
+      for (let q = 0; q < M.length; q++) {
+        // motion(id), written into one scratch object.
+        const id = M[q], i = Math.floor(id / NT), o = ref.OR[i], m = MT[o][id - i * NT], V = VAR[o];
+        g.f = m.f; g.k = m.k; g.tx = ref.CX[i] - V.cx + m.sx; g.ty = ref.CY[i] - V.cy + m.sy;
+        if (lookup(g, u) >= 0) out[k++] = id;
+      }
       return out.slice(0, k);
     }
 
@@ -405,16 +448,27 @@
     function sameTile(a, b) {
       return a.flip === b.flip && a.turn === b.turn && Math.abs(a.x - b.x) < TOL && Math.abs(a.y - b.y) < TOL;
     }
-    function contactsWithin(radiusWidths, rotOnly, split) {
+    function contactsWithin(radiusWidths, rotOnly, split, fast) {
       const lists = split ? [[], []] : [[]];
       const rr = radiusWidths * ref.width;
+      // `fast` dedupes by rounded position, for the Krinkle references,
+      // whose tiles are many. A contact near a rounding edge may then be
+      // listed twice, which the candidate search tolerates.
+      const keys = fast ? new Set() : null;
       for (let i = 0; i < ref.count; i++) {
         if (ref.distance(i) > rr) continue;
         const A = ref.tileOf(i), P = ref.poly(i), inv = frameOf(A, rotOnly), list = lists[split ? A.flip : 0];
         ref.near(ref.CX[i], ref.CY[i], ref.width).forEach(function (j) {
           if (j === i || !shareEdge(P, ref.poly(j))) return;
           const c = kit.tile(inv, ref.tileOf(j));
-          if (!list.some(function (d) { return sameTile(c, d); })) list.push(c);
+          if (fast) {
+            const key = c.flip + ',' + c.turn + ',' + Math.round(c.x * 1e4) + ',' + Math.round(c.y * 1e4);
+            if (keys.has(key)) return;
+            keys.add(key);
+            list.push(c);
+          } else if (!list.some(function (d) { return sameTile(c, d); })) {
+            list.push(c);
+          }
         });
       }
       return split ? lists : lists[0];
@@ -466,7 +520,7 @@
         const prev = stack[i - 1];
         let diam = prev.diam;
         for (let j = 0; j < i; j++) diam = Math.max(diam, Math.hypot(stack[j].u.cx - u.cx, stack[j].u.cy - u.cy));
-        const large = prev.large || diam > D_MAX * width;
+        const large = prev.large || diam > (ref.dmax || D_MAX) * width;
         let M = null;
         if (!large) M = prev.M.length ? matcher.filter(prev.M, u) : prev.M;
         stack.push({ t: t, u: u, M: M, diam: diam, large: large });
@@ -646,6 +700,214 @@
     };
   }
 
+  /* ------------------------------------------------------------- Krinkle */
+
+  /* A Krinkle tile tiles the plane in many ways. The checker knows two of
+     them, the fan and the repeating tiling, and each also as its mirror
+     image, so four references in all. The tile is mirror-symmetric, so a
+     mirrored tiling is still a tiling of unflipped tiles.
+
+     The board's mirror is x -> -x. A tile at turn j with centroid (cx, cy)
+     becomes a tile at turn -j - k with centroid (-cx, cy), where k is the
+     length of the zigzag, because the tile's axis of symmetry lies at
+     pi k / n + pi / 2. The turn stays a whole number of hours, whether n is
+     odd or even. */
+  const K_BUDGET = 300000;   // tiles in the fan reference, at most
+  const K_DMAX = 12;         // the largest patch diameter checked, in widths, at most
+  const K_DMIN = 2;          // and at least: below it the tile has no check
+  const K_SLOPE = 1.25;      // the margin on the radius the calibration found
+  const K_PAD = 3;           // widths, for the first tile's own extent and the rim
+
+  /* The reference radius and the largest patch diameter, in tile widths.
+
+     A patch of diameter d, with the tiles' own extent, spans (d + 1) widths.
+     It crosses three or more wedges only where a wedge is narrower than
+     that, within s = (d + 1) n / (2 pi) widths of the centre. Beyond s the
+     fan holds only wedge interiors, which are the repeating tiling, and
+     strips along a wedge boundary, which repeat every row. So every patch
+     of diameter d occurs with its first tile within s of the centre, plus a
+     row. The radius adds the margin K_SLOPE and K_PAD, and then d, since the
+     rest of the patch lies up to d beyond its first tile.
+
+     Where the budget would not reach K_DMIN the plan says unavailable. */
+  function krinklePlan(piece, options) {
+    options = options || {};
+    const n = piece.turns, width = piece.width, rel = Math.abs(piece.area) / (width * width);
+    const per = K_SLOPE * n / (2 * Math.PI);
+    const radiusFor = function (d) { return Math.ceil(per * (d + 1) + K_PAD + d); };
+    const tilesFor = function (d) { return Math.PI * Math.pow(radiusFor(d), 2) / rel; };
+    let dmax = options.dmax;
+    if (!dmax) {
+      dmax = K_DMAX;
+      while (dmax > K_DMIN && tilesFor(dmax) > K_BUDGET) dmax -= 0.5;
+    }
+    const radius = options.radius || radiusFor(dmax);
+    const available = !!(options.radius || options.dmax) || tilesFor(dmax) <= K_BUDGET * 1.001;
+    return { radius: radius, dmax: dmax, repeatRadius: Math.ceil(dmax) + 2, tiles: Math.round(tilesFor(dmax)), available: available };
+  }
+
+  /* The four references of a Krinkle tile, in the order of preference:
+     fan, mirrored fan, repeating, mirrored repeating. Options:
+       m, k, t, offset   the tile
+       radius, dmax      override the plan, in tile widths
+       piece             a piece type built before, to share */
+  function buildKrinkleReferences(options) {
+    options = options || {};
+    const started = Date.now();
+    const KT = tilingFile('krinkle');
+    const o = { m: +options.m, k: +options.k, t: +options.t, offset: options.offset ? 1 : 0 };
+    const piece = options.piece || TB.pieceType('krinkle', o);
+    const T = piece.turns, width = piece.width, kz = piece.opts.k;
+    const VAR = [];
+    for (let j = 0; j < T; j++) VAR.push(TB.variant(piece, 0, j));
+    const plan = krinklePlan(piece, options);
+    if (!plan.available) return { piece: piece, refs: [], plan: plan, ms: { tiling: 0, reference: 0 } };
+    const fanCtx = KT.build(Object.assign({}, o, { arrangement: 'fan' }));
+    const repCtx = KT.build(Object.assign({}, o, { arrangement: 'repeat' }));
+    const builtAt = Date.now();
+
+    /* Every tile whose centroid lies within `radius` widths of `centre`. */
+    function collect(ctx, centre, radius) {
+      const R = radius * width, reach = R + 2 * width;
+      let cap = Math.ceil(Math.PI * R * R / Math.abs(piece.area) * 1.15) + 256;
+      let CX = new Float64Array(cap), CY = new Float64Array(cap), OR = new Uint8Array(cap), count = 0;
+      ctx.tilesInBox([centre[0] - reach, centre[1] - reach, centre[0] + reach, centre[1] + reach], function (t) {
+        const V = VAR[t.turn], cx = t.ox + V.cx, cy = t.oy + V.cy;
+        const dx = cx - centre[0], dy = cy - centre[1];
+        if (dx * dx + dy * dy > R * R * SLACK) return;
+        if (count === cap) {
+          cap *= 2;
+          const a = new Float64Array(cap), bb = new Float64Array(cap), cc = new Uint8Array(cap);
+          a.set(CX); bb.set(CY); cc.set(OR); CX = a; CY = bb; OR = cc;
+        }
+        CX[count] = cx; CY[count] = cy; OR[count] = t.turn; count++;
+      });
+      return { CX: CX.slice(0, count), CY: CY.slice(0, count), OR: OR.slice(0, count), count: count };
+    }
+    function mirrored(src) {
+      const CX = new Float64Array(src.count), CY = new Float64Array(src.count), OR = new Uint8Array(src.count);
+      for (let i = 0; i < src.count; i++) {
+        CX[i] = -src.CX[i]; CY[i] = src.CY[i];
+        OR[i] = mod(-src.OR[i] - kz, T);
+      }
+      return { CX: CX, CY: CY, OR: OR, count: src.count };
+    }
+    function make(group, name, tiles, centre, radius, dmax) {
+      const t0 = Date.now();
+      const ref = indexTiles({
+        kind: 'krinkle', name: 'Krinkle', reflect: false, piece: piece, ctx: null, VAR: VAR,
+        radius: radius, dmax: dmax, R: radius * width, Rin: Math.max(0, radius - dmax) * width,
+        width: width, centre: centre, origin: null, ms: { tiling: builtAt - started, reference: 0 }
+      }, tiles.CX, tiles.CY, tiles.OR, tiles.count, t0);
+      ref.group = group; ref.label = name;
+      return ref;
+    }
+
+    const fanCentre = fanCtx.info.centre.slice();
+    const fan = collect(fanCtx, fanCentre, plan.radius);
+    const repCentre = [VAR[0].cx, VAR[0].cy];
+    const rep = collect(repCtx, repCentre, plan.repeatRadius);
+    const refs = [
+      make('fan', 'fan', fan, fanCentre, plan.radius, plan.dmax),
+      make('fan', 'mirrored fan', mirrored(fan), [-fanCentre[0], fanCentre[1]], plan.radius, plan.dmax),
+      make('repeat', 'repeating', rep, repCentre, plan.repeatRadius, plan.dmax),
+      make('repeat', 'mirrored repeating', mirrored(rep), [-repCentre[0], repCentre[1]], plan.repeatRadius, plan.dmax)
+    ];
+    return { piece: piece, refs: refs, plan: plan, ms: { tiling: builtAt - started, reference: Date.now() - builtAt } };
+  }
+
+  /* The matchers and sessions over the four references, with one shared
+     catalogue of edge contacts: the union over the references. */
+  function createKrinkleChecker(options) {
+    const built = buildKrinkleReferences(options);
+    if (!built.plan.available) return { built: built, matchers: [], parts: [], catalogue: [], session: null };
+    const cat = [], seen = new Set();
+    const matchers = built.refs.map(function (r) { return createMatcher(r, { catalogue: cat, centroidOnly: true }); });
+    matchers.forEach(function (m) {
+      // About 6,000 tiles of each reference are read. Boundaries repeat, so
+      // every contact the reference holds occurs within a few rows of the
+      // centre. check-phase7.js confirms it for the whole reference.
+      const r = m.ref, reach = Math.min(r.radius, Math.sqrt(6000 * Math.abs(r.piece.area) / (Math.PI * r.width * r.width)));
+      m.contactsWithin(reach, true, false, true).forEach(function (c) {
+        const key = c.flip + ',' + c.turn + ',' + Math.round(c.x * 1e4) + ',' + Math.round(c.y * 1e4);
+        if (!seen.has(key)) { seen.add(key); cat.push(c); }
+      });
+    });
+    const parts = matchers.map(function (m) {
+      return { group: m.ref.group, label: m.ref.label, matcher: m, session: createSession(m) };
+    });
+    return { built: built, matchers: matchers, parts: parts, catalogue: cat, session: createKrinkleSession(parts) };
+  }
+
+  /* The visitor's board against the four references. The answer is "fits"
+     when any reference holds the patch, with the fan preferred, "large"
+     when the patch outgrew the check, and "unknown" when no reference
+     holds it. Unknown is not a dead end: the tile tiles in other ways. */
+  function createKrinkleSession(parts) {
+    function sync(tiles) {
+      parts.forEach(function (p) { p.session.sync(tiles); });
+      return tiles.length;
+    }
+    function states() {
+      return parts.map(function (p) { return { part: p, s: p.session.summary() }; });
+    }
+    function summary() {
+      const st = states();
+      const fits = st.filter(function (x) { return x.s.status === 'fits'; });
+      const large = st.filter(function (x) { return x.s.status === 'large'; });
+      const base = st[0].s;
+      let status, source = null, size = 0, deadFrom = 0, largeFrom = 0;
+      if (fits.length) {
+        status = 'fits'; source = fits[0].part.group;
+        fits.forEach(function (x) { size += x.s.size; });
+      } else if (large.length) {
+        status = 'large'; source = large[0].part.group; largeFrom = large[0].s.largeFrom;
+      } else {
+        status = 'unknown';
+        st.forEach(function (x) { deadFrom = Math.max(deadFrom, x.s.deadFrom); });
+        largeFrom = base.largeFrom;
+      }
+      return {
+        count: base.count, size: size, large: status === 'large', status: status, source: source,
+        lastFits: status !== 'unknown', deadFrom: deadFrom, largeFrom: largeFrom, diameter: base.diameter
+      };
+    }
+    function verdict() {
+      const s = summary();
+      s.redTile = -1;
+      s.redEdges = [];
+      return s;
+    }
+    /* The references that hold the patch, from the preferred group only. */
+    function usable() {
+      const fitting = parts.filter(function (p) { return p.session.summary().status === 'fits'; });
+      if (!fitting.length) throw new Error('The patch fits no tiling the app knows.');
+      return fitting.filter(function (p) { return p.group === fitting[0].group; });
+    }
+    function addOne(rings) {
+      return usable()[0].session.addOne(rings);
+    }
+    function hint() {
+      const out = [];
+      usable().forEach(function (p) {
+        p.session.hint().forEach(function (t) {
+          for (let q = 0; q < out.length; q++) {
+            if (out[q].flip === t.flip && out[q].turn === t.turn && Math.abs(out[q].x - t.x) < TOL && Math.abs(out[q].y - t.y) < TOL) return;
+          }
+          out.push(t);
+        });
+      });
+      return out;
+    }
+    function fillRing(rings, complete) {
+      return usable()[0].session.fillRing(rings, complete);
+    }
+    return {
+      sync: sync, summary: summary, verdict: verdict, addOne: addOne, hint: hint, fillRing: fillRing,
+      parts: parts
+    };
+  }
+
   function onOutline(Q, x, y) {
     for (let e = 0; e < Q.n; e++) {
       const f = (e + 1) % Q.n, ax = Q.xs[e], ay = Q.ys[e], dx = Q.xs[f] - ax, dy = Q.ys[f] - ay;
@@ -672,7 +934,7 @@
   }
 
   /* Returns handle(message, reply). Requests:
-       init {kind}                         -> ready {kind, info}
+       init {kind, opts}                   -> ready {kind, info}   (opts: a Krinkle tile's m, k, t, offset)
        match {id, tiles}                   -> match {id, count, size, status, deadFrom, largeFrom}
        verdict {id, tiles}                 -> verdict {..., redTile, redEdges}
        add-one {id, tiles, rings}          -> add-one {id, tile, options}
@@ -680,19 +942,46 @@
        fill-ring {id, tiles, rings, complete} -> fill-ring {id, tiles}
      A request that fails answers {type: 'error', id, message}. */
   function createHandler() {
-    let kind = null, matcher = null, session = null, info = null;
+    let key = null, kind = null, session = null, info = null, off = null;
     return function handle(msg, reply) {
       try {
         if (msg.type === 'init') {
-          if (msg.kind !== kind || !matcher) {
+          off = null;
+          const want = msg.kind + (msg.kind === 'krinkle' ? JSON.stringify(msg.opts || {}) : '');
+          if (want !== key || (!session && !off)) {
             const t = Date.now();
-            const ref = buildReference(msg.kind, { radius: msg.radius });
-            matcher = createMatcher(ref);
-            session = createSession(matcher);
+            session = null;
+            if (msg.kind === 'krinkle') {
+              const k = createKrinkleChecker(Object.assign({}, msg.opts, { radius: msg.radius, dmax: msg.dmax }));
+              if (k.session) {
+                session = k.session;
+                const fan = k.built.refs[0];
+                info = {
+                  radius: fan.radius, dmax: fan.dmax, tiles: k.built.refs.reduce(function (a, r) { return a + r.count; }, 0),
+                  contacts: k.catalogue.length, ms: Date.now() - t
+                };
+              } else {
+                // A tile too fine for the budget: no reference, no verdict.
+                session = null;
+                off = { n: k.built.piece.turns, dmax: k.built.plan.dmax };
+                info = { off: true, n: off.n, ms: Date.now() - t };
+              }
+            } else {
+              const ref = buildReference(msg.kind, { radius: msg.radius });
+              const matcher = createMatcher(ref);
+              session = createSession(matcher);
+              info = { radius: ref.radius, dmax: D_MAX, tiles: ref.count, contacts: matcher.catalogue.length, ms: Date.now() - t };
+            }
+            key = want;
             kind = msg.kind;
-            info = { radius: ref.radius, tiles: ref.count, contacts: matcher.catalogue.length, ms: Date.now() - t };
           }
           reply({ type: 'ready', kind: kind, info: info });
+          return;
+        }
+        if (off) {
+          // No reference for this tile: every question gets the same answer.
+          const count = (msg.tiles || []).length / 4;
+          reply({ type: msg.type, id: msg.id, status: 'off', count: count, size: 0, deadFrom: 0, largeFrom: 0, redTile: -1, redEdges: [], tiles: [], tile: null, n: off.n });
           return;
         }
         if (!session) throw new Error('The checker is not ready.');
@@ -721,6 +1010,8 @@
   const api = {
     D_MAX: D_MAX, TOL: TOL, SLACK: SLACK, R_REF: R_REF, CATALOGUE_R: CATALOGUE_R, KINDS: KINDS,
     buildReference: buildReference, createMatcher: createMatcher, createSession: createSession,
+    buildKrinkleReferences: buildKrinkleReferences, createKrinkleChecker: createKrinkleChecker,
+    krinklePlan: krinklePlan, K: { BUDGET: K_BUDGET, DMAX: K_DMAX, DMIN: K_DMIN, SLOPE: K_SLOPE, PAD: K_PAD },
     createHandler: createHandler, motionKit: motionKit, sameCornerSet: sameCornerSet, shareEdge: shareEdge,
     pack: pack, unpack: unpack
   };
