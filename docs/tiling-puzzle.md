@@ -23,8 +23,9 @@ explorer's tiling files and on the Krinkle worker from
 
 ## Implementation checklist
 
-- [ ] Phase 5: The board: pieces, hand, turning, snapping, undo, rings,
-      share link and screen fit; no legality checks yet
+- [x] Phase 5: The board: pieces, hand, turning, snapping, undo, rings,
+      share link and screen fit; no legality checks yet (built 2026-10-11;
+      check 6, the phone, is David's)
 - [ ] Phase 6: The Hat and Spectre checker: reference tiling, match set,
       verdicts, Add one, Hint and Fill a ring
 - [ ] Phase 7: Krinkle pieces: corner check, matching against the fan and
@@ -196,6 +197,91 @@ runs after each drop, on the corners that the new tile touched.
 5. **Screen fit:** `tools/screen-fit/check.js` passes at all six sizes.
 6. **On a phone:** David tries dragging, twisting, the turn buttons, pan and
    pinch.
+
+### As built
+
+Phase 5 follows the plan above, with these departures and additions:
+
+- **Presets and steppers are not shared code.** The plan says the Krinkle
+  chip opens the explorer's own presets and steppers. They sit inline in
+  `app/tiles/krinkle/index.html`, so the puzzle has a small copy of its own,
+  built on `KrinkleTiling.PRESETS`, `validate` and `directions`. It follows
+  the same stepping rules, so the two pages accept the same tiles.
+- **The overlap test is wider than the plan's wording.** An edge that
+  crosses an edge, or a corner strictly inside, misses two cases: a copy
+  exactly on top of a tile, and an edge that joins two corners of the other
+  tile through its inside. `board.js` cuts each edge where it meets the other
+  outline, tests the middle of every piece, and adds a same-corners test. The
+  tolerance is still 1e-9.
+- **The corner check is literal.** A boundary corner is dead when no piece,
+  at any allowed turn and, for the Hat, either flip, lies against either free
+  edge that meets there without overlapping. It runs on the corners the new
+  tile touches. Random drops make dead corners often: 4,378 in 70 random
+  builds of 8 to 37 tiles. A patch cut from a real tiling has none.
+- **Ring counter.** Ring J is complete when no tile below ring J has an open
+  corner, so the counter is the lowest ring that holds a tile with an open
+  corner. A point inside the edge of another tile counts as 180° there,
+  which covers the Hat's split long side.
+- **Added: Copy link.** The play panel has one button beyond the plan. The
+  address bar also stays current, as on the explorer, in the hash:
+  `#p=hat&b=...`. A link in the query string is read too.
+- **Left for phase 6:** Undo to last good, Hint, Add one and Fill a ring.
+  Undo to last good needs a verdict to mean anything.
+- **Opens in light mode** until the visitor picks a theme, as the plan's
+  Layout says. The explorer follows the system theme.
+- **Confirm.** Clear asks first once 5 or more tiles are placed, as a change
+  of piece does. A change of piece or numbers clears the board, and the last
+  board of each piece stays in localStorage for the next visit.
+- **Snap reach.** 0.6 of the piece's width, with the width taken as twice the
+  largest distance from the area centroid to a corner. The nearest valid snap
+  by area centroid wins.
+- **Edge numbers in the link.** Corner 0 is the first corner of the
+  explorer's outline. A mirrored Hat lists the mirrored corners in order
+  from corner 0, then back round, so its edges still run anticlockwise. The
+  parent in a token is the lowest tile that shares a whole edge with the new
+  one, so one board always gives the same link.
+- **Layout.** Up to 900 px wide on a tall window, and below 700 px wide on
+  any window, the colours and zoom panels sit above a full-width hand. Under
+  500 px wide the two view-turn buttons go, since a twist turns the view.
+  A short wide window, such as a phone held sideways, keeps the four corners
+  and a centred hand, with the colours panel as two rows.
+- **Cost.** A snap takes under 1 ms for the Hat and Spectre on 300 tiles. A
+  drop with a 62-edge Krinkle piece (k = 30) takes about 70 ms, mostly in
+  the corner check.
+
+Results, 2026-10-11:
+
+- `node tools/tiling-puzzle/check.js`: all five checks pass.
+  1. 1,001 random drops over the Hat, Spectre and five Krinkle tiles: the
+     shared edge ends are within 7.3e-15, and a sampling test, which shares
+     no code with the overlap test, finds no overlap.
+  2. 8,662 copies, nudges, turns and snaps tried: every overlapping one is
+     refused, and a repeated link token stops the decode.
+  3. 100 random builds of 2 to 60 tiles round-trip unchanged, and a bad token
+     stops the decode at its tile with a sentence.
+  4. Patches of 1, 2 and 3 rings from the Hat's tiling (8, 22 and 44 tiles)
+     and the Spectre's (7, 21 and 41) replay to counters 1, 2 and 3, with no
+     dead corner. So do 1 to 3 rings of the Krinkle fan and the repeating
+     tiling for four tiles. The start tile lies 10^8 tile widths from the
+     file's origin, so the check subtracts exact two-part positions before it
+     makes floats.
+  5. In 70 random builds, every dead corner has no placement on either free
+     edge, found by trying every flip, turn and edge without the board's own
+     turn rule.
+- `tools/screen-fit/check.js` on `#board`, with `.hand button` as the
+  controls: all six sizes pass. The play area is the whole window.
+- `node tools/krinkle/check.js --quick --random 40` and
+  `node tools/hat-edges/verify-page.js`: both pass. Phase 5 changed no
+  explorer file.
+- Touch drag, a two-finger twist while carrying, drop and pinch were driven
+  with dispatched touch events at 393 x 659. Real fingers are check 6.
+
+For check 6, David's phone test: drag the piece from the hand and see it ride
+above the finger; twist a second finger while it is held; hold ⟲ and ⟳ until
+they repeat; drop it away from the patch and see it slide back; pan with one
+finger, pinch, and twist two fingers on empty board; try the Hat flip; open
+the Krinkle chip and pick a preset; copy the link and open it in another
+tab.
 
 ## The Hat and Spectre checker (phase 6)
 
