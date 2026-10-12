@@ -6,7 +6,8 @@ A fourth tab for the tiling explorer, after Hat, Spectre and Hat (extended),
 showing Miki Imura's Modulo Krinkle tilings. One equilateral tile, set by
 three whole numbers and an offset switch, fills the plane in a fan of
 congruent wedges that swirl round a centre. Unlike the Hat and Spectre, the
-same tile also tiles periodically, and the tab shows both arrangements.
+same tile also makes a periodic lattice and a singly periodic grain boundary.
+The tab shows all three arrangements.
 
 This document is the build specification. It gives every formula the code
 needs, so no one has to work them out from the papers again. It splits the
@@ -24,6 +25,7 @@ used only to check the output, never copied.
       existing tabs unchanged (2026-10-11)
 - [x] Phase 3: The Krinkle tab page (2026-10-11)
 - [x] Phase 4: Construction playback and scripting hooks (2026-10-11)
+- [x] Grain-boundary arrangement (2026-10-12)
 - [ ] Later list reviewed, once the tab is live
 
 ## Sources
@@ -149,6 +151,48 @@ The same prototile at a·d_0 + b·d_1 for all integers a and b, all at turn 0.
 The page centres it on tile (0, 0) and stores r = a and c = b for the
 colours.
 
+### Why the original tile cannot be aperiodic
+
+Every wedge is a triangular part of the translation lattice above. Its width
+grows without bound, so it contains every finite patch of the repeating
+tiling. Any finite local matching rule that admits the whole fan must
+therefore admit the repeating tiling as well.
+
+This rules out forcing aperiodicity by reshaping, colouring or labelling the
+existing edges while keeping one fixed prototile and the present fan. A
+Krinkle-inspired aperiodic system would need several decorated tile states,
+or a new construction without unbounded lattice interiors. Hiding Repeating
+would only restrict the explorer's output; it would not change the tile.
+
+### Other arrangements and known limits
+
+The published work does not classify every tiling by an original Krinkle
+prototile. Imura constructs the fan and observes the translation lattice. The
+public playground adds the related m, p and q prototiles, rather than more
+layouts of the original tile. Fujiwara tested three radial closure rules for
+315 small parameter sets. Only the present no-offset and offset families
+closed, and a general classification remains open.
+
+A third arrangement follows directly from the wedge construction. Extend the
+periodic staircase between wedges i and i + 1 in both directions. Fill one
+half-plane with the orientation-i translation lattice and the other with the
+orientation-(i + 1) lattice. Their boundary repeats by the translation
+R_{i+1}d_0. This gives a singly periodic grain-boundary tiling, distinct from
+the fan and the two-period translation lattice.
+
+On 2026-10-12, an exact edge-pairing check covered every seam position in all
+13 presets: 329 seams in total. Every tested interior edge had exactly two
+owners. The periodic boundary sequences in Imura's construction also give
+the proof: a matched fan seam repeats indefinitely in both directions, and
+each side extends to its complete translation half-lattice. Mirroring gives
+the opposite fan handedness. Further networks or exceptional layouts may
+exist, but no published construction or classification was found.
+
+The explorer implements the seam between orientations 0 and 1 as **Grain
+boundary**. It enumerates `c <= r` in the orientation-0 lattice and `c >= 0`
+in the orientation-1 lattice. The address-bar value is `a=grain`. Wedge
+outlines and construction playback apply only to the Fan arrangement.
+
 ### Spiral arms (from the Bridges paper)
 
 Without offset there are t·m⁻¹ anticlockwise arms and t·(k − m⁻¹)
@@ -223,7 +267,7 @@ Checks in `tools/krinkle/check.js`, run on the presets and on 200 random
 valid parameter sets with k ≤ 20, t ≤ 4 and both offsets. Run it with
 `node tools/krinkle/check.js`. The presets use a disc of 40 tile lengths and
 100,000 points, and the random sets 12 tile lengths and 20,000 points. Each
-set is checked in both arrangements:
+set is checked in all three arrangements:
 
 1. **Prototile:** the outline does not cross itself, and its signed area is
    positive.
@@ -465,8 +509,9 @@ There is no proof-status wording.
 
 Phase 3 follows the plan above, with these departures and additions:
 
-- **Address-bar key for the edge arrangement.** The plan gives `a=fan|rep`
-  to the tiling arrangement and says the edge keys match the Spectre's, but
+- **Address-bar key for the edge arrangement.** The plan gave `a=fan|rep`,
+  and Grain boundary later added `a=grain`. The key belongs
+  to the tiling arrangement. The edge keys otherwise match the Spectre's, but
   the Spectre uses `a` for Single or Double. The page keeps `a` for the
   tiling and names the edge arrangement `ea=alt|S`. It still reads an
   old-style `a=alt` or `a=S` as the edge arrangement. `wo=1` is written only
@@ -499,7 +544,7 @@ Results, 2026-10-11:
 - `node tools/krinkle/check.js --quick --random 40`: all checks pass.
 - `tools/screen-fit/check.js` on `#map`: all six sizes pass, no faults.
 - All 13 presets build and draw without console errors; steppers, the dice,
-  both arrangements, custom colours across a change of n, Reset options, a
+  the original two arrangements, custom colours across a change of n, Reset options, a
   shared link, a malformed link and an in-place hash change all behave.
 - The Hat, Spectre and Hat (extended) pages load without errors with the
   fourth tab, and `node tools/hat-edges/verify-page.js` finds no mismatched
@@ -522,8 +567,6 @@ it costs a uniform update and a redraw, and the scrubber can follow the drag.
 - **Controls:** Play/Pause, and a scrubber in the top-right panel. Playback
   is available in Fan only.
 - **Timing:** a full play takes about 20 seconds whatever w is.
-- **Optional:** a faint outline of the current front, the dashed line in
-  Bridges Figure 4.
 
 Scripting hooks for the video tools:
 
@@ -575,8 +618,6 @@ Phase 4 follows the plan above, with these additions and departures:
   since `pb = 0` is an empty map and the other captures read a small frame as
   a crash. The krinkle mode checks the page is alive instead. The loop
   video's timeline does not use it yet.
-- **Not done.** The faint outline of the current front, marked optional in
-  the plan.
 
 Results, 2026-10-11, in headless Chrome with software rendering:
 

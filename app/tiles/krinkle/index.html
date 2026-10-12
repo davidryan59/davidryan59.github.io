@@ -137,6 +137,7 @@
       <div class="inline" id="layout" role="radiogroup" aria-labelledby="layout-title">
         <label><input type="radio" name="layout" value="fan"> Fan</label>
         <label><input type="radio" name="layout" value="repeat"> Repeating</label>
+        <label><input type="radio" name="layout" value="boundary"> Grain</label>
       </div>
     </div>
     <div class="section">
@@ -285,6 +286,12 @@
     2-fold symmetry. The offset also changes n, so it changes the tile.
   </p>
   <p>
+    <em>Grain boundary.</em> A third arrangement extends one staircase between
+    two neighbouring wedge directions in both directions. A half-plane of
+    each lattice fills either side. The boundary repeats along its length,
+    while the two sides use tile orientations one step apart.
+  </p>
+  <p>
     <em>Periodic too.</em> The same tile also tiles the plane periodically.
     Choose <em>Repeating</em> to see it. That makes these tilings non-periodic
     rather than aperiodic, which is the difference from the Hat and the
@@ -371,9 +378,7 @@
     var r = tRange(st.m, st.k, st.offset);
     st.t = Math.max(r[0], Math.min(r[1], st.t));
   }
-  function options() {
-    return { m: st.m, k: st.k, t: st.t, offset: st.offset, arrangement: st.layout === 'repeat' ? 'repeat' : 'fan' };
-  }
+  function options() { return { m: st.m, k: st.k, t: st.t, offset: st.offset, arrangement: st.layout }; }
   function optionsKey() { var o = options(); return [o.m, o.k, o.t, o.offset, o.arrangement].join(','); }
 
   // The tile for the options, built here as well as in the workers, so the
@@ -413,7 +418,7 @@
     });
     return q;
   }
-  // Keys: mk=m,k  t  o  a=fan|rep  e (edge shape)  b (height)
+  // Keys: mk=m,k  t  o  a=fan|grain|rep  e (edge shape)  b (height)
   // ea=alt|S (edge arrangement)  p (shape settings). An old-style a=alt or
   // a=S sets the edge arrangement.
   function applyKeys(q) {
@@ -428,7 +433,7 @@
       var d = defaults();
       st.m = d.m; st.k = d.k; st.t = d.t; st.offset = d.offset;
     }
-    if (q.a === 'fan' || q.a === 'rep') st.layout = q.a === 'rep' ? 'repeat' : 'fan';
+    if (q.a === 'fan' || q.a === 'grain' || q.a === 'rep') st.layout = q.a === 'rep' ? 'repeat' : (q.a === 'grain' ? 'boundary' : 'fan');
     else if (q.a === 'alt' || q.a === 'S') st.edgeArr = q.a;
     if (q.ea === 'alt' || q.ea === 'S') st.edgeArr = q.ea;
     if (q.p) q.p.split(';').forEach(function (kv) {
@@ -441,7 +446,7 @@
     var t = q.pb === undefined ? NaN : parseFloat(q.pb);
     pb = null;
     playing = false;
-    if (isFinite(t) && t >= 0 && st.layout !== 'repeat' && t < uiInfo().w + 1) pb = t;
+    if (isFinite(t) && t >= 0 && st.layout === 'fan' && t < uiInfo().w + 1) pb = t;
   }
   var startKeys = parseHash();
   applyKeys(startKeys);
@@ -582,7 +587,7 @@
   function fitColours() {
     var id = map.scheme(), gid = id.indexOf('custom:') === 0 ? id.slice(7) : presets.filter(function (p) { return p.id === id; })[0].grouping;
     if (st.layout === 'repeat' && (gid === 'fan' || gid === 'alt' || gid === 'copies')) map.scheme('lattice');
-    else if (st.layout === 'fan' && gid === 'lattice') map.scheme('pastel');
+    else if (st.layout !== 'repeat' && gid === 'lattice') map.scheme('pastel');
   }
 
   /* ------------------------------------------------------------ engine */
@@ -627,7 +632,7 @@
       rebuild(null);
     },
     hashGet: function () {
-      var h = { mk: st.m + ',' + st.k, t: st.t, o: st.offset, a: st.layout === 'repeat' ? 'rep' : 'fan' };
+      var h = { mk: st.m + ',' + st.k, t: st.t, o: st.offset, a: st.layout === 'repeat' ? 'rep' : (st.layout === 'boundary' ? 'grain' : 'fan') };
       if (map && map.outlines()) h.wo = 1;
       if (pb !== null) h.pb = +pb.toFixed(3);
       if (st.shape !== 'line') {
@@ -666,7 +671,7 @@
 
   // The clock runs from 0 to w + 1 at a pace that finishes in PLAY_SECONDS.
   var lastFrame = 0;
-  function pushPlayback() { if (map) map.setPlayback(st.layout === 'repeat' ? null : pb); }
+  function pushPlayback() { if (map) map.setPlayback(st.layout === 'fan' ? pb : null); }
   function stage(inf) {
     if (pb === null) return 'Whole tiling';
     if (pb < inf.w) return 'Wedge ' + (Math.floor(pb) + 1) + ' of ' + inf.w;
@@ -697,15 +702,16 @@
   var playEl = document.getElementById('play'), scrubEl = document.getElementById('scrub');
   var stageEl = document.getElementById('stage'), playSection = document.getElementById('playback-section');
   function syncPlayback() {
-    var inf = uiInfo(), repeat = st.layout === 'repeat';
-    playEl.disabled = scrubEl.disabled = repeat;
-    playSection.title = repeat ? 'The repeating arrangement has no construction order' : '';
+    var inf = uiInfo(), disabled = st.layout !== 'fan';
+    var reason = st.layout === 'boundary' ? 'The grain boundary has no finite construction order' : 'The repeating arrangement has no construction order';
+    playEl.disabled = scrubEl.disabled = disabled;
+    playSection.title = disabled ? reason : '';
     playEl.setAttribute('aria-pressed', playing ? 'true' : 'false');
     playEl.title = playing ? 'Pause' : 'Play the construction';
     playEl.setAttribute('aria-label', playEl.title);
     var v = pb === null ? 1000 : Math.round(1000 * pb / (inf.w + 1));
     if (document.activeElement !== scrubEl || playing) scrubEl.value = String(v);
-    stageEl.textContent = repeat ? 'The repeating arrangement has no construction order.' : stage(inf);
+    stageEl.textContent = disabled ? reason + '.' : stage(inf);
     scrubEl.setAttribute('aria-valuetext', stageEl.textContent);
   }
   playEl.addEventListener('click', function () { setPlaying(!playing); });
@@ -741,7 +747,7 @@
     rebuild(null, keep);
     if (keep) {
       // The engine takes the clock once the new workers are ready.
-      pb = st.layout !== 'repeat' && o.pb >= 0 && o.pb < uiInfo().w + 1 ? o.pb : null;
+      pb = st.layout === 'fan' && o.pb >= 0 && o.pb < uiInfo().w + 1 ? o.pb : null;
       syncPlayback();
     }
     return null;
@@ -928,9 +934,11 @@
       x.el.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     // Read-out
-    var text = 'n = ' + inf.n + ': ' + inf.n + ' directions, ' + inf.n + ' wedges · tile with ' + inf.edgeCount + ' edges. ';
+    var text = 'n = ' + inf.n + ': ' + inf.n + ' directions · tile with ' + inf.edgeCount + ' edges. ';
     if (st.layout === 'repeat') text += 'Repeating: the tile repeats along two directions, with no turn.';
+    else if (st.layout === 'boundary') text += 'Grain boundary: two half-plane lattices meet, one tile turn apart.';
     else {
+      text = 'n = ' + inf.n + ': ' + inf.n + ' directions, ' + inf.n + ' wedges · tile with ' + inf.edgeCount + ' edges. ';
       text += inf.offset ? '2-fold' : inf.t + '-fold';
       text += ' rotational symmetry.';
       if (inf.arms) text += ' ' + inf.arms.ccw + ' spiral arms turn anticlockwise and ' + inf.arms.cw + ' clockwise.';
@@ -941,9 +949,9 @@
     drawFigure(inf);
     // Arrangement
     Array.prototype.forEach.call(layoutEls, function (x) { x.checked = x.value === st.layout; });
-    outlinesBox.disabled = st.layout === 'repeat';
-    outlinesLabel.classList.toggle('disabled', st.layout === 'repeat');
-    outlinesLabel.title = st.layout === 'repeat' ? 'The repeating arrangement has no wedges' : '';
+    outlinesBox.disabled = st.layout !== 'fan';
+    outlinesLabel.classList.toggle('disabled', st.layout !== 'fan');
+    outlinesLabel.title = st.layout === 'fan' ? '' : 'This arrangement has no wedges';
     // Edges: Line has no height and no arrangement to set.
     shapeEl.value = st.shape;
     bendBox.hidden = edgeArrBox.hidden = st.shape === 'line';

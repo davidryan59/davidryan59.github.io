@@ -1,4 +1,4 @@
-# Tiling Puzzle: build Hat, Spectre and Krinkle tilings by hand
+# Tiling Puzzle: build Hat and Spectre tilings by hand
 
 ## Summary
 
@@ -14,12 +14,10 @@ free of overlaps and still be a dead end.
 The Hat and Spectre make this exact. Every Hat tiling holds the same finite
 patches as every other, so the app can test any patch by searching for it in
 a large tiling that it generates itself. The same search lets the computer
-add tiles that can never break a legal patch. Krinkle pieces get weaker
-checks, because the Krinkle tile tiles in many different ways.
+add tiles that can never break a legal patch.
 
-This document is the build specification, in three phases. It relies on the
-explorer's tiling files and on the Krinkle worker from
-[krinkle.md](krinkle.md), phase 1.
+This document is the build specification. It relies on the explorer's Hat
+and Spectre tiling files.
 
 ## Implementation checklist
 
@@ -28,29 +26,24 @@ explorer's tiling files and on the Krinkle worker from
       check 6, the phone, is David's)
 - [x] Phase 6: The Hat and Spectre checker: reference tiling, match set,
       verdicts, Add one, Hint and Fill a ring (built 2026-10-11)
-- [x] Phase 7: Krinkle pieces: corner check, matching against the fan and
-      repeating tilings (built 2026-10-11)
+- [x] Remove the Krinkle mode after reviewing its puzzle logic (2026-10-12)
 - [ ] Release: builder page entry, share card, short address, and a "Build it
-      yourself" link on each explorer tab
+      yourself" link on the Hat and Spectre tabs
 
 ## Decisions (2026-10-11)
 
 - **A separate app.** The explorer drags the view, while the puzzle drags
   pieces. Shared code covers the tile outlines, colours and reference
   tilings.
-- **Pieces.**
-  - The Hat and Spectre are the standard shapes, with no shape slider and
-    straight edges.
-  - The Krinkle piece is any (m, k, n) the explorer allows. The explorer
-    link passes it in.
+- **Pieces.** The Hat and Spectre are the standard shapes, with no shape
+  slider and straight edges.
 - **Turning.**
-  - Fixed steps: 60° for the Hat, 30° for the Spectre, one hour (360°/n)
-    for Krinkle. These are the turns that occur in each tiling.
+  - Fixed steps: 60° for the Hat and 30° for the Spectre. These are the
+    turns that occur in each tiling.
   - The Hat has a flip button, because about one Hat in eight is mirrored
     in a real tiling.
   - The Spectre has no flip. The straight-edged Spectre tiles periodically
     when mixed with its mirror image.
-  - Krinkle needs no flip, since the tile is mirror-symmetric.
 - **Mistakes.**
   - Overlaps are refused, so the piece goes back to the hand.
   - Any edge-to-edge drop is accepted.
@@ -71,11 +64,8 @@ at the bottom centre:
 - **Header:** the site's explorer pattern: "← David Ryan's builder page" at
   top left, the title centred, and the full-screen button at right.
 - **Top left: piece type.**
-  - Large buttons for Hat, Spectre and Krinkle.
-  - For Krinkle, a chip such as "(3, 7, 22)" opens the explorer's presets
-    and steppers, which are shared code. Changing the piece type or the
-    Krinkle numbers clears the board, after a confirm once 5 or more tiles
-    are placed.
+  - Large buttons for Hat and Spectre. Changing the piece clears the board,
+    after a confirm once 5 or more tiles are placed.
   - Below them, the numbered step hint, with the next action lit:
     1. "Drag the piece from the hand against the first tile."
     2. "Turn it with ⟲ ⟳, or twist two fingers, until an edge lines up."
@@ -114,7 +104,6 @@ Drawing uses Canvas 2D, with one cached Path2D per piece type and turn.
 - **Outlines** come from the same code as the explorer:
   - the Hat at the Hat page's own a:b;
   - the Spectre as Tile(1, 1);
-  - Krinkle from the phase 1 worker.
 
   The Hat counts its long side as two edges (14 edges), as the explorer
   does.
@@ -174,7 +163,7 @@ runs after each drop, on the corners that the new tile touched.
 - **Undo** steps back one placement. Each Fill a ring counts as one
   placement. **Clear** returns to the single first tile.
 - **The share link** encodes the piece type and its numbers:
-  - `p=hat`, `p=spectre`, or `p=krinkle&mk=3,7&t=2&o=1`.
+  - `p=hat` or `p=spectre`.
   - `b=` lists every tile after the first as `a.ea.ej` (plus `.f` for a
     flipped Hat), in base 36, separated by `-`. The tile attaches to tile a
     by matching a's edge ea with its own edge ej, and the turn follows from
@@ -201,12 +190,6 @@ runs after each drop, on the corners that the new tile touched.
 ### As built
 
 Phase 5 follows the plan above, with these departures and additions:
-
-- **Presets and steppers are not shared code.** The plan says the Krinkle
-  chip opens the explorer's own presets and steppers. They sit inline in
-  `app/tiles/krinkle/index.html`, so the puzzle has a small copy of its own,
-  built on `KrinkleTiling.PRESETS`, `validate` and `directions`. It follows
-  the same stepping rules, so the two pages accept the same tiles.
 - **The overlap test is wider than the plan's wording.** An edge that
   crosses an edge, or a corner strictly inside, misses two cases: a copy
   exactly on top of a tile, and an edge that joins two corners of the other
@@ -245,43 +228,39 @@ Phase 5 follows the plan above, with these departures and additions:
   500 px wide the two view-turn buttons go, since a twist turns the view.
   A short wide window, such as a phone held sideways, keeps the four corners
   and a centred hand, with the colours panel as two rows.
-- **Cost.** A snap takes under 1 ms for the Hat and Spectre on 300 tiles. A
-  drop with a 62-edge Krinkle piece (k = 30) takes about 70 ms, mostly in
-  the corner check.
+- **Cost.** A snap takes under 1 ms for the Hat and Spectre on 300 tiles.
 
-Results, 2026-10-11:
+Results, 2026-10-12:
 
 - `node tools/tiling-puzzle/check.js`: all five checks pass.
-  1. 1,001 random drops over the Hat, Spectre and five Krinkle tiles: the
-     shared edge ends are within 7.3e-15, and a sampling test, which shares
-     no code with the overlap test, finds no overlap.
-  2. 8,662 copies, nudges, turns and snaps tried: every overlapping one is
-     refused, and a repeated link token stops the decode.
+  1. In 1,000 random drops over the Hat and Spectre, the shared edge ends
+     are within 4.0e-15. A sampling test, which shares no code with the
+     overlap test, finds no overlap.
+  2. The check examined 3,304 copies, nudges, turns and snaps. It refused
+     every overlapping placement, and a repeated link token stops the
+     decode.
   3. 100 random builds of 2 to 60 tiles round-trip unchanged, and a bad token
      stops the decode at its tile with a sentence.
   4. Patches of 1, 2 and 3 rings from the Hat's tiling (8, 22 and 44 tiles)
      and the Spectre's (7, 21 and 41) replay to counters 1, 2 and 3, with no
-     dead corner. So do 1 to 3 rings of the Krinkle fan and the repeating
-     tiling for four tiles. The start tile lies 10^8 tile widths from the
-     file's origin, so the check subtracts exact two-part positions before it
-     makes floats.
-  5. In 70 random builds, every dead corner has no placement on either free
-     edge, found by trying every flip, turn and edge without the board's own
-     turn rule.
+     dead corner. The start tile lies 10^8 tile widths from the file's
+     origin, so the check subtracts exact two-part positions before it makes
+     floats.
+  5. In 20 random builds, all 1,147 dead corners have no placement on either
+     free edge. The check tries every flip, turn and edge without the board's
+     own turn rule.
 - `tools/screen-fit/check.js` on `#board`, with `.hand button` as the
   controls: all six sizes pass. The play area is the whole window.
-- `node tools/krinkle/check.js --quick --random 40` and
-  `node tools/hat-edges/verify-page.js`: both pass. Phase 5 changed no
-  explorer file.
+- `node tools/hat-edges/verify-page.js` passes. Phase 5 changed no explorer
+  file.
 - Touch drag, a two-finger twist while carrying, drop and pinch were driven
   with dispatched touch events at 393 x 659. Real fingers are check 6.
 
 For check 6, David's phone test: drag the piece from the hand and see it ride
 above the finger; twist a second finger while it is held; hold ⟲ and ⟳ until
 they repeat; drop it away from the patch and see it slide back; pan with one
-finger, pinch, and twist two fingers on empty board; try the Hat flip; open
-the Krinkle chip and pick a preset; copy the link and open it in another
-tab.
+finger, pinch, and twist two fingers on empty board; try the Hat flip; copy
+the link and open it in another tab.
 
 ## The Hat and Spectre checker (phase 6)
 
@@ -315,8 +294,8 @@ file's `build()`, and walks `ctx.root` with `TilingCore.walk`. Using
 
 - **A match** is a rigid motion g that carries the whole user patch onto
   tiles of the reference.
-- **Allowed motions:** rotations for all pieces; reflections too for the Hat
-  and for Krinkle.
+- **Allowed motions:** rotations for both pieces, and reflections for the
+  Hat.
 - **Candidates:** for each anchor, test every cyclic shift of its corner
   list, and every reversed list where reflections are allowed. Keep the
   shifts where edge lengths and turning angles all agree. Each one kept
@@ -405,7 +384,7 @@ Phase 6 follows the plan above, with these departures and additions:
 
 - **Files.** `app/tiling-puzzle/checker.js` is the worker. It also runs in
   the page when the browser has no workers or refuses one, and under Node
-  through `createHandler`, as `krinkle/tiling.js` does. The checks are in
+  through `createHandler`. The checks are in
   `tools/tiling-puzzle/check-phase6.js`.
 - **The reference.** It is centred on the tile nearest the hierarchy's
   start, `info.start`, whose corner 0 becomes the origin. Every position is
@@ -458,8 +437,6 @@ Phase 6 follows the plan above, with these departures and additions:
 - **A hook for checks.** `window.TilingPuzzle` gives read-only views of the
   board and verdict, and the screen point of a drop that snaps. Check 4 and
   the screenshots use it.
-- **Krinkle** showed no verdict in phase 6, and Undo to last good, Hint,
-  Add one and Fill a ring stayed disabled. Phase 7 adds them below.
 
 Results, 2026-10-11:
 
@@ -493,172 +470,23 @@ Results, 2026-10-11:
 - `tools/screen-fit/check.js` on `#board`, with `.hand button` as the
   controls: all six sizes pass. The longest status, a dead end with red
   corners, fits on a phone held either way.
-- `node tools/krinkle/check.js --quick --random 40` and
-  `node tools/hat-edges/verify-page.js`: both pass. Phase 6 changed no
-  explorer file.
+- `node tools/hat-edges/verify-page.js` passes. Phase 6 changed no explorer
+  file.
 - Screenshots: a green verdict at ring 2, Hint ghosts, Fill a ring
   mid-animation, and a dead end with its red tile and red edge.
 
-## Krinkle pieces (phase 7)
+## Removed Krinkle mode
 
-A Krinkle tile gets the same matcher as the Hat and Spectre, over four
-references of that one tile. The tile tiles in many ways, so a patch that no
-reference holds is "unknown", not a dead end.
+The Krinkle mode was removed on 2026-10-12 before release. A finite patch
+of its repeating lattice also occurs inside a sufficiently large fan wedge.
+The checker could therefore recognise selected constructions, but it could
+not decide whether an unmatched patch was a dead end.
 
-- **References:** two tilings of the same (m, k, n) tile from the phase 1
-  worker, the fan and the repeating lattice, plus their mirror images.
-  - The Krinkle tile is mirror-symmetric, so a mirrored tiling still holds
-    unflipped tiles.
-  - The board's mirror x → −x sends a tile at turn j with centroid (cx, cy)
-    to a tile at turn −j − k with centroid (−cx, cy), where k is the length
-    of the zigzag. The turn stays a whole number of hours for odd n and for
-    even n. The explorer's mirror y → −y would land on half hours for odd n,
-    and the half-turn adjustment this section once planned is not needed.
-  - Matching and the index work as in phase 6.
-- **Verdicts:**
-  - Green: "Fits the fan tiling" or "Fits the repeating tiling". The fan
-    comes first when a patch fits both.
-  - Amber: "Not part of either tiling the app knows. It may still continue".
-    The tile tiles in other ways too, so this is not a dead end.
-  - Red: only from the corner check, "No piece fits at the red corner".
-- **Computer help:**
-  - Add one, Hint and Fill a ring work from whichever reference matches,
-    preferring the fan. Hint shows the union over the fan and its mirror,
-    or over the repeating tiling and its mirror.
-  - In the amber state they are disabled, with the note "Needs a patch that
-    fits a known tiling" as the button's title.
-  - Undo to last good is lit in the amber state, and steps back to the last
-    patch that fits a known tiling.
-- **Turning:** one hour per step. For large n, holding a turn button repeats,
-  and a twist or the wheel moves in whole hours in proportion to the angle.
-
-### The reference size
-
-The fan is not periodic, so the reference must hold every patch that occurs
-anywhere in it. Wedge i of the fan is the repeating tiling turned by i hours,
-and each wedge boundary repeats every row. So a patch of diameter d occurs
-within s = (d + 1)·n / (2π) tile widths of the centre, where a wedge is
-narrower than the patch, or else along a boundary at any distance, or else
-inside one wedge. Boundaries and interiors recur at small radius, so the
-reference needs only s plus a margin.
-
-- **Plan:** `krinklePlan` in `checker.js`.
-  - R_in = 1.25·s + 3 tile widths, and R_ref = R_in + d.
-  - The checked diameter d, called D_MAX for Hat and Spectre, is the
-    largest of 12, 11.5 … 2 tile widths for which the fan reference holds
-    at most 300,000 tiles. Its mirror image doubles the count.
-  - The repeating reference is ⌈d⌉ + 2 widths in radius, since every tile
-    of a lattice is alike.
-- **Where the budget fails:** a tile for which d would fall below 2 has no
-  check, and the page says "No tiling check for this tile". The board, the
-  corner check and the share link still work. None of the 13 presets is
-  affected. Of the valid tiles, every one up to n = 59 has a check, 96% of
-  those from 60 to 99 have one, a third of those from 100 to 119, and none
-  from 120 up.
-- **Calibration:** check 1 below finds every sampled patch at the shipped
-  radius, and misses some at 40% of it, so the sampling can see a
-  shortfall.
-
-### Phase 7 checks
-
-1. **Add-one soak:** 500 Add ones on the fan and on the repeating tiling,
-   for five presets, each verified against a reference twice the size.
-2. **Known patches:** patches cut from the fan tiling are found, and so are
-   mirror images of fan patches, for one odd-n preset.
-3. **Dead corner:** two tiles placed to leave an angle smaller than the
-   tile's smallest corner show a red corner.
-
-`tools/tiling-puzzle/check-phase7.js` runs these and five more: a
-calibration of the radius, stable verdicts at twice the radius, a second
-route by brute force, a test of the edge contacts, and speed and limits.
-
-### As built
-
-Phase 7 follows the plan above, with these departures and additions:
-
-- **Files.** `app/tiling-puzzle/checker.js` gains `krinklePlan`,
-  `buildKrinkleReferences`, `createKrinkleChecker` and `createKrinkleSession`.
-  The worker's `init` takes `opts` (m, k, t, offset), and it also loads
-  `../tiles/krinkle/tiling.js`. The checks are in
-  `tools/tiling-puzzle/check-phase7.js`.
-- **Shared matcher.** `indexTiles` was cut out of `buildReference`, so the
-  Krinkle references use the same grid, `find`, `near` and outlines as the
-  Hat and Spectre. A reference now carries its own `dmax`. The Hat and
-  Spectre checks are unchanged: phase 5's five checks and phase 6's six
-  (`--quick`) still pass.
-- **A lookup trusts the centroid.** Many thousands of tiles of one shape
-  make a patch inside one wedge fit at every interior anchor, so a filter
-  can run over 200,000 motions. For Krinkle the matcher accepts a tile at
-  the same centroid and orientation without comparing its corners again.
-  A lookup that succeeds then takes 73 ns, not 343 ns. Check 6 agrees
-  with it.
-- **Tiles with a half turn.** For k = 1 and k = 2 the Krinkle tile has a
-  half turn of its own, so one tile is stored at turn j or turn j + n / 2.
-  A lookup then decides by corners and not by the stored turn, and the tile
-  gets two shift templates, so two motions at each anchor.
-- **Edge contacts.** The catalogue is the union over the four references,
-  read within about 6,000 tiles of each centre, as dedupe by position
-  (`contactsWithin` takes a `fast` flag). Check 7 reads the whole reference
-  and finds no contact outside it. It serves Hint and Add one only, since
-  the Krinkle verdict marks no red edge: an edge that no known tiling holds
-  can still occur in another tiling.
-- **Answers.** The reply to `match` and `verdict` gains `status` of `fits`,
-  `unknown`, `large` or `off`, and `source` of `fan` or `repeat`. The
-  checker prefers a fan group over a repeating group, and within a group the
-  plain tiling over its mirror. `unknown` sets `deadFrom` to the tile that
-  emptied the last match set, for Undo to last good. No tile is red.
-- **One Krinkle checker at a time.** The page retires the worker of the
-  previous Krinkle tile when the visitor picks another, since four
-  references take up to 20 MB. The Hat and Spectre checkers stay.
-- **The wheel.** Up to 12 turns a notch is 50 units. Above that it is
-  600 / n units, at least 6, so a notch turns the piece about the same
-  angle for every tile.
-- **No verdict for a tile that is too fine.** The worker answers `off` and
-  the page says "No tiling check for this tile: its n turns are too fine
-  for the check". Check 8 tests (1, 1, 240).
-- **Status colour.** Amber is a `--warn` token, in the page's two themes,
-  and a red corner turns the line red as before.
-
-Results, 2026-10-11:
-
-- `node tools/tiling-puzzle/check-phase7.js`: all eight checks pass, in
-  about 52 minutes.
-  1. Calibration: patches of up to d widths across, from five zones (the
-     centre, the zone where a wedge is narrower than the patch, and 10^4
-     widths out), for all 13 presets: 120 to 500 patches each, fewer for
-     the big references. Every patch is found. A reference at 40% of the
-     radius missed 35 of 200 patches for (3, 7, 14).
-  2. Known patches: 201 fan patches and 201 mirror images found as the
-     fan, for (2, 9, 27) with its odd n, (3, 7, 14) and (5, 16, 54). Mirror
-     images of repeating patches are found too.
-  3. Add-one soak: 500 Add ones on the fan and on the repeating tiling for
-     five presets, with 40 to 65 Fill a rings and 21 to 39 undos for each.
-     Every patch is legal at twice the radius and has no red corner. The
-     runs reach 283 tiles and ring 6.
-  4. Stable verdicts: 300 patches per preset, each a legal patch plus one
-     random snap-valid drop, for three presets. Between 92 and 257 are
-     unknown, and every verdict is the same at twice the radius.
-  5. Dead corner: for four presets, patches of a tile and two more with a
-     red corner exist, and none of them fits a known tiling.
-  6. Second route: for three presets, 200 patches (cuts of the fan and of
-     the repeating tiling, their mirror images, and legal patches plus one
-     drop) against all four references. The brute-force match count agrees
-     in all 2,388 cases, with 1,881 patches fitting and 150 million matches.
-  7. Contacts: for four presets the whole references hold no contact that
-     the catalogue misses.
-  8. Speed and limits, in Node: the four references build in 0.1 to 1.1 s.
-     The first drop after a single tile costs up to 104 ms, for a
-     (1, 1, 30, offset) tile with 584,000 tiles, and 36 ms for
-     (5, 16, 54, offset). Later drops cost under 2 ms. The page with
-     `--url`: green, Hint, Add one, amber with help off, and Undo to last
-     good.
-- `tools/screen-fit/check.js` on `#board`, with `.hand button` as the
-  controls, for an amber patch with a red corner, the longest status: all
-  six sizes pass.
-- `node tools/tiling-puzzle/check.js` and
-  `node tools/tiling-puzzle/check-phase6.js --quick`: both pass.
-- Screenshots: a green verdict at ring 2 with Hint ghosts, an amber verdict,
-  and an amber verdict with red corners.
+That uncertainty broke the puzzle's main rule. Legal random additions often
+produced an amber unknown state and disabled the computer help. The Krinkle
+explorer keeps its fan, repeating arrangement and construction playback.
+[krinkle.md](krinkle.md) records the mathematical assessment and other known
+arrangements.
 
 ## Release
 
@@ -666,11 +494,11 @@ Results, 2026-10-11:
   real build.
 - **Short address:** a redirect page at `redirects/` for drbuild.uk/puzzle.
   Add the address to the list in [site-layout.md](site-layout.md).
-- **Link from the explorer:** a "Build it yourself" link on each explorer
-  tab, in the top-left area under the tabs. It opens the puzzle with that
-  tab's piece and, for Krinkle, its numbers. Hat (extended) opens the Hat.
+- **Link from the explorer:** a "Build it yourself" link on the Hat and
+  Spectre tabs, in the top-left area under the tabs. Hat (extended) opens
+  the Hat. The Krinkle tab has no puzzle link.
 - **About text:** the dead-end idea in plain words, crediting Smith, Myers,
-  Kaplan and Goodman-Strauss, and Imura. There is no proof-status wording.
+  Kaplan and Goodman-Strauss. There is no proof-status wording.
 
 ## Later
 
@@ -678,7 +506,5 @@ Results, 2026-10-11:
   each look fine but cannot meet.
 - **Curved edges** from the explorer, and the Hat's shape slider, on pieces.
 - **A verdict on the ghost while dragging**, as an optional setting.
-- **Krinkle variant pieces** (m, p, q). These need flipping, and wait for
-  the variant rule in [krinkle.md](krinkle.md).
 - **Challenges,** such as "Find the repeating pattern with Spectres and
   their mirror images", which needs Spectre flips turned on.

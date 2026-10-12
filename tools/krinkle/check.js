@@ -10,7 +10,7 @@
      --quick            smaller discs and fewer points, for a fast look
      --only <m,k,t,o>   check one set, e.g. --only 3,7,2,1
 
-   Every set is built in both arrangements and put through:
+   Every set is built in all three arrangements and put through:
      1  prototile: outline simple, signed area positive, area equals the
         lattice cell |d_0 x d_1|
      2  front sequences, and the apex as a sum along the front (3, 7, 14
@@ -368,7 +368,7 @@ function run(setup, tag, big, rnd) {
   const t0 = Date.now();
   let tilesSeen = 0, worst = 0;
   const fails0 = failures;
-  ['fan', 'repeat'].forEach((arr) => {
+  ['fan', 'boundary', 'repeat'].forEach((arr) => {
     const label = tag + ' ' + arr;
     const err = K.validate(Object.assign({ arrangement: arr }, opts));
     if (err) { fail(label, 'valid set rejected: ' + err); return; }

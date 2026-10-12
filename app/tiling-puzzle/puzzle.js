@@ -1,15 +1,13 @@
 /* The Tiling Puzzle page: input, drawing and panels, on Canvas 2D. The
    geometry is in board.js, the verdicts come from checker.js in a worker,
-   and the specification is docs/tiling-puzzle.md, "The board (phase 5)",
-   "The Hat and Spectre checker (phase 6)" and "Krinkle pieces (phase 7)".
+   and the specification is docs/tiling-puzzle.md, "The board (phase 5)"
+   and "The Hat and Spectre checker (phase 6)".
    The page shows how many rings are complete, marks corners where no piece
-   can fit, and says whether the patch fits a tiling. For the Hat and
-   Spectre a patch that fits no tiling is a dead end. For a Krinkle tile it
-   is only unknown, since the tile tiles in other ways. */
+   can fit, and says whether the patch fits a tiling. */
 (function () {
   'use strict';
 
-  const TB = TilingBoard, K = KrinkleTiling;
+  const TB = TilingBoard;
   const $ = id => document.getElementById(id);
   const canvas = $('board'), handCanvas = $('hand-canvas');
   if (!canvas.getContext) { $('fail').hidden = false; return; }
@@ -415,11 +413,6 @@
 
   /* ---------------------------------------------------- piece and board */
 
-  function pieceLabel() {
-    if (piece.kind !== 'krinkle') return piece.name;
-    return 'Krinkle (' + piece.opts.m + ', ' + piece.opts.k + ', ' + piece.opts.n + ')';
-  }
-
   function loadPiece(p, b) {
     stopAnimations();
     piece = p;
@@ -482,15 +475,13 @@
     el.textContent = s;
     el.classList.toggle('bad', cls === 'bad');
     el.classList.toggle('good', cls === 'good');
-    el.classList.toggle('warn', cls === 'warn');
     const busy = !!(incoming || filling);
     $('undo').disabled = steps.length <= 1 || busy;
     $('clear').disabled = n <= 1 || busy;
     const c = checkerFor(), help = helpReady();
-    const unknown = piece.kind === 'krinkle' && fresh() && verdict.status === 'unknown';
     ['hint', 'add-one', 'fill-ring'].forEach(id => {
       $(id).disabled = !help;
-      $(id).title = !help && unknown ? 'Needs a patch that fits a known tiling' : HELP_TITLES[id];
+      $(id).title = HELP_TITLES[id];
     });
     const good = c ? lastGood() : 0;
     $('undo-good').disabled = !(c && isRed() && good >= 1 && good < n) || busy;
@@ -508,29 +499,17 @@
 
   // One checker per piece, built on first use. Each runs checker.js in a
   // worker, or in the page when the browser has no workers or refuses one,
-  // as a page opened from a file may. A Krinkle checker holds four
-  // references, so only the current Krinkle tile keeps one.
+  // as a page opened from a file may.
   const checkers = {};
   let requestId = 0;
-
-  function retire(c) {
-    if (c.worker) { try { c.worker.terminate(); } catch (e) { /* already gone */ } }
-    c.retired = true;
-  }
 
   function checkerFor() {
     if (!TilingChecker.KINDS[piece.kind]) return null;
     const key = piece.key, kind = piece.kind;
     if (checkers[key]) return checkers[key];
-    if (kind === 'krinkle') {
-      Object.keys(checkers).forEach(k => {
-        if (checkers[k].kind === 'krinkle') { retire(checkers[k]); delete checkers[k]; }
-      });
-    }
-    const opts = kind === 'krinkle' ? { m: piece.opts.m, k: piece.opts.k, t: piece.opts.t, offset: piece.opts.offset } : undefined;
     const c = { key: key, kind: kind, ready: false, info: null, failed: '', waiting: new Map(), send: null, worker: null, retired: false };
     checkers[key] = c;
-    const init = { type: 'init', kind: kind, opts: opts };
+    const init = { type: 'init', kind: kind };
     const receive = msg => {
       if (c.retired) return;
       if (msg.type === 'ready') {
@@ -599,7 +578,7 @@
   function fresh() { return !!(verdict && !verdict.stale && verdict.count === board.count); }
   function isRed() {
     if (!fresh()) return false;
-    return verdict.status === 'dead' || verdict.status === 'unknown' ||
+    return verdict.status === 'dead' ||
            (verdict.status === 'large' && board.deadCorners().length > 0);
   }
   function helpReady() {
@@ -610,25 +589,15 @@
   function verdictText() {
     const c = checkerFor();
     if (!c) return null;
-    const name = piece.name, krinkle = piece.kind === 'krinkle';
-    // What the verdict names: "a Hat tiling", or "the fan tiling" for Krinkle.
-    const which = v => krinkle ? 'the ' + (v.source === 'repeat' ? 'repeating' : 'fan') + ' tiling' : 'a ' + name + ' tiling';
+    const name = piece.name;
+    const which = () => 'a ' + name + ' tiling';
     if (c.failed) return { text: 'The ' + name + ' checker failed: ' + c.failed, cls: 'bad' };
-    if (c.ready && c.info && c.info.off) {
-      return { text: 'No tiling check for this tile: its ' + c.info.n + ' turns are too fine for the check', cls: '' };
-    }
-    if (!c.ready) return { text: 'Building the ' + name + ' reference' + (krinkle ? 's' : '') + '…', cls: '' };
+    if (!c.ready) return { text: 'Building the ' + name + ' reference…', cls: '' };
     if (filling) return { text: 'Filling ring ' + (filling.ring + 1) + '…', cls: '' };
     const v = verdict;
     if (!v || (v.stale && performance.now() - changedAt > 250)) return { text: 'Checking…', cls: '' };
     if (v.status === 'error') return { text: v.message, cls: 'bad' };
-    if (v.status === 'off') return null;
-    if (v.status === 'fits') {
-      return krinkle ? { text: 'Fits ' + which(v), cls: 'good' } : { text: 'Fits a ' + name + ' tiling, so it can go on forever', cls: 'good' };
-    }
-    if (v.status === 'unknown') {
-      return { text: 'Not part of either tiling the app knows. It may still continue', cls: 'warn' };
-    }
+    if (v.status === 'fits') return { text: 'Fits a ' + name + ' tiling, so it can go on forever', cls: 'good' };
     if (v.status === 'dead') return { text: 'Dead end: this patch is in no ' + name + ' tiling', cls: 'bad' };
     return { text: 'Too large to check. Up to ' + (v.largeFrom - 1) + ' tiles it fitted ' + which(v), cls: 'good' };
   }
@@ -752,16 +721,7 @@
   function openLink(text) {
     const q = TB.parseQuery(text);
     if (!q.p) return false;
-    let p;
-    try {
-      p = TB.pieceOf(q);
-    } catch (e) {
-      p = TB.pieceType('krinkle', { m: 3, k: 7, t: 2, offset: 1 });
-      loadPiece(p, '');
-      notice = 'The link names a Krinkle tile that is not allowed: ' + e.message;
-      refreshText();
-      return true;
-    }
+    const p = TB.pieceOf(q);
     if (!p) return false;
     loadPiece(p, q.b || '');
     return true;
@@ -773,90 +733,17 @@
     catch (e) { return true; }
   }
 
-  function switchPiece(kind, opts) {
-    const p = TB.pieceType(kind, opts);
+  function switchPiece(kind) {
+    const p = TB.pieceType(kind);
     if (p.key === piece.key) return;
-    if (!confirmLoss(kind === 'krinkle' && piece.kind === 'krinkle' ? 'Changing the Krinkle tile' : 'Changing the piece')) return;
+    if (!confirmLoss('Changing the piece')) return;
     newBoard(p);
-  }
-
-  /* -------------------------------------------------------- Krinkle UI */
-
-  const gcd = (a, b) => { while (b) { const r = a % b; a = b; b = r; } return a; };
-  function validMs(k) {
-    if (k === 1) return [1];
-    const out = [];
-    for (let m = 1; m < k; m++) if (gcd(m, k) === 1) out.push(m);
-    return out;
-  }
-  function nearestM(m, k) {
-    let best = 1, gap = Infinity;
-    validMs(k).forEach(v => { if (Math.abs(v - m) < gap) { gap = Math.abs(v - m); best = v; } });
-    return best;
-  }
-  function tRange(m, k, offset) {
-    let lo = k === 1 ? 3 : 2, hi = lo;
-    while (K.directions(m, k, hi + 1, offset) <= K.MAX_N) hi++;
-    return [lo, hi];
-  }
-  // The Krinkle numbers the page would show: the piece's, or the opening tile.
-  function krinkleNow() {
-    return piece.kind === 'krinkle' ? { m: piece.opts.m, k: piece.opts.k, t: piece.opts.t, offset: piece.opts.offset }
-                                    : { m: 3, k: 7, t: 2, offset: 1 };
-  }
-
-  function buildPresets() {
-    const host = $('presets');
-    K.PRESETS.forEach(p => {
-      const n = K.directions(p.m, p.k, p.t, p.offset);
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.innerHTML = p.m + ', ' + p.k + ', ' + n + (p.offset ? '<sup>o</sup>' : '');
-      b.title = '(' + p.m + ', ' + p.k + ', ' + n + '), t = ' + p.t + (p.offset ? ', offset' : '') + '. ' + p.source;
-      b.dataset.key = [p.m, p.k, p.t, p.offset].join(',');
-      b.addEventListener('click', () => switchPiece('krinkle', { m: p.m, k: p.k, t: p.t, offset: p.offset }));
-      host.appendChild(b);
-    });
-  }
-
-  function stepKrinkle(param, d) {
-    const s = krinkleNow();
-    if (param === 'm') {
-      const ms = validMs(s.k), i = ms.indexOf(s.m) + d;
-      if (i < 0 || i >= ms.length) return;
-      s.m = ms[i];
-    } else if (param === 'k') {
-      const nk = s.k + d;
-      if (nk < 1 || nk > K.MAX_K) return;
-      s.k = nk;
-      s.m = nearestM(s.m, nk);
-    } else {
-      s.t += d;
-    }
-    const r = tRange(s.m, s.k, s.offset);
-    s.t = Math.max(r[0], Math.min(r[1], s.t));
-    switchPiece('krinkle', s);
   }
 
   function syncPanels() {
     Array.prototype.forEach.call($('piece-switch').children, b => b.setAttribute('aria-pressed', String(b.dataset.piece === piece.kind)));
-    const isK = piece.kind === 'krinkle';
-    $('chip-row').hidden = !isK;
     $('flip').hidden = !piece.flips;
-    if (!isK) { $('krinkle-panel').hidden = true; $('krinkle-chip').setAttribute('aria-expanded', 'false'); }
-    $('hand-label').textContent = pieceLabel();
-    if (isK) {
-      const o = piece.opts;
-      $('krinkle-chip').textContent = '(' + o.m + ', ' + o.k + ', ' + o.n + ')';
-      const outs = $('steppers').querySelectorAll('output');
-      outs[0].textContent = o.m; outs[1].textContent = o.k; outs[2].textContent = o.t;
-      $('offset').checked = !!o.offset;
-      const r = tRange(o.m, o.k, o.offset);
-      $('krinkle-note').textContent = 'm and k have no common factor. t runs from ' + r[0] + ' to ' + r[1] + ' here. The tile has ' + o.n + ' turns.';
-      Array.prototype.forEach.call($('presets').children, b => {
-        b.setAttribute('aria-pressed', String(b.dataset.key === [o.m, o.k, o.t, o.offset].join(',')));
-      });
-    }
+    $('hand-label').textContent = piece.name;
     $('flip').disabled = !piece.flips;
     $('turn-left').title = 'Turn the piece left (Q), ' + (360 / piece.turns).toFixed(piece.turns % 6 === 0 ? 0 : 1) + '°';
     $('turn-right').title = 'Turn the piece right (E), ' + (360 / piece.turns).toFixed(piece.turns % 6 === 0 ? 0 : 1) + '°';
@@ -1069,40 +956,7 @@
   });
 
   Array.prototype.forEach.call($('piece-switch').children, b => {
-    b.addEventListener('click', () => {
-      const kind = b.dataset.piece;
-      if (kind === 'krinkle') {
-        const s = krinkleNow();
-        if (piece.kind === 'krinkle') { toggleKrinkle(); return; }
-        switchPiece('krinkle', s);
-        if (piece.kind === 'krinkle') {
-          $('krinkle-panel').hidden = false;
-          $('krinkle-chip').setAttribute('aria-expanded', 'true');
-          requestAnimationFrame(resize);
-        }
-      } else {
-        switchPiece(kind);
-      }
-    });
-  });
-  function toggleKrinkle() {
-    const open = $('krinkle-panel').hidden;
-    $('krinkle-panel').hidden = !open;
-    $('krinkle-chip').setAttribute('aria-expanded', String(open));
-    requestAnimationFrame(resize);
-  }
-  $('krinkle-chip').addEventListener('click', toggleKrinkle);
-  Array.prototype.forEach.call(document.querySelectorAll('.stepper button'), b => {
-    b.addEventListener('click', () => stepKrinkle(b.parentNode.dataset.param, +b.dataset.step));
-  });
-  $('offset').addEventListener('change', () => {
-    const s = krinkleNow();
-    s.offset = $('offset').checked ? 1 : 0;
-    const r = tRange(s.m, s.k, s.offset);
-    s.t = Math.max(r[0], Math.min(r[1], s.t));
-    if (K.validate(s)) { syncPanels(); return; }
-    switchPiece('krinkle', s);
-    syncPanels();
+    b.addEventListener('click', () => switchPiece(b.dataset.piece));
   });
 
   $('grouping').addEventListener('change', () => {
@@ -1183,8 +1037,7 @@
   /* --------------------------------------------------------------- start */
 
   window.addEventListener('resize', resize);
-  // On a narrow window the play panel sits under the piece panel, whose
-  // height changes with the hint line and the Krinkle controls.
+  // On a narrow window the play panel sits under the piece panel.
   if (window.ResizeObserver) {
     new ResizeObserver(() => {
       document.documentElement.style.setProperty('--piece-h', Math.round($('piece-card').getBoundingClientRect().height) + 'px');
@@ -1198,7 +1051,6 @@
   });
   if (window.Theme) Theme.wireThemeToggle();
 
-  buildPresets();
   const saved = (store.get('tiling-puzzle:look') || '').split(',');
   if (['ring', 'orientation', 'one'].indexOf(saved[0]) >= 0) look.grouping = saved[0];
   if (PALETTES[saved[1]]) look.palette = saved[1];

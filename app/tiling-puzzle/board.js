@@ -27,8 +27,7 @@
   // global, and under Node the file is required.
   const SOURCES = {
     hat: ['HatTiling', '../tiles/hat/tiling.js'],
-    spectre: ['SpectreTiling', '../tiles/spectre/tiling.js'],
-    krinkle: ['KrinkleTiling', '../tiles/krinkle/tiling.js']
+    spectre: ['SpectreTiling', '../tiles/spectre/tiling.js']
   };
   function source(kind) {
     const s = SOURCES[kind];
@@ -37,34 +36,18 @@
     throw new Error('The ' + kind + ' tiling file is not loaded.');
   }
 
-  /* Krinkle's own numbers, with the offset as 0 or 1. */
-  function krinkleOptions(o) {
-    return { m: +o.m, k: +o.k, t: +o.t, offset: o.offset ? 1 : 0 };
-  }
-
-  /* kind is 'hat', 'spectre' or 'krinkle'. A Krinkle piece takes
-     {m, k, t, offset} from opts and throws a sentence if the explorer would
-     not allow them. */
-  function pieceType(kind, opts) {
+  /* kind is 'hat' or 'spectre'. */
+  function pieceType(kind) {
     let outline, turns, flips, key, name;
     if (kind === 'hat') {
       outline = source('hat').HAT14; turns = 6; flips = true; key = 'hat'; name = 'Hat';
     } else if (kind === 'spectre') {
       outline = source('spectre').SPECTRE; turns = 12; flips = false; key = 'spectre'; name = 'Spectre';
-    } else if (kind === 'krinkle') {
-      const K = source('krinkle'), o = krinkleOptions(opts || {});
-      const err = K.validate(o);
-      if (err) throw new Error(err);
-      const info = K.build(o).info;
-      outline = info.outline; turns = info.n; flips = false;
-      key = 'krinkle-' + [o.m, o.k, o.t, o.offset].join(',');
-      name = 'Krinkle';
-      opts = Object.assign({}, o, { n: info.n });
     } else {
       throw new Error('Unknown piece "' + kind + '".');
     }
     const piece = {
-      kind: kind, key: key, name: name, opts: opts || {}, flips: flips,
+      kind: kind, key: key, name: name, opts: {}, flips: flips,
       turns: turns, step: TAU / turns, n: outline.length,
       base: outline.map(function (p) { return [p[0], p[1]]; }),
       variants: new Map(), radius: 0, width: 0, area: 0
@@ -665,12 +648,9 @@
 
   /* --------------------------------------------------------- the link */
 
-  /* The query text for a board: p, then mk, t and o for Krinkle, then b. */
+  /* The query text for a board: p, then b. */
   function linkOf(board) {
     const piece = board.piece, parts = ['p=' + piece.kind];
-    if (piece.kind === 'krinkle') {
-      parts.push('mk=' + piece.opts.m + ',' + piece.opts.k, 't=' + piece.opts.t, 'o=' + piece.opts.offset);
-    }
     const b = board.encode();
     if (b) parts.push('b=' + b);
     return parts.join('&');
@@ -687,13 +667,10 @@
     return q;
   }
 
-  /* The piece a link names, or null when it names none. A Krinkle tile that
-     the explorer would not allow throws. */
+  /* The piece a link names, or null when it names none. */
   function pieceOf(q) {
     if (q.p === 'hat' || q.p === 'spectre') return pieceType(q.p);
-    if (q.p !== 'krinkle') return null;
-    const mk = String(q.mk || '3,7').split(',').map(Number);
-    return pieceType('krinkle', { m: mk[0], k: mk[1], t: q.t === undefined ? 2 : +q.t, offset: q.o === '1' ? 1 : 0 });
+    return null;
   }
 
   /* Replays the tokens of a b= list on a fresh board. It stops at the first

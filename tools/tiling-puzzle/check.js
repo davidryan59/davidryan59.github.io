@@ -20,9 +20,8 @@
      3  Share link: random builds survive a round trip through the link
         unchanged, and a bad token stops the decode where it falls.
      4  Ring counter: a patch of 1, 2 and 3 rings cut from the Hat explorer's
-        tiling, and from the Spectre's, replays to the same counter. So do
-        patches of the Krinkle fan and repeating tilings for four tiles. A
-        patch cut from a legal tiling has no dead corner.
+        tiling, and from the Spectre's, replays to the same counter. A patch
+        cut from a legal tiling has no dead corner.
      5  Corner check: in random builds every dead corner has no placement on
         either free edge, found by trying every turn without the board's own
         turn rule.
@@ -33,7 +32,6 @@ const ROOT = path.join(__dirname, '..', '..') + '/';
 const TB = require(ROOT + 'app/tiling-puzzle/board.js');
 const HatTiling = require(ROOT + 'app/tiles/hat/tiling.js');
 const SpectreTiling = require(ROOT + 'app/tiles/spectre/tiling.js');
-const KrinkleTiling = require(ROOT + 'app/tiles/krinkle/tiling.js');
 const TC = require(ROOT + 'app/tiles/engine/tiling-core.js');
 
 const args = process.argv.slice(2);
@@ -53,16 +51,8 @@ let failures = 0;
 function fail(label, msg) { failures++; console.log('  FAIL ' + label + ': ' + msg); }
 function must(label, ok, msg) { if (!ok) fail(label, msg); return ok; }
 
-/* The piece types the random checks use: both aperiodic tiles and five
-   Krinkle tiles, odd and even n, with and without offset. */
-const PIECES = [
-  ['hat'], ['spectre'],
-  ['krinkle', { m: 3, k: 7, t: 2, offset: 1 }],
-  ['krinkle', { m: 1, k: 4, t: 5, offset: 0 }],
-  ['krinkle', { m: 5, k: 16, t: 2, offset: 1 }],
-  ['krinkle', { m: 2, k: 5, t: 2, offset: 0 }],
-  ['krinkle', { m: 1, k: 1, t: 16, offset: 1 }]
-].map(a => TB.pieceType(a[0], a[1]));
+/* The two aperiodic piece types used by the puzzle. */
+const PIECES = ['hat', 'spectre'].map(kind => TB.pieceType(kind));
 
 /* ------------------------------------------------- independent geometry */
 
@@ -260,10 +250,8 @@ function check3() {
   // The Spectre has no mirror flag, and a mirror token is refused for it.
   const sp = TB.decode(PIECES[1], '0.0.0.f');
   must('flag', sp.error !== null, 'a mirrored Spectre token was accepted');
-  // A Krinkle link that the explorer would reject throws a sentence.
-  let threw = null;
-  try { TB.pieceOf(TB.parseQuery('p=krinkle&mk=4,8&t=2&o=0')); } catch (e) { threw = e.message; }
-  must('invalid', threw !== null, 'm=4, k=8 (common factor) was accepted');
+  must('piece', TB.pieceOf(TB.parseQuery('p=krinkle&mk=3,7&t=2&o=1')) === null,
+       'a removed Krinkle puzzle link was accepted');
   console.log('   ' + builds + ' builds round-tripped, longest link ' + longest + ' characters');
 }
 
@@ -397,28 +385,6 @@ function check4() {
   sf = [st.P[0] + z[0], st.P[1] + z[1]];
   ringCheck('Spectre', PIECES[1], explorerPatch(spectre, SpectreTiling.SPECTRE_TP, sf, 24, 1));
 
-  // Krinkle patches of the fan and of the repeating tiling, away from the
-  // centre of the fan, where the tiles are regular.
-  [[3, 7, 2, 1], [1, 4, 5, 0], [5, 16, 2, 1], [2, 5, 2, 0]].forEach(a => {
-    ['fan', 'repeat'].forEach(arrangement => {
-      const o = { m: a[0], k: a[1], t: a[2], offset: a[3] };
-      const ctx = KrinkleTiling.build(Object.assign({ arrangement: arrangement }, o));
-      const piece = TB.pieceType('krinkle', o), at = [ctx.info.Qlen * 5, ctx.info.Qlen * 3];
-      const tiles = [];
-      ctx.enumerate(ctx.info.Qlen * 20, t => {
-        if (Math.hypot(t.x - at[0], t.y - at[1]) < ctx.info.circumradius * 8) tiles.push(t);
-      });
-      let first = 0;
-      tiles.forEach((t, i) => {
-        if (Math.hypot(t.x - at[0], t.y - at[1]) < Math.hypot(tiles[first].x - at[0], tiles[first].y - at[1])) first = i;
-      });
-      const polys = tiles.map(t => {
-        const pts = ctx.corners(t), xs = Float64Array.from(pts, p => p[0]), ys = Float64Array.from(pts, p => p[1]);
-        return { xs: xs, ys: ys, n: xs.length, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
-      });
-      ringCheck('Krinkle ' + o.m + ',' + o.k + ',' + o.t + ',' + o.offset + ' ' + arrangement, piece, { polys: polys, first: first });
-    });
-  });
 }
 
 /* ------------------------------------------------------------ check 5 */

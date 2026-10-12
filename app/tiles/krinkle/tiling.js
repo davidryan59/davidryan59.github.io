@@ -4,7 +4,8 @@
 
    One equilateral tile, set by three whole numbers m, k, t and an offset
    switch, fills the plane in a fan of congruent wedges that swirl round a
-   centre. The same tile also tiles periodically (the Repeating arrangement).
+   centre. The same tile also makes a repeating lattice and a grain boundary
+   between two lattices whose tiles differ by one turn.
    Every corner is a sum of unit steps in n directions, 2*pi/n apart.
 
    The tiling is never stored. A request for a square of the plane maps the
@@ -77,7 +78,7 @@
     if (n < 3) return 'n must be 3 or more: with k = 1, t must be 3 or more.';
     if (n > MAX_N) return 'n must be ' + MAX_N + ' or less: here n = ' + n + '.';
     var a = o.arrangement;
-    if (a !== undefined && a !== 'fan' && a !== 'repeat') return 'arrangement must be "fan" or "repeat".';
+    if (a !== undefined && a !== 'fan' && a !== 'repeat' && a !== 'boundary') return 'arrangement must be "fan", "repeat" or "boundary".';
     return null;
   }
 
@@ -220,6 +221,14 @@
       var ox = a * d0[0] + b * d1[0], oy = a * d0[1] + b * d1[1];
       return { i: 0, r: a, c: b, turn: 0, q: 0, j: 0, lo: false, hi: false, ox: ox, oy: oy, x: ox + qx, y: oy + qy };
     }
+    // Extend the common staircase of wedges 0 and 1 in both directions.
+    // The two closed half-lattices meet along that staircase.
+    function boundaryTile(side, r, c) {
+      var tile = fanTile(side, r, c);
+      tile.q = tile.j = side;
+      tile.lo = tile.hi = false;
+      return tile;
+    }
 
     // The tile's corners in the plane, in outline order.
     function corners(tile) {
@@ -254,7 +263,9 @@
         }
         return;
       }
-      for (i = 0; i < n; i++) {
+      var first = 0, last = n - 1;
+      if (arrangement === 'boundary') last = 1;
+      for (i = first; i <= last; i++) {
         var co = cs[i], si = sn[i], A = apex[i];
         rmin = cmin = Infinity; rmax = cmax = -Infinity;
         for (q = 0; q < 4; q++) {
@@ -265,13 +276,15 @@
           rmin = Math.min(rmin, rr); rmax = Math.max(rmax, rr);
           cmin = Math.min(cmin, cc); cmax = Math.max(cmax, cc);
         }
-        r0 = Math.max(0, Math.ceil(rmin - EPS)); r1 = Math.floor(rmax + EPS);
+        r0 = arrangement === 'fan' ? Math.max(0, Math.ceil(rmin - EPS)) : Math.ceil(rmin - EPS);
+        r1 = Math.floor(rmax + EPS);
         if (r1 < r0) continue;
-        c0 = Math.max(0, Math.ceil(cmin - EPS)); c1 = Math.floor(cmax + EPS);
+        c0 = arrangement === 'fan' || i === 1 ? Math.max(0, Math.ceil(cmin - EPS)) : Math.ceil(cmin - EPS);
+        c1 = Math.floor(cmax + EPS);
         for (r = r0; r <= r1; r++) {
-          var ce = Math.min(r, c1);
+          var ce = arrangement === 'fan' || i === 0 ? Math.min(r, c1) : c1;
           for (c = c0; c <= ce; c++) {
-            tile = fanTile(i, r, c);
+            tile = arrangement === 'fan' ? fanTile(i, r, c) : boundaryTile(i, r, c);
             if (inBox(tile, box)) emit(tile);
           }
         }
@@ -290,6 +303,20 @@
         for (r = -amax; r <= amax; r++) for (c = -bmax; c <= bmax; c++) {
           var tt = repeatTile(r, c);
           if (Math.hypot(tt.x, tt.y) <= radius) emit(tt);
+        }
+        return;
+      }
+      if (arrangement === 'boundary') {
+        var span2 = radius + Qlen + Math.max(Math.hypot(apex[0][0], apex[0][1]), Math.hypot(apex[1][0], apex[1][1]));
+        var rbound = Math.ceil(span2 * Math.hypot(d1[0], d1[1]) / Math.abs(det)) + 2;
+        var cbound = Math.ceil(span2 * Math.hypot(d0[0], d0[1]) / Math.abs(det)) + 2;
+        for (i = 0; i <= 1; i++) for (r = -rbound; r <= rbound; r++) {
+          var begin = i === 1 ? 0 : -cbound;
+          var end = i === 0 ? Math.min(r, cbound) : cbound;
+          for (c = begin; c <= end; c++) {
+            var bt = boundaryTile(i, r, c);
+            if (Math.hypot(bt.x, bt.y) <= radius) emit(bt);
+          }
         }
         return;
       }
@@ -331,18 +358,25 @@
     }
 
     // The spiral arm counts of the Bridges paper, without offset and k > 1.
-    var arms = (!offset && k > 1) ? { ccw: t * minv, cw: t * (k - minv) } : null;
+    var arms = arrangement === 'fan' && !offset && k > 1 ? { ccw: t * minv, cw: t * (k - minv) } : null;
+
+    var viewCentre = centre;
+    if (arrangement === 'boundary') {
+      var left = boundaryTile(0, 0, 0), right = boundaryTile(1, 0, 0);
+      viewCentre = [(left.x + right.x) / 2, (left.y + right.y) / 2];
+    }
 
     var info = {
       m: m, k: k, t: t, offset: offset, arrangement: arrangement,
-      triple: [m, k, n], n: n, w: w, centre: centre,
+      triple: [m, k, n], n: n, w: w, centre: viewCentre,
       // For the engine: the angle of one turn is 2 pi / turns, and the view
       // opens on the centre of the tiling.
-      turns: n, start: { P: centre.slice(), R: [0, 0] },
+      turns: n, start: { P: viewCentre.slice(), R: [0, 0] },
       edgeCount: edgeCount, outline: outline, edgeHour: edgeHour,
       Q: Q, Qlen: Qlen, d0: d0, d1: d1, area: area, circumradius: circum,
       jstar: jstars, apex: apex, arms: arms, rowStep: rowStep, rowBase: rowBase,
-      symmetry: offset ? 2 : t,
+      symmetry: arrangement === 'fan' ? (offset ? 2 : t) : null,
+      boundaryPeriod: arrangement === 'boundary' ? [cs[1] * d0[0] - sn[1] * d0[1], sn[1] * d0[0] + cs[1] * d0[1]] : null,
       chunkSize: chunkSize
     };
 
