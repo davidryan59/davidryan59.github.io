@@ -84,6 +84,10 @@
   #values-dialog label { display: grid; gap: 0.2rem; color: var(--h3); font-style: italic; }
   #values-dialog input { width: 100%; box-sizing: border-box; padding: 0.35rem; color: var(--text); background: var(--panel); border: 1px solid var(--rule); border-radius: 5px; font: inherit; }
   #values-dialog .error-note { min-height: 1.2em; max-width: 16rem; margin: 0.6rem 0; font-size: 0.8rem; }
+  #values-dialog .value-note { margin: 0.65rem 0 0; color: var(--h3); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  #values-dialog .bounds-note { margin: 0.2rem 0 0; max-width: 17rem; color: var(--muted); font-size: 0.75rem; line-height: 1.35; }
+  #values-dialog .ok-note { color: #18763a; }
+  :root[data-theme="dark"] #values-dialog .ok-note { color: #63d68a; }
   #values-dialog .actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 </style>
 <script data-goatcounter="https://drbuild.goatcounter.com/count"
@@ -218,6 +222,8 @@
       <label>k<input id="value-k" type="number" inputmode="numeric" step="1" min="1" max="120" required></label>
       <label>t<input id="value-t" type="number" inputmode="numeric" step="1" min="2" required></label>
     </div>
+    <p class="value-note" id="values-n"></p>
+    <p class="bounds-note" id="values-bounds"></p>
     <p class="error-note" id="values-error" aria-live="polite"></p>
     <div class="actions">
       <button type="button" id="values-cancel">Cancel</button>
@@ -738,7 +744,7 @@
     syncControls();
     scheduleLimits();
     pushPlayback();
-    if (pendingHome && map) { var h = pendingHome; pendingHome = null; map.home(h.scale); }
+    if (pendingHome && map) { var h = pendingHome; pendingHome = null; map.home(h.scale, h.immediate); }
   }
 
   map = TM.start({
@@ -761,6 +767,7 @@
     classes: function (g) { return g.classes(); },
     groupings: groupings,
     presets: presets,
+    defaultScheme: 'pastel6',
     shape: shape,
     tileRadius: function () { return built.circumradius + (straight() ? 0 : Math.abs(st.bend)) + 0.5; },
     onReady: onReady,
@@ -962,7 +969,9 @@
 
   function applyPreset(p, o) {
     st.m = o.m; st.k = o.k; st.t = o.t; st.offset = o.offset;
-    var home = { scale: undefined };
+    // Presets are landmarks, so centre them exactly. An animated home could
+    // be interrupted by another control before it reached the fan centre.
+    var home = { scale: undefined, immediate: true };
     if (p.edgeShape) {
       st.shape = p.edgeShape;
       st.bend = JIGSAW_BEND;
@@ -996,34 +1005,48 @@
   var valuesDialog = document.getElementById('values-dialog');
   var valuesForm = document.getElementById('values-form');
   var valuesError = document.getElementById('values-error');
+  var valuesN = document.getElementById('values-n');
+  var valuesBounds = document.getElementById('values-bounds');
   var valueEls = {
     m: document.getElementById('value-m'),
     k: document.getElementById('value-k'),
     t: document.getElementById('value-t')
   };
-  document.getElementById('set-values').addEventListener('click', function () {
-    valueEls.m.value = st.m;
-    valueEls.k.value = st.k;
-    valueEls.t.value = st.t;
-    valuesError.textContent = '';
-    valuesDialog.showModal();
-    valueEls.m.select();
-  });
-  document.getElementById('values-cancel').addEventListener('click', function () { valuesDialog.close(); });
-  valuesForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var next = {
+  function dialogValues() {
+    return {
       m: valueEls.m.valueAsNumber,
       k: valueEls.k.valueAsNumber,
       t: valueEls.t.valueAsNumber,
       offset: st.offset,
       arrangement: st.layout
     };
+  }
+  function updateValuePreview() {
+    var next = dialogValues();
+    var finite = isFinite(next.m) && isFinite(next.k) && isFinite(next.t);
+    valuesN.textContent = 'n = ' + (finite ? K.directions(next.m, next.k, next.t, next.offset) : '—') +
+      ' · Offset ' + (next.offset ? 'on' : 'off');
+    valuesBounds.textContent = 'Bounds: k 1–120; m 1–k−1 and coprime to k (m = 1 when k = 1); ' +
+      't ≥ 2 (t ≥ 3 when k = 1); n 3–240.';
     var error = K.validate(next);
-    if (error) {
-      valuesError.textContent = error;
-      return;
-    }
+    valuesError.textContent = error || 'OK';
+    valuesError.classList.toggle('ok-note', !error);
+    return error;
+  }
+  document.getElementById('set-values').addEventListener('click', function () {
+    valueEls.m.value = st.m;
+    valueEls.k.value = st.k;
+    valueEls.t.value = st.t;
+    updateValuePreview();
+    valuesDialog.showModal();
+    valueEls.m.select();
+  });
+  Object.keys(valueEls).forEach(function (key) { valueEls[key].addEventListener('input', updateValuePreview); });
+  document.getElementById('values-cancel').addEventListener('click', function () { valuesDialog.close(); });
+  valuesForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var next = dialogValues();
+    if (updateValuePreview()) return;
     st.m = next.m;
     st.k = next.k;
     st.t = next.t;

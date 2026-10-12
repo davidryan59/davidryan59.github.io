@@ -898,7 +898,7 @@
     var presets = {};
     cfg.presets.forEach(function (p) { presets[p.id] = p; });
     // The selection is a preset id, or 'custom:' and a grouping id.
-    var sel = cfg.presets[0].id, customs = {};
+    var sel = cfg.defaultScheme || cfg.presets[0].id, customs = {};
 
     function currentGrouping() {
       return groupings[sel.indexOf('custom:') === 0 ? sel.slice(7) : presets[sel].grouping];
@@ -1854,11 +1854,11 @@
     });
 
     // A number as the argument sets the zoom to return to, once.
-    function goHome(scale) {
+    function goHome(scale, immediate) {
       anim.vx = anim.vy = anim.panX = anim.panY = 0;
       START_S = typeof scale === 'number' ? clampS(scale) : startFor(info);
       var rel = relOf(info.start.P, info.start.R), sc = relToScreen(rel);
-      if (Math.hypot(sc[0], sc[1]) < 4 * Math.max(W, Hh) && !reduceMotion) {
+      if (!immediate && Math.hypot(sc[0], sc[1]) < 4 * Math.max(W, Hh) && !reduceMotion) {
         anim.panX = -sc[0]; anim.panY = -sc[1];
       } else {
         view.P = info.start.P.slice(); view.R = info.start.R.slice();
@@ -1901,7 +1901,7 @@
     // colour panel: the first preset and no custom colours. The theme is
     // left alone, since it is shared with the rest of the site.
     function resetColours() {
-      sel = cfg.presets[0].id;
+      sel = cfg.defaultScheme || cfg.presets[0].id;
       customs = {};
       renderSchemeSelect();
       saveOptions();

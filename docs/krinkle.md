@@ -740,17 +740,21 @@ Checks, 2026-10-12:
 - **Pastel 1 to 6.** The six presets use one to six hue tracks. Their jumps
   are consecutive, 180°, 120°, 90°, 72° and 60°. Each set of tracks advances
   round the hue circle together. The dark rhythms are every 2nd, 3rd, 3rd,
-  4th, 5th and 3rd wedge.
+  4th, 5th and 3rd wedge. Pastel 6 is the default.
 - **Direct entry.** `Set m, k, t` opens a modal number form. Apply uses the
-  worker's validator with the current Offset setting. Invalid values show the
-  broken rule and keep the form open. Cancel and Escape close it at any time.
+  worker's validator with the current Offset setting. The form shows n, all
+  parameter bounds and a live green OK or the exact red Apply error. Invalid
+  values keep the form open. Cancel and Escape close it at any time.
+- **Preset home.** A preset now centres the fan immediately. The old animated
+  pan could be interrupted before it reached the centre.
 
 Checks, 2026-10-12:
 
 - The worker checks pass at (119, 120, 240), the largest non-offset case.
 - The maximum k Jigsaw view and Pastels 3 and 6 pass all six screen sizes.
 - Browser checks cover all six menu entries, invalid Apply, Cancel and a
-  valid direct change to (119, 120, 2).
+  valid direct change to (119, 120, 2). They also confirm the Pastel 6
+  default, live n and validation, and preset centring after a pan.
 
 ## Later
 
