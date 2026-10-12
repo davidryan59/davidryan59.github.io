@@ -8,6 +8,17 @@
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../../favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/app/tiling-puzzle/">
+<meta property="og:title" content="Tiling Puzzle – build Hat and Spectre tilings by hand">
+<meta property="og:description" content="Place Hat and Spectre tiles one by one, and learn whether your patch can still grow forever.">
+<meta property="og:image" content="https://drbuild.uk/social/puzzle.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A hand-built patch of pastel Hat tiles in the Tiling Puzzle">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="A hand-built patch of pastel Hat tiles in the Tiling Puzzle">
+<meta name="twitter:creator" content="@davidryan59">
 <script src="../../assets/theme.js"></script>
 <script>
   Theme.initTheme();
@@ -269,6 +280,14 @@ svg { display: block; }
   .colours select { width: 5.6rem; font-size: 0.82rem; padding: 0.25rem 0.3rem; }
 }
 .fail { top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 1rem 1.25rem; max-width: calc(100vw - 24px); }
+.about {
+  z-index: 10; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(34rem, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
+  overflow-y: auto; padding: 1rem 1.2rem;
+}
+.about h2 { margin: 0 2rem 0.6rem 0; color: var(--h1); font-size: 1.25rem; font-weight: normal; }
+.about p { margin: 0.65rem 0; }
+.about .close { position: absolute; top: 0.55rem; right: 0.65rem; font-size: 1.15rem; }
 </style>
 <script data-goatcounter="https://drbuild.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
@@ -281,6 +300,7 @@ svg { display: block; }
   <a class="back" href="../../index.html">← David Ryan's builder page</a>
   <h1>Tiling Puzzle</h1>
   <div class="actions">
+    <button type="button" id="about-open">About</button>
     <button class="icon-btn" id="fullscreen" type="button" aria-label="Enter full screen" title="Full screen" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>
@@ -300,6 +320,25 @@ svg { display: block; }
     <li>Surround the first tile to complete ring 1.</li>
     <li>Can you surround it again?</li>
   </ol>
+</section>
+
+<section class="card about" id="about" role="dialog" aria-modal="false" aria-labelledby="about-title" hidden>
+  <button type="button" class="close" id="about-close" aria-label="Close">×</button>
+  <h2 id="about-title">Tiling Puzzle</h2>
+  <p>
+    Place Hat or Spectre tiles one at a time. A piece must share an edge with
+    the patch and cannot overlap another tile.
+  </p>
+  <p>
+    A patch can fit perfectly and still reach a dead end. The puzzle searches
+    a large known tiling after each move. Green means that the patch occurs
+    there and can keep growing. Red marks a patch that cannot.
+  </p>
+  <p>
+    David Smith discovered the Hat in 2022. Smith, Joseph Samuel Myers,
+    Craig S. Kaplan and Chaim Goodman-Strauss proved that the Hat is an
+    aperiodic monotile, then found the Spectre, which needs no reflected copy.
+  </p>
 </section>
 
 <section class="card play" aria-label="Play">

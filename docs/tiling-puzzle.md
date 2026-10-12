@@ -27,8 +27,8 @@ and Spectre tiling files.
 - [x] Phase 6: The Hat and Spectre checker: reference tiling, match set,
       verdicts, Add one, Hint and Fill a ring (built 2026-10-11)
 - [x] Remove the Krinkle mode after reviewing its puzzle logic (2026-10-12)
-- [ ] Release: builder page entry, share card, short address, and a "Build it
-      yourself" link on the Hat and Spectre tabs
+- [x] Release: builder page entry, share card, short address, and a "Build it
+      yourself" link on the Hat and Spectre tabs (2026-10-12)
 
 ## Decisions (2026-10-11)
 

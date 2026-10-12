@@ -66,6 +66,7 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/nonrup`, `/nopert` | Short addresses for the Nopert Polyhedra Explorer | `redirects/nonrup.html`, `redirects/nopert.html` |
 | `/tiles` | The paper, and the corner label of the tiling video | `redirects/tiles.html` |
 | `/krinkle` | A short address for the Krinkle tab of the tiling explorer | `redirects/krinkle.html` |
+| `/puzzle` | A short address for the Tiling Puzzle | `redirects/puzzle.html` |
 | `/demos/hat/`, `/demos/spectre/`, `/demos/hat-extended/` | Shared links to the explorer, each with its settings after the `#`. The `index.html` form of each is a link too | `redirects/demos-*.html` |
 | `/aperiodic-pairs/` | The builder page's first link to the gallery | `redirects/aperiodic-pairs.html` |
 | `/smash` | A short address to share. The first address, `/smash/`, also works | `redirects/smash.html` |

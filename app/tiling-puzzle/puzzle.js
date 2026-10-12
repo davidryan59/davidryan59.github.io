@@ -955,6 +955,10 @@
     else done(false);
   });
 
+  const about = $('about');
+  $('about-open').addEventListener('click', () => { about.hidden = false; $('about-close').focus(); });
+  $('about-close').addEventListener('click', () => { about.hidden = true; $('about-open').focus(); });
+
   Array.prototype.forEach.call($('piece-switch').children, b => {
     b.addEventListener('click', () => switchPiece(b.dataset.piece));
   });
