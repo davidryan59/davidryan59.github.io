@@ -13,7 +13,7 @@ This document is the build specification. It gives every formula the code
 needs, so no one has to work them out from the papers again. It splits the
 work into four phases, each with its own checks. The tab reuses the explorer's
 engine, which first needs one careful change: it assumes 12 turns of 30° and
-tiles with 14 edges, while Krinkle needs n turns and up to 62 edges.
+tiles with 14 edges, while Krinkle needs n turns and up to 146 edges.
 
 Every picture is computed from the definitions below. The papers' figures are
 used only to check the output, never copied.
@@ -26,6 +26,7 @@ used only to check the output, never copied.
 - [x] Phase 3: The Krinkle tab page (2026-10-11)
 - [x] Phase 4: Construction playback and scripting hooks (2026-10-11)
 - [x] Grain-boundary arrangement (2026-10-12)
+- [x] Colours, k to 72 and the tabbed panel (2026-10-12)
 - [ ] Later list reviewed, once the tab is live
 
 ## Sources
@@ -54,7 +55,7 @@ used only to check the output, never copied.
 | Name | Values | Meaning |
 |---|---|---|
 | m | 1 ≤ m ≤ k − 1 with gcd(m, k) = 1; or m = 1 when k = 1 | Rhythm of the zigzag |
-| k | 1 to 30 | Length of the zigzag; the tile has 2k + 2 edges |
+| k | 1 to 72 | Length of the zigzag; the tile has 2k + 2 edges |
 | t | 2 or more | Number of fan copies round the centre |
 | offset | 0 or 1 | Selects the second family, with only 2-fold symmetry |
 
@@ -64,7 +65,8 @@ used only to check the output, never copied.
 - Valid only when n ≥ 3. For k ≥ 2 this always holds. For k = 1 it needs
   t ≥ 3 in both cases.
 - The page caps n at 240. That keeps the turn in 8 bits and the stroke cost
-  bounded.
+  bounded. With offset at t = 2 the cap needs m ≥ 2k − 120, which rules out
+  the small m above k = 60.
 - The papers name a tiling by (m, k, n). The page shows that triple, and
   stores m, k, t and offset.
 
@@ -264,7 +266,8 @@ The worker:
   the other half. Within a wedge, tiles build row by row.
 
 Checks in `tools/krinkle/check.js`, run on the presets and on 200 random
-valid parameter sets with k ≤ 20, t ≤ 4 and both offsets. Run it with
+valid parameter sets with t ≤ 4 and both offsets. k reaches the cap of
+72, favouring small k as the page's dice does. Run it with
 `node tools/krinkle/check.js`. The presets use a disc of 40 tile lengths and
 100,000 points, and the random sets 12 tile lengths and 20,000 points. Each
 set is checked in all three arrangements:
@@ -366,7 +369,7 @@ The engine change follows the plan above, with four departures:
 
 For phase 3, the page sets:
 
-- `record: 'krinkle'`, `maxCorners: 64`, `grid: false`, `options`, and
+- `record: 'krinkle'`, `maxCorners: 2 * MAX_K + 2` (146), `grid: false`, `options`, and
   `handler: KrinkleTiling.createHandler` for the fallback without workers;
 - corners relative to the reference point Q/2, since the record holds the
   tile's centre;
@@ -523,14 +526,15 @@ Phase 3 follows the plan above, with these departures and additions:
   `map.home(scale)`, `map.scheme(id)` and `map.outlines(on)` are new; the
   chunk margin grows to 1.25 times `info.circumradius` plus 2 for the Krinkle
   record, since a large tile far outside the view still reaches into it; a
-  custom colour set whose group count changes with a rebuild is dropped; and
+  custom colour set whose group count changes with a rebuild is stretched
+  to fit (see the 2026-10-12 section below); and
   extras in the address bar keep their commas, so `mk=3,7` reads plainly.
 - **Lattice colouring.** Class mode 7 colours by (r mod 2, c mod 2), four
   colours. Repeating has one orientation, so every wedge colouring shows one
   colour there. The page switches to Lattice on Repeating, and back to
   Pastel on Fan, unless the colours were chosen to suit already.
-- **Layout.** The Options card has two columns from 960 px wide: the tile on
-  the left, and how it is drawn on the right. It stands left of the zoom
+- **Layout.** The Options card has two tabs: Tile, then Arrangement, which
+  holds how the tiling is laid out and drawn. It stands left of the zoom
   buttons so they never cover it. The tile figure turns the tile so that its
   long axis, P_0 to Q, runs left to right, which gives the labels room.
 - **Jigsaw preset.** (9, 10, 20) opens with Jigsaw edges, Single, at height
@@ -647,6 +651,86 @@ Results, 2026-10-11, in headless Chrome with software rendering:
   pass.
 - `node capture.js krinkle` took 0.125 s a frame, so a full film of 690
   frames takes about 90 seconds.
+
+## Colours, high k and the panel (2026-10-12)
+
+A round of changes after the tab went up, agreed with David on 2026-10-12.
+
+- **k to 72.** `MAX_K` is 72, so a tile has up to 146 edges, and the page
+  passes `maxCorners: 2 * MAX_K + 2`. n stays capped at 240. With offset at
+  t = 2 that needs m ≥ 2k − 120, so above k = 60 the m stepper skips the
+  small m, and turning Offset on moves m to the nearest valid value.
+- **Edge culling.** The shader measures edges in blocks of four, each with a
+  bounding circle, and skips a block that lies beyond the widest line's
+  reach. The Hat, Spectre and Hat (extended) tabs draw the same pixels as
+  before. Below 2 device pixels of curve height the fill mesh stays
+  straight while the strokes still follow the curve, and below one pixel
+  the curves draw straight.
+
+  Frame times at phone size, 390 × 844 at 3× (the engine draws at 2×), on
+  an M1 Max with vsync off, at the same views before and after:
+
+  | Tiling and view | Before | After |
+  |---|---|---|
+  | (3, 7, 22), the opening view | 3.9 ms | 3.3 ms |
+  | (7, 30, 60), straight, zoom 2.6 | 9.2 ms | 4.6 ms |
+  | (7, 30, 60), Jigsaw at −0.3, zoom 2.6 | 38.0 ms | 8.5 ms |
+  | (7, 30, 60), Jigsaw at −0.3, zoom 20 | 16.9 ms | 10.6 ms |
+  | (29, 72, 144), straight, the opening view | not allowed | 4.9 ms |
+  | (29, 72, 144), Jigsaw, the opening view | not allowed | 8.1 ms |
+  | (29, 72, 144), Jigsaw, zoomed right out | not allowed | 12.4 ms |
+  | (29, 72, 144), Jigsaw, zoom 20 | not allowed | 16.8 ms |
+  | Hat (extended), Jigsaw, for comparison | 8.9 ms | 8.6 ms |
+
+  A phone GPU is several times slower, so a high-k tiling with curved
+  edges, zoomed in, is the slowest case left.
+- **Opening zoom.** About eight tile lengths across the shorter side, as
+  before, but at least enough that the tile's mean thickness, its area over
+  |Q|, spans a sixtieth of that side. Without it a k = 60 tile opened 2.6 px
+  thick on a phone. Of the presets only (5, 16, 54) changes, opening 1.25
+  times closer, and k = 1 keeps the length rule for its thin rhombi.
+- **Key.** Above 24 wedges the key shows one strip of colour in wedge order.
+  A click picks the wedge under the pointer.
+- **Dice.** The tile dice reaches k = 72, with half its rolls at k ≤ 18.
+- **Colours the same in both modes.** Every coloured scheme uses its light
+  colours in dark mode too, on all four tabs and in the Tiling Puzzle. Dark
+  Pastel was L 0.40 to 0.42 with chroma about 0.07, which read as grey-brown.
+  Each tile already takes whichever ink contrasts with it, so dark mode now
+  changes only the panels. Plain, Mirrored hats, and Common and rare keep a
+  dark version, because one of their colours stands in for the background.
+- **Accents.** Pastel puts about one wedge in three in the Hat and Spectre
+  accent, OKLCH L 0.64 and C 0.14, at the wedge's own hue. The count is
+  round(w / 3) per copy of the fan, where w is k, or n/2 with offset, spread
+  evenly, so every copy matches. (3, 7, 22) has 8 accent wedges of 22.
+  Lattice gives the accent to one class of four, the teal class (2), which
+  read clearest of the four against the pastels.
+- **Custom colours keep across a change of n.** New wedge i takes the old
+  colour at i × n_old / n_new, so a gradient survives. Before, the set was
+  dropped and Pastel came back, which happened on every m click with offset.
+- **Colour dice.** The 27 colours come up half the time and the other four
+  palettes an eighth each, on every tab. On the one-colour-per-wedge
+  grouping, half the rolls instead keep the wedge order: a hue ring with a
+  random start, direction and lightness; a two-hue gradient, out and back
+  through each copy; or an accented Pastel with a random first hue.
+- **Options panel.** One column with two tabs: Tile (opens) and Arrangement.
+  Reset options sits below both. It was two columns, 34rem wide, from
+  960 px.
+
+Checks, 2026-10-12:
+
+- `node tools/krinkle/check.js --quick --random 40`: all checks pass. The
+  random sets now reach the k cap, favouring small k as the dice does, and
+  reached (61, 69, 207). k = 73 is refused, and so is an offset set at
+  k = 72 that would take n past 240.
+- Pixel comparison against the committed pages in light mode: the Hat,
+  Spectre and Hat (extended) tabs, and Krinkle with Jigsaw edges and wedge
+  outlines, match to the pixel.
+- A browser run of the tabs and arrow keys, a custom set across m+ (22 to
+  20 wedges, stretched as above), 60 colour rolls, the strip key at k = 72,
+  Offset at k = 72, the m stepper's floor and 40 tile rolls: all pass, with
+  no console errors.
+- `node tools/hat-edges/verify-page.js`: no mismatched edges.
+- `tools/screen-fit/check.js` on all four tabs: all six sizes pass.
 
 ## Later
 

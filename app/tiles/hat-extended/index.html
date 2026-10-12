@@ -364,16 +364,21 @@
     { id: 'hand', name: '2 colours, hand', n: 2, of: function (k) { return k >= 6 ? 1 : 0; }, cols: 1 },
     { id: 'one', name: '1 colour', n: 1, of: function () { return 0; }, cols: 1 }
   ];
+  // Pastel and Rainbow look the same in light and dark mode. The tiles fill
+  // the screen, and a darker Pastel turned murky. Each tile takes whichever
+  // ink contrasts with it, so dark mode changes only the panels. Mirrored
+  // hats and Plain keep a dark version, since one of their colours stands
+  // in for the background.
   var presets = [
-    { id: 'pastel', name: 'Pastel', grouping: 'turnhand', colours: function (dark) {
+    { id: 'pastel', name: 'Pastel', grouping: 'turnhand', colours: function () {
       return classes.map(function (cl, k) {
         var m = k >= 6, hue = (k % 6) * 60 + 25;
-        return dark ? oklch(m ? 0.66 : 0.40, m ? 0.13 : 0.065, hue) : oklch(m ? 0.60 : 0.88, m ? 0.15 : 0.075, hue);
+        return oklch(m ? 0.60 : 0.88, m ? 0.15 : 0.075, hue);
       });
     } },
-    { id: 'rainbow', name: 'Rainbow', grouping: 'turnhand', colours: function (dark) {
+    { id: 'rainbow', name: 'Rainbow', grouping: 'turnhand', colours: function () {
       return classes.map(function (cl, k) {
-        return oklch(dark ? 0.55 : 0.8, 0.12, 25 + (k % 6) * 60 + (k >= 6 ? 30 : 0));
+        return oklch(0.8, 0.12, 25 + (k % 6) * 60 + (k >= 6 ? 30 : 0));
       });
     } },
     // Black to white in twelve even steps of lightness, unmirrored hats

@@ -22,7 +22,7 @@
 (function (global) {
   'use strict';
 
-  var MAX_K = 30;
+  var MAX_K = 72;
   var MAX_N = 240;
   var TILES_PER_CHUNK = 2000;
   var EPS = 1e-9;

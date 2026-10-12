@@ -22,6 +22,13 @@
   p { font-size: 25px; line-height: 1.3; color: #55524a; margin: 12px 0 0; text-wrap: balance; }
   .site { font-size: 21px; color: #1552a1; margin-top: 16px; letter-spacing: 0.02em; }
 
+  /* Tiling Puzzle: a Hat patch and a Spectre patch, built ring by ring,
+     either side of the words. */
+  .puzzle .patch { position: absolute; top: 15px; width: 600px; height: 600px; }
+  .puzzle .patch.left { left: -70px; }
+  .puzzle .patch.right { right: -70px; }
+  .puzzle .panel { width: 480px; }
+
   /* Mint pages: three artworks on a dark ground, the middle one largest. */
   .dark { background: radial-gradient(circle at 50% 35%, #2c2a3a, #111016 75%); }
   .art-row { position: absolute; top: 40px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 34px; }
@@ -225,6 +232,11 @@
     spectre: function () { return tiling('spectre', 'Spectre tiling', 'Tiles using only rotations, mirror image not required'); },
     'hat-extended': function () { return tiling('hat-extended', 'Hat tiling (extended)', 'Edge options on Hat make mirror image a separate tile'); },
     krinkle: function () { return tiling('krinkle', 'Modulo Krinkle tiling', 'One tile, three whole numbers, a fan of wedges'); },
+    puzzle: function () {
+      return '<div class="card puzzle"><img class="patch left" src="' + SRC + 'puzzle-hat.png" alt="">' +
+        '<img class="patch right" src="' + SRC + 'puzzle-spectre.png" alt="">' +
+        '<div class="panel">' + words('Tiling Puzzle', 'Build Hat and Spectre tilings by hand, and see if they can grow forever', 'drbuild.uk/puzzle') + '</div></div>';
+    },
     'merge-fractals': function () {
       return art([SRC + 'merge-fractal-1509.png', SRC + 'merge-fractal-1904.png', SRC + 'merge-fractal-2757.png'],
         'Ethereum Merge Fractals', 'Generative onchain art marking Ethereum’s Merge');

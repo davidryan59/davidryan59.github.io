@@ -58,27 +58,29 @@
   const contrast = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 
   // The explorer's three palettes. A palette names a colour for a ring and
-  // one for an orientation, the way the explorer tabs name them.
+  // one for an orientation, the way the explorer tabs name them. As on the
+  // explorer, they look the same in light and dark mode, since a darker
+  // Pastel turned murky. Each tile takes whichever ink contrasts with it.
   const PALETTES = {
     pastel: {
-      ring: (r, dark) => oklch(dark ? 0.42 : 0.86, dark ? 0.07 : 0.09, 25 + r * 57),
-      orient: (kind, flip, turn, n, dark) => {
+      ring: r => oklch(0.86, 0.09, 25 + r * 57),
+      orient: (kind, flip, turn, n) => {
         if (kind === 'hat') {
           const m = flip === 1, hue = turn * 60 + 25;
-          return dark ? oklch(m ? 0.66 : 0.40, m ? 0.13 : 0.065, hue) : oklch(m ? 0.60 : 0.88, m ? 0.15 : 0.075, hue);
+          return oklch(m ? 0.60 : 0.88, m ? 0.15 : 0.075, hue);
         }
         if (kind === 'spectre') {
           const rare = turn % 2 === 1, hue = turn * 30 + 25;
-          return dark ? oklch(rare ? 0.66 : 0.40, rare ? 0.13 : 0.065, hue) : oklch(rare ? 0.64 : 0.88, rare ? 0.15 : 0.075, hue);
+          return oklch(rare ? 0.64 : 0.88, rare ? 0.15 : 0.075, hue);
         }
-        return oklch(dark ? 0.42 : 0.86, dark ? 0.07 : 0.09, 25 + turn * 360 / n);
+        return oklch(0.86, 0.09, 25 + turn * 360 / n);
       }
     },
     rainbow: {
-      ring: (r, dark) => oklch(dark ? 0.55 : 0.78, 0.13, 25 + r * 57),
-      orient: (kind, flip, turn, n, dark) => {
+      ring: r => oklch(0.78, 0.13, 25 + r * 57),
+      orient: (kind, flip, turn, n) => {
         const hue = kind === 'hat' ? 25 + turn * 60 + (flip ? 30 : 0) : 25 + turn * 360 / n;
-        return oklch(dark ? 0.55 : 0.78, 0.13, hue);
+        return oklch(0.78, 0.13, hue);
       }
     },
     grey: {
@@ -101,8 +103,8 @@
     if (c) return c;
     let col;
     if (look.grouping === 'one') col = dark ? [0.165, 0.165, 0.19] : [0.992, 0.988, 0.973];
-    else if (look.grouping === 'ring') col = PALETTES[look.palette].ring(ring, dark);
-    else col = PALETTES[look.palette].orient(piece.kind, t.flip, t.turn, piece.turns, dark);
+    else if (look.grouping === 'ring') col = PALETTES[look.palette].ring(ring);
+    else col = PALETTES[look.palette].orient(piece.kind, t.flip, t.turn, piece.turns);
     const edge = dark ? [0.706, 0.686, 0.639] : [0.204, 0.2, 0.18];
     const alt = dark ? [0.204, 0.2, 0.18] : [0.847, 0.831, 0.788];
     const l = lum(col);

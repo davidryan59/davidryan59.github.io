@@ -231,6 +231,22 @@ select { background: var(--panel); max-width: 100%; }
 .legend svg { width: 1.8rem; height: 1.8rem; display: block; overflow: visible; }
 .legend figcaption { font-size: 0.66rem; color: var(--text); line-height: 1.1; white-space: nowrap; }
 .legend input[type="color"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+/* A key of many groups, such as Krinkle's wedges past 24, is one strip. */
+.legend .strip {
+  display: block;
+  width: 13rem;
+  max-width: 100%;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  padding: 0.25rem 0.3rem 0.15rem;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.legend .strip:hover { border-color: var(--muted); }
+.legend .strip svg { width: 100%; height: 1.5rem; border-radius: 3px; }
+.legend .strip .ends { display: flex; justify-content: space-between; margin-top: 0.1rem; font-size: 0.66rem; color: var(--text); line-height: 1.1; }
 
 /* About sheet. */
 .about {

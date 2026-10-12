@@ -388,7 +388,8 @@ function run(setup, tag, big, rnd) {
 function validSets(rnd, count) {
   const out = [];
   while (out.length < count) {
-    const k = 1 + Math.floor(rnd() * 20), t = 2 + Math.floor(rnd() * 3), offset = rnd() < 0.5 ? 1 : 0;
+    // k reaches the cap, but favours small values as the page's dice does.
+    const k = 1 + Math.floor(K.MAX_K * Math.pow(rnd(), 2)), t = 2 + Math.floor(rnd() * 3), offset = rnd() < 0.5 ? 1 : 0;
     const ms = [];
     for (let m = 1; m < Math.max(k, 2); m++) if (K.validate({ m, k, t, offset }) === null) ms.push(m);
     if (!ms.length) continue;
@@ -399,18 +400,19 @@ function validSets(rnd, count) {
 
 function checkRejections() {
   const bad = [
-    [{ m: 1, k: 0, t: 2, offset: 0 }, 'k'], [{ m: 1, k: 31, t: 2, offset: 0 }, 'k'],
+    [{ m: 1, k: 0, t: 2, offset: 0 }, 'k'], [{ m: 1, k: 73, t: 2, offset: 0 }, 'k'],
     [{ m: 2, k: 4, t: 2, offset: 0 }, 'common factor'], [{ m: 4, k: 4, t: 2, offset: 0 }, 'm'],
     [{ m: 2, k: 1, t: 3, offset: 0 }, 'm'], [{ m: 1, k: 5, t: 1, offset: 0 }, 't'],
     [{ m: 1, k: 1, t: 2, offset: 1 }, 'n'], [{ m: 1, k: 1, t: 2, offset: 0 }, 'n'],
-    [{ m: 1, k: 30, t: 9, offset: 0 }, '240'], [{ m: 1, k: 5, t: 2, offset: 2 }, 'offset'],
+    [{ m: 1, k: 30, t: 9, offset: 0 }, '240'], [{ m: 23, k: 72, t: 2, offset: 1 }, '240'], [{ m: 1, k: 5, t: 2, offset: 2 }, 'offset'],
     [{ m: 1, k: 5, t: 2, offset: 0, arrangement: 'ring' }, 'arrangement']
   ];
   bad.forEach(([o, word]) => {
     const msg = K.validate(o);
     must('rejection ' + JSON.stringify(o), msg && msg.includes(word), 'got ' + JSON.stringify(msg));
   });
-  [{ m: 1, k: 1, t: 3, offset: 0 }, { m: 1, k: 1, t: 3, offset: 1 }, { m: 29, k: 30, t: 8, offset: 0 }].forEach((o) => {
+  [{ m: 1, k: 1, t: 3, offset: 0 }, { m: 1, k: 1, t: 3, offset: 1 }, { m: 29, k: 30, t: 8, offset: 0 }, { m: 5, k: 72, t: 3, offset: 0 },
+   { m: 25, k: 72, t: 2, offset: 1 }].forEach((o) => {
     must('acceptance ' + JSON.stringify(o), K.validate(o) === null, 'rejected: ' + K.validate(o));
   });
   // The page-side handler answers an error message, not a throw.

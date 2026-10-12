@@ -52,16 +52,13 @@
      the bottom of the screen and it scrolls inside. */
   .options { margin-right: 3.4rem; }
   @media (max-width: 700px) { .options { max-height: calc(100dvh - 210px); } }
+  /* Two tabs, styled as the tiling switch: the tile, then how it is laid
+     out and drawn. Reset options sits below both. */
+  .options .tabs { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--ring); border-radius: 7px; overflow: hidden; }
+  .options .tabs button { border: none; border-radius: 0; padding: 0.22rem 0.4rem; font-size: 0.85rem; }
+  .options .tabs button + button { border-left: 1px solid var(--ring); }
+  .options .tabs button[aria-selected="true"] { background: var(--ring); color: var(--h1); }
   .options .col { display: flex; flex-direction: column; gap: 0.4rem; }
-  .options .col + .col > .section:first-child { border-top: 1px solid var(--rule); padding-top: 0.45rem; }
-  /* A wide window gives the card two columns: the tile, then how it is drawn. */
-  @media (min-width: 960px) {
-    .options { width: 34rem; }
-    .options .body { flex-direction: row; gap: 0.9rem; }
-    .options .col { flex: 1; min-width: 0; }
-    .options .col + .col { border-left: 1px solid var(--rule); padding-left: 0.9rem; }
-    .options .col + .col > .section:first-child { border-top: none; padding-top: 0; }
-  }
   /* Touch targets: larger steppers, in a card wide enough to hold them. */
   @media (pointer: coarse) {
     .stepper button { width: 2rem; height: 2rem; }
@@ -104,7 +101,10 @@
     <button type="button" class="fold" id="options-fold" aria-expanded="false">Options</button>
   </div>
   <div class="body">
-    <div class="col">
+    <div class="tabs" role="tablist" aria-label="Options">
+      <button type="button" role="tab" id="tab-tile" aria-controls="panel-tile" aria-selected="true">Tile</button><button type="button" role="tab" id="tab-arrangement" aria-controls="panel-arrangement" aria-selected="false" tabindex="-1">Arrangement</button>
+    </div>
+    <div class="col" id="panel-tile" role="tabpanel" aria-labelledby="tab-tile">
     <div class="section">
       <span class="section-title">Presets (m, k, n)</span>
       <div class="presets" id="presets"></div>
@@ -131,7 +131,7 @@
       <svg id="tile-figure" viewBox="-3 -2 6 4" role="img" aria-label="The tile, with each edge labelled by its direction"></svg>
     </div>
     </div>
-    <div class="col">
+    <div class="col" id="panel-arrangement" role="tabpanel" aria-labelledby="tab-arrangement" hidden>
     <div class="section">
       <span class="section-title" id="layout-title">Arrangement</span>
       <div class="inline" id="layout" role="radiogroup" aria-labelledby="layout-title">
@@ -190,9 +190,9 @@
       </div>
       <p id="stage" aria-live="off">Whole tiling</p>
     </div>
+    </div>
     <div class="section">
       <div><button type="button" class="linkish" id="reset-options" title="Tile, arrangement, edges and wedge outlines back to how the page opens">Reset options</button></div>
-    </div>
     </div>
   </div>
 </div>
@@ -356,16 +356,18 @@
   var pb = null, playing = false, PLAY_SECONDS = 20;
 
   function gcd(a, b) { while (b) { var r = a % b; a = b; b = r; } return a; }
-  function validMs(k) {
+  // The m that suit k: no common factor with k, and n within its cap at
+  // t = 2. With offset, n = 2(2k − m), so above k = 60 a small m is out.
+  function validMs(k, offset) {
     if (k === 1) return [1];
     var out = [];
-    for (var m = 1; m < k; m++) if (gcd(m, k) === 1) out.push(m);
+    for (var m = 1; m < k; m++) if (gcd(m, k) === 1 && K.directions(m, k, 2, offset) <= K.MAX_N) out.push(m);
     return out;
   }
   // The valid m nearest to m, the lower one on a tie.
-  function nearestM(m, k) {
+  function nearestM(m, k, offset) {
     var best = 1, gap = Infinity;
-    validMs(k).forEach(function (v) { if (Math.abs(v - m) < gap) { gap = Math.abs(v - m); best = v; } });
+    validMs(k, offset).forEach(function (v) { if (Math.abs(v - m) < gap) { gap = Math.abs(v - m); best = v; } });
     return best;
   }
   // The smallest and largest t: n at least 3, and at most 240.
@@ -483,10 +485,18 @@
       var smooth = st.shape === 'curve' || st.shape === 'jigsaw';
       return res < 0 ? 'straight' : smooth ? 'r' + res : 'poly';
     },
+    // Curves under a device pixel high draw straight. A high-k tiling zoomed
+    // out would otherwise trace thousands of curves it cannot show.
     lod: function (k) {
-      if (straight() || Math.abs(st.bend) * k < 0.3) return -1;
+      if (straight() || Math.abs(st.bend) * k < 1) return -1;
       return k < 6 ? 0 : k < 20 ? 1 : k < 60 ? 2 : 3;
     },
+    // A curved fill costs a triangle per profile point, many of them under
+    // a pixel when the tiles are small. Below 2 device pixels of height the
+    // fill stays straight. Each neighbour strokes its own side of the same
+    // curve, so the line stays whole, and only a sliver of fill under 2
+    // pixels takes the other tile's colour.
+    meshLod: function (k) { return Math.abs(st.bend) * k < 2 ? -1 : shape.lod(k); },
     corners: function () { return cornersOf(built); },
     // The key asks for one outline per class, so keep the last few.
     outline: function (res) {
@@ -551,35 +561,103 @@
   var groupingOf = {};
   groupings.forEach(function (g) { groupingOf[g.id] = g; });
 
+  /* Pastel and Lattice set some tiles in a stronger accent, as the Hat and
+     Spectre do for their rare tiles. In Pastel about one wedge in three
+     takes it. The accent wedges spread evenly through each copy of the fan,
+     so every copy matches. A copy is k wedges, or n/2 with offset; below
+     three wedges the accents spread round the whole circle. */
+  function accent(hue) { return oklch(0.64, 0.14, hue); }
+  function accentWedges(n, every) {
+    var per = built.w >= 3 ? built.w : n, a = Math.max(1, Math.round(per / every)), on = [], i, j, p;
+    for (i = 0; i < n; i++) on.push(false);
+    for (j = 0; j < a; j++) for (p = Math.floor((j + 0.5) * per / a); p < n; p += per) on[p] = true;
+    return on;
+  }
+  // The lattice class that takes the accent in Lattice, one tile in four:
+  // the teal class, which reads clearest against the pastels.
+  var LATTICE_ACCENT = 2;
+
+  // The coloured schemes look the same in light and dark mode. The tiles
+  // fill the screen, and a darker Pastel turned murky. Each tile takes
+  // whichever ink contrasts with it, so dark mode changes only the panels.
+  // Plain keeps a dark version, since its colour stands in for the
+  // background.
   var presets = [
-    { id: 'pastel', name: 'Pastel', grouping: 'fan', colours: function (dark) {
-      return dark ? ring(built.n, 0.42, 0.07, 25) : ring(built.n, 0.86, 0.09, 25);
+    { id: 'pastel', name: 'Pastel', grouping: 'fan', colours: function () {
+      var n = built.n, on = accentWedges(n, 3);
+      return ring(n, 0.86, 0.09, 25).map(function (c, i) { return on[i] ? accent(25 + i * 360 / n) : c; });
     } },
-    { id: 'rainbow', name: 'Rainbow', grouping: 'fan', colours: function (dark) {
-      return ring(built.n, dark ? 0.55 : 0.78, 0.13, 25);
+    { id: 'rainbow', name: 'Rainbow', grouping: 'fan', colours: function () {
+      return ring(built.n, 0.78, 0.13, 25);
     } },
     { id: 'grey', name: 'Greyscale', grouping: 'fan', colours: function () {
       var out = [];
       for (var i = 0; i < built.n; i++) out.push(oklch(built.n > 1 ? i / (built.n - 1) : 0.5, 0, 0));
       return out;
     } },
-    { id: 'two', name: 'Two tones', grouping: 'alt', colours: function (dark) {
-      return dark ? [oklch(0.42, 0.07, 250), oklch(0.42, 0.07, 40)] : [oklch(0.86, 0.08, 250), oklch(0.86, 0.08, 40)];
+    { id: 'two', name: 'Two tones', grouping: 'alt', colours: function () {
+      return [oklch(0.86, 0.08, 250), oklch(0.86, 0.08, 40)];
     } },
-    { id: 'copies', name: 'Copies', grouping: 'copies', colours: function (dark) {
-      return ring(copies(), dark ? 0.45 : 0.82, 0.1, 25);
+    { id: 'copies', name: 'Copies', grouping: 'copies', colours: function () {
+      return ring(copies(), 0.82, 0.1, 25);
     } },
-    { id: 'rings', name: 'Rings', grouping: 'rings', colours: function (dark) {
-      return dark ? [oklch(0.40, 0.06, 200), oklch(0.40, 0.06, 20)] : [oklch(0.88, 0.07, 200), oklch(0.88, 0.07, 20)];
+    { id: 'rings', name: 'Rings', grouping: 'rings', colours: function () {
+      return [oklch(0.88, 0.07, 200), oklch(0.88, 0.07, 20)];
     } },
-    { id: 'columns', name: 'Columns', grouping: 'columns', colours: function (dark) {
-      return dark ? [oklch(0.40, 0.06, 300), oklch(0.40, 0.06, 110)] : [oklch(0.88, 0.07, 300), oklch(0.88, 0.07, 110)];
+    { id: 'columns', name: 'Columns', grouping: 'columns', colours: function () {
+      return [oklch(0.88, 0.07, 300), oklch(0.88, 0.07, 110)];
     } },
-    { id: 'lattice', name: 'Lattice', grouping: 'lattice', colours: function (dark) {
-      return ring(4, dark ? 0.42 : 0.86, dark ? 0.07 : 0.09, 25);
+    { id: 'lattice', name: 'Lattice', grouping: 'lattice', colours: function () {
+      return ring(4, 0.86, 0.09, 25).map(function (c, i) { return i === LATTICE_ACCENT ? accent(25 + i * 90) : c; });
     } },
     { id: 'plain', name: 'Plain', grouping: 'one', colours: function (dark) { return [dark ? hex('#2a2a30') : hex('#fdfcf8')]; } }
   ];
+
+  /* Random colours that keep the wedges in order round the circle. The
+     dice in the colour panel takes one of these half the time when the key
+     shows one colour per wedge. Each runs through every copy of the fan
+     alike, or, for a hue ring, may run once round the whole circle. */
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function wedgesPerCopy(n) { return built.w >= 2 ? built.w : n; }
+  // Chroma that suits a lightness: strong in the middle, gentle near white.
+  function chromaFor(L) { return 0.09 + 0.25 * (0.9 - L); }
+  var rolls = [
+    // A hue ring, with a random start, direction and lightness band.
+    function (n) {
+      var h0 = rand(0, 360), dir = Math.random() < 0.5 ? 1 : -1, L = rand(0.62, 0.9), C = chromaFor(L);
+      var turns = Math.random() < 0.5 ? 1 : n / wedgesPerCopy(n), out = [];
+      for (var i = 0; i < n; i++) out.push(oklch(L, C, h0 + dir * i * 360 * turns / n));
+      return out;
+    },
+    // A gradient between two hues, out and back through each copy, so the
+    // circle closes with no seam. It blends in OKLab, a, b being the
+    // chroma's two components.
+    function (n) {
+      var per = wedgesPerCopy(n), ends = [0, 1].map(function () {
+        var L = rand(0.6, 0.9);
+        return { L: L, C: chromaFor(L) };
+      });
+      ends[0].h = rand(0, 360);
+      ends[1].h = ends[0].h + rand(90, 270);
+      var ab = ends.map(function (e) { return [e.C * Math.cos(e.h * Math.PI / 180), e.C * Math.sin(e.h * Math.PI / 180)]; });
+      var out = [];
+      for (var i = 0; i < n; i++) {
+        var f = 1 - Math.abs(2 * (i % per) / per - 1);
+        var a = ab[0][0] + f * (ab[1][0] - ab[0][0]), b = ab[0][1] + f * (ab[1][1] - ab[0][1]);
+        out.push(oklch(ends[0].L + f * (ends[1].L - ends[0].L), Math.hypot(a, b), Math.atan2(b, a) * 180 / Math.PI));
+      }
+      return out;
+    },
+    // An accented Pastel, with a random first hue and one accent in two,
+    // three or four wedges.
+    function (n) {
+      var h0 = rand(0, 360), on = accentWedges(n, 2 + Math.floor(Math.random() * 3)), Lb = rand(0.84, 0.9), La = rand(0.56, 0.7);
+      var out = [];
+      for (var i = 0; i < n; i++) out.push(oklch(on[i] ? La : Lb, chromaFor(on[i] ? La : Lb), h0 + i * 360 / n));
+      return out;
+    }
+  ];
+  groupingOf.fan.roll = function () { return rolls[Math.floor(Math.random() * rolls.length)](built.n); };
 
   // Repeating has one orientation, so the wedge colourings show one colour.
   // Moving between the arrangements swaps to the colouring that shows
@@ -612,11 +690,17 @@
     worker: 'tiling.js',
     handler: K.createHandler,
     record: 'krinkle',
-    maxCorners: 64,
+    maxCorners: 2 * K.MAX_K + 2,
     grid: false,
     options: options(),
     // About eight tile lengths (|Q|) across the shorter side of the window.
-    startScale: function (info, W, H) { return Math.min(W, H) / (8 * info.Qlen); },
+    // At high k that leaves the tile a sliver, so the tile's mean thickness,
+    // its area over |Q|, also spans at least a sixtieth of that side. The
+    // thin rhombi of k = 1 keep the length rule, as their papers draw them.
+    startScale: function (info, W, H) {
+      var side = Math.min(W, H), s = side / (8 * info.Qlen);
+      return info.k > 1 ? Math.max(s, side / 60 / (Math.abs(info.area) / info.Qlen)) : s;
+    },
     classMode: 0,
     classes: function (g) { return g.classes(); },
     groupings: groupings,
@@ -781,6 +865,28 @@
     sliders[el.dataset.param] = { box: el, input: el.querySelector('input'), out: el.querySelector('output') };
   });
 
+  /* The two option tabs, Tile and Arrangement. The page opens on Tile. The
+     arrow keys move between the tabs, and stop there rather than pan the
+     map. */
+  var tabEls = [document.getElementById('tab-tile'), document.getElementById('tab-arrangement')];
+  function showTab(i, focus) {
+    tabEls.forEach(function (t, j) {
+      t.setAttribute('aria-selected', i === j ? 'true' : 'false');
+      t.tabIndex = i === j ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = i !== j;
+    });
+    if (focus) tabEls[i].focus();
+  }
+  tabEls.forEach(function (t, i) {
+    t.addEventListener('click', function () { showTab(i); });
+    t.addEventListener('keydown', function (e) {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+      e.stopPropagation();
+      showTab(1 - i, true);
+    });
+  });
+
   /* Presets, from the worker file's list. */
   var presetEls = [];
   K.PRESETS.forEach(function (p, i) {
@@ -814,11 +920,13 @@
     rebuild(home);
   }
 
-  var DICE_MAX_K = 20, DICE_MAX_T = 4;
+  // The dice reaches every k but favours the smaller ones, whose swirl
+  // reads best: half its rolls land at k = 18 or less.
+  var DICE_MAX_T = 4;
   document.getElementById('random-tile').addEventListener('click', function () {
-    var k = 1 + Math.floor(Math.random() * DICE_MAX_K);
-    var ms = validMs(k), m = ms[Math.floor(Math.random() * ms.length)];
-    var off = Math.random() < 0.5 ? 1 : 0, r = tRange(m, k, off);
+    var k = 1 + Math.floor(K.MAX_K * Math.pow(Math.random(), 2));
+    var off = Math.random() < 0.5 ? 1 : 0;
+    var ms = validMs(k, off), m = ms[Math.floor(Math.random() * ms.length)], r = tRange(m, k, off);
     var t = r[0] + Math.floor(Math.random() * (Math.min(DICE_MAX_T, r[1]) - r[0] + 1));
     st.m = m; st.k = k; st.t = t; st.offset = off;
     syncControls();
@@ -830,14 +938,14 @@
     b.addEventListener('click', function () {
       var param = b.parentNode.dataset.param, d = +b.dataset.step;
       if (param === 'm') {
-        var ms = validMs(st.k), i = ms.indexOf(st.m) + d;
+        var ms = validMs(st.k, st.offset), i = ms.indexOf(st.m) + d;
         if (i < 0 || i >= ms.length) return;
         st.m = ms[i];
       } else if (param === 'k') {
         var nk = st.k + d;
         if (nk < 1 || nk > K.MAX_K) return;
         st.k = nk;
-        st.m = nearestM(st.m, nk);
+        st.m = nearestM(st.m, nk, st.offset);
       } else {
         st.t += d;
       }
@@ -849,6 +957,7 @@
   });
   offsetEl.addEventListener('change', function () {
     st.offset = offsetEl.checked ? 1 : 0;
+    st.m = nearestM(st.m, st.k, st.offset);
     clampT();
     syncControls();
     scheduleLimits();
@@ -917,7 +1026,7 @@
   function hideError() { var p = readoutEl.querySelector('.error'); if (p) p.remove(); }
 
   function syncControls() {
-    var inf = uiInfo(), def = SS.BY_ID[st.shape], r = tRange(st.m, st.k, st.offset), ms = validMs(st.k);
+    var inf = uiInfo(), def = SS.BY_ID[st.shape], r = tRange(st.m, st.k, st.offset), ms = validMs(st.k, st.offset);
     // Steppers
     stepperEls.m.out.textContent = st.m;
     stepperEls.k.out.textContent = st.k;

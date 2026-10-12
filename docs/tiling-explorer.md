@@ -71,7 +71,20 @@ drbuild.uk/demos/ redirect to the new ones.
   coded beside its corner. The class colours go in a second texture of 256
   entries. Uniform arrays would overflow on a phone once a tile has 64
   corners. A page sets the most corners with `maxCorners`: 14 by default,
-  64 for Krinkle.
+  146 for Krinkle, whose tile has 2k + 2 corners and k runs to 72.
+- **Edge blocks.** The shader measures edges in blocks of four. Two more
+  texture rows hold, for each block, a circle round its corners that also
+  reaches as far as a profile strays from its edge. A pixel farther from the
+  circle than the widest line reaches skips the block, since none of its
+  edges can ink it. Every tab draws the same pixels as before. A Krinkle
+  tile of 146 edges at k = 72 draws in about 5 ms at phone size on an M1
+  Max, where every edge was measured before.
+- **Fill mesh.** A page may give `shape.meshLod(scale)` to fill with a
+  plainer mesh than its strokes follow. Krinkle fills straight while its
+  curves are under 2 device pixels high. A curved fill costs a triangle per
+  profile point, and at high k most of them are under a pixel. Each
+  neighbour strokes its own side of the same curve, so the line stays
+  whole.
 - **Edge symmetries.** Each edge places the profile after one of four
   symmetries: as it is, backwards, reflected in the edge's line, or a half
   turn. A page gives them as masks of two bits per edge, one mask for
@@ -117,11 +130,19 @@ drbuild.uk/demos/ redirect to the new ones.
   alone, since that would pair each hat with a mirrored hat through an
   arbitrary choice of mirror line. Custom colours show as "Custom N", where
   N is the number of groups.
+- **Same in light and dark mode.** Every coloured scheme shows the same
+  colours in both modes, so dark mode changes only the panels. The tiles
+  fill the screen, and the darker Pastel of dark mode turned murky. Plain,
+  Mirrored hats, and Common and rare keep a dark version, since one of
+  their colours stands in for the background. Each tile still takes the
+  ink that contrasts with it (see Ink).
 - **Dice.** Fills the current grouping with random colours from one of
-  five palettes, each with equal chance: any colour; the 8 corners of the
-  RGB cube; black and white; 8 greys; the 27 colours with each channel at
-  00, 80 or ff. A palette is dealt like a shuffled deck, so each colour
-  appears once before any repeats.
+  five palettes: the 27 colours with each channel at 00, 80 or ff, half the
+  time; and any colour, the 8 corners of the RGB cube, black and white, or
+  8 greys, an eighth of the time each. A palette is dealt like a shuffled
+  deck, so each colour appears once before any repeats. A grouping whose
+  groups run in order round a circle may give a `roll()` that keeps the
+  order, and it takes half the rolls. Krinkle's wedge grouping does.
 - **Ink.** Tile edges and supertile lines use dark ink in light mode and
   light ink in dark mode. Each tile takes the other ink when that gives the
   higher contrast ratio (WCAG) against the tile's colour.
@@ -155,13 +176,36 @@ drbuild.uk/demos/ redirect to the new ones.
   once, and keeps the old tiles on screen until the new workers are ready.
   Presets and the dice also call `map.home()`. The edge controls reshape the
   loaded tiles with no rebuild, as on the Spectre page.
+  - k runs from 1 to 72. With offset at t = 2, n = 2(2k − m) must stay
+    within 240, so above k = 60 the m stepper skips the small m.
+  - The dice reaches every k, but half its rolls land at k = 18 or less.
+  - The opening zoom puts about eight tile lengths across the shorter side
+    of the window. At high k that leaves the tile a sliver, so the zoom also
+    keeps the tile's mean thickness, its area over |Q|, at a sixtieth of
+    that side at least. The rhombi of k = 1 keep the length rule.
+  - Curves under a device pixel high draw straight.
 - **Krinkle colours.** Every grouping has one class per group, and the counts
   follow the tiling: n wedges, or t copies (2 with offset). The page's
-  groupings are read at draw time, so they change with a rebuild. A custom
-  colour set whose group count no longer fits is dropped, and the grouping's
-  first preset takes over. Repeating has one orientation, so wedge colourings
-  show one colour. The page switches to the Lattice colouring, class mode 7,
-  which colours by (r mod 2, c mod 2), and back again.
+  groupings are read at draw time, so they change with a rebuild. When a
+  rebuild changes the group count, a custom colour set is stretched round
+  the circle: new group i takes the old colour at i × old count / new
+  count, so a gradient survives. Repeating has one orientation, so wedge
+  colourings show one colour. The page switches to the Lattice colouring,
+  class mode 7, which colours by (r mod 2, c mod 2), and back again.
+  - Pastel sets about one wedge in three in a stronger accent, OKLCH
+    lightness 0.64 and chroma 0.14, as the Hat and Spectre do for their rare
+    tiles. The accents spread evenly through each copy of the fan, so
+    every copy matches: (3, 7, 22) has 8 of its 22 wedges accented.
+  - Lattice gives the accent to one class of four, the teal one.
+  - The dice's ordered rolls are a hue ring with a random start, direction
+    and lightness; a gradient between two hues, out and back through each
+    copy; and an accented Pastel with a random first hue.
+  - Above 24 groups the key shows one strip of colour, in order, and a
+    click picks the group under the pointer.
+- **Krinkle panel.** The Options card has two tabs: Tile, which opens, with
+  the presets, steppers, read-out and tile figure; and Arrangement, with
+  the arrangement, edges, wedge outlines and construction. Reset options
+  sits below both. The arrow keys move between the tabs.
 - **Krinkle address bar.** `mk=m,k`, `t`, `o`, `a=fan|rep`, `wo=1` for wedge
   outlines, and for edges `e`, `b`, `ea=alt|S` and `p`. The Spectre uses `a`
   for its edge arrangement, so Krinkle names that one `ea`, and still reads

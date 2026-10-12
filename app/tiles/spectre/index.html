@@ -341,7 +341,7 @@
   var classes = [];
   for (var c = 0; c < 12; c++) classes.push({ turn: c, flip: 0, caption: c * 30 + '°' });
 
-  function ring(n, dark, L, C) {
+  function ring(n, L, C) {
     var out = [];
     for (var i = 0; i < n; i++) out.push(oklch(L, C, 25 + i * 360 / n));
     return out;
@@ -357,21 +357,25 @@
     { id: 'mod60', name: '2 colours, turn mod 60°', n: 2, of: function (k) { return k % 2; }, cols: 1 },
     { id: 'one', name: '1 colour', n: 1, of: function () { return 0; }, cols: 1 }
   ];
+  // The coloured schemes look the same in light and dark mode. The tiles
+  // fill the screen, and a darker Pastel turned murky. Each tile takes
+  // whichever ink contrasts with it, so dark mode changes only the panels.
+  // Common and rare and Plain keep a dark version, since one of their
+  // colours stands in for the background.
   var presets = [
-    { id: 'pastel', name: 'Pastel', grouping: 'all12', colours: function (dark) {
+    { id: 'pastel', name: 'Pastel', grouping: 'all12', colours: function () {
       return classes.map(function (cl, k) {
         var rare = k % 2 === 1;
-        return dark ? oklch(rare ? 0.66 : 0.40, rare ? 0.13 : 0.065, k * 30 + 25)
-                    : oklch(rare ? 0.64 : 0.88, rare ? 0.15 : 0.075, k * 30 + 25);
+        return oklch(rare ? 0.64 : 0.88, rare ? 0.15 : 0.075, k * 30 + 25);
       });
     } },
     // Ids stay as first published, so old links keep their colours.
-    { id: 'rainbow2', name: 'Rainbow 1', grouping: 'all12', colours: function (dark) {
-      var hues = ring(12, dark, dark ? 0.55 : 0.8, 0.12);
+    { id: 'rainbow2', name: 'Rainbow 1', grouping: 'all12', colours: function () {
+      var hues = ring(12, 0.8, 0.12);
       return classes.map(function (cl, k) { return hues[COMMON_FIRST.indexOf(k)]; });
     } },
-    { id: 'rainbow', name: 'Rainbow 2', grouping: 'all12', colours: function (dark) {
-      return ring(12, dark, dark ? 0.55 : 0.8, 0.12);
+    { id: 'rainbow', name: 'Rainbow 2', grouping: 'all12', colours: function () {
+      return ring(12, 0.8, 0.12);
     } },
     // Black to white in twelve even steps of lightness. Greyscale 1 takes
     // the six common orientations first, so 0° is black and 330° is white.
@@ -382,9 +386,9 @@
     { id: 'grey2', name: 'Greyscale 2', grouping: 'all12', colours: function () {
       return classes.map(function (cl, k) { return oklch(k / 11, 0, 0); });
     } },
-    { id: 'six', name: 'Six pairs', grouping: 'mod180', colours: function (dark) { return ring(6, dark, dark ? 0.45 : 0.82, 0.1); } },
-    { id: 'four', name: 'Four sets', grouping: 'mod120', colours: function (dark) { return ring(4, dark, dark ? 0.45 : 0.82, 0.1); } },
-    { id: 'three', name: 'Three sets', grouping: 'mod90', colours: function (dark) { return ring(3, dark, dark ? 0.45 : 0.82, 0.1); } },
+    { id: 'six', name: 'Six pairs', grouping: 'mod180', colours: function () { return ring(6, 0.82, 0.1); } },
+    { id: 'four', name: 'Four sets', grouping: 'mod120', colours: function () { return ring(4, 0.82, 0.1); } },
+    { id: 'three', name: 'Three sets', grouping: 'mod90', colours: function () { return ring(3, 0.82, 0.1); } },
     { id: 'wiki', name: 'Common and rare', grouping: 'mod60', colours: function (dark) {
       return dark ? [hex('#2a2a30'), hex('#67704c')] : [hex('#fdfcf8'), hex('#c1c5a0')];
     } },

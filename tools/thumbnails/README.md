@@ -11,6 +11,7 @@ it, then check the result with `frames.js`.
 | `assets/thumbs/e8.svg` | `e8.js` | A dark, near-full-circle view of all 240 E8 roots moving through the Petrie, Octagonal and Squares presets on a 6 s loop. `e8-light.svg` preserves the earlier light 12 s version |
 | `assets/nonrup-thumb.js` | `nonrup.js` | A canvas, drawn live on the page: the Undecanope turns about its eleven-fold axis and sways slowly. The script writes the page's thumbnail code with the solid's vertices and faces baked in from `app/nonrup/models.js` |
 | `assets/thumbs/tiling-explorer.svg` | `tiling-explorer.js` | A patch of the Hat tiling that morphs from chevron to comet and back on a 10 s loop: 0.5 s still, 4.5 s sliding, each way. Light-mode Pastel colours, drawn from the explorer's own engine in `app/tiles/` |
+| `assets/thumbs/puzzle.jpg` | `puzzle.js` | A still of a Hat patch built in the Tiling Puzzle by three presses of Fill a ring, coloured by ring in light-mode Pastel. The page draws it, so this script needs the Playwright install in `tools/tiling-video/` |
 | `assets/thumbs/aperiodic-pairs.svg` | `aperiodic-pairs.js` | Penrose kites and darts in the gallery's light colours, zooming in and out about the central sun over 7 s |
 | `assets/thumbs/dice-to-seed.svg` | `dice-to-seed.js` | Six red dice thrown into the corner of a craps table. They settle, rest and fade on an 11 s loop |
 | `assets/thumbs/pentrys.svg` | `pentrys.js` | A still: a glowing X falls above a stack of six pieces in a dark well. The colours and lighting are the game's own, from `app/pentrys/pieces.js` and `app/pentrys/draw.js` |
@@ -33,7 +34,7 @@ Run any of them from anywhere, for example `node tools/thumbnails/dino-dash.js`.
 ## Notes
 
 - The page clips the tilings, ReTuner and Highlight Buffs to a circle, like
-  the NFT artworks. It shows the dice, Pentrys, Smash Screen, the sieve and the two games as rounded squares:
+  the NFT artworks. It shows the dice, Pentrys, Smash Screen, the sieve, the Tiling Puzzle and the two games as rounded squares:
   `.thumb-link.square` in `index.html`.
 - The game pictures use each game's own colours and sprites, ported from its
   repo. The ReTuner keys are measured from a screenshot of the live app.

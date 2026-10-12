@@ -500,6 +500,27 @@ arrangements.
 - **About text:** the dead-end idea in plain words, crediting Smith, Myers,
   Kaplan and Goodman-Strauss. There is no proof-status wording.
 
+### As built
+
+- **Share card.** `social/puzzle.jpg` shows a Hat patch and a Spectre
+  patch, each built by four presses of Fill a ring and coloured by ring,
+  either side of the words. `node tools/social-cards/render.js puzzle`
+  draws it from the page itself.
+- **Thumbnail.** The builder page shows `assets/thumbs/puzzle.jpg`, a
+  square still of a three-ring Hat patch, as a rounded square.
+  `node tools/thumbnails/puzzle.js` draws it. The first release pointed the
+  thumbnail at the 1200 × 630 card, which the page would have squashed into
+  its square.
+- **Colours.** On 2026-10-12 the explorer's coloured schemes became the same
+  in light and dark mode, and the puzzle's Pastel and Rainbow followed. One
+  colour keeps its dark version, since it stands in for the background.
+- **Links.** The Hat, Spectre and Hat (extended) tabs carry "Build it
+  yourself" under the tabs, and `/puzzle` redirects here.
+- **Hidden from the builder page** on 2026-10-12, while David does more
+  work on the puzzle. The entry in `index.html` is commented out, unchanged,
+  and returns once that work is done. The page, `/puzzle`, the card and the
+  "Build it yourself" links stay live.
+
 ## Later
 
 - **Islands:** separate patches that must later join, to show patches that

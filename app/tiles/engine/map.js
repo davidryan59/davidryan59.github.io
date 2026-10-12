@@ -13,7 +13,7 @@
    handByTurn as well, the second outline is for tiles at odd turns instead:
    the Spectre page uses it when its two edge lengths differ.
 
-   The Krinkle page passes record: 'krinkle' and maxCorners: 64. Its tiles
+   The Krinkle page passes record: 'krinkle' and maxCorners: 146. Its tiles
    carry a plain centre and an 8-bit turn of 2 pi / info.turns, it has no
    grid tool (grid: false), and its steppers change the tiling itself, so it
    calls map.rebuild(options, wait) for new workers and a fresh cache. Its
@@ -240,7 +240,7 @@
   /* ----------------------------------------------------------- shaders */
 
   /* The tile shaders are compiled per page with two constants. NC is the
-     most corners a tile can have: 14 for the Hat and Spectre, 64 for
+     most corners a tile can have: 14 for the Hat and Spectre, 146 for
      Krinkle. FORMAT is the tile record: 0 for the Hat and Spectre (see
      tiling-core.js), 1 for Krinkle (see krinkle/tiling.js). In format 1 a
      tile has a plain centre, row r and column c, an 8-bit turn and two
@@ -322,10 +322,13 @@
   // disc at any corner that a thicker line passes through, which fills the
   // corner where it meets that line only at a point.
   //
-  // The corners live in a texture, one row per hand, since 64 of them would
+  // The corners live in a texture, one row per hand, since 146 of them would
   // overflow the uniforms a phone allows. Texel i holds corner i in x and y,
   // and edge i's code in z: its symmetry for unmirrored tiles in bits 0-1,
   // for mirrored tiles in bits 2-3, and in bit 4 whether it takes profile B.
+  // Rows 2 and 3 hold each hand's edge blocks: texel b is the circle (x, y,
+  // radius) round edges 4b to 4b + 3 (BS is 4), their profiles and their
+  // corners.
   // The class colours live in a second texture of up to 256 entries.
   var TILE_FS = [
     '#version 300 es',
@@ -359,6 +362,7 @@
     'uniform ivec2 u_profN;',
     'uniform vec2 u_profMax;',
     'uniform float u_reach;',
+    'uniform float u_cull;',
     'uniform int u_pass;',
     'uniform vec3 u_hot;',
     'uniform vec3 u_hot2;',
@@ -450,20 +454,31 @@
     '  vec3 fill = texelFetch(u_palette, ivec2(classOf(turn, flip), 0), 0).rgb;',
     '  float cov[6];',
     '  for (int k = 0; k < 6; k++) cov[k] = 0.0;',
-    '  vec4 c0 = corner(0), ca = c0;',
-    '  for (int i = 0; i < NC; i++) {',
-    '    if (i >= u_nc) break;',
-    '    vec4 cb = i + 1 == u_nc ? c0 : corner(i + 1);',
-    '    vec2 a = ca.xy, b = cb.xy;',
-    '    float d = edgeDist(v_local, a, b, int(ca.z), flip) * u_scale;',
-    '    ca = cb;',
-    '    int lv = u_levels ? int(min(edgeLevel(i), 5u)) : 0;',
-    '    cov[lv] = max(cov[lv], clamp(u_width[lv] + 0.5 - d, 0.0, 1.0));',
-    '    if (u_levels) {',
-    '      int vl = int(min(vertLevel(i), 5u));',
-    '      if (vl > 0) {',
-    '        float dv = length(v_local - a) * u_scale;',
-    '        cov[vl] = max(cov[vl], clamp(u_width[vl] + 0.5 - dv, 0.0, 1.0));',
+    // A block of edges whose circle lies farther from this pixel than the
+    // widest line reaches adds no ink, so it is skipped. A pixel lies near
+    // only a few edges, which keeps a tile of 146 edges cheap.
+    '  vec4 c0 = corner(0);',
+    '  for (int bl = 0; bl < NB; bl++) {',
+    '    int i0 = bl * BS;',
+    '    if (i0 >= u_nc) break;',
+    '    vec4 bc = texelFetch(u_shapeTex, ivec2(bl, 2 + u_shapeRow), 0);',
+    '    if (length(v_local - bc.xy) - bc.z > u_cull) continue;',
+    '    vec4 ca = corner(i0);',
+    '    for (int q = 0; q < BS; q++) {',
+    '      int i = i0 + q;',
+    '      if (i >= u_nc) break;',
+    '      vec4 cb = i + 1 == u_nc ? c0 : corner(i + 1);',
+    '      vec2 a = ca.xy, b = cb.xy;',
+    '      float d = edgeDist(v_local, a, b, int(ca.z), flip) * u_scale;',
+    '      ca = cb;',
+    '      int lv = u_levels ? int(min(edgeLevel(i), 5u)) : 0;',
+    '      cov[lv] = max(cov[lv], clamp(u_width[lv] + 0.5 - d, 0.0, 1.0));',
+    '      if (u_levels) {',
+    '        int vl = int(min(vertLevel(i), 5u));',
+    '        if (vl > 0) {',
+    '          float dv = length(v_local - a) * u_scale;',
+    '          cov[vl] = max(cov[vl], clamp(u_width[vl] + 0.5 - dv, 0.0, 1.0));',
+    '        }',
     '      }',
     '    }',
     '  }',
@@ -618,19 +633,21 @@
       names.forEach(function (n) { U[n] = gl.getUniformLocation(p, n); });
       return { p: p, U: U };
     }
-    var defs = '#version 300 es\n#define NC ' + NC + '\n#define FORMAT ' + FORMAT +
+    var BS = 4, NB = Math.ceil(NC / BS);
+    var defs = '#version 300 es\n#define NC ' + NC + '\n#define BS ' + BS + '\n#define NB ' + NB + '\n#define FORMAT ' + FORMAT +
       '\n#define TURN_MASK ' + (FORMAT ? '255u' : '15u') + '\n#define FLIP_BIT ' + (FORMAT ? '0u' : '16u');
     var tileProg = program(TILE_VS.replace('#version 300 es', defs), TILE_FS.replace('#version 300 es', defs),
       ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_hand', 'u_handTurn', 'u_turnStep', 'u_shapeTex', 'u_shapeRow',
       'u_nc', 'u_palette', 'u_k', 'u_w', 'u_tau', 'u_rows', 'u_scale', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line',
       'u_edgeAlt', 'u_lineAlt', 'u_prof', 'u_profN', 'u_profMax',
-      'u_reach', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat', 'u_dotCol', 'u_dotRange', 'u_dotR']);
+      'u_reach', 'u_cull', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat', 'u_dotCol', 'u_dotRange', 'u_dotR']);
     var overProg = program(OVERLAY_VS, OVERLAY_FS, ['u_half', 'u_inv', 'u_anchor', 'u_on', 'u_lat', 'u_gap',
       'u_col', 'u_scale', 'u_px', 'u_picks', 'u_nPicks', 'u_pickCol']);
     var overVao = gl.createVertexArray();
 
     // Float textures read with texelFetch: the corners and edge codes, one
-    // row per hand, and the palette of class colours.
+    // row per hand, then the edge blocks, one row per hand; and the palette
+    // of class colours.
     function floatTexture(w, h) {
       var t = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, t);
@@ -640,8 +657,8 @@
       return t;
     }
     var PALETTE = 256;
-    var shapeTex = floatTexture(NC, 2), paletteTex = floatTexture(PALETTE, 1);
-    var shapeData = new Float32Array(NC * 2 * 4), paletteData = new Float32Array(PALETTE * 4);
+    var shapeTex = floatTexture(NC, 4), paletteTex = floatTexture(PALETTE, 1);
+    var shapeData = new Float32Array(NC * 4 * 4), paletteData = new Float32Array(PALETTE * 4);
 
     /* -------------------------------------------------- tile meshes */
 
@@ -795,16 +812,17 @@
     }
 
     // A custom set belongs to a grouping with a fixed number of groups. When
-    // a rebuild changes that number, as a new Krinkle n does, the set no
-    // longer fits, so it goes and the grouping's first preset takes over.
+    // a rebuild changes that number, as a new Krinkle n does, the set is
+    // stretched round the circle: new group i takes the old colour at
+    // i × old count / new count. Krinkle's groups follow the circle, so a
+    // gradient survives the stretch.
     function keepCustoms() {
       Object.keys(customs).forEach(function (id) {
-        if (groupings[id] && customs[id].length === groupings[id].n) return;
-        delete customs[id];
-        if (sel === 'custom:' + id) {
-          sel = cfg.presets.filter(function (p) { return p.grouping === id; })[0].id;
-          saveOptions();
-        }
+        if (!groupings[id]) { delete customs[id]; return; }
+        var old = customs[id], n = groupings[id].n;
+        if (old.length === n) return;
+        customs[id] = Array.from({ length: n }, function (x, i) { return old[Math.floor(i * old.length / n)]; });
+        saveOptions();
       });
     }
 
@@ -945,18 +963,23 @@
 
     /* Random colours for every group of the current grouping, kept as a
        custom set so a link can share them. Each roll picks one of five
-       palettes with equal chance. A small palette is dealt like a shuffled
-       deck, so every colour appears once before any appears twice, and two
-       or more groups never all get the same colour. */
+       palettes. The 27 colours come up half the time and the other four an
+       eighth each. A small palette is dealt like a shuffled deck, so every
+       colour appears once before any appears twice, and two or more groups
+       never all get the same colour.
+
+       A grouping whose groups run in order round a circle, as Krinkle's
+       wedges do, may give a roll() of its own that keeps that order. It
+       takes half the rolls, and the five palettes share the other half. */
     function hex2(v) { return ('0' + Math.round(v).toString(16)).slice(-2); }
     var PALETTES = [
-      null,                                                                   // any colour
-      ['#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#00ffff', '#ff00ff', '#ffff00'],
-      ['#ffffff', '#000000'],
-      Array.from({ length: 8 }, function (x, i) { var h = hex2(255 * i / 7); return '#' + h + h + h; }),
-      Array.from({ length: 27 }, function (x, i) {                            // 00, 80, ff per channel
+      { p: 0.5, colours: Array.from({ length: 27 }, function (x, i) {        // 00, 80, ff per channel
         return '#' + [Math.floor(i / 9), Math.floor(i / 3) % 3, i % 3].map(function (d) { return ['00', '80', 'ff'][d]; }).join('');
-      })
+      }) },
+      { p: 0.125, colours: null },                                            // any colour
+      { p: 0.125, colours: ['#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#00ffff', '#ff00ff', '#ffff00'] },
+      { p: 0.125, colours: ['#ffffff', '#000000'] },
+      { p: 0.125, colours: Array.from({ length: 8 }, function (x, i) { var h = hex2(255 * i / 7); return '#' + h + h + h; }) }
     ];
     function shuffled(a) {
       a = a.slice();
@@ -964,7 +987,9 @@
       return a;
     }
     function randomColours(n) {
-      var pal = PALETTES[Math.floor(Math.random() * PALETTES.length)], out = [];
+      var u = Math.random(), k = 0;
+      while (k < PALETTES.length - 1 && u >= PALETTES[k].p) { u -= PALETTES[k].p; k++; }
+      var pal = PALETTES[k].colours, out = [];
       if (!pal) {
         for (var i = 0; i < n; i++) out.push('#' + hex2(Math.random() * 255) + hex2(Math.random() * 255) + hex2(Math.random() * 255));
         return out;
@@ -974,7 +999,7 @@
     }
     document.getElementById('random-colours').addEventListener('click', function () {
       var g = currentGrouping();
-      customs[g.id] = randomColours(g.n);
+      customs[g.id] = g.roll && Math.random() < 0.5 ? g.roll().map(toHex) : randomColours(g.n);
       sel = 'custom:' + g.id;
       renderSchemeSelect();
       saveOptions();
@@ -999,7 +1024,7 @@
         renderLegend();
         changed();
       } else {
-        Array.prototype.forEach.call(legendEl.querySelectorAll('.group[data-group="' + group + '"] polygon'),
+        Array.prototype.forEach.call(legendEl.querySelectorAll('.group[data-group="' + group + '"] polygon, .strip rect[data-group="' + group + '"]'),
           function (p) { p.setAttribute('fill', value); });
         requestDraw();
       }
@@ -1052,6 +1077,24 @@
     }
     function inkFor(c) { return inkAlt(c) ? theme.edgeAlt : theme.edge; }
 
+    // A key with more groups than STRIP shows them as one strip of colour,
+    // in order, since a tile for each would fill the screen. A click on the
+    // strip picks the group under the pointer.
+    var STRIP = 24;
+    function stripHtml(g, cols) {
+      var classes = classList(), caption = function (q) {
+        for (var k = 0; k < classes.length; k++) if (g.of(k) === q) return classes[k].caption;
+        return q;
+      };
+      var rects = '';
+      for (var q = 0; q < g.n; q++) {
+        rects += '<rect data-group="' + q + '" x="' + q + '" width="1.04" height="1" fill="' + css(cols[q]) + '"><title>' + caption(q) + '</title></rect>';
+      }
+      return '<button type="button" class="strip" aria-label="' + g.n + ' colours in order. Pick a colour for one of them">' +
+        '<svg viewBox="0 0 ' + g.n + ' 1" preserveAspectRatio="none" shape-rendering="crispEdges" aria-hidden="true">' + rects + '</svg>' +
+        '<span class="ends" aria-hidden="true"><span>' + caption(0) + '</span><span>' + caption(g.n - 1) + '</span></span></button>';
+    }
+
     function renderLegend() {
       if (!theme || !info) return;
       var g = currentGrouping(), cols = groupColours();
@@ -1059,7 +1102,11 @@
       legendToggle.textContent = legendOpen ? 'Hide' : 'Key';
       legendToggle.setAttribute('aria-expanded', legendOpen);
       legendEl.hidden = !legendOpen;
-      if (legendOpen) {
+      if (legendOpen && g.n > STRIP) {
+        html += stripHtml(g, cols);
+        html += '<div><button type="button" class="linkish" id="reset-colours">Reset colours</button></div>';
+        html += '<input type="color" id="legend-colour" tabindex="-1" aria-hidden="true">';
+      } else if (legendOpen) {
         var order = g.order || Array.from({ length: g.n }, function (x, i) { return i; });
         html += '<div class="groups" style="grid-template-columns: repeat(' + (g.cols || 1) + ', auto)">';
         var classes = classList();
@@ -1086,12 +1133,21 @@
       var active = -1;
       picker.addEventListener('input', function () { if (active >= 0) setGroupColour(active, picker.value, false); });
       picker.addEventListener('change', function () { if (active >= 0) setGroupColour(active, picker.value, true); });
+      function pick(q) {
+        active = q;
+        picker.value = toHex(groupColours()[active]);
+        picker.click();
+      }
       Array.prototype.forEach.call(legendEl.querySelectorAll('.group'), function (b) {
-        b.addEventListener('click', function () {
-          active = +b.dataset.group;
-          picker.value = toHex(groupColours()[active]);
-          picker.click();
-        });
+        b.addEventListener('click', function () { pick(+b.dataset.group); });
+      });
+      // A click from the keyboard has no pointer position, so it picks the
+      // first group.
+      var strip = legendEl.querySelector('.strip');
+      if (strip) strip.addEventListener('click', function (e) {
+        var r = strip.querySelector('svg').getBoundingClientRect();
+        var q = e.detail ? Math.floor((e.clientX - r.left) / r.width * g.n) : 0;
+        pick(Math.max(0, Math.min(g.n - 1, q)));
       });
     }
 
@@ -1238,7 +1294,10 @@
 
       var s = view.s, U = tileProg.U;
       var res = cfg.shape.lod(s * dpr);
-      var ms = hands.map(function (h) { return mesh(res, h); });
+      // A shape may fill with a plainer mesh than the profile its strokes
+      // follow, once its curves are too small on screen to see in the fill.
+      var meshRes = cfg.shape.meshLod ? cfg.shape.meshLod(s * dpr) : res;
+      var ms = hands.map(function (h) { return mesh(meshRes, h); });
       gl.useProgram(tileProg.p);
       var co = Math.cos(view.rot), si = Math.sin(view.rot), k = s * dpr;
       gl.uniformMatrix2fv(U.u_view, false, [co * k, si * k, -si * k, co * k]);
@@ -1302,6 +1361,15 @@
       // unmirrored and mirrored tiles, and sel, one bit per edge.
       var symAt = prof.symAt || function (i, f) { return ((prof.sym || [0, 0])[f] >> (2 * i)) & 3; };
       var selAt = prof.selAt || function (i) { return ((prof.sel || 0) >> i) & 1; };
+      // How far each profile strays from its edge, in edge lengths.
+      var stray = [0, 0];
+      [prof.pts, prof.pts2].forEach(function (pts, j) {
+        if (np[j] < 2) return;
+        pts.slice(0, 65).forEach(function (p) {
+          var dx = p[0] < 0 ? -p[0] : p[0] > 1 ? p[0] - 1 : 0;
+          stray[j] = Math.max(stray[j], Math.hypot(dx, p[1]));
+        });
+      });
       var nc = 0;
       hands.forEach(function (h, row) {
         var cs = cfg.shape.corners(h > 0 ? 1 : 0) || [];
@@ -1311,13 +1379,32 @@
           shapeData[o] = cs[i][0]; shapeData[o + 1] = cs[i][1];
           shapeData[o + 2] = symAt(i, 0) + 4 * symAt(i, 1) + 16 * selAt(i);
         }
+        // Each block's circle holds its corners, and reaches past them as
+        // far as a profile strays from its edge.
+        for (var b = 0; BS * b < nc; b++) {
+          var e0 = BS * b, e1 = Math.min(nc, e0 + BS), x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, e, p;
+          for (e = e0; e <= e1; e++) {
+            p = cs[e % nc];
+            x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]);
+          }
+          var bx = (x0 + x1) / 2, by = (y0 + y1) / 2, r = 0, reach = 0;
+          for (e = e0; e <= e1; e++) r = Math.max(r, Math.hypot(cs[e % nc][0] - bx, cs[e % nc][1] - by));
+          for (e = e0; e < e1; e++) {
+            var q = cs[(e + 1) % nc];
+            reach = Math.max(reach, stray[selAt(e)] * Math.hypot(q[0] - cs[e][0], q[1] - cs[e][1]));
+          }
+          var ob = 4 * ((2 + row) * NC + b);
+          shapeData[ob] = bx; shapeData[ob + 1] = by; shapeData[ob + 2] = r + reach;
+        }
       });
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, shapeTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, NC, 2, gl.RGBA, gl.FLOAT, shapeData);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, NC, 4, gl.RGBA, gl.FLOAT, shapeData);
       gl.uniform1i(U.u_shapeTex, 1);
       gl.uniform1i(U.u_nc, nc);
       gl.uniform1f(U.u_reach, (Math.max.apply(null, widths) * dpr / 2 + 1.5) / k);
+      // Past this distance from a block's circle no line reaches a pixel.
+      gl.uniform1f(U.u_cull, (Math.max.apply(null, widths) * dpr / 2 + 1) / k);
 
       // Grid.
       var lat = grid.on && grid.picks.length ? lattices() : [], on = 0, latM = new Float32Array(8), gp = [0, 0];
@@ -1574,8 +1661,11 @@
     function loadOptions() {
       try {
         var o = JSON.parse(localStorage.getItem(store) || '{}');
+        // A set saved for another group count is stretched to fit once the
+        // tiling is ready (see keepCustoms).
         if (o.customs) Object.keys(o.customs).forEach(function (g) {
-          if (groupings[g] && Array.isArray(o.customs[g]) && o.customs[g].length === groupings[g].n) customs[g] = o.customs[g];
+          var list = o.customs[g];
+          if (groupings[g] && Array.isArray(list) && list.length && list.every(function (x) { return /^#[0-9a-f]{6}$/i.test(x); })) customs[g] = list;
         });
         if (o.sel && (presets[o.sel] || (o.sel.indexOf('custom:') === 0 && customs[o.sel.slice(7)]))) sel = o.sel;
         outlines = !!o.outlines;

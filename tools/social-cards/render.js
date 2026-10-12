@@ -10,7 +10,8 @@
    reads the four audited contracts' bytecode from a public Ethereum RPC.
 
    Stage 1 draws the pictures the cards are made from into a temporary
-   folder: the tiling tabs with their panels hidden, the Merge Fractals
+   folder: the tiling tabs with their panels hidden, two patches built in
+   the Tiling Puzzle, the Merge Fractals
    part way through their animation, the two live sites, the bytecode. Stage 2 lays out each card in cards.html and saves a JPEG,
    at the best quality that stays under 300 KB, since WhatsApp shows no
    picture for anything larger. */
@@ -23,7 +24,7 @@ const ROOT = path.join(__dirname, '..', '..');
 const OUT = path.join(ROOT, 'social');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'social-cards-'));
 const MAX_BYTES = 300 * 1024;
-const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'krinkle', 'merge-fractals', 'moving-mondrian',
+const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'krinkle', 'puzzle', 'merge-fractals', 'moving-mondrian',
                'weth9', 'uniswap-v2', 'dai', 'permit2', 'parfly', 'salary-loan'];
 // Cards drawn from their own words and diagram, with no picture from stage 1.
 const STANDALONE = ['parfly', 'salary-loan'];
@@ -36,6 +37,9 @@ const TILINGS = {
   // The centre of the fan sits right of the card's panel, so the swirl shows.
   krinkle: '/app/tiles/krinkle/#v=-30,0,13,0&c=pastel&mk=3,7&t=2&o=1&a=fan'
 };
+// The Tiling Puzzle's card shows a Hat patch and a Spectre patch, each built
+// by four presses of Fill a ring, so its rings show in their colours.
+const PUZZLES = { 'puzzle-hat': 'hat', 'puzzle-spectre': 'spectre' };
 // Merge Fractals animate: every few seconds the two diamonds break into
 // fractal shapes and back. Each is caught at a moment of seconds into its
 // animation where the shapes are clearest.
@@ -122,8 +126,27 @@ async function stageOne(browser, base, ids) {
     console.log('drew ' + name + '.png', Math.round(fs.statSync(path.join(TMP, name + '.png')).size / 1024) + ' KB');
   }
   await ctx.close();
+  if (ids.includes('puzzle')) {
+    const board = await browser.newContext({ viewport: { width: 600, height: 600 }, deviceScaleFactor: 2 });
+    for (const [name, piece] of Object.entries(PUZZLES)) {
+      const page = await board.newPage();
+      await page.goto(base + '/app/tiling-puzzle/#p=' + piece);
+      await page.waitForFunction(() => window.TilingPuzzle && window.TilingPuzzle.ready(), null, { timeout: 60000 });
+      for (let ring = 0; ring < 4; ring++) {
+        await page.click('#fill-ring');
+        await page.waitForFunction(() => !/Filling/.test(document.body.innerText), null, { timeout: 60000 });
+      }
+      await page.click('#home');
+      await page.addStyleTag({ content: '.card, .bar { display: none !important; }' });
+      await page.waitForTimeout(1000);
+      await page.screenshot({ path: path.join(TMP, name + '.png') });
+      await page.close();
+      console.log('drew ' + name + '.png');
+    }
+    await board.close();
+  }
   // A run that asks only for tiling cards needs nothing from the network.
-  if (ids.every(id => id in TILINGS)) return;
+  if (ids.every(id => id in TILINGS || id === 'puzzle')) return;
   const art = await browser.newContext({ viewport: { width: 400, height: 400 }, deviceScaleFactor: 2 });
   for (const [id, t] of Object.entries(FRACTALS)) {
     const page = await art.newPage();
