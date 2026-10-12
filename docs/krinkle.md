@@ -739,12 +739,17 @@ Checks, 2026-10-12:
   capped at 240. The dice reaches the new cap and still favours small k.
 - **Pastel 1 to 6.** The six presets use one to six hue tracks. Their jumps
   are consecutive, 180°, 120°, 90°, 72° and 60°. Each set of tracks advances
-  round the hue circle together. The dark rhythms are every 2nd, 3rd, 3rd,
-  4th, 5th and 3rd wedge. Pastel 6 is the default.
-- **Direct entry.** `Set m, k, t` opens a modal number form. Apply uses the
-  worker's validator with the current Offset setting. The form shows n, all
-  parameter bounds and a live green OK or the exact red Apply error. Invalid
-  values keep the form open. Cancel and Escape close it at any time.
+  round the hue circle together. The dark rhythms are every 2nd, 3rd, 4th,
+  3rd, 4th and 3rd wedge. Pastel 6 is the default.
+- **Direct entry.** `Set tile` opens a modal form for m, k, t and the
+  **Two-fold family** option, formerly called Offset. Apply uses the worker's
+  validator. The form shows n, all parameter bounds and a live green OK or
+  the exact red Apply error. Invalid values keep the form open. Cancel and
+  Escape close it at any time. The family option lives only in this form, so
+  it cannot be changed by accident. Presets still select it when required.
+- **No rejected stepper state.** The Two-fold family has no valid value at
+  k = 120. Its k stepper therefore stops at 119. The earlier control could
+  enter an invalid state while the graphic retained the last valid tiling.
 - **Preset home.** A preset now centres the fan immediately. The old animated
   pan could be interrupted before it reached the centre.
 

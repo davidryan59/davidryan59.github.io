@@ -41,7 +41,7 @@
   .stepper output { min-width: 1rem; text-align: center; font-variant-numeric: tabular-nums; color: var(--h1); }
   .options button:disabled { opacity: 0.4; cursor: default; }
   .options button:disabled:hover { border-color: var(--ring); color: var(--h3); }
-  .offset-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .offset-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
   .offset-actions { display: flex; align-items: center; gap: 0.35rem; }
   #set-values { font-size: 0.78rem; padding: 0.28rem 0.5rem; }
   .options .dice { width: 2rem; height: 2rem; }
@@ -82,6 +82,7 @@
   #values-dialog h2 { margin: 0 0 0.8rem; color: var(--h1); font-size: 1.05rem; font-weight: normal; }
   #values-dialog .fields { display: grid; grid-template-columns: repeat(3, 5rem); gap: 0.6rem; }
   #values-dialog label { display: grid; gap: 0.2rem; color: var(--h3); font-style: italic; }
+  #values-dialog .family { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.7rem; font-style: normal; }
   #values-dialog input { width: 100%; box-sizing: border-box; padding: 0.35rem; color: var(--text); background: var(--panel); border: 1px solid var(--rule); border-radius: 5px; font: inherit; }
   #values-dialog .error-note { min-height: 1.2em; max-width: 16rem; margin: 0.6rem 0; font-size: 0.8rem; }
   #values-dialog .value-note { margin: 0.65rem 0 0; color: var(--h3); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
@@ -131,9 +132,8 @@
         <div class="stepper" data-param="t"><span class="lab">t</span><button type="button" data-step="-1" aria-label="Lower t">−</button><output>2</output><button type="button" data-step="1" aria-label="Raise t">+</button></div>
       </div>
       <div class="offset-row">
-        <label><input type="checkbox" id="offset"> Offset</label>
         <div class="offset-actions">
-        <button type="button" id="set-values">Set m, k, t</button>
+        <button type="button" id="set-values">Set tile</button>
         <button type="button" class="dice" id="random-tile" title="Random tiling" aria-label="Random tiling">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
             <rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/>
@@ -216,12 +216,14 @@
 
 <dialog id="values-dialog" aria-labelledby="values-title">
   <form id="values-form" novalidate>
-    <h2 id="values-title">Set m, k and t</h2>
+    <h2 id="values-title">Set tile</h2>
     <div class="fields">
       <label>m<input id="value-m" type="number" inputmode="numeric" step="1" required></label>
       <label>k<input id="value-k" type="number" inputmode="numeric" step="1" min="1" max="120" required></label>
       <label>t<input id="value-t" type="number" inputmode="numeric" step="1" min="2" required></label>
     </div>
+    <label class="family"><input id="offset" type="checkbox"> Two-fold family</label>
+    <p class="bounds-note">Joins two half-fans. This changes the tile and gives the tiling 2-fold symmetry.</p>
     <p class="value-note" id="values-n"></p>
     <p class="bounds-note" id="values-bounds"></p>
     <p class="error-note" id="values-error" aria-live="polite"></p>
@@ -638,13 +640,13 @@
       return trackedPastels(built.n, 2, 3);
     } },
     { id: 'opposites3', name: 'Pastel 3', grouping: 'fan', colours: function () {
-      return trackedPastels(built.n, 3, 3);
+      return trackedPastels(built.n, 3, 4);
     } },
     { id: 'opposites4', name: 'Pastel 4', grouping: 'fan', colours: function () {
-      return trackedPastels(built.n, 4, 4);
+      return trackedPastels(built.n, 4, 3);
     } },
     { id: 'pastel5', name: 'Pastel 5', grouping: 'fan', colours: function () {
-      return trackedPastels(built.n, 5, 5);
+      return trackedPastels(built.n, 5, 4);
     } },
     { id: 'pastel6', name: 'Pastel 6', grouping: 'fan', colours: function () {
       return trackedPastels(built.n, 6, 3);
@@ -1017,7 +1019,7 @@
       m: valueEls.m.valueAsNumber,
       k: valueEls.k.valueAsNumber,
       t: valueEls.t.valueAsNumber,
-      offset: st.offset,
+      offset: offsetEl.checked ? 1 : 0,
       arrangement: st.layout
     };
   }
@@ -1025,7 +1027,7 @@
     var next = dialogValues();
     var finite = isFinite(next.m) && isFinite(next.k) && isFinite(next.t);
     valuesN.textContent = 'n = ' + (finite ? K.directions(next.m, next.k, next.t, next.offset) : '—') +
-      ' · Offset ' + (next.offset ? 'on' : 'off');
+      ' · Two-fold family ' + (next.offset ? 'on' : 'off');
     valuesBounds.textContent = 'Bounds: k 1–120; m 1–k−1 and coprime to k (m = 1 when k = 1); ' +
       't ≥ 2 (t ≥ 3 when k = 1); n 3–240.';
     var error = K.validate(next);
@@ -1037,11 +1039,13 @@
     valueEls.m.value = st.m;
     valueEls.k.value = st.k;
     valueEls.t.value = st.t;
+    offsetEl.checked = !!st.offset;
     updateValuePreview();
     valuesDialog.showModal();
     valueEls.m.select();
   });
   Object.keys(valueEls).forEach(function (key) { valueEls[key].addEventListener('input', updateValuePreview); });
+  offsetEl.addEventListener('change', updateValuePreview);
   document.getElementById('values-cancel').addEventListener('click', function () { valuesDialog.close(); });
   valuesForm.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -1050,6 +1054,7 @@
     st.m = next.m;
     st.k = next.k;
     st.t = next.t;
+    st.offset = next.offset;
     valuesDialog.close();
     syncControls();
     scheduleLimits();
@@ -1066,6 +1071,7 @@
       } else if (param === 'k') {
         var nk = st.k + d;
         if (nk < 1 || nk > K.MAX_K) return;
+        if (!validMs(nk, st.offset).length) return;
         st.k = nk;
         st.m = nearestM(st.m, nk, st.offset);
       } else {
@@ -1076,14 +1082,6 @@
       scheduleLimits();
       rebuild(null);
     });
-  });
-  offsetEl.addEventListener('change', function () {
-    st.offset = offsetEl.checked ? 1 : 0;
-    st.m = nearestM(st.m, st.k, st.offset);
-    clampT();
-    syncControls();
-    scheduleLimits();
-    rebuild(null);
   });
   Array.prototype.forEach.call(layoutEls, function (r) {
     r.addEventListener('change', function () {
@@ -1156,7 +1154,7 @@
     stepperEls.m.minus.disabled = ms.indexOf(st.m) <= 0;
     stepperEls.m.plus.disabled = ms.indexOf(st.m) >= ms.length - 1;
     stepperEls.k.minus.disabled = st.k <= 1;
-    stepperEls.k.plus.disabled = st.k >= K.MAX_K;
+    stepperEls.k.plus.disabled = st.k >= K.MAX_K || !validMs(st.k + 1, st.offset).length;
     stepperEls.t.minus.disabled = st.t <= r[0];
     stepperEls.t.plus.disabled = st.t >= r[1];
     offsetEl.checked = !!st.offset;
