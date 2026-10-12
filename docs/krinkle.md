@@ -27,7 +27,7 @@ used only to check the output, never copied.
 - [x] Phase 4: Construction playback and scripting hooks (2026-10-11)
 - [x] Grain-boundary arrangement (2026-10-12)
 - [x] Colours, k to 72 and the tabbed panel (2026-10-12)
-- [x] k to 120 and tracked pastel palettes (2026-10-12)
+- [x] k to 120, six tracked pastels and direct number entry (2026-10-12)
 - [ ] Later list reviewed, once the tab is live
 
 ## Sources
@@ -733,22 +733,24 @@ Checks, 2026-10-12:
 - `node tools/hat-edges/verify-page.js`: no mismatched edges.
 - `tools/screen-fit/check.js` on all four tabs: all six sizes pass.
 
-## k to 120 and tracked pastels (2026-10-12)
+## k to 120, tracked pastels and direct entry (2026-10-12)
 
 - **k to 120.** `MAX_K` is 120, so a tile has up to 242 edges. n remains
   capped at 240. The dice reaches the new cap and still favours small k.
-- **Opposite pastels.** Successive wedges alternate between two hue tracks
-  180° apart. Both tracks advance round the hue circle together.
-- **Pastel thirds.** Three hue tracks sit 120° apart and advance together.
-  The third wedge in each group is darker.
-- **Pastel fourths.** Four hue tracks sit 90° apart and advance together.
-  The fourth wedge in each group is darker.
+- **Pastel 1 to 6.** The six presets use one to six hue tracks. Their jumps
+  are consecutive, 180°, 120°, 90°, 72° and 60°. Each set of tracks advances
+  round the hue circle together. The dark rhythms are every 2nd, 3rd, 3rd,
+  4th, 5th and 3rd wedge.
+- **Direct entry.** `Set m, k, t` opens a modal number form. Apply uses the
+  worker's validator with the current Offset setting. Invalid values show the
+  broken rule and keep the form open. Cancel and Escape close it at any time.
 
 Checks, 2026-10-12:
 
 - The worker checks pass at (119, 120, 240), the largest non-offset case.
-- The maximum k Jigsaw view and the tracked-third view pass all six screen
-  sizes.
+- The maximum k Jigsaw view and Pastels 3 and 6 pass all six screen sizes.
+- Browser checks cover all six menu entries, invalid Apply, Cancel and a
+  valid direct change to (119, 120, 2).
 
 ## Later
 

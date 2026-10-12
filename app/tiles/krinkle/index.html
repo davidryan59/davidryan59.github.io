@@ -42,6 +42,8 @@
   .options button:disabled { opacity: 0.4; cursor: default; }
   .options button:disabled:hover { border-color: var(--ring); color: var(--h3); }
   .offset-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+  .offset-actions { display: flex; align-items: center; gap: 0.35rem; }
+  #set-values { font-size: 0.78rem; padding: 0.28rem 0.5rem; }
   .options .dice { width: 2rem; height: 2rem; }
   .options label.disabled { opacity: 0.5; cursor: default; }
   .readout { margin: 0; font-size: 0.8rem; line-height: 1.4; color: var(--text); }
@@ -75,6 +77,14 @@
   #stage { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; margin: 0; line-height: 1.3; }
   #tile-figure { display: block; width: 100%; height: 6.5rem; }
   #tile-figure text { fill: var(--muted); font-family: Georgia, serif; }
+  #values-dialog { pointer-events: auto; color: var(--text); background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 1rem; box-shadow: 0 12px 40px #0005; }
+  #values-dialog::backdrop { background: #0007; }
+  #values-dialog h2 { margin: 0 0 0.8rem; color: var(--h1); font-size: 1.05rem; font-weight: normal; }
+  #values-dialog .fields { display: grid; grid-template-columns: repeat(3, 5rem); gap: 0.6rem; }
+  #values-dialog label { display: grid; gap: 0.2rem; color: var(--h3); font-style: italic; }
+  #values-dialog input { width: 100%; box-sizing: border-box; padding: 0.35rem; color: var(--text); background: var(--panel); border: 1px solid var(--rule); border-radius: 5px; font: inherit; }
+  #values-dialog .error-note { min-height: 1.2em; max-width: 16rem; margin: 0.6rem 0; font-size: 0.8rem; }
+  #values-dialog .actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 </style>
 <script data-goatcounter="https://drbuild.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
@@ -118,12 +128,15 @@
       </div>
       <div class="offset-row">
         <label><input type="checkbox" id="offset"> Offset</label>
+        <div class="offset-actions">
+        <button type="button" id="set-values">Set m, k, t</button>
         <button type="button" class="dice" id="random-tile" title="Random tiling" aria-label="Random tiling">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
             <rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/>
             <g fill="currentColor" stroke="none"><circle cx="8.2" cy="8.2" r="1.35"/><circle cx="15.8" cy="8.2" r="1.35"/><circle cx="12" cy="12" r="1.35"/><circle cx="8.2" cy="15.8" r="1.35"/><circle cx="15.8" cy="15.8" r="1.35"/></g>
           </svg>
         </button>
+        </div>
       </div>
     </div>
     <div class="section">
@@ -196,6 +209,22 @@
     </div>
   </div>
 </div>
+
+<dialog id="values-dialog" aria-labelledby="values-title">
+  <form id="values-form" novalidate>
+    <h2 id="values-title">Set m, k and t</h2>
+    <div class="fields">
+      <label>m<input id="value-m" type="number" inputmode="numeric" step="1" required></label>
+      <label>k<input id="value-k" type="number" inputmode="numeric" step="1" min="1" max="120" required></label>
+      <label>t<input id="value-t" type="number" inputmode="numeric" step="1" min="2" required></label>
+    </div>
+    <p class="error-note" id="values-error" aria-live="polite"></p>
+    <div class="actions">
+      <button type="button" id="values-cancel">Cancel</button>
+      <button type="submit">Apply</button>
+    </div>
+  </form>
+</dialog>
 </div>
 
 <div class="card zoom" role="group" aria-label="Zoom and turn">
@@ -573,25 +602,15 @@
     for (j = 0; j < a; j++) for (p = Math.floor((j + 0.5) * per / a); p < n; p += per) on[p] = true;
     return on;
   }
-  // Walk slowly round the hue circle while jumping to its opposite after
-  // every wedge: red, cyan, red-orange, cyan-blue, and so on. Each copy of
-  // the fan repeats the same sequence.
-  function oppositePastels(n) {
-    var per = wedgesPerCopy(n), pairs = Math.ceil(per / 2), out = [];
-    for (var i = 0; i < n; i++) {
-      var j = i % per, hue = 25 + Math.floor(j / 2) * 360 / pairs + (j % 2) * 180;
-      out.push(oklch(0.86, 0.09, hue));
-    }
-    return out;
-  }
-  // Run `tracks` evenly spaced hue tracks round the circle together. The
-  // last track is dark: red, green, dark blue, then each one advances.
-  function trackedPastels(n, tracks) {
+  // Run evenly spaced hue tracks round the circle together. One track gives
+  // consecutive hues; two jump 180 degrees plus a small advance; then the
+  // jumps are 120, 90, 72 and 60 degrees. Each fan copy repeats the sequence.
+  function trackedPastels(n, tracks, darkEvery) {
     var per = wedgesPerCopy(n), steps = Math.ceil(per / tracks), out = [];
     for (var i = 0; i < n; i++) {
       var j = i % per, track = j % tracks;
       var hue = 25 + track * 360 / tracks + Math.floor(j / tracks) * 360 / steps;
-      var dark = track === tracks - 1;
+      var dark = j % darkEvery === darkEvery - 1;
       out.push(oklch(dark ? 0.64 : 0.86, dark ? 0.14 : 0.09, hue));
     }
     return out;
@@ -606,18 +625,23 @@
   // Plain keeps a dark version, since its colour stands in for the
   // background.
   var presets = [
-    { id: 'pastel', name: 'Pastel', grouping: 'fan', colours: function () {
-      var n = built.n, on = accentWedges(n, 3);
-      return ring(n, 0.86, 0.09, 25).map(function (c, i) { return on[i] ? accent(25 + i * 360 / n) : c; });
+    { id: 'pastel', name: 'Pastel 1', grouping: 'fan', colours: function () {
+      return trackedPastels(built.n, 1, 2);
     } },
-    { id: 'opposites', name: 'Opposite pastels', grouping: 'fan', colours: function () {
-      return oppositePastels(built.n);
+    { id: 'opposites', name: 'Pastel 2', grouping: 'fan', colours: function () {
+      return trackedPastels(built.n, 2, 3);
     } },
-    { id: 'opposites3', name: 'Pastel thirds · dark third', grouping: 'fan', colours: function () {
-      return trackedPastels(built.n, 3);
+    { id: 'opposites3', name: 'Pastel 3', grouping: 'fan', colours: function () {
+      return trackedPastels(built.n, 3, 3);
     } },
-    { id: 'opposites4', name: 'Pastel fourths · dark fourth', grouping: 'fan', colours: function () {
-      return trackedPastels(built.n, 4);
+    { id: 'opposites4', name: 'Pastel 4', grouping: 'fan', colours: function () {
+      return trackedPastels(built.n, 4, 4);
+    } },
+    { id: 'pastel5', name: 'Pastel 5', grouping: 'fan', colours: function () {
+      return trackedPastels(built.n, 5, 5);
+    } },
+    { id: 'pastel6', name: 'Pastel 6', grouping: 'fan', colours: function () {
+      return trackedPastels(built.n, 6, 3);
     } },
     { id: 'rainbow', name: 'Rainbow', grouping: 'fan', colours: function () {
       return ring(built.n, 0.78, 0.13, 25);
@@ -961,6 +985,49 @@
     var ms = validMs(k, off), m = ms[Math.floor(Math.random() * ms.length)], r = tRange(m, k, off);
     var t = r[0] + Math.floor(Math.random() * (Math.min(DICE_MAX_T, r[1]) - r[0] + 1));
     st.m = m; st.k = k; st.t = t; st.offset = off;
+    syncControls();
+    scheduleLimits();
+    rebuild({});
+  });
+
+  /* Direct entry avoids up to 113 presses of the k stepper. The worker's
+     validator remains the one source of truth, including the current Offset
+     setting and the n cap. An invalid Apply leaves the dialog open. */
+  var valuesDialog = document.getElementById('values-dialog');
+  var valuesForm = document.getElementById('values-form');
+  var valuesError = document.getElementById('values-error');
+  var valueEls = {
+    m: document.getElementById('value-m'),
+    k: document.getElementById('value-k'),
+    t: document.getElementById('value-t')
+  };
+  document.getElementById('set-values').addEventListener('click', function () {
+    valueEls.m.value = st.m;
+    valueEls.k.value = st.k;
+    valueEls.t.value = st.t;
+    valuesError.textContent = '';
+    valuesDialog.showModal();
+    valueEls.m.select();
+  });
+  document.getElementById('values-cancel').addEventListener('click', function () { valuesDialog.close(); });
+  valuesForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var next = {
+      m: valueEls.m.valueAsNumber,
+      k: valueEls.k.valueAsNumber,
+      t: valueEls.t.valueAsNumber,
+      offset: st.offset,
+      arrangement: st.layout
+    };
+    var error = K.validate(next);
+    if (error) {
+      valuesError.textContent = error;
+      return;
+    }
+    st.m = next.m;
+    st.k = next.k;
+    st.t = next.t;
+    valuesDialog.close();
     syncControls();
     scheduleLimits();
     rebuild({});
