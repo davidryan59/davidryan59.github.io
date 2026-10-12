@@ -400,19 +400,19 @@ function validSets(rnd, count) {
 
 function checkRejections() {
   const bad = [
-    [{ m: 1, k: 0, t: 2, offset: 0 }, 'k'], [{ m: 1, k: 73, t: 2, offset: 0 }, 'k'],
+    [{ m: 1, k: 0, t: 2, offset: 0 }, 'k'], [{ m: 1, k: 121, t: 2, offset: 0 }, 'k'],
     [{ m: 2, k: 4, t: 2, offset: 0 }, 'common factor'], [{ m: 4, k: 4, t: 2, offset: 0 }, 'm'],
     [{ m: 2, k: 1, t: 3, offset: 0 }, 'm'], [{ m: 1, k: 5, t: 1, offset: 0 }, 't'],
     [{ m: 1, k: 1, t: 2, offset: 1 }, 'n'], [{ m: 1, k: 1, t: 2, offset: 0 }, 'n'],
-    [{ m: 1, k: 30, t: 9, offset: 0 }, '240'], [{ m: 23, k: 72, t: 2, offset: 1 }, '240'], [{ m: 1, k: 5, t: 2, offset: 2 }, 'offset'],
+    [{ m: 1, k: 30, t: 9, offset: 0 }, '240'], [{ m: 1, k: 120, t: 2, offset: 1 }, '240'], [{ m: 1, k: 5, t: 2, offset: 2 }, 'offset'],
     [{ m: 1, k: 5, t: 2, offset: 0, arrangement: 'ring' }, 'arrangement']
   ];
   bad.forEach(([o, word]) => {
     const msg = K.validate(o);
     must('rejection ' + JSON.stringify(o), msg && msg.includes(word), 'got ' + JSON.stringify(msg));
   });
-  [{ m: 1, k: 1, t: 3, offset: 0 }, { m: 1, k: 1, t: 3, offset: 1 }, { m: 29, k: 30, t: 8, offset: 0 }, { m: 5, k: 72, t: 3, offset: 0 },
-   { m: 25, k: 72, t: 2, offset: 1 }].forEach((o) => {
+  [{ m: 1, k: 1, t: 3, offset: 0 }, { m: 1, k: 1, t: 3, offset: 1 }, { m: 29, k: 30, t: 8, offset: 0 }, { m: 119, k: 120, t: 2, offset: 0 },
+   { m: 118, k: 119, t: 2, offset: 1 }].forEach((o) => {
     must('acceptance ' + JSON.stringify(o), K.validate(o) === null, 'rejected: ' + K.validate(o));
   });
   // The page-side handler answers an error message, not a throw.

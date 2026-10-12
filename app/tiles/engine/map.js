@@ -13,7 +13,7 @@
    handByTurn as well, the second outline is for tiles at odd turns instead:
    the Spectre page uses it when its two edge lengths differ.
 
-   The Krinkle page passes record: 'krinkle' and maxCorners: 146. Its tiles
+   The Krinkle page passes record: 'krinkle' and maxCorners: 242. Its tiles
    carry a plain centre and an 8-bit turn of 2 pi / info.turns, it has no
    grid tool (grid: false), and its steppers change the tiling itself, so it
    calls map.rebuild(options, wait) for new workers and a fresh cache. Its

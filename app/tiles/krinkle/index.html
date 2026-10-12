@@ -573,6 +573,29 @@
     for (j = 0; j < a; j++) for (p = Math.floor((j + 0.5) * per / a); p < n; p += per) on[p] = true;
     return on;
   }
+  // Walk slowly round the hue circle while jumping to its opposite after
+  // every wedge: red, cyan, red-orange, cyan-blue, and so on. Each copy of
+  // the fan repeats the same sequence.
+  function oppositePastels(n) {
+    var per = wedgesPerCopy(n), pairs = Math.ceil(per / 2), out = [];
+    for (var i = 0; i < n; i++) {
+      var j = i % per, hue = 25 + Math.floor(j / 2) * 360 / pairs + (j % 2) * 180;
+      out.push(oklch(0.86, 0.09, hue));
+    }
+    return out;
+  }
+  // Run `tracks` evenly spaced hue tracks round the circle together. The
+  // last track is dark: red, green, dark blue, then each one advances.
+  function trackedPastels(n, tracks) {
+    var per = wedgesPerCopy(n), steps = Math.ceil(per / tracks), out = [];
+    for (var i = 0; i < n; i++) {
+      var j = i % per, track = j % tracks;
+      var hue = 25 + track * 360 / tracks + Math.floor(j / tracks) * 360 / steps;
+      var dark = track === tracks - 1;
+      out.push(oklch(dark ? 0.64 : 0.86, dark ? 0.14 : 0.09, hue));
+    }
+    return out;
+  }
   // The lattice class that takes the accent in Lattice, one tile in four:
   // the teal class, which reads clearest against the pastels.
   var LATTICE_ACCENT = 2;
@@ -586,6 +609,15 @@
     { id: 'pastel', name: 'Pastel', grouping: 'fan', colours: function () {
       var n = built.n, on = accentWedges(n, 3);
       return ring(n, 0.86, 0.09, 25).map(function (c, i) { return on[i] ? accent(25 + i * 360 / n) : c; });
+    } },
+    { id: 'opposites', name: 'Opposite pastels', grouping: 'fan', colours: function () {
+      return oppositePastels(built.n);
+    } },
+    { id: 'opposites3', name: 'Pastel thirds · dark third', grouping: 'fan', colours: function () {
+      return trackedPastels(built.n, 3);
+    } },
+    { id: 'opposites4', name: 'Pastel fourths · dark fourth', grouping: 'fan', colours: function () {
+      return trackedPastels(built.n, 4);
     } },
     { id: 'rainbow', name: 'Rainbow', grouping: 'fan', colours: function () {
       return ring(built.n, 0.78, 0.13, 25);

@@ -27,6 +27,7 @@ used only to check the output, never copied.
 - [x] Phase 4: Construction playback and scripting hooks (2026-10-11)
 - [x] Grain-boundary arrangement (2026-10-12)
 - [x] Colours, k to 72 and the tabbed panel (2026-10-12)
+- [x] k to 120 and tracked pastel palettes (2026-10-12)
 - [ ] Later list reviewed, once the tab is live
 
 ## Sources
@@ -55,7 +56,7 @@ used only to check the output, never copied.
 | Name | Values | Meaning |
 |---|---|---|
 | m | 1 ≤ m ≤ k − 1 with gcd(m, k) = 1; or m = 1 when k = 1 | Rhythm of the zigzag |
-| k | 1 to 72 | Length of the zigzag; the tile has 2k + 2 edges |
+| k | 1 to 120 | Length of the zigzag; the tile has 2k + 2 edges |
 | t | 2 or more | Number of fan copies round the centre |
 | offset | 0 or 1 | Selects the second family, with only 2-fold symmetry |
 
@@ -267,7 +268,7 @@ The worker:
 
 Checks in `tools/krinkle/check.js`, run on the presets and on 200 random
 valid parameter sets with t ≤ 4 and both offsets. k reaches the cap of
-72, favouring small k as the page's dice does. Run it with
+120, favouring small k as the page's dice does. Run it with
 `node tools/krinkle/check.js`. The presets use a disc of 40 tile lengths and
 100,000 points, and the random sets 12 tile lengths and 20,000 points. Each
 set is checked in all three arrangements:
@@ -369,7 +370,7 @@ The engine change follows the plan above, with four departures:
 
 For phase 3, the page sets:
 
-- `record: 'krinkle'`, `maxCorners: 2 * MAX_K + 2` (146), `grid: false`, `options`, and
+- `record: 'krinkle'`, `maxCorners: 2 * MAX_K + 2` (242), `grid: false`, `options`, and
   `handler: KrinkleTiling.createHandler` for the fallback without workers;
 - corners relative to the reference point Q/2, since the record holds the
   tile's centre;
@@ -731,6 +732,23 @@ Checks, 2026-10-12:
   no console errors.
 - `node tools/hat-edges/verify-page.js`: no mismatched edges.
 - `tools/screen-fit/check.js` on all four tabs: all six sizes pass.
+
+## k to 120 and tracked pastels (2026-10-12)
+
+- **k to 120.** `MAX_K` is 120, so a tile has up to 242 edges. n remains
+  capped at 240. The dice reaches the new cap and still favours small k.
+- **Opposite pastels.** Successive wedges alternate between two hue tracks
+  180° apart. Both tracks advance round the hue circle together.
+- **Pastel thirds.** Three hue tracks sit 120° apart and advance together.
+  The third wedge in each group is darker.
+- **Pastel fourths.** Four hue tracks sit 90° apart and advance together.
+  The fourth wedge in each group is darker.
+
+Checks, 2026-10-12:
+
+- The worker checks pass at (119, 120, 240), the largest non-offset case.
+- The maximum k Jigsaw view and the tracked-third view pass all six screen
+  sizes.
 
 ## Later
 
