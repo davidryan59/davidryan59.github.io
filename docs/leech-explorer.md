@@ -28,9 +28,9 @@ preset frames. Leave `app/e8/` unchanged.
 
 ## Implementation checklist
 
-- [ ] Phase 1: Lattice model and Node checks
-- [ ] Phase 2: Frame maths in 24 dimensions
-- [ ] Phase 3: The sixteen scenes
+- [x] Phase 1: Lattice model and Node checks (2026-10-13)
+- [x] Phase 2: Frame maths in 24 dimensions (2026-10-13)
+- [x] Phase 3: The sixteen scenes (2026-10-13)
 - [ ] Phase 4: Page, layout and the 8-dimension window
 - [ ] Phase 5: WebGL 2 cloud renderer
 - [ ] Phase 6: The 24-dimension window, selection, tilt and tour
@@ -218,7 +218,8 @@ same table:
 The restriction norm is the real norm, Σ x_p² / 8 over the octad.
 
 - The total is 4,320 + 240 × 512 + 2,160 × 32 + 240 = 196,560.
-- Every spot holds balls of one shape only.
+- Every non-centre spot holds balls of one shape only. The centre mixes 480
+  shape-A balls with 3,840 shape-B balls.
 - The outer 240 are the balls whose non-zero coordinates all lie in the
   octad: a copy of E8, scaled by √2.
 - Their 6,720 pairs at 60° are E8's edges, with 56 at every ball.
@@ -326,7 +327,8 @@ vectors:
 - `order`: an Int32Array(196560), ball indices grouped by spot, in increasing
   index within each spot.
 - `spots`: one entry per spot, `{ id, coords: Int8Array(8), shell, pile,
-  shape, start, end }`, where `order.slice(start, end)` lists the pile.
+  shape, start, end }`, where `order.slice(start, end)` lists the pile. Shape
+  is 0, 1 or 2, except for the mixed centre spot, where it is 255.
 
 Spot ids run by shell (centre, inner, middle, outer), then by key, where the
 key is Σ_k (x at p_k + 4) · 9^(7 − k).
@@ -358,9 +360,16 @@ Checks:
    counts are 891, 275, 44, 0 and 1.
 7. **Octad spots, for each of O1, O2 and O3.**
    - Every row of the shell table holds exactly.
+   - The centre uses shape sentinel 255 and contains exactly 480 A and 3,840 B.
    - The outer spots are the 240 balls that lie inside the octad.
    - Each inner spot is half an outer spot.
    - The outer balls have 6,720 pairs at 60°, with 56 at each ball.
+
+**As built, 2026-10-13.** `lattice.js` generates the code and all 196,560
+vectors in canonical order. The checker verifies every inverse index, lattice
+test and negation, plus the layer and common-neighbour counts. On the build
+machine, vector generation took 11.9 ms. The three octad groupings took 13.5,
+8.3 and 14.6 ms, within the 30 ms and 60 ms guides.
 
 ## Phase 2: frame maths in 24 dimensions
 
@@ -446,6 +455,11 @@ Checks:
      monotonically.
 7. **Encoding.** A round trip errs by less than 1/32767 per value. A malformed
    string decodes to null.
+
+**As built, 2026-10-13.** `frame.js` keeps typed 24-dimensional rows through
+rotation, direct pulling, drift, tilt, alignment and interpolation. The Node
+checker mixes 10,000 operations, tests 200 pulls and checks both 8-coordinate
+and 24-coordinate address encodings.
 
 ## Phase 3: the sixteen scenes
 
@@ -577,6 +591,11 @@ Checks:
 
 For every scene, the mean of X² + Y² over all 196,560 balls is 1/3 within
 1e-9.
+
+**As built, 2026-10-13.** `scenes.js` defines all sixteen scenes in table
+order. The checker reproduces every spot count, stated symmetry, radius,
+layer column and tilt landmark. All sixteen projection means equal 1/3 within
+the required tolerance.
 
 ## Phase 4: page, layout and the 8-dimension window
 
