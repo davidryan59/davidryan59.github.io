@@ -16,7 +16,7 @@ says what happens on each beat.
   the pointer, and draws the toolbar and the captions.
 - `render.js` – serves this repo locally, steps `stage.html` through every
   frame in headless Chromium, and pipes the screenshots to ffmpeg. Output:
-  `sieve.mp4`, silent.
+  `renders/sieve.mp4`, silent.
 
 ## Render
 
@@ -30,7 +30,7 @@ With only `playwright-core` installed, as in `tools/tiling-video/`, set
 | Stills at chosen seconds | `NODE_PATH=... node tools/sieve-video/render.js --stills 2.5,9,20` | 2 s |
 | A still every 1.5 s, on one sheet | `NODE_PATH=... node tools/sieve-video/render.js --sheet` | 5 s |
 
-Stills go in `stills/`. The board's motion depends on every frame before it,
+Stills go in `renders/`. The board's motion depends on every frame before it,
 so a still is reached by drawing those frames too, without screenshots.
 
 At the end, the script lists each beat where the pointer came to rest on a
@@ -61,7 +61,7 @@ end so it carries the reverb tail. The tiling video's music tools do the rest
 - `music/loop_export.py` folds the tail over the start and sets the level. It
   reads the loop's length from the tiling video's timeline, so it must be
   pointed at this one first.
-- `deliver.py` adds the music to `sieve.mp4` without encoding the picture
+- `deliver.py` adds the music to `renders/sieve.mp4` without encoding the picture
   again, and checks the audio for distortion.
 - `loop_trim.py` makes copies that end a few frames early, for X's player,
   which pauses at the loop join. At 60 fps, the 100 ms trim chosen for the

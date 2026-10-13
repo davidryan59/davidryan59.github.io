@@ -123,7 +123,7 @@
     <div class="section">
       <span class="section-title">Presets (m, k, n)</span>
       <div class="presets" id="presets"></div>
-      <p class="hint">Marks: o is an offset tiling, j has jigsaw edges.</p>
+      <p class="hint">Mark: o is an offset tiling.</p>
     </div>
     <div class="section">
       <div class="steppers" id="steppers">
@@ -387,7 +387,6 @@
              shape: 'line', bend: 0.15, params: Object.assign({}, SS.DEFAULTS), edgeArr: 'alt' };
   }
   var st = defaults();
-  var JIGSAW_BEND = -0.3;
   // The construction clock, 0 to w + 1, or null for the whole tiling. A full
   // play takes this many seconds, whatever w is.
   var pb = null, playing = false, PLAY_SECONDS = 20;
@@ -769,7 +768,7 @@
     classes: function (g) { return g.classes(); },
     groupings: groupings,
     presets: presets,
-    defaultScheme: 'pastel6',
+    defaultScheme: 'pastel',
     shape: shape,
     tileRadius: function () { return built.circumradius + (straight() ? 0 : Math.abs(st.bend)) + 0.5; },
     onReady: onReady,
@@ -960,10 +959,10 @@
     var b = document.createElement('button');
     b.type = 'button';
     b.className = i < 4 ? 'big' : 'small';
-    var marks = (p.offset ? '<sup>o</sup>' : '') + (p.edgeShape ? '<sup>j</sup>' : '');
+    var marks = p.offset ? '<sup>o</sup>' : '';
     var triple = p.m + ', ' + p.k + ', ' + n;
     b.innerHTML = i < 4 ? '<span>' + triple + marks + '</span><small>t = ' + p.t + (p.offset ? ', offset' : '') + '</small>' : triple + marks;
-    b.title = '(' + triple + '), t = ' + p.t + (p.offset ? ', offset' : '') + (p.edgeShape ? ', jigsaw edges' : '') + '. ' + p.source;
+    b.title = '(' + triple + '), t = ' + p.t + (p.offset ? ', offset' : '') + '. ' + p.source;
     b.addEventListener('click', function () { applyPreset(p, o); });
     presetsEl.appendChild(b);
     presetEls.push({ el: b, p: p });
@@ -974,13 +973,9 @@
     // Presets are landmarks, so centre them exactly. An animated home could
     // be interrupted by another control before it reached the fan centre.
     var home = { scale: undefined, immediate: true };
-    if (p.edgeShape) {
-      st.shape = p.edgeShape;
-      st.bend = JIGSAW_BEND;
-      st.edgeArr = 'alt';
-      st.params = Object.assign({}, SS.DEFAULTS);
-      home.scale = 22;
-    }
+    // Every preset has straight edges. Curves are an advanced option.
+    var d = defaults();
+    st.shape = d.shape; st.bend = d.bend; st.edgeArr = d.edgeArr; st.params = d.params;
     syncControls();
     scheduleLimits();
     map.shapeChanged();
@@ -1159,7 +1154,7 @@
     stepperEls.t.plus.disabled = st.t >= r[1];
     offsetEl.checked = !!st.offset;
     presetEls.forEach(function (x) {
-      var p = x.p, on = p.m === st.m && p.k === st.k && p.t === st.t && p.offset === st.offset && (!p.edgeShape || p.edgeShape === st.shape);
+      var p = x.p, on = p.m === st.m && p.k === st.k && p.t === st.t && p.offset === st.offset && st.shape === 'line';
       x.el.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     // Read-out

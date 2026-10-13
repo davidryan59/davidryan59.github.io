@@ -1,8 +1,8 @@
 /* Renders the sieve video: 1080 x 1080, 60 fps, 30 s, silent.
 
-     node tools/sieve-video/render.js [out.mp4]            the video, by default sieve.mp4 here
-     node tools/sieve-video/render.js --stills 2.5,9,20    stills at these seconds, into stills/
-     node tools/sieve-video/render.js --sheet              a still every 1.5 s, on one sheet: stills/sheet.jpg
+     node tools/sieve-video/render.js [out.mp4]            the video, by default renders/sieve.mp4
+     node tools/sieve-video/render.js --stills 2.5,9,20    stills at these seconds, into renders/
+     node tools/sieve-video/render.js --sheet              a still every 1.5 s, on one sheet: renders/sheet.jpg
 
    It serves this repo locally and opens stage.html in headless Chromium,
    which draws each frame on a clock this script sets. Each frame is
@@ -19,7 +19,7 @@ let chromium;
 try { ({ chromium } = require('playwright')); } catch (e) { ({ chromium } = require('playwright-core')); }
 
 const ROOT = path.join(__dirname, '..', '..');
-const STILLS = path.join(__dirname, 'stills');
+const RENDERS = path.join(__dirname, 'renders');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff': 'font/woff' };
 
 function serve() {
@@ -70,24 +70,25 @@ function run(cmd, args, input) {
       const secs = args[0] === '--sheet' ? Array.from({ length: 20 }, (_, i) => i * 1.5) : args[1].split(',').map(Number);
       const want = new Map(secs.map((s, i) => [Math.min(frames - 1, Math.round(s * fps)), i]));
       const last = Math.max(...want.keys());
-      fs.mkdirSync(STILLS, { recursive: true });
+      fs.mkdirSync(RENDERS, { recursive: true });
       const names = [];
       for (let n = 0; n <= last; n++) {
         await draw(n);
         if (!want.has(n)) continue;
         const name = args[0] === '--sheet' ? 'sheet-' + String(want.get(n)).padStart(2, '0') + '.png' : 't' + (n / fps).toFixed(2) + '.png';
-        fs.writeFileSync(path.join(STILLS, name), await shot());
+        fs.writeFileSync(path.join(RENDERS, name), await shot());
         names.push(name);
       }
       if (args[0] === '--sheet') {
-        await run('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', '1', '-i', path.join(STILLS, 'sheet-%02d.png'),
-          '-vf', 'scale=360:360,tile=5x4:padding=8:color=white', '-frames:v', '1', '-q:v', '3', path.join(STILLS, 'sheet.jpg')]);
-        console.log('stills/sheet.jpg: a still every 1.5 s, left to right');
+        await run('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', '1', '-i', path.join(RENDERS, 'sheet-%02d.png'),
+          '-vf', 'scale=360:360,tile=5x4:padding=8:color=white', '-frames:v', '1', '-q:v', '3', path.join(RENDERS, 'sheet.jpg')]);
+        console.log('renders/sheet.jpg: a still every 1.5 s, left to right');
       } else {
-        console.log(names.map(n => 'stills/' + n).join('\n'));
+        console.log(names.map(n => 'renders/' + n).join('\n'));
       }
     } else {
-      const out = path.resolve(args[0] || path.join(__dirname, 'sieve.mp4'));
+      const out = path.resolve(args[0] || path.join(RENDERS, 'sieve.mp4'));
+      fs.mkdirSync(path.dirname(out), { recursive: true });
       await run('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-c:v', 'png', '-framerate', String(fps), '-i', '-',
         '-vf', 'scale=out_color_matrix=bt709:out_range=tv',
         '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-g', String(2 * fps),

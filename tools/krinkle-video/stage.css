@@ -1,0 +1,97 @@
+/* The video's layout of the Krinkle explorer. render.js adds this to the
+   real page, app/tiles/krinkle/, at 1260 × 960 CSS px, and films the
+   right-hand 960 px square at 1.125 times the density, for 1080 px of
+   video. The page's own controls keep their size, so the Options panel
+   takes about a sixth of the frame, and the video's own layer is sized up
+   to match.
+   The title card and the about box are hidden, since the captions carry
+   the story. The colour key stays folded to its top row, and moves into
+   the filmed square. Everything that moves is the app's own.
+
+     300–984    the map, the captions over its top left
+     984–1248   the Options panel, below the address */
+
+.card.title, .card.about, #status {
+  display: none !important;
+}
+
+/* The Options card sits in the top-right corner's flow, so a margin, not
+   a top, moves it below the address. */
+.card.options {
+  margin-top: 50px !important;
+  max-height: calc(100dvh - 74px) !important;
+}
+
+.card.legend {
+  left: 314px !important;
+}
+
+/* The video's own layer: captions, address and pointer. It never takes
+   the mouse. */
+.video-layer {
+  position: fixed;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.video-card {
+  border: 1px solid rgba(214, 208, 196, .22);
+  border-radius: 14px;
+  background: rgba(20, 20, 24, .9);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, .55);
+}
+
+/* The address, clear of the badges X puts in the bottom corners. */
+.video-address {
+  right: 12px;
+  top: 11px;
+  height: 44px;
+  padding: 0 21px;
+  border-radius: 999px;
+  color: #f2efe6;
+  font: 22px/42px Georgia, "Times New Roman", serif;
+  white-space: nowrap;
+}
+
+.video-caption {
+  top: 19px;
+  max-width: 640px;
+  padding: 13px 29px 16px;
+  text-align: left;
+  visibility: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.video-caption .main {
+  color: #f2efe6;
+  font-size: 33px;
+  line-height: 1.24;
+  text-wrap: balance;
+}
+
+.video-caption .sub {
+  margin-top: 5px;
+  color: #b9b4a8;
+  font-size: 22px;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.video-caption.title .main {
+  font-size: 43px;
+}
+
+.video-pointer {
+  left: 0;
+  top: 0;
+  z-index: 60;
+  transform-origin: 4.6px 4.6px;
+  filter: drop-shadow(0 1.5px 2px rgba(0, 0, 0, .6));
+}
+
+.video-ripple {
+  z-index: 59;
+  border: 2.7px solid rgba(245, 248, 252, .9);
+  border-radius: 50%;
+  visibility: hidden;
+}

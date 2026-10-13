@@ -41,7 +41,7 @@
     { m: 7, k: 17, t: 2, offset: 0, source: '2025 Fig. 5e' },
     { m: 3, k: 4, t: 7, offset: 0, source: 'Bridges Fig. 6e' },
     { m: 2, k: 9, t: 3, offset: 0, source: 'Bridges Fig. 6f' },
-    { m: 9, k: 10, t: 2, offset: 0, edgeShape: 'jigsaw', source: 'Bridges Fig. 6i' },
+    { m: 9, k: 10, t: 2, offset: 0, source: 'Bridges Fig. 6i' },
     { m: 1, k: 1, t: 16, offset: 1, source: 'Bridges Fig. 9a' }
   ];
 

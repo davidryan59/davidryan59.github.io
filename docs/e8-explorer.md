@@ -163,5 +163,5 @@ CHROMIUM='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
 ```
 
 Inspect all six screen-fit images. Also try mouse, keyboard and touch input on
-real devices. Render `tools/e8-video/stills/sheet.jpg` after a change to the
+real devices. Render `tools/e8-video/renders/sheet.jpg` after a change to the
 film, model or palettes.

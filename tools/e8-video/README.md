@@ -18,7 +18,7 @@ CHROMIUM='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
   node tools/e8-video/render.js
 ```
 
-The first command writes `stills/sheet.jpg`. The second writes `e8.mp4`.
+The first command writes `renders/sheet.jpg`. The second writes `renders/e8.mp4`.
 Both outputs are ignored because they are generated delivery files.
 
 ## Files

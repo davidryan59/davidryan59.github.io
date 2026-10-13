@@ -23,7 +23,7 @@ beat.
   transitions at the frame's time, and draws the captions and the pointer.
 - `render.js` – serves this repo locally, opens the app in headless Chromium,
   moves the real mouse frame by frame, and pipes the screenshots to ffmpeg.
-  Output: `undecanope.mp4`, silent.
+  Output: `renders/undecanope.mp4`, silent.
 
 ## Render
 
@@ -37,7 +37,7 @@ uses Chrome.
 | Stills at chosen seconds | `node tools/nonrup-video/render.js --stills 7.6,14.6` | 15 s |
 | A still every 1.5 s, on one sheet | `node tools/nonrup-video/render.js --sheet` | 15 s |
 
-Stills go in `stills/`. The app's state on each frame depends on every frame
+Stills go in `renders/`. The app's state on each frame depends on every frame
 before it, so a still is reached by running those frames too, without
 screenshots.
 

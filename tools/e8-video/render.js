@@ -2,7 +2,7 @@
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path'), { spawn } = require('child_process');
 const { chromium } = require('../tiling-video/node_modules/playwright-core');
-const ROOT = path.join(__dirname, '..', '..'), STILLS = path.join(__dirname, 'stills');
+const ROOT = path.join(__dirname, '..', '..'), RENDERS = path.join(__dirname, 'renders');
 const TYPES = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml' };
 
 function serve() {
@@ -44,19 +44,20 @@ function run(command, args, input) {
     const started = Date.now();
     if (args[0] === '--stills' || args[0] === '--sheet') {
       const seconds = args[0] === '--sheet' ? Array.from({ length:20 }, (_, i) => i * 1.5) : args[1].split(',').map(Number);
-      const names = []; fs.mkdirSync(STILLS, { recursive:true });
+      const names = []; fs.mkdirSync(RENDERS, { recursive:true });
       for (let i = 0; i < seconds.length; i++) {
         await draw(Math.min(info.frames - 1, Math.round(seconds[i] * info.fps)));
         const name = args[0] === '--sheet' ? 'sheet-' + String(i).padStart(2, '0') + '.png' : 't' + seconds[i].toFixed(2) + '.png';
-        fs.writeFileSync(path.join(STILLS, name), await shot()); names.push(name);
+        fs.writeFileSync(path.join(RENDERS, name), await shot()); names.push(name);
       }
       if (args[0] === '--sheet') {
-        await run('ffmpeg', ['-loglevel','error','-y','-framerate','1','-i',path.join(STILLS,'sheet-%02d.png'),
-          '-vf','scale=360:360,tile=5x4:padding=8:color=#16161a','-frames:v','1','-q:v','3',path.join(STILLS,'sheet.jpg')]);
-        console.log('stills/sheet.jpg');
+        await run('ffmpeg', ['-loglevel','error','-y','-framerate','1','-i',path.join(RENDERS,'sheet-%02d.png'),
+          '-vf','scale=360:360,tile=5x4:padding=8:color=#16161a','-frames:v','1','-q:v','3',path.join(RENDERS,'sheet.jpg')]);
+        console.log('renders/sheet.jpg');
       } else console.log(names.join('\n'));
     } else {
-      const output = path.resolve(args[0] || path.join(__dirname, 'e8.mp4'));
+      const output = path.resolve(args[0] || path.join(RENDERS, 'e8.mp4'));
+      fs.mkdirSync(path.dirname(output), { recursive:true });
       await run('ffmpeg', ['-loglevel','error','-y','-f','image2pipe','-c:v','png','-framerate',String(info.fps),'-i','-',
         '-vf','scale=out_color_matrix=bt709:out_range=tv','-c:v','libx264','-preset','slow','-crf','17','-pix_fmt','yuv420p',
         '-profile:v','high','-g',String(2 * info.fps),'-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709',

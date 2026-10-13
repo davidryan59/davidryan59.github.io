@@ -17,8 +17,8 @@ NODE_PATH=tools/tiling-video/node_modules node tools/noble-video/render.js --she
 NODE_PATH=tools/tiling-video/node_modules node tools/noble-video/render.js
 ```
 
-The first command writes a contact sheet to `stills/sheet.jpg`. The second
-writes `noble-polyhedra.mp4`. Set `CHROMIUM` when Playwright cannot find a
+The first command writes a contact sheet to `renders/sheet.jpg`. The second
+writes `renders/noble-polyhedra.mp4`. Set `CHROMIUM` when Playwright cannot find a
 browser.
 
 ## Files

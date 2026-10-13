@@ -1,7 +1,7 @@
 /* Render the 30-second Nopert Polyhedra Explorer video from the real
    app page, app/nonrup/. See README.md.
 
-     node tools/nonrup-video/render.js                the video, undecanope.mp4
+     node tools/nonrup-video/render.js                the video, renders/undecanope.mp4
      node tools/nonrup-video/render.js out.mp4        the video, to another file
      node tools/nonrup-video/render.js --sheet        a still every 1.5 s, on one sheet
      node tools/nonrup-video/render.js --stills 5,12  stills at chosen seconds
@@ -15,7 +15,7 @@ const http = require('http'), fs = require('fs'), path = require('path'), { spaw
 const { chromium } = require('../tiling-video/node_modules/playwright-core');
 const T = require('./timeline.js');
 
-const ROOT = path.join(__dirname, '..', '..'), STILLS = path.join(__dirname, 'stills');
+const ROOT = path.join(__dirname, '..', '..'), RENDERS = path.join(__dirname, 'renders');
 const TYPES = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml' };
 
 function serve() {
@@ -84,7 +84,7 @@ function run(command, args, input) {
 
     const started = Date.now();
     let first = null;
-    fs.mkdirSync(STILLS, { recursive:true });
+    fs.mkdirSync(RENDERS, { recursive:true });
     if (sheet || stills) {
       for (let frame = 0; frame < T.FRAMES; frame++) {
         await step(frame);
@@ -92,16 +92,16 @@ function run(command, args, input) {
         if (!wanted.has(frame)) continue;
         const i = wanted.get(frame);
         const name = sheet ? 'sheet-' + String(i).padStart(2, '0') + '.png' : 't' + seconds[i].toFixed(2) + '.png';
-        fs.writeFileSync(path.join(STILLS, name), await shot());
-        if (stills) console.log('stills/' + name);
+        fs.writeFileSync(path.join(RENDERS, name), await shot());
+        if (stills) console.log('renders/' + name);
       }
       if (sheet) {
-        await run('ffmpeg', ['-loglevel','error','-y','-framerate','1','-i',path.join(STILLS,'sheet-%02d.png'),
-          '-vf','scale=360:360,tile=5x4:padding=8:color=#050b14','-frames:v','1','-q:v','3',path.join(STILLS,'sheet.jpg')]);
-        console.log('stills/sheet.jpg');
+        await run('ffmpeg', ['-loglevel','error','-y','-framerate','1','-i',path.join(RENDERS,'sheet-%02d.png'),
+          '-vf','scale=360:360,tile=5x4:padding=8:color=#050b14','-frames:v','1','-q:v','3',path.join(RENDERS,'sheet.jpg')]);
+        console.log('renders/sheet.jpg');
       }
     } else {
-      const output = path.resolve(args[0] || path.join(__dirname, 'undecanope.mp4'));
+      const output = path.resolve(args[0] || path.join(RENDERS, 'undecanope.mp4'));
       await run('ffmpeg', ['-loglevel','error','-y','-f','image2pipe','-c:v','png','-framerate',String(T.FPS),'-i','-',
         '-vf','scale=out_color_matrix=bt709:out_range=tv','-c:v','libx264','-preset','slow','-crf','17','-pix_fmt','yuv420p',
         '-profile:v','high','-g',String(2 * T.FPS),'-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709',
@@ -124,8 +124,8 @@ function run(command, args, input) {
     // noise. Anything larger means the app's state differs at the join.
     await step(T.FRAMES);
     const next = await shot();
-    fs.writeFileSync(path.join(STILLS, 'loop-first.png'), first);
-    fs.writeFileSync(path.join(STILLS, 'loop-next.png'), next);
+    fs.writeFileSync(path.join(RENDERS, 'loop-first.png'), first);
+    fs.writeFileSync(path.join(RENDERS, 'loop-next.png'), next);
     const join = await page.evaluate(async images => {
       const pixels = async src => {
         const image = new Image();

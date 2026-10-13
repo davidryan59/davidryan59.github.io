@@ -435,7 +435,7 @@ two rows of two.
    | (7, 17, 34) | 2 | no | 2025 Fig. 5e |
    | (3, 4, 28) | 7 | no | Bridges Fig. 6e |
    | (2, 9, 27) | 3 | no | Bridges Fig. 6f |
-   | (9, 10, 20) with Jigsaw edges | 2 | no | Bridges Fig. 6i |
+   | (9, 10, 20) | 2 | no | Bridges Fig. 6i |
    | (1, 1, 30), rhombus fan | 16 | yes | Bridges Fig. 9a |
 
 2. **Steppers.**
@@ -538,10 +538,12 @@ Phase 3 follows the plan above, with these departures and additions:
   holds how the tiling is laid out and drawn. It stands left of the zoom
   buttons so they never cover it. The tile figure turns the tile so that its
   long axis, P_0 to Q, runs left to right, which gives the labels room.
-- **Jigsaw preset.** (9, 10, 20) opens with Jigsaw edges, Single, at height
-  −0.3 and zoom 22, because the opening zoom hides a small tab.
-- **Presets** carry marks: `o` for offset and `j` for jigsaw edges. The four
-  large buttons show t, and the tooltip names the source figure.
+- **Straight edges on every preset.** A preset sets straight edges, and its
+  button stays lit only while they stay straight. Curved edges are an
+  advanced option under Arrangement. Bridges Fig. 6i draws (9, 10, 20) with
+  jigsaw edges; the preset keeps the tile and drops the edges (2026-10-12).
+- **Presets** carry one mark: `o` for offset. The four large buttons show t,
+  and the tooltip names the source figure.
 - **Playback** is left to phase 4. The panel has no playback section yet.
 
 Results, 2026-10-11:
@@ -740,7 +742,8 @@ Checks, 2026-10-12:
 - **Pastel 1 to 6.** The six presets use one to six hue tracks. Their jumps
   are consecutive, 180°, 120°, 90°, 72° and 60°. Each set of tracks advances
   round the hue circle together. The dark rhythms are every 2nd, 3rd, 4th,
-  3rd, 4th and 3rd wedge. Pastel 6 is the default.
+  3rd, 4th and 3rd wedge. Pastel 1 is the default (Pastel 6 until
+  2026-10-12).
 - **Direct entry.** `Set tile` opens a modal form for m, k, t and the
   **Two-fold family** option, formerly called Offset. Apply uses the worker's
   validator. The form shows n, all parameter bounds and a live green OK or
