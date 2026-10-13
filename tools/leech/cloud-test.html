@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Leech cloud test</title><style>html,body,canvas{width:100%;height:100%;margin:0;display:block;background:#111318}</style></head>
+<body><canvas id="cloud"></canvas>
+<script src="../../app/e8/model.js"></script><script src="../../app/leech/lattice.js"></script><script src="../../app/leech/frame.js"></script><script src="../../app/leech/scenes.js"></script><script src="../../app/leech/cloud.js"></script>
+<script>
+(function(){
+  var data=Leech.build(),shells=Leech.TRIO.map(function(o){return Leech.shells(data.coords,o);});
+  var scenes=LeechScenes.build({Leech:Leech,Frame:Frame,E8:E8,data:data}),scene=scenes.filter(function(s){return s.id==='cloud';})[0];
+  var canvas=document.getElementById('cloud'),cloud=LeechCloud.create(canvas,{coords:data.coords,shape:data.shape,shells:shells});
+  var rows=new Float32Array(48);for(var i=0;i<24;i++){rows[i]=scene.rows[0][i]/Math.sqrt(8);rows[24+i]=scene.rows[1][i]/Math.sqrt(8);}
+  function draw(){var w=document.documentElement.clientWidth,h=document.documentElement.clientHeight;cloud.resize(w,h,Math.min(2,devicePixelRatio||1));cloud.draw({rows:rows,centre:[w/2,h/2],scale:.2*Math.min(w,h)*1.15,pointSize:2,mode:0,octad:0,selected:null,colours:new Float32Array([.95,.81,.33,.39,.66,.95,.94,.51,.76,.7,.75,.83,.7,.75,.83,.7,.75,.83,.7,.75,.83,.7,.75,.83]),weights:new Float32Array([1,1,1,1,1,1,1,1]),background:[17/255,19/255,24/255],brightness:1,opacity:1});}
+  addEventListener('resize',draw);window.__leechCloudTest={cloud:cloud,draw:draw,supported:cloud.supported};draw();
+})();
+</script></body></html>

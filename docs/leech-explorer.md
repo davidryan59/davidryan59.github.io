@@ -31,9 +31,9 @@ preset frames. Leave `app/e8/` unchanged.
 - [x] Phase 1: Lattice model and Node checks (2026-10-13)
 - [x] Phase 2: Frame maths in 24 dimensions (2026-10-13)
 - [x] Phase 3: The sixteen scenes (2026-10-13)
-- [ ] Phase 4: Page, layout and the 8-dimension window
-- [ ] Phase 5: WebGL 2 cloud renderer
-- [ ] Phase 6: The 24-dimension window, selection, tilt and tour
+- [x] Phase 4: Page, layout and the 8-dimension window (2026-10-13)
+- [x] Phase 5: WebGL 2 cloud renderer (2026-10-13)
+- [x] Phase 6: The 24-dimension window, selection, tilt and tour (2026-10-13)
 - [ ] Phase 7: Publish: credits, builder page, addresses and full checks
 - [ ] Phase 8: Share card
 - [ ] Phase 9: Builder thumbnail
@@ -811,6 +811,13 @@ Run them with `tools/leech/browser-check.js`, which copies E8's.
 9. `node tools/screen-fit/check.js http://localhost:8000/app/leech/ '#stage'`
    passes at all six sizes.
 
+**As built, 2026-10-13.** The page opens on the 2,641-spot Petrie view and
+keeps its controls over a full-size stage. Canvas draws the exact spots,
+edges, guides, selections and sparse scenes. The results panel shows the
+selected vector, its octad or codeword, its pile and the seven layer counts.
+Mouse, touch, wheel and keyboard input share the 24-dimensional frame. All
+six screen sizes pass. The phone layouts start with their corner cards folded.
+
 ## Phase 5: WebGL 2 cloud renderer
 
 Files:
@@ -920,6 +927,13 @@ Run these on the test page, through a `--cloud` option of
    under 6 ms.
 6. After `WEBGL_lose_context` loses and restores the context, the cloud draws
    again.
+
+**As built, 2026-10-13.** `cloud.js` packs every vector into 28 bytes and
+uses two RGBA8 count targets. It needs no extension or float texture. The
+browser check finds the generic cloud centred, confirms that class filtering
+removes its pixels and restores the renderer after a forced context loss. A
+Three 1440 × 900 headless Chrome runs averaged 1.87 to 2.22 ms in the page's
+draw loop.
 
 ## Phase 6: the 24-dimension window, selection, tilt and tour
 
@@ -1039,6 +1053,16 @@ Extend `tools/leech/browser-check.js`:
    - Inspect the sheet.
 7. **Address.** A free 24-dimension view survives a reload.
 8. **Screen fit.** All six sizes pass again.
+
+**As built, 2026-10-13.** The viewer switches among exact spots, sparse
+Canvas discs and the WebGL cloud from the visible count and current motion.
+Structured 24-dimensional views crystallise after 200 ms, with a 300 ms
+crossfade. Tour weights fade through each transition, and settings change at
+its midpoint. Selection, 4,600 spokes, layer colours, 90° tilt, Next E8, the
+fourteen-scene tour and free 24-dimensional addresses pass in Chrome. The
+sixteen dark-theme scene
+screenshots and their contact sheet are in `tools/leech/renders/` for local
+review.
 
 ## Phase 7: publish
 

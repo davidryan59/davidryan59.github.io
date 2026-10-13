@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f6f3ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)">
+<title>Leech Lattice Explorer</title>
+<meta name="description" content="Explore all 196,560 balls touching one ball in John Leech's 24-dimensional lattice.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/app/leech/">
+<meta property="og:title" content="Leech Lattice Explorer">
+<meta property="og:description" content="Move between a crisp E8 window and the full 196,560-ball cloud in 24 dimensions.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Leech Lattice Explorer">
+<meta name="twitter:description" content="Explore 196,560 touching balls through eight or 24 dimensions.">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="canonical" href="https://drbuild.uk/app/leech/">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23111318'/%3E%3Cg fill='%237aa6e0'%3E%3Ccircle cx='16' cy='5' r='1.6'/%3E%3Ccircle cx='21.5' cy='6.5' r='1.6'/%3E%3Ccircle cx='25.5' cy='10.5' r='1.6'/%3E%3Ccircle cx='27' cy='16' r='1.6'/%3E%3Ccircle cx='25.5' cy='21.5' r='1.6'/%3E%3Ccircle cx='21.5' cy='25.5' r='1.6'/%3E%3Ccircle cx='16' cy='27' r='1.6'/%3E%3Ccircle cx='10.5' cy='25.5' r='1.6'/%3E%3Ccircle cx='6.5' cy='21.5' r='1.6'/%3E%3Ccircle cx='5' cy='16' r='1.6'/%3E%3Ccircle cx='6.5' cy='10.5' r='1.6'/%3E%3Ccircle cx='10.5' cy='6.5' r='1.6'/%3E%3C/g%3E%3Cpath d='M11 16h10M16 11v10' stroke='%23f2cf55' stroke-width='1.8'/%3E%3C/svg%3E">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+<link rel="stylesheet" href="style.css">
+<script data-goatcounter="https://drbuild.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="../../index.html">← David Ryan's builder page</a>
+  <div class="title-block"><h1>Leech lattice</h1><p>196,560 balls around one · John Leech, 1967</p></div>
+  <div class="top-actions">
+    <button class="theme-toggle" type="button" hidden aria-label="Change colour theme">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/></svg>
+    </button>
+    <button class="icon-button" id="fullscreen" type="button" aria-label="Enter full screen" title="Full screen (F)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
+  </div>
+</header>
+
+<main class="workspace">
+  <section id="stage" aria-label="Interactive projection of the Leech lattice">
+    <canvas id="cloud" aria-hidden="true"></canvas>
+    <canvas id="overlay" tabindex="0" aria-label="Projection of all 196,560 nearest Leech lattice vectors. Drag space to rotate. Select a ball to inspect it."></canvas>
+    <div class="unsupported" id="unsupported" hidden>Needs WebGL 2</div>
+
+    <section class="card show-card" aria-label="Scenes">
+      <button class="card-head" type="button" aria-expanded="true"><span>Show</span><i>−</i></button>
+      <div class="card-body">
+        <div class="segmented dimensions" role="group" aria-label="Dimensions">
+          <button class="segment active" type="button" data-window="8">8 · one octad</button>
+          <button class="segment" type="button" data-window="24">24 · all</button>
+        </div>
+        <div id="scene-buttons" class="scene-buttons"></div>
+      </div>
+    </section>
+
+    <section class="card options-card" aria-label="Options">
+      <button class="card-head" type="button" aria-expanded="true"><span>Options</span><i>−</i></button>
+      <div class="card-body">
+        <div class="segmented" role="group" aria-label="Playback"><button class="segment active" id="play" type="button">Play</button><button class="segment" id="pause" type="button">Pause</button></div>
+        <div class="segmented" role="group" aria-label="Motion"><button class="segment active" data-motion="drift" type="button">Drift</button><button class="segment" data-motion="tour" type="button">Tour</button></div>
+        <label class="range-row">Speed <output id="speed-output">40%</output><input id="speed" type="range" min="5" max="100" value="40"></label>
+        <label class="range-row">Drag through dimension <output id="depth-output">3</output><input id="depth" type="range" min="3" max="24" value="3"></label>
+        <div id="tilt-controls">
+          <label class="range-row">Tilt toward next E8 <output id="tilt-output">0°</output><input id="tilt" type="range" min="0" max="90" value="0"></label>
+          <div class="range-ends"><span>this E8</span><span>next E8</span></div>
+          <button class="wide-button" id="next-octad" type="button">Next E8</button>
+        </div>
+        <span class="mini-label">Edges</span>
+        <div class="segmented" role="group" aria-label="Edges"><button class="segment active" data-edges="none" type="button">None</button><button class="segment" data-edges="e8" type="button">E8</button><button class="segment" data-edges="spokes" type="button">Spokes</button></div>
+      </div>
+    </section>
+
+    <section class="card look-card" aria-label="Appearance">
+      <button class="card-head" type="button" aria-expanded="true"><span>Look</span><i>−</i></button>
+      <div class="card-body">
+        <div class="colour-options" role="group" aria-label="Colour"><button class="choice active" data-colour="shells" type="button">Shells</button><button class="choice" data-colour="shapes" type="button">Shapes</button><button class="choice" data-colour="layers" type="button">Layers</button><button class="choice" data-colour="mono" type="button">Mono</button></div>
+        <div id="legend" class="legend"></div>
+        <label class="range-row">Dot size <output id="dot-output">1.0</output><input id="dot-size" type="range" min="50" max="200" value="100"></label>
+        <label class="range-row">Edge strength <output id="edge-output">12%</output><input id="edge-strength" type="range" min="4" max="45" value="12"></label>
+        <label class="range-row" id="brightness-row" hidden>Brightness <output id="brightness-output">1.0</output><input id="brightness" type="range" min="25" max="400" value="100"></label>
+      </div>
+    </section>
+
+    <div class="zoom-card" aria-label="View controls"><button id="zoom-in" type="button" aria-label="Zoom in">+</button><button id="zoom-out" type="button" aria-label="Zoom out">−</button><button id="reset-view" type="button" aria-label="Reset view" title="Reset (R)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg></button></div>
+    <div class="hover-card" id="hover-card" hidden></div>
+    <div class="stage-status"><span id="renderer-status">2,641 spots</span><span id="motion-status">drag space to rotate · grab a ball to pull</span></div>
+  </section>
+
+  <aside class="results" aria-live="polite">
+    <div class="result-title"><span class="eyebrow">Current view</span><h2 id="scene-name">E8 inside Leech</h2><p id="scene-caption"></p></div>
+    <section class="result-section">
+      <span class="eyebrow">Selected ball</span><h3 id="ball-name">Ball 0 · shape A</h3>
+      <p class="coordinates" id="coordinates"></p><p class="secondary" id="ball-extra"></p>
+      <div class="pile-stepper" id="pile-stepper"><button id="pile-prev" type="button" aria-label="Previous ball">‹</button><span id="pile-position"></span><button id="pile-next" type="button" aria-label="Next ball">›</button></div>
+      <p class="secondary" id="spot-detail"></p>
+    </section>
+    <section class="result-section layer-section"><span class="eyebrow">Seven layers from this ball</span><div id="layer-table"></div></section>
+    <section class="result-section prose"><h3>How to explore</h3><p>Drag empty space to rotate the viewing plane. Drag the selected marker to pull the whole projection through its hidden dimensions.</p><p>Switch to 24 dimensions for the full cloud. Pause on a structured view and the cloud crystallises into exact spots.</p></section>
+    <nav class="sources" aria-label="Sources"><a href="https://doi.org/10.4153/CJM-1967-017-0" target="_blank" rel="noopener">John Leech, <i>Notes on sphere packings</i></a><a href="../e8/">E8 root system explorer</a><a href="credits.html">Method &amp; credits</a></nav>
+  </aside>
+</main>
+
+<script src="../e8/model.js"></script>
+<script src="lattice.js"></script>
+<script src="frame.js"></script>
+<script src="scenes.js"></script>
+<script src="cloud.js"></script>
+<script src="overlay.js"></script>
+<script src="viewer.js"></script>
+<script>Theme.wireThemeToggle();</script>
+</body>
+</html>
