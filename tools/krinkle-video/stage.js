@@ -17,7 +17,7 @@
   var FRAME_MS = Math.round(1000 / T.FPS * 4096) / 4096;
   var PRESS = T.PRESS / SPB;           // beats a button is down before its click
   var RIPPLE = 0.42 / SPB;             // the ring a click sends out lasts 0.42 s
-  var X0 = T.CLIP[0];                  // the filmed square's left edge
+  var X0 = T.CLIP[0];                  // the filmed area's left edge
 
   function appTime(n) { return n * FRAME_MS; }
 
@@ -26,6 +26,7 @@
   function preset(i) { return '#presets button:nth-child(' + (i + 1) + ')'; }
   var SELECTORS = {
     'p-3-7': preset(0), 'p-3-7-14': preset(1), 'p-5-16': preset(2), 'p-1-4': preset(3), 'p-3-4': preset(9),
+    'p-2-9-3': preset(10), 'p-9-10': preset(11),
     'zoom-out': '#zoom-out', 'zoom-in': '#zoom-in', 'turn-left': '#turn-left',
     'tab-tile': '#tab-tile', 'tab-arrangement': '#tab-arrangement',
     'dice': '#random-colours', 'scheme': '#scheme', 'shape': '#shape',
@@ -34,7 +35,7 @@
     'bend-zero': '#bend-zero',
     'layout-repeat': '#layout label:has(input[value="repeat"])',
     'layout-fan': '#layout label:has(input[value="fan"])',
-    'set-values': '#set-values', 'value-m': '#value-m', 'value-k': '#value-k',
+    'set-values': '#set-values', 'value-m': '#value-m', 'value-k': '#value-k', 'value-t': '#value-t',
     'values-apply': '#values-form button[type="submit"]',
     'scrub-start': '#scrub', 'scrub-end': '#scrub'
   };
@@ -42,7 +43,6 @@
   // A hand clicks a little above and left of a button's middle. The
   // scrubber is pressed at its left end and released at its right end.
   function targetPoint(name) {
-    if (name === 'rest') return T.REST;
     var el = document.querySelector(SELECTORS[name]);
     if (!el) throw new Error('no element for ' + name);
     var r = el.getBoundingClientRect();
@@ -62,7 +62,7 @@
   var segments = T.MOVES.map(function (m) { return { b0: m[0], b1: m[1], target: m[2] }; })
     .concat(T.DRAGS.map(function (d) { return { b0: d[0], b1: d[1], target: d[2], drag: true }; }))
     .sort(function (a, b) { return a.b0 - b.b0; });
-  var at = T.REST.slice();
+  var at = targetPoint(T.REST);
 
   // A gentle upward arc of at most 12 px. A drag runs straight.
   function control(p0, p1) {
@@ -248,6 +248,7 @@
 
   window.video = {
     ready: document.fonts.ready.then(function () { sizeCaptions(); return true; }),
+    rest: function () { return at.slice(); },
     plan: plan,
     draw: draw,
     settled: settled,

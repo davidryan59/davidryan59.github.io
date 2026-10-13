@@ -1,7 +1,7 @@
-/* Render the 60-second Krinkle explorer video from the real app page,
+/* Render the 45-second Krinkle explorer video from the real app page,
    app/tiles/krinkle/. See README.md.
 
-     node tools/krinkle-video/render.js                the video, renders/krinkle.mp4
+     node tools/krinkle-video/render.js                the video, renders/krinkle-v3.mp4
      node tools/krinkle-video/render.js out.mp4        the video, to another file
      node tools/krinkle-video/render.js --sheet        a still every 3 s, on one sheet
      node tools/krinkle-video/render.js --stills 5,12  stills at chosen seconds
@@ -15,10 +15,10 @@ const http = require('http'), fs = require('fs'), path = require('path'), { spaw
 const { chromium } = require('../tiling-video/node_modules/playwright-core');
 const T = require('./timeline.js');
 
-const ROOT = path.join(__dirname, '..', '..'), RENDERS = path.join(__dirname, 'renders');
+const ROOT = path.join(__dirname, '..', '..'), RENDERS = path.join(__dirname, 'renders', 'v3');
 const TYPES = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml',
   '.json':'application/json', '.png':'image/png', '.jpg':'image/jpeg' };
-const DPR = 1080 / T.CLIP[2];
+const DPR = 1080 / T.CLIP[3];
 
 // The served copy of the map engine tells the stage when every tile in
 // view is drawn. The repo's own file is not changed. The hook points are
@@ -71,19 +71,27 @@ function run(command, args, input) {
 (async () => {
   const args = process.argv.slice(2), server = await serve(), browser = await launch(), errors = [];
   const sheet = args[0] === '--sheet', stills = args[0] === '--stills';
-  const seconds = sheet ? Array.from({ length:20 }, (_, i) => i * 3) : stills ? args[1].split(',').map(Number) : [];
+  const seconds = sheet ? Array.from({ length:16 }, (_, i) => i * 3) : stills ? args[1].split(',').map(Number) : [];
   const wanted = new Map(seconds.map((s, i) => [Math.min(T.FRAMES - 1, Math.round(s * T.FPS)), i]));
   try {
     const context = await browser.newContext({ viewport:{ width:T.PAGE[0], height:T.PAGE[1] }, deviceScaleFactor:DPR,
-      reducedMotion:'no-preference', colorScheme:'dark' });
+      reducedMotion:'no-preference', colorScheme:'light' });
     await context.addInitScript(() => {
-      try { localStorage.setItem('theme', 'dark'); localStorage.setItem('krinkle-options-legend', 'closed'); } catch (e) {}
+      try { localStorage.setItem('theme', 'light'); localStorage.setItem('krinkle-options-legend', 'closed'); } catch (e) {}
     });
     await context.addInitScript({ path:path.join(__dirname, 'clock.js') });
     const page = await context.newPage();
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
-    await page.goto('http://127.0.0.1:' + server.address().port + '/app/tiles/krinkle/');
+    // The opening view is the home view zoomed in. A first page reads the
+    // home zoom, and the filmed page opens at a multiple of it.
+    const url = 'http://127.0.0.1:' + server.address().port + '/app/tiles/krinkle/';
+    const probe = await context.newPage();
+    await probe.goto(url);
+    await probe.waitForFunction(() => window.__tm && window.__tm.state().ready);
+    const home = await probe.evaluate(() => window.__tm.state().s);
+    await probe.close();
+    await page.goto(url + '#v=0,0,' + home * T.START_ZOOM + ',0&c=pastel&mk=3,7&t=2&o=1&a=fan');
     await page.addStyleTag({ path:path.join(__dirname, 'stage.css') });
     await page.addScriptTag({ path:path.join(__dirname, 'timeline.js') });
     await page.addScriptTag({ path:path.join(__dirname, 'stage.js') });
@@ -102,8 +110,9 @@ function run(command, args, input) {
       }
     }
 
-    // The pointer rests over the map from before the first frame.
-    let mouse = { x:T.REST[0], y:T.REST[1], down:false };
+    // The pointer rests on its first target from before the first frame.
+    const rest = await page.evaluate(() => window.video.rest());
+    let mouse = { x:rest[0], y:rest[1], down:false };
     await page.mouse.move(mouse.x, mouse.y);
     await settle('the opening');
 
@@ -132,15 +141,15 @@ function run(command, args, input) {
         const i = wanted.get(frame);
         const name = sheet ? 'sheet-' + String(i).padStart(2, '0') + '.png' : 't' + seconds[i].toFixed(2) + '.png';
         fs.writeFileSync(path.join(RENDERS, name), await shot());
-        console.log('renders/' + name + '  ' + Math.round((Date.now() - started) / 1000) + ' s');
+        console.log('renders/v3/' + name + '  ' + Math.round((Date.now() - started) / 1000) + ' s');
       }
       if (sheet) {
         await run('ffmpeg', ['-loglevel','error','-y','-framerate','1','-i',path.join(RENDERS,'sheet-%02d.png'),
-          '-vf','scale=360:360,tile=5x4:padding=8:color=#16161a','-frames:v','1','-q:v','3',path.join(RENDERS,'sheet.jpg')]);
-        console.log('renders/sheet.jpg');
+          '-vf','scale=480:360,tile=4x4:padding=8:color=#e9e5dc','-frames:v','1','-q:v','3',path.join(RENDERS,'sheet.jpg')]);
+        console.log('renders/v3/sheet.jpg');
       }
     } else {
-      const output = path.resolve(args[0] || path.join(RENDERS, 'krinkle.mp4'));
+      const output = path.resolve(args[0] || path.join(RENDERS, '..', 'krinkle-v3.mp4'));
       await run('ffmpeg', ['-loglevel','error','-y','-f','image2pipe','-c:v','png','-framerate',String(T.FPS),'-i','-',
         '-vf','scale=out_color_matrix=bt709:out_range=tv','-c:v','libx264','-preset','slow','-crf','17','-pix_fmt','yuv420p',
         '-profile:v','high','-g',String(2 * T.FPS),'-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709',

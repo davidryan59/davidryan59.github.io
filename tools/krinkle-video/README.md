@@ -1,15 +1,16 @@
 # Krinkle explorer video
 
-Renders the 60-second looping video of the Krinkle tab of the Aperiodic
-Tiling Explorer: 1080 × 1080, 30 fps, silent, with captions. The last frame
+Renders the 45-second looping video of the Krinkle tab of the Tiling
+Explorer, version 3: 1440 × 1080 (4:3), 30 fps, light theme, silent, with
+captions. The last frame
 flows into the first. The video is the real app page, `app/tiles/krinkle/`,
 driven by a real mouse on a scripted clock, so it always shows the app as it
 is. [storyboard.md](storyboard.md) says what happens on each beat.
 
 ## How it fits together
 
-- `timeline.js` – the single source of timing: 128 BPM, 128 beats, and every
-  pointer move, click, drag and caption on them. Music written for the video
+- `timeline.js` – the single source of timing: 128 BPM, 96 beats, and every
+  pointer move, click and caption on them. Music written for the video
   can follow it.
 - `clock.js` – runs before the app's own scripts. It replaces
   `performance.now()` and `requestAnimationFrame`, so the app draws each
@@ -24,11 +25,12 @@ is. [storyboard.md](storyboard.md) says what happens on each beat.
 - `render.js` – serves this repo locally, opens the app in headless
   Chromium, moves the real mouse frame by frame, waits until the map has
   drawn every tile in view, and pipes the screenshots to ffmpeg. Output:
-  `renders/krinkle.mp4`, silent.
+  `renders/krinkle-v3.mp4`, silent. Stills and the loop check go in
+  `renders/v3/`. Earlier versions' renders stay in `renders/`.
 
-The page is 1260 × 960 CSS px, and the video films its right-hand 960 px
-square at 1.125 times the density. The fan's centre then sits in the open
-map, left of the Options panel, which takes about a sixth of the frame.
+The page is 1280 × 960 CSS px, filmed whole at 1.125 times the density. The
+video opens at twice the home zoom: `render.js` reads the home zoom from a
+first page, then opens the filmed page at that zoom through the address.
 
 ## Render
 
@@ -40,9 +42,9 @@ uses Chrome.
 |---|---|---|
 | The video | `node tools/krinkle-video/render.js` | 3.5 min |
 | Stills at chosen seconds | `node tools/krinkle-video/render.js --stills 7.6,14.6` | 30 s |
-| A still every 3 s, on one sheet | `node tools/krinkle-video/render.js --sheet` | 30 s |
+| A still every 3 s, on one sheet | `node tools/krinkle-video/render.js --sheet` | 15 s |
 
-Stills go in `renders/`. The app's state on each frame depends on every frame
+Stills go in `renders/v3/`. The app's state on each frame depends on every frame
 before it, so a still is reached by running those frames too, without
 screenshots. Set `DEBUG=1` to see why a frame waits more than 2 s.
 
@@ -64,7 +66,7 @@ After a change to any of them, render the sheet and check it.
 - The ids in `app/tiles/krinkle/index.html`: `#presets` and the order of the
   presets in `tiling.js`, the k stepper, `#tab-tile`, `#tab-arrangement`,
   `#layout`, `#shape`, `#bend-zero`, `#scrub`, `#stage`, `#readout`,
-  `#set-values`, `#value-m`, `#value-k` and `#values-form`.
+  `#set-values`, `#value-m`, `#value-k`, `#value-t` and `#values-form`.
 - In `engine/map.js`: `#zoom-out`, `#zoom-in`, `#turn-left`,
   `#random-colours`, `#scheme`, the colour dice's first two draws of
   `Math.random()`, the `krinkle-options-legend` storage key, and the two
@@ -74,5 +76,5 @@ After a change to any of them, render the sheet and check it.
 
 ## Music
 
-The video is silent for now. A track of 32 bars of 4/4 at 128 BPM fits it
+The video is silent for now. A track of 24 bars of 4/4 at 128 BPM fits it
 exactly, with no new render, and every click falls on a beat.

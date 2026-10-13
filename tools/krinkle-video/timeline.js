@@ -1,134 +1,102 @@
-/* The Krinkle explorer video's timeline: every pointer move, click, drag
-   and caption, in beats. stage.js draws each frame from it, render.js drives
+/* The Krinkle explorer video's timeline: every pointer move, click and
+   caption, in beats. stage.js draws each frame from it, render.js drives
    the mouse from it, and music for the video can be written to it. See
    storyboard.md.
 
-   128 BPM: a beat is 0.46875 s, and the video is 128 beats, 32 bars of 4/4.
-   That is exactly 60 s, 1,800 frames at 30 fps. Beat 128 is beat 0: the
-   video loops, starting and ending on the (3, 7, 22) fan in Pastel 1. Works
-   in Node and in a browser, as window.KrinkleTimeline. */
+   128 BPM: a beat is 0.46875 s, and the video is 96 beats, 24 bars of 4/4.
+   That is exactly 45 s, 1,350 frames at 30 fps. Beat 96 is beat 0: the
+   video loops, starting and ending on the (3, 7, 22') fan in Pastel 1,
+   zoomed in one step from home, with the pointer on the zoom-out button.
+   Works in Node and in a browser, as window.KrinkleTimeline. */
 (function () {
   'use strict';
 
-  var BPM = 128, BEATS = 128, FPS = 30;
+  var BPM = 128, BEATS = 96, FPS = 30;
   var SEC_PER_BEAT = 60 / BPM;
   var FRAMES = Math.round(BEATS * SEC_PER_BEAT * FPS);
 
-  // The page is 1260 × 960 CSS px, and the video films its right-hand
-  // 960 px square, so the fan's centre sits in the open map left of the
-  // Options panel, and the panel takes about a sixth of the frame. Points
+  // The page is 1280 × 960 CSS px, filmed whole for a 4:3 video. Points
   // here are page coordinates.
-  var PAGE = [1260, 960], CLIP = [300, 0, 960, 960];
+  var PAGE = [1280, 960], CLIP = [0, 0, 1280, 960];
 
-  // The pointer's rest, over the map below the fan's centre.
-  var REST = [620, 747];
+  // The opening view: home zoom times this. The video ends by zooming in
+  // once from home, so the two match.
+  var START_ZOOM = 2;
+
+  // The pointer rests on this target at the start and the end.
+  var REST = 'zoom-out';
 
   // Pointer moves: from beat b0 to b1, to a target named in stage.js.
   var MOVES = [
-    [5.4, 7.2, 'p-5-16'],
-    [8.4, 9.4, 'zoom-out'],
-    [10.4, 11.4, 'tab-arrangement'],
-    [12.2, 13.2, 'scrub-start'],
-    [26.2, 28.2, 'dice'],
-    [32.4, 35.2, 'tab-tile'],
-    [36.4, 39.2, 'p-3-7-14'],
-    [40.6, 42.2, 'k-up'],
-    [43.2, 43.9, 'k-down'],
-    [45.4, 47.4, 'dice'],
-    [49.4, 52.2, 'p-1-4'],
-    [53.4, 55.2, 'scheme'],
-    [56.4, 57.4, 'zoom-out'],
-    [61.4, 64.2, 'p-3-4'],
-    [65.4, 67.2, 'scheme'],
-    [68.2, 69.2, 'turn-left'],
-    [74.4, 76.2, 'p-3-7-14'],
-    [77.4, 78.4, 'tab-arrangement'],
-    [79.4, 80.4, 'shape'],
-    [81.4, 82.4, 'zoom-in'],
-    [83.4, 84.4, 'dice'],
-    [86.4, 88.2, 'bend-zero'],
-    [89.4, 90.4, 'layout-repeat'],
-    [92.4, 93.4, 'zoom-out'],
-    [96.2, 97.4, 'layout-fan'],
-    [98.2, 99.2, 'tab-tile'],
-    [100.2, 100.9, 'set-values'],
-    [101.4, 102.2, 'value-m'],
-    [102.8, 103.4, 'value-k'],
-    [104.0, 104.7, 'values-apply'],
-    [105.4, 106.4, 'zoom-out'],
-    [107.4, 108.4, 'dice'],
-    [114.4, 116.2, 'scheme'],
-    [117.6, 119.4, 'p-3-7'],
-    [121.4, 125.4, 'rest']
+    [2.7, 3.6, 'zoom-in'],
+    [5.2, 7.6, 'p-5-16'],
+    [10.2, 11.6, 'p-1-4'],
+    [16.2, 17.6, 'p-3-4'],
+    [22.2, 23.6, 'p-2-9-3'],
+    [28.2, 29.6, 'p-9-10'],
+    [34.2, 36.6, 'set-values'],
+    [37.4, 38.4, 'value-m'],
+    [38.8, 39.6, 'value-k'],
+    [40.0, 40.8, 'value-t'],
+    [41.2, 42.2, 'values-apply'],
+    [47.0, 49.6, 'dice'],
+    [74.2, 75.6, 'scheme'],
+    [82.2, 83.6, 'scheme'],
+    [84.2, 85.6, 'p-3-7'],
+    [86.4, 87.6, 'zoom-in'],
+    [88.4, 89.6, 'zoom-out']
   ];
 
   // Clicks, each on a beat: the button goes down PRESS seconds before and
   // comes up on the beat. The name is what the pointer must be on; the
   // stage checks it. A dice click seeds Math.random() first, so every render
-  // rolls the colours approved on the storyboard. A select is chosen as the
-  // keyboard would choose it, since a headless browser draws no open menu.
-  // A field is clicked and then filled.
+  // rolls the same colours. A select is chosen as the keyboard would choose
+  // it, since a headless browser draws no open menu. A field is clicked and
+  // then filled.
   var PRESS = 0.09;
   var CLICKS = [
+    [0.5, 'zoom-out'],
+    [1.25, 'zoom-out'],
+    [2, 'zoom-out'],
+    [4, 'zoom-in'],
+    [4.75, 'zoom-in'],
     [8, 'p-5-16'],
-    [10, 'zoom-out'],
-    [12, 'tab-arrangement'],
-    [29, 'dice', { seed: 1 }],             // the 27 colours
-    [36, 'tab-tile'],
-    [40, 'p-3-7-14'],
-    [43, 'k-up'],
-    [44.5, 'k-down'],
-    [48, 'dice', { seed: 7 }],             // an ordered hue ring
-    [53, 'p-1-4'],
-    [56, 'scheme', { select: 'copies' }],
-    [58, 'zoom-out'],
-    [65, 'p-3-4'],
-    [68, 'scheme', { select: 'rainbow' }],
-    [70, 'turn-left'],
-    [71, 'turn-left'],
-    [72, 'turn-left'],
-    [73, 'turn-left'],
-    [77, 'p-3-7-14'],
-    [79, 'tab-arrangement'],
-    [81, 'shape', { select: 'curve' }],
-    [83, 'zoom-in'],
-    [85, 'dice', { seed: 9 }],             // an accented Pastel
-    [89, 'bend-zero'],
-    [91, 'layout-repeat'],
-    [94, 'zoom-out'],
-    [98, 'layout-fan'],
-    [100, 'tab-tile'],
-    [101, 'set-values'],
-    [102.5, 'value-m', { fill: '49' }],
-    [103.75, 'value-k', { fill: '120' }],
-    [105, 'values-apply'],
-    [107, 'zoom-out'],
-    [109, 'dice', { seed: 1 }],            // the 27 colours
-    [117, 'scheme', { select: 'pastel' }],
-    [120, 'p-3-7']
+    [12, 'p-1-4'],
+    [18, 'p-3-4'],
+    [24, 'p-2-9-3'],
+    [30, 'p-9-10'],
+    [37, 'set-values'],
+    [38.6, 'value-m', { fill: '26' }],
+    [39.8, 'value-k', { fill: '67' }],
+    [41, 'value-t', { fill: '3' }],
+    [42.5, 'values-apply'],
+    [50, 'dice', { seed: 1 }],             // the 27 colours
+    [55, 'dice', { seed: 7 }],             // a hue ring
+    [60, 'dice', { seed: 8 }],             // a gradient between two hues
+    [65, 'dice', { seed: 2 }],             // the 27 colours again
+    [70, 'dice', { seed: 9 }],             // an accented Pastel
+    [76, 'scheme', { select: 'pastel6' }],
+    [84, 'scheme', { select: 'pastel' }],
+    [86, 'p-3-7'],
+    [88, 'zoom-in']
   ];
 
-  // Drags: press on beat b0 where the pointer is, move to a target by beat
-  // b1, release. The construction scrubber builds the fan wedge by wedge.
-  var DRAGS = [
-    [13.6, 25.2, 'scrub-end']
-  ];
+  var DRAGS = [];
 
   // Captions: from beat b0 to b1, fading in and out over FADE seconds. The
-  // first starts before beat 0, so it is whole on the first frame.
+  // title starts before beat 0, so it is whole and still through the end.
   var FADE = 0.3;
   var CAPTIONS = [
-    [-0.64, 7.4, 'Krinkle tilings', 'One tile, spiralling out forever'],
-    [8.4, 27.4, 'Built one wedge at a time', 'Each wedge is a slice of a plain lattice'],
-    [28.4, 39.4, 'Roll the colours', '54 wedges, dealt from 27 colours'],
-    [40.4, 51.4, 'Pick m, k and t', 'Count in jumps of m on a k-hour clock'],
-    [52.4, 63.4, 'Five copies of the spiral', '5 arms one way, 15 the other'],
-    [64.4, 75.4, 'Seven copies, 28 directions', '21 arms one way, 7 the other'],
-    [76.4, 90.4, 'Curve the edges', 'Each tile still fits its neighbours'],
-    [91.2, 99.4, 'The same tile also tiles in rows', 'So the spiral is non-periodic, not aperiodic'],
-    [100.4, 108.4, 'Up to 240 directions', 'k = 120: a tile with 242 edges'],
-    [109.4, 115.4, '240 wedges, 27 colours', 'Every roll is a new picture'],
-    [116.4, 127.36, 'Try it yourself at drbuild.uk/krinkle']
+    [-6.4, 7.4, 'Modulo Krinkle tiling', 'A spiral monotile by Miki Imura, 2025'],
+    [8.2, 11.6, '(5, 16, 54′)', 'From Imura’s 2025 paper, Fig. 5f'],
+    [12.2, 17.6, '(1, 4, 20)', 'From Imura’s Bridges 2026 paper, Fig. 6d'],
+    [18.2, 23.6, '(3, 4, 28)', 'From Imura’s Bridges 2026 paper, Fig. 6e'],
+    [24.2, 29.6, '(2, 9, 27)', 'From Imura’s Bridges 2026 paper, Fig. 6f'],
+    [30.2, 35.6, '(9, 10, 20)', 'From Imura’s Bridges 2026 paper, Fig. 6i'],
+    [36.2, 49.4, 'Or set your own tile', 'm = 26, k = 67, t = 3: 201 directions'],
+    [50.2, 75.4, 'Roll the colours', 'One tile, 201 wedges'],
+    [76.2, 83.4, 'Pastel 6', 'Six hue tracks round the fan'],
+    [84.2, 89.6, 'Try it yourself at drbuild.uk/krinkle']
   ];
 
   // Smooth start and stop, with no jerk at either end.
@@ -147,7 +115,7 @@
 
   var Timeline = {
     BPM: BPM, BEATS: BEATS, FPS: FPS, FRAMES: FRAMES, SEC_PER_BEAT: SEC_PER_BEAT,
-    PAGE: PAGE, CLIP: CLIP, REST: REST, MOVES: MOVES, PRESS: PRESS,
+    PAGE: PAGE, CLIP: CLIP, START_ZOOM: START_ZOOM, REST: REST, MOVES: MOVES, PRESS: PRESS,
     CLICKS: CLICKS, DRAGS: DRAGS, FADE: FADE, CAPTIONS: CAPTIONS,
     smooth: smooth, pressed: pressed
   };

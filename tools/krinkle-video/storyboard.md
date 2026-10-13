@@ -1,55 +1,48 @@
 # Krinkle explorer video: storyboard
 
-A 60-second square video of the Krinkle tab at drbuild.uk/krinkle. It plays
-as a seamless loop: it starts and ends on the (3, 7, 22) fan in Pastel 1,
-with the title showing. There is no voice and no end card. `timeline.js`
-holds every number here and is the source of truth. David approved the
-script and stills on 2026-10-12, before the render.
+A 45-second 4:3 video of the Krinkle tab at drbuild.uk/krinkle, version 3.
+It plays as a seamless loop: it starts and ends on the (3, 7, 22') fan in
+Pastel 1, zoomed in one step from home, with the title showing. There is no
+voice and no end card. `timeline.js` holds every number here and is the
+source of truth. David approved the stills on 2026-10-13, before the
+render. Version 2, the 60-second square video in the dark theme, is in git
+history.
 
 ## Format
 
-- 1080 × 1080, 30 fps, exactly 1,800 frames, silent.
-- 128 beats at 128 BPM, 32 bars of 4/4. Beat 128 is beat 0, the loop join.
-- The app's own page in its dark theme. The map fills the frame, with the
-  Options panel at right below the address, and the colour key's top row at
-  bottom left. Captions sit at top left, in Georgia.
+- 1440 × 1080, 30 fps, exactly 1,350 frames, silent.
+- 96 beats at 128 BPM, 24 bars of 4/4. Beat 96 is beat 0, the loop join.
+- The app's own page in its light theme, filmed whole at 1280 × 960 CSS px.
+  The Options panel sits at right below the address, and the colour key's
+  top row at bottom left. Captions sit at top left, in Georgia.
 - A mouse pointer makes every change, and the page hears it as it hears a
   real mouse.
-- Every preset has straight edges; curves appear in one scene only.
+- The first click lands at 0.23 s. Nothing moves in the last 3 s.
 
 ## Sections
 
 | Bars | Seconds | Picture | Colours |
 |---|---|---|---|
-| 1–2 | 0–3.75 | The (3, 7, 22) fan | Pastel 1 |
-| 3–7 | 3.75–13.1 | (5, 16, 54), zoom out, Arrangement tab. The pointer drags the construction scrubber, and the fan builds wedge by wedge | Pastel 1 |
-| 8–10 | 13.1–18.75 | The colour dice | The 27 colours |
-| 11–13 | 18.75–24.4 | Tile tab, (3, 7, 14). k up and back down, then the dice | An ordered hue ring |
-| 14–16 | 24.4–30 | (1, 4, 20), then zoom out | Copies |
-| 17–19 | 30–35.6 | (3, 4, 28), then four turns of 5° | Rainbow |
-| 20–22 | 35.6–41.25 | (3, 7, 14), Arrangement tab, Curve edges, zoom in, then the dice | An accented Pastel |
-| 23–25 | 41.25–46.9 | Height 0, then Repeating, then zoom out | Lattice |
-| 26–29 | 46.9–54.4 | Fan, Tile tab, Set tile: m = 49, k = 120, Apply. Zoom out, then the dice | Pastel 1, then the 27 colours |
-| 30–32 | 54.4–60 | Pastel 1 from the menu, then (3, 7, 22). The view eases home, and the pointer goes back to rest | Pastel 1 |
+| 1–2 | 0–3.75 | (3, 7, 22') at twice the home zoom. Three zoom-outs, then two zoom-ins, to home | Pastel 1 |
+| 3–9 | 3.75–16.9 | Five presets: (5, 16, 54'), (1, 4, 20), (3, 4, 28), (2, 9, 27), (9, 10, 20) | Pastel 1 |
+| 10–12 | 16.9–23.4 | Set tile: m = 26, k = 67, t = 3, Apply | Pastel 1 |
+| 13–19 | 23.4–35.6 | Five dice rolls | The 27 colours, a hue ring, a gradient, the 27 colours, an accented Pastel |
+| 20–21 | 35.6–39.4 | Pastel 6 from the menu | Pastel 6 |
+| 22–24 | 39.4–45 | Pastel 1 from the menu, then (3, 7, 22'). The view eases home, zooms in once, and the pointer goes back to the zoom-out button | Pastel 1 |
 
-The dice is seeded before each roll: seed 1 deals the 27 colours, seed 7 an
-ordered hue ring and seed 9 an accented Pastel. These are the seeds the
-approved stills used.
+The dice is seeded before each roll: seeds 1 and 2 deal the 27 colours,
+seed 7 a hue ring, seed 8 a gradient and seed 9 an accented Pastel.
 
 ## Captions
 
 | Beats | Text |
 |---|---|
-| 127.36–7.4 | "Krinkle tilings". Small line: "One tile, spiralling out forever" |
-| 8.4–27.4 | "Built one wedge at a time". Small line: "Each wedge is a slice of a plain lattice" |
-| 28.4–39.4 | "Roll the colours". Small line: "54 wedges, dealt from 27 colours" |
-| 40.4–51.4 | "Pick m, k and t". Small line: "Count in jumps of m on a k-hour clock" |
-| 52.4–63.4 | "Five copies of the spiral". Small line: "5 arms one way, 15 the other" |
-| 64.4–75.4 | "Seven copies, 28 directions". Small line: "21 arms one way, 7 the other" |
-| 76.4–90.4 | "Curve the edges". Small line: "Each tile still fits its neighbours" |
-| 91.2–99.4 | "The same tile also tiles in rows". Small line: "So the spiral is non-periodic, not aperiodic" |
-| 100.4–108.4 | "Up to 240 directions". Small line: "k = 120: a tile with 242 edges" |
-| 109.4–115.4 | "240 wedges, 27 colours". Small line: "Every roll is a new picture" |
-| 116.4–127.36 | "Try it yourself at drbuild.uk/krinkle" |
+| 89.6–7.4 | "Modulo Krinkle tiling". Small line: "A spiral monotile by Miki Imura, 2025" |
+| 8.2–35.6 | Each preset's (m, k, n), with the paper and figure it comes from |
+| 36.2–49.4 | "Or set your own tile". Small line: "m = 26, k = 67, t = 3: 201 directions" |
+| 50.2–75.4 | "Roll the colours". Small line: "One tile, 201 wedges" |
+| 76.2–83.4 | "Pastel 6". Small line: "Six hue tracks round the fan" |
+| 84.2–89.6 | "Try it yourself at drbuild.uk/krinkle" |
 
-The arm counts and the edge count are the page's own read-out.
+The figure numbers are the `source` of each preset in
+`app/tiles/krinkle/tiling.js`.
