@@ -90,9 +90,9 @@
   function words(title, sub, site) {
     return '<h1>' + title + '</h1><p>' + sub + '</p><div class="site">' + (site || 'drbuild.uk') + '</div>';
   }
-  function tiling(src, title, sub) {
+  function tiling(src, title, sub, site) {
     return '<div class="card"><img class="fill" src="' + SRC + src + '.png" alt="">' +
-      '<div class="panel">' + words(title, sub, 'Aperiodic Tiling Explorer · drbuild.uk') + '</div></div>';
+      '<div class="panel">' + words(title, sub, site || 'Tiling Explorer · drbuild.uk') + '</div></div>';
   }
   function art(files, title, sub) {
     return '<div class="card dark"><div class="art-row">' + files.map(function (f, i) {
@@ -231,7 +231,7 @@
     hat: function () { return tiling('hat', 'Hat tiling', 'The original aperiodic tile, which uses its mirror image'); },
     spectre: function () { return tiling('spectre', 'Spectre tiling', 'Tiles using only rotations, mirror image not required'); },
     'hat-extended': function () { return tiling('hat-extended', 'Hat tiling (extended)', 'Edge options on Hat make mirror image a separate tile'); },
-    krinkle: function () { return tiling('krinkle', 'Modulo Krinkle tiling', 'One tile, three whole numbers, a fan of wedges'); },
+    krinkle: function () { return tiling('krinkle', 'Modulo Krinkle tiling', 'A spiral monotile by Miki Imura, 2025', 'Tiling Explorer · drbuild.uk/krinkle'); },
     puzzle: function () {
       return '<div class="card puzzle"><img class="patch left" src="' + SRC + 'puzzle-hat.png" alt="">' +
         '<img class="patch right" src="' + SRC + 'puzzle-spectre.png" alt="">' +

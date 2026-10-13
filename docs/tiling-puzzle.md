@@ -518,8 +518,9 @@ arrangements.
   yourself" under the tabs, and `/puzzle` redirects here.
 - **Hidden from the builder page** on 2026-10-12, while David does more
   work on the puzzle. The entry in `index.html` is commented out, unchanged,
-  and returns once that work is done. The page, `/puzzle`, the card and the
-  "Build it yourself" links stay live.
+  and returns once that work is done. The page, `/puzzle` and the card stay
+  live. The "Build it yourself" links on the three tabs were commented out
+  on 2026-10-13, and return with the entry.
 
 ## Later
 

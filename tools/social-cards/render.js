@@ -34,8 +34,9 @@ const TILINGS = {
   hat: '/app/tiles/hat/#v=0,0,14,0,0,0&c=pastel&t=30',
   spectre: '/app/tiles/spectre/#v=0,0,16,0&c=rainbow2&e=curve&b=0.18&a=alt&p=waves%3A1',
   'hat-extended': '/app/tiles/hat-extended/#v=0,0,34,0,0,0&c=pastel&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55',
-  // The centre of the fan sits right of the card's panel, so the swirl shows.
-  krinkle: '/app/tiles/krinkle/#v=-30,0,13,0&c=pastel&mk=3,7&t=2&o=1&a=fan'
+  // The (3, 7, 22') tile. The centre of the fan sits right of the card's
+  // panel, so the swirl shows.
+  krinkle: '/app/tiles/krinkle/#v=-25,0,16,0&c=pastel&mk=3,7&t=2&o=1&a=fan'
 };
 // The Tiling Puzzle's card shows a Hat patch and a Spectre patch, each built
 // by four presses of Fill a ring, so its rings show in their colours.
