@@ -29,8 +29,6 @@ is. [storyboard.md](storyboard.md) says what happens on each beat.
 The page is 1260 × 960 CSS px, and the video films its right-hand 960 px
 square at 1.125 times the density. The fan's centre then sits in the open
 map, left of the Options panel, which takes about a sixth of the frame.
-`krinkle.mp4`, v1, filmed a 720 px square, where the panel took about two
-fifths; `krinkle-v2.mp4` is the current layout.
 
 ## Render
 
