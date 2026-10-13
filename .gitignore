@@ -1,5 +1,5 @@
-# Repo-wide ignores. A tool that renders its own output keeps a .gitignore
-# beside it, as tools/tiling-video and tools/sieve-video do.
+# Repo-wide ignores. tools/tiling-video keeps a .gitignore beside it for its
+# own working files: frames, probes, music stems and node_modules.
 
 # Operating system files
 .DS_Store
@@ -34,3 +34,25 @@ __pycache__/
 .env
 .env.*
 *.local.json
+
+# Renders: what a script writes for a person to review, such as stills,
+# contact sheets, mock-up screenshots and videos. Each tool writes these into
+# a renders/ folder beside it, and its tracked script rebuilds them. A file
+# the site loads stays outside renders/ and stays tracked.
+renders/
+
+# Audio and video. The site plays no media file, so none belongs in git.
+*.mp4
+*.m4v
+*.mov
+*.webm
+*.mkv
+*.avi
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.ogg
+*.flac
+*.aif
+*.aiff
