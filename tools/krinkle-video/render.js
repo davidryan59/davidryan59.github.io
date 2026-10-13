@@ -1,7 +1,8 @@
-/* Render the 45-second Krinkle explorer video from the real app page,
-   app/tiles/krinkle/. See README.md.
+/* Render the looping Krinkle explorer video from the real app page,
+   app/tiles/krinkle/. See README.md. The version named in timeline.js
+   names the outputs.
 
-     node tools/krinkle-video/render.js                the video, renders/krinkle-v3.mp4
+     node tools/krinkle-video/render.js                the video, renders/krinkle-<version>.mp4
      node tools/krinkle-video/render.js out.mp4        the video, to another file
      node tools/krinkle-video/render.js --sheet        a still every 3 s, on one sheet
      node tools/krinkle-video/render.js --stills 5,12  stills at chosen seconds
@@ -15,7 +16,7 @@ const http = require('http'), fs = require('fs'), path = require('path'), { spaw
 const { chromium } = require('../tiling-video/node_modules/playwright-core');
 const T = require('./timeline.js');
 
-const ROOT = path.join(__dirname, '..', '..'), RENDERS = path.join(__dirname, 'renders', 'v3');
+const ROOT = path.join(__dirname, '..', '..'), RENDERS = path.join(__dirname, 'renders', T.VERSION);
 const TYPES = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml',
   '.json':'application/json', '.png':'image/png', '.jpg':'image/jpeg' };
 const DPR = 1080 / T.CLIP[3];
@@ -26,6 +27,10 @@ const DPR = 1080 / T.CLIP[3];
 const HOOK = `
     window.__tm = {
       state: function () { return { ready: !!info, inFlight: inFlight.size, missing: window.__tmMissing, s: view.s }; },
+      // The video's zoom glides set the zoom about the middle of the map,
+      // and take over the app's own zoom after a change of tiling.
+      setScale: function (s) { anim.zoomTo = null; zoomAbout(s / view.s, W / 2, Hh / 2); },
+      takeZoom: function () { var z = anim.zoomTo; anim.zoomTo = null; return z; },
       busy: function () { return map.busy ? map.busy() : false; }
     };
     return map;`;
@@ -119,6 +124,14 @@ function run(command, args, input) {
     const shot = () => page.screenshot({ type:'png', clip:{ x:T.CLIP[0], y:T.CLIP[1], width:T.CLIP[2], height:T.CLIP[3] } });
     async function step(frame) {
       const plan = await page.evaluate(n => window.video.plan(n), frame);
+      // A change of tiling fades from a still of the frame before it, taken
+      // before the click and without the video's own layer.
+      if (plan.extra.some(e => e.change)) {
+        await page.evaluate(() => document.body.classList.add('video-still'));
+        const still = await shot();
+        await page.evaluate(() => document.body.classList.remove('video-still'));
+        await page.evaluate(([src, n]) => window.video.fade(src, n), ['data:image/png;base64,' + still.toString('base64'), frame]);
+      }
       if (plan.x !== mouse.x || plan.y !== mouse.y) await page.mouse.move(plan.x, plan.y);
       if (plan.down !== mouse.down) await (plan.down ? page.mouse.down() : page.mouse.up());
       mouse = plan;
@@ -141,15 +154,15 @@ function run(command, args, input) {
         const i = wanted.get(frame);
         const name = sheet ? 'sheet-' + String(i).padStart(2, '0') + '.png' : 't' + seconds[i].toFixed(2) + '.png';
         fs.writeFileSync(path.join(RENDERS, name), await shot());
-        console.log('renders/v3/' + name + '  ' + Math.round((Date.now() - started) / 1000) + ' s');
+        console.log('renders/' + T.VERSION + '/' + name + '  ' + Math.round((Date.now() - started) / 1000) + ' s');
       }
       if (sheet) {
         await run('ffmpeg', ['-loglevel','error','-y','-framerate','1','-i',path.join(RENDERS,'sheet-%02d.png'),
           '-vf','scale=480:360,tile=4x4:padding=8:color=#e9e5dc','-frames:v','1','-q:v','3',path.join(RENDERS,'sheet.jpg')]);
-        console.log('renders/v3/sheet.jpg');
+        console.log('renders/' + T.VERSION + '/sheet.jpg');
       }
     } else {
-      const output = path.resolve(args[0] || path.join(RENDERS, '..', 'krinkle-v3.mp4'));
+      const output = path.resolve(args[0] || path.join(RENDERS, '..', 'krinkle-' + T.VERSION + '.mp4'));
       await run('ffmpeg', ['-loglevel','error','-y','-f','image2pipe','-c:v','png','-framerate',String(T.FPS),'-i','-',
         '-vf','scale=out_color_matrix=bt709:out_range=tv','-c:v','libx264','-preset','slow','-crf','17','-pix_fmt','yuv420p',
         '-profile:v','high','-g',String(2 * T.FPS),'-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709',

@@ -77,7 +77,7 @@
     segments.forEach(function (seg) { if (seg.b0 <= b) s = seg; });
     if (!s || s.done) return at;
     if (!s.start) s.start = at.slice();
-    var u = s.drag ? Math.min(1, Math.max(0, (b - s.b0) / (s.b1 - s.b0))) : T.smooth((b - s.b0) / (s.b1 - s.b0));
+    var u = s.drag ? Math.min(1, Math.max(0, (b - s.b0) / (s.b1 - s.b0))) : T.ease((b - s.b0) / (s.b1 - s.b0));
     var end = targetPoint(s.target), p;
     if (s.drag) {
       p = [s.start[0] + (end[0] - s.start[0]) * u, s.start[1] + (end[1] - s.start[1]) * u];
@@ -98,6 +98,19 @@
     el.className = 'video-layer ' + className;
     document.body.appendChild(el);
     return el;
+  }
+
+  // A change of tiling crossfades: a still of the frame before the change
+  // lies over the app and fades out. It sits under the captions and the
+  // pointer, which stay sharp.
+  var fadeImg = document.createElement('img');
+  fadeImg.className = 'video-fade';
+  document.body.appendChild(fadeImg);
+  var fadeFrom = null;
+  function setFade(src, b) {
+    fadeImg.src = src;
+    fadeFrom = b;
+    return fadeImg.decode();
   }
 
   var address = layer('div', 'video-card video-address');
@@ -143,6 +156,10 @@
   var clicked = [];       // [beat, point] of each click, for its ring
 
   function overlay(b, p) {
+    var f = fadeFrom === null ? 0 : 1 - T.smooth((b - fadeFrom) / (T.FADE_CHANGE / SPB));
+    fadeImg.style.visibility = f > 0 ? 'visible' : 'hidden';
+    fadeImg.style.opacity = f.toFixed(3);
+
     T.CAPTIONS.forEach(function (c, i) {
       var a = captionAlpha(c, b);
       captions[i].style.visibility = a > 0 ? 'visible' : 'hidden';
@@ -182,6 +199,32 @@
     });
   }
 
+  // Zoom glides --------------------------------------------------------------
+
+  // The timeline's glides, and the glide after each change of tiling, run
+  // the zoom on a sine curve in log scale about the middle of the map.
+  // A change's new tiling is built while the click's frame settles, and
+  // the app then starts its own quick zoom home. On the next frame the
+  // stage takes that zoom over.
+  var openScale = null, glide = null, zoomAt = 0, changedOn = null;
+  function glideZoom(n, b) {
+    var s = window.__tm.state().s;
+    if (openScale === null) openScale = s;
+    if (changedOn !== null && n > changedOn) {
+      var target = window.__tm.takeZoom();
+      changedOn = null;
+      if (target) glide = { b0: b, b1: b + T.GLIDE_CHANGE / SPB, s0: s, s1: target };
+    }
+    while (zoomAt < T.ZOOMS.length && T.ZOOMS[zoomAt][0] <= b) {
+      var z = T.ZOOMS[zoomAt++];
+      glide = { b0: z[0], b1: z[1], s0: s, s1: openScale * z[2] };
+    }
+    if (!glide) return;
+    var u = T.ease((b - glide.b0) / (glide.b1 - glide.b0));
+    window.__tm.setScale(glide.s0 * Math.pow(glide.s1 / glide.s0, u));
+    if (b >= glide.b1) glide = null;
+  }
+
   // Frames -----------------------------------------------------------------
 
   var next = 0, lastDown = false, plannedFor = -1, clickAt = 0, nowMs = 0;
@@ -218,6 +261,7 @@
       if (o.seed) window.videoClock.seed(o.seed);
       if (o.select) extra.push({ select: SELECTORS[c[1]], value: o.select });
       if (o.fill) extra.push({ fill: SELECTORS[c[1]], value: o.fill });
+      if (o.change) { extra.unshift({ change: true }); changedOn = n; }
     });
     lastDown = down;
     plannedFor = n;
@@ -228,6 +272,7 @@
     if (n !== plannedFor) throw new Error('frame ' + n + ' drawn before it was planned');
     next = n + 1;
     var b = n / T.FPS / SPB;
+    glideZoom(n, b);
     window.videoClock.frame(nowMs);
     holdTransitions(nowMs);
     overlay(b, at);
@@ -249,6 +294,7 @@
   window.video = {
     ready: document.fonts.ready.then(function () { sizeCaptions(); return true; }),
     rest: function () { return at.slice(); },
+    fade: function (src, n) { return setFade(src, n / T.FPS / SPB); },
     plan: plan,
     draw: draw,
     settled: settled,

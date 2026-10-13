@@ -80,6 +80,21 @@
   font-size: 43px;
 }
 
+.video-fade {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 45;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.video-still .video-layer {
+  visibility: hidden !important;
+}
+
 .video-pointer {
   left: 0;
   top: 0;
