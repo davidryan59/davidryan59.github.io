@@ -1097,7 +1097,7 @@ Coxeter plane) and the 23-fold scenes.
 The group carries each plane to many copies with the same picture. The
 search kept the copy nearest the opening view, so a scene change moves the
 balls less. The RMS distance a ball moves from the opening view fell from
-0.56–0.79 to 0.26–0.49. A ball sits 0.58 from the centre on average, so the
+0.46–0.79 to 0.23–0.49. A ball sits 0.58 from the centre on average, so the
 scenes are nearer, but not close. Four of the planes lie inside octad O1.
 They are the Coxeter planes of E7, D8, E6 and D5, which are root systems
 inside E8.
