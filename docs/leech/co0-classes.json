@@ -1,0 +1,4008 @@
+{
+ "group": "Co0 = 2.Co1",
+ "order": "8315553613086720000",
+ "source": "GAP ctbllib 1.3.9, data/ctoconja.tbl",
+ "classes": [
+  {
+   "name": "1A",
+   "order": 1,
+   "co1": "1A",
+   "negative": "2A",
+   "centraliser": "8315553613086720000",
+   "trace": 24,
+   "frame": "1^24",
+   "frame_exponents": {
+    "1": 24
+   },
+   "eigenvalues": {
+    "1": 24
+   },
+   "powers": {}
+  },
+  {
+   "name": "2A",
+   "order": 2,
+   "co1": "1A",
+   "negative": "1A",
+   "centraliser": "8315553613086720000",
+   "trace": -24,
+   "frame": "2^24 / 1^24",
+   "frame_exponents": {
+    "1": -24,
+    "2": 24
+   },
+   "eigenvalues": {
+    "2": 24
+   },
+   "powers": {
+    "2": "1A"
+   }
+  },
+  {
+   "name": "2B",
+   "order": 2,
+   "co1": "2A",
+   "negative": "2C",
+   "centraliser": "178362777600",
+   "trace": 8,
+   "frame": "1^8·2^8",
+   "frame_exponents": {
+    "1": 8,
+    "2": 8
+   },
+   "eigenvalues": {
+    "1": 16,
+    "2": 8
+   },
+   "powers": {
+    "2": "1A"
+   }
+  },
+  {
+   "name": "2C",
+   "order": 2,
+   "co1": "2A",
+   "negative": "2B",
+   "centraliser": "178362777600",
+   "trace": -8,
+   "frame": "2^16 / 1^8",
+   "frame_exponents": {
+    "1": -8,
+    "2": 16
+   },
+   "eigenvalues": {
+    "1": 8,
+    "2": 16
+   },
+   "powers": {
+    "2": "1A"
+   }
+  },
+  {
+   "name": "4A",
+   "order": 4,
+   "co1": "2B",
+   "negative": "4A",
+   "centraliser": "2012774400",
+   "trace": 0,
+   "frame": "4^12 / 2^12",
+   "frame_exponents": {
+    "2": -12,
+    "4": 12
+   },
+   "eigenvalues": {
+    "4": 12
+   },
+   "powers": {
+    "2": "2A"
+   }
+  },
+  {
+   "name": "2D",
+   "order": 2,
+   "co1": "2C",
+   "negative": "2D",
+   "centraliser": "389283840",
+   "trace": 0,
+   "frame": "2^12",
+   "frame_exponents": {
+    "2": 12
+   },
+   "eigenvalues": {
+    "1": 12,
+    "2": 12
+   },
+   "powers": {
+    "2": "1A"
+   }
+  },
+  {
+   "name": "3A",
+   "order": 3,
+   "co1": "3A",
+   "negative": "6A",
+   "centraliser": "2690072985600",
+   "trace": -12,
+   "frame": "3^12 / 1^12",
+   "frame_exponents": {
+    "1": -12,
+    "3": 12
+   },
+   "eigenvalues": {
+    "3": 12
+   },
+   "powers": {
+    "3": "1A"
+   }
+  },
+  {
+   "name": "6A",
+   "order": 6,
+   "co1": "3A",
+   "negative": "3A",
+   "centraliser": "2690072985600",
+   "trace": 12,
+   "frame": "1^12·6^12 / 2^12·3^12",
+   "frame_exponents": {
+    "1": 12,
+    "2": -12,
+    "3": -12,
+    "6": 12
+   },
+   "eigenvalues": {
+    "6": 12
+   },
+   "powers": {
+    "2": "3A",
+    "3": "2A"
+   }
+  },
+  {
+   "name": "3B",
+   "order": 3,
+   "co1": "3B",
+   "negative": "6B",
+   "centraliser": "117573120",
+   "trace": 6,
+   "frame": "1^6·3^6",
+   "frame_exponents": {
+    "1": 6,
+    "3": 6
+   },
+   "eigenvalues": {
+    "1": 12,
+    "3": 6
+   },
+   "powers": {
+    "3": "1A"
+   }
+  },
+  {
+   "name": "6B",
+   "order": 6,
+   "co1": "3B",
+   "negative": "3B",
+   "centraliser": "117573120",
+   "trace": -6,
+   "frame": "2^6·6^6 / 1^6·3^6",
+   "frame_exponents": {
+    "1": -6,
+    "2": 6,
+    "3": -6,
+    "6": 6
+   },
+   "eigenvalues": {
+    "2": 12,
+    "6": 6
+   },
+   "powers": {
+    "2": "3B",
+    "3": "2A"
+   }
+  },
+  {
+   "name": "3C",
+   "order": 3,
+   "co1": "3C",
+   "negative": "6C",
+   "centraliser": "25194240",
+   "trace": -3,
+   "frame": "3^9 / 1^3",
+   "frame_exponents": {
+    "1": -3,
+    "3": 9
+   },
+   "eigenvalues": {
+    "1": 6,
+    "3": 9
+   },
+   "powers": {
+    "3": "1A"
+   }
+  },
+  {
+   "name": "6C",
+   "order": 6,
+   "co1": "3C",
+   "negative": "3C",
+   "centraliser": "25194240",
+   "trace": 3,
+   "frame": "1^3·6^9 / 2^3·3^9",
+   "frame_exponents": {
+    "1": 3,
+    "2": -3,
+    "3": -9,
+    "6": 9
+   },
+   "eigenvalues": {
+    "2": 6,
+    "6": 9
+   },
+   "powers": {
+    "2": "3C",
+    "3": "2A"
+   }
+  },
+  {
+   "name": "3D",
+   "order": 3,
+   "co1": "3D",
+   "negative": "6D",
+   "centraliser": "1088640",
+   "trace": 0,
+   "frame": "3^8",
+   "frame_exponents": {
+    "3": 8
+   },
+   "eigenvalues": {
+    "1": 8,
+    "3": 8
+   },
+   "powers": {
+    "3": "1A"
+   }
+  },
+  {
+   "name": "6D",
+   "order": 6,
+   "co1": "3D",
+   "negative": "3D",
+   "centraliser": "1088640",
+   "trace": 0,
+   "frame": "6^8 / 3^8",
+   "frame_exponents": {
+    "3": -8,
+    "6": 8
+   },
+   "eigenvalues": {
+    "2": 8,
+    "6": 8
+   },
+   "powers": {
+    "2": "3D",
+    "3": "2A"
+   }
+  },
+  {
+   "name": "4B",
+   "order": 4,
+   "co1": "4A",
+   "negative": "4C",
+   "centraliser": "743178240",
+   "trace": 8,
+   "frame": "1^8·4^8 / 2^8",
+   "frame_exponents": {
+    "1": 8,
+    "2": -8,
+    "4": 8
+   },
+   "eigenvalues": {
+    "1": 8,
+    "4": 8
+   },
+   "powers": {
+    "2": "2C"
+   }
+  },
+  {
+   "name": "4C",
+   "order": 4,
+   "co1": "4A",
+   "negative": "4B",
+   "centraliser": "743178240",
+   "trace": -8,
+   "frame": "4^8 / 1^8",
+   "frame_exponents": {
+    "1": -8,
+    "4": 8
+   },
+   "eigenvalues": {
+    "2": 8,
+    "4": 8
+   },
+   "powers": {
+    "2": "2C"
+   }
+  },
+  {
+   "name": "4D",
+   "order": 4,
+   "co1": "4B",
+   "negative": "4D",
+   "centraliser": "1179648",
+   "trace": 0,
+   "frame": "4^8 / 2^4",
+   "frame_exponents": {
+    "2": -4,
+    "4": 8
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "4": 8
+   },
+   "powers": {
+    "2": "2C"
+   }
+  },
+  {
+   "name": "4E",
+   "order": 4,
+   "co1": "4C",
+   "negative": "4F",
+   "centraliser": "1474560",
+   "trace": 4,
+   "frame": "1^4·2^2·4^4",
+   "frame_exponents": {
+    "1": 4,
+    "2": 2,
+    "4": 4
+   },
+   "eigenvalues": {
+    "1": 10,
+    "2": 6,
+    "4": 4
+   },
+   "powers": {
+    "2": "2B"
+   }
+  },
+  {
+   "name": "4F",
+   "order": 4,
+   "co1": "4C",
+   "negative": "4E",
+   "centraliser": "1474560",
+   "trace": -4,
+   "frame": "2^6·4^4 / 1^4",
+   "frame_exponents": {
+    "1": -4,
+    "2": 6,
+    "4": 4
+   },
+   "eigenvalues": {
+    "1": 6,
+    "2": 10,
+    "4": 4
+   },
+   "powers": {
+    "2": "2B"
+   }
+  },
+  {
+   "name": "4G",
+   "order": 4,
+   "co1": "4D",
+   "negative": "4G",
+   "centraliser": "294912",
+   "trace": 0,
+   "frame": "2^4·4^4",
+   "frame_exponents": {
+    "2": 4,
+    "4": 4
+   },
+   "eigenvalues": {
+    "1": 8,
+    "2": 8,
+    "4": 4
+   },
+   "powers": {
+    "2": "2B"
+   }
+  },
+  {
+   "name": "8A",
+   "order": 8,
+   "co1": "4E",
+   "negative": "8A",
+   "centraliser": "48384",
+   "trace": 0,
+   "frame": "8^6 / 4^6",
+   "frame_exponents": {
+    "4": -6,
+    "8": 6
+   },
+   "eigenvalues": {
+    "8": 6
+   },
+   "powers": {
+    "2": "4A"
+   }
+  },
+  {
+   "name": "4H",
+   "order": 4,
+   "co1": "4F",
+   "negative": "4H",
+   "centraliser": "15360",
+   "trace": 0,
+   "frame": "4^6",
+   "frame_exponents": {
+    "4": 6
+   },
+   "eigenvalues": {
+    "1": 6,
+    "2": 6,
+    "4": 6
+   },
+   "powers": {
+    "2": "2D"
+   }
+  },
+  {
+   "name": "5A",
+   "order": 5,
+   "co1": "5A",
+   "negative": "10A",
+   "centraliser": "6048000",
+   "trace": -6,
+   "frame": "5^6 / 1^6",
+   "frame_exponents": {
+    "1": -6,
+    "5": 6
+   },
+   "eigenvalues": {
+    "5": 6
+   },
+   "powers": {
+    "5": "1A"
+   }
+  },
+  {
+   "name": "10A",
+   "order": 10,
+   "co1": "5A",
+   "negative": "5A",
+   "centraliser": "6048000",
+   "trace": 6,
+   "frame": "1^6·10^6 / 2^6·5^6",
+   "frame_exponents": {
+    "1": 6,
+    "2": -6,
+    "5": -6,
+    "10": 6
+   },
+   "eigenvalues": {
+    "10": 6
+   },
+   "powers": {
+    "2": "5A",
+    "5": "2A"
+   }
+  },
+  {
+   "name": "5B",
+   "order": 5,
+   "co1": "5B",
+   "negative": "10B",
+   "centraliser": "72000",
+   "trace": 4,
+   "frame": "1^4·5^4",
+   "frame_exponents": {
+    "1": 4,
+    "5": 4
+   },
+   "eigenvalues": {
+    "1": 8,
+    "5": 4
+   },
+   "powers": {
+    "5": "1A"
+   }
+  },
+  {
+   "name": "10B",
+   "order": 10,
+   "co1": "5B",
+   "negative": "5B",
+   "centraliser": "72000",
+   "trace": -4,
+   "frame": "2^4·10^4 / 1^4·5^4",
+   "frame_exponents": {
+    "1": -4,
+    "2": 4,
+    "5": -4,
+    "10": 4
+   },
+   "eigenvalues": {
+    "2": 8,
+    "10": 4
+   },
+   "powers": {
+    "2": "5B",
+    "5": "2A"
+   }
+  },
+  {
+   "name": "5C",
+   "order": 5,
+   "co1": "5C",
+   "negative": "10C",
+   "centraliser": "30000",
+   "trace": -1,
+   "frame": "5^5 / 1",
+   "frame_exponents": {
+    "1": -1,
+    "5": 5
+   },
+   "eigenvalues": {
+    "1": 4,
+    "5": 5
+   },
+   "powers": {
+    "5": "1A"
+   }
+  },
+  {
+   "name": "10C",
+   "order": 10,
+   "co1": "5C",
+   "negative": "5C",
+   "centraliser": "30000",
+   "trace": 1,
+   "frame": "1·10^5 / 2·5^5",
+   "frame_exponents": {
+    "1": 1,
+    "2": -1,
+    "5": -5,
+    "10": 5
+   },
+   "eigenvalues": {
+    "2": 4,
+    "10": 5
+   },
+   "powers": {
+    "2": "5C",
+    "5": "2A"
+   }
+  },
+  {
+   "name": "6E",
+   "order": 6,
+   "co1": "6A",
+   "negative": "6F",
+   "centraliser": "19906560",
+   "trace": -4,
+   "frame": "3^4·6^4 / 1^4·2^4",
+   "frame_exponents": {
+    "1": -4,
+    "2": -4,
+    "3": 4,
+    "6": 4
+   },
+   "eigenvalues": {
+    "3": 8,
+    "6": 4
+   },
+   "powers": {
+    "2": "3A",
+    "3": "2B"
+   }
+  },
+  {
+   "name": "6F",
+   "order": 6,
+   "co1": "6A",
+   "negative": "6E",
+   "centraliser": "19906560",
+   "trace": 4,
+   "frame": "1^4·6^8 / 2^8·3^4",
+   "frame_exponents": {
+    "1": 4,
+    "2": -8,
+    "3": -4,
+    "6": 8
+   },
+   "eigenvalues": {
+    "3": 4,
+    "6": 8
+   },
+   "powers": {
+    "2": "3A",
+    "3": "2C"
+   }
+  },
+  {
+   "name": "12A",
+   "order": 12,
+   "co1": "6B",
+   "negative": "12A",
+   "centraliser": "483840",
+   "trace": 0,
+   "frame": "2^6·12^6 / 4^6·6^6",
+   "frame_exponents": {
+    "2": 6,
+    "4": -6,
+    "6": -6,
+    "12": 6
+   },
+   "eigenvalues": {
+    "12": 6
+   },
+   "powers": {
+    "2": "6A",
+    "3": "4A"
+   }
+  },
+  {
+   "name": "6G",
+   "order": 6,
+   "co1": "6C",
+   "negative": "6H",
+   "centraliser": "311040",
+   "trace": -4,
+   "frame": "2^5·3^4·6 / 1^4",
+   "frame_exponents": {
+    "1": -4,
+    "2": 5,
+    "3": 4,
+    "6": 1
+   },
+   "eigenvalues": {
+    "1": 6,
+    "2": 6,
+    "3": 5,
+    "6": 1
+   },
+   "powers": {
+    "2": "3B",
+    "3": "2B"
+   }
+  },
+  {
+   "name": "6H",
+   "order": 6,
+   "co1": "6C",
+   "negative": "6G",
+   "centraliser": "311040",
+   "trace": 4,
+   "frame": "1^4·2·6^5 / 3^4",
+   "frame_exponents": {
+    "1": 4,
+    "2": 1,
+    "3": -4,
+    "6": 5
+   },
+   "eigenvalues": {
+    "1": 6,
+    "2": 6,
+    "3": 1,
+    "6": 5
+   },
+   "powers": {
+    "2": "3B",
+    "3": "2C"
+   }
+  },
+  {
+   "name": "6I",
+   "order": 6,
+   "co1": "6D",
+   "negative": "6J",
+   "centraliser": "311040",
+   "trace": 5,
+   "frame": "1^5·3·6^4 / 2^4",
+   "frame_exponents": {
+    "1": 5,
+    "2": -4,
+    "3": 1,
+    "6": 4
+   },
+   "eigenvalues": {
+    "1": 6,
+    "3": 5,
+    "6": 4
+   },
+   "powers": {
+    "2": "3C",
+    "3": "2B"
+   }
+  },
+  {
+   "name": "6J",
+   "order": 6,
+   "co1": "6D",
+   "negative": "6I",
+   "centraliser": "311040",
+   "trace": -5,
+   "frame": "2·6^5 / 1^5·3",
+   "frame_exponents": {
+    "1": -5,
+    "2": 1,
+    "3": -1,
+    "6": 5
+   },
+   "eigenvalues": {
+    "2": 6,
+    "3": 4,
+    "6": 5
+   },
+   "powers": {
+    "2": "3C",
+    "3": "2C"
+   }
+  },
+  {
+   "name": "6K",
+   "order": 6,
+   "co1": "6E",
+   "negative": "6L",
+   "centraliser": "41472",
+   "trace": 2,
+   "frame": "1^2·2^2·3^2·6^2",
+   "frame_exponents": {
+    "1": 2,
+    "2": 2,
+    "3": 2,
+    "6": 2
+   },
+   "eigenvalues": {
+    "1": 8,
+    "2": 4,
+    "3": 4,
+    "6": 2
+   },
+   "powers": {
+    "2": "3B",
+    "3": "2B"
+   }
+  },
+  {
+   "name": "6L",
+   "order": 6,
+   "co1": "6E",
+   "negative": "6K",
+   "centraliser": "41472",
+   "trace": -2,
+   "frame": "2^4·6^4 / 1^2·3^2",
+   "frame_exponents": {
+    "1": -2,
+    "2": 4,
+    "3": -2,
+    "6": 4
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 8,
+    "3": 2,
+    "6": 4
+   },
+   "powers": {
+    "2": "3B",
+    "3": "2C"
+   }
+  },
+  {
+   "name": "6M",
+   "order": 6,
+   "co1": "6F",
+   "negative": "6N",
+   "centraliser": "31104",
+   "trace": -1,
+   "frame": "3^3·6^3 / 1·2",
+   "frame_exponents": {
+    "1": -1,
+    "2": -1,
+    "3": 3,
+    "6": 3
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 2,
+    "3": 6,
+    "6": 3
+   },
+   "powers": {
+    "2": "3C",
+    "3": "2B"
+   }
+  },
+  {
+   "name": "6N",
+   "order": 6,
+   "co1": "6F",
+   "negative": "6M",
+   "centraliser": "31104",
+   "trace": 1,
+   "frame": "1·6^6 / 2^2·3^3",
+   "frame_exponents": {
+    "1": 1,
+    "2": -2,
+    "3": -3,
+    "6": 6
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 4,
+    "3": 3,
+    "6": 6
+   },
+   "powers": {
+    "2": "3C",
+    "3": "2C"
+   }
+  },
+  {
+   "name": "6O",
+   "order": 6,
+   "co1": "6G",
+   "negative": "6O",
+   "centraliser": "3456",
+   "trace": 0,
+   "frame": "2^3·6^3",
+   "frame_exponents": {
+    "2": 3,
+    "6": 3
+   },
+   "eigenvalues": {
+    "1": 6,
+    "2": 6,
+    "3": 3,
+    "6": 3
+   },
+   "powers": {
+    "2": "3B",
+    "3": "2D"
+   }
+  },
+  {
+   "name": "12B",
+   "order": 12,
+   "co1": "6H",
+   "negative": "12B",
+   "centraliser": "1440",
+   "trace": 0,
+   "frame": "12^4 / 6^4",
+   "frame_exponents": {
+    "6": -4,
+    "12": 4
+   },
+   "eigenvalues": {
+    "4": 4,
+    "12": 4
+   },
+   "powers": {
+    "2": "6D",
+    "3": "4A"
+   }
+  },
+  {
+   "name": "6P",
+   "order": 6,
+   "co1": "6I",
+   "negative": "6P",
+   "centraliser": "576",
+   "trace": 0,
+   "frame": "6^4",
+   "frame_exponents": {
+    "6": 4
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "3": 4,
+    "6": 4
+   },
+   "powers": {
+    "2": "3D",
+    "3": "2D"
+   }
+  },
+  {
+   "name": "7A",
+   "order": 7,
+   "co1": "7A",
+   "negative": "14A",
+   "centraliser": "35280",
+   "trace": -4,
+   "frame": "7^4 / 1^4",
+   "frame_exponents": {
+    "1": -4,
+    "7": 4
+   },
+   "eigenvalues": {
+    "7": 4
+   },
+   "powers": {
+    "7": "1A"
+   }
+  },
+  {
+   "name": "14A",
+   "order": 14,
+   "co1": "7A",
+   "negative": "7A",
+   "centraliser": "35280",
+   "trace": 4,
+   "frame": "1^4·14^4 / 2^4·7^4",
+   "frame_exponents": {
+    "1": 4,
+    "2": -4,
+    "7": -4,
+    "14": 4
+   },
+   "eigenvalues": {
+    "14": 4
+   },
+   "powers": {
+    "2": "7A",
+    "7": "2A"
+   }
+  },
+  {
+   "name": "7B",
+   "order": 7,
+   "co1": "7B",
+   "negative": "14B",
+   "centraliser": "2352",
+   "trace": 3,
+   "frame": "1^3·7^3",
+   "frame_exponents": {
+    "1": 3,
+    "7": 3
+   },
+   "eigenvalues": {
+    "1": 6,
+    "7": 3
+   },
+   "powers": {
+    "7": "1A"
+   }
+  },
+  {
+   "name": "14B",
+   "order": 14,
+   "co1": "7B",
+   "negative": "7B",
+   "centraliser": "2352",
+   "trace": -3,
+   "frame": "2^3·14^3 / 1^3·7^3",
+   "frame_exponents": {
+    "1": -3,
+    "2": 3,
+    "7": -3,
+    "14": 3
+   },
+   "eigenvalues": {
+    "2": 6,
+    "14": 3
+   },
+   "powers": {
+    "2": "7B",
+    "7": "2A"
+   }
+  },
+  {
+   "name": "8B",
+   "order": 8,
+   "co1": "8A",
+   "negative": "8B",
+   "centraliser": "92160",
+   "trace": 0,
+   "frame": "8^4 / 2^4",
+   "frame_exponents": {
+    "2": -4,
+    "8": 4
+   },
+   "eigenvalues": {
+    "4": 4,
+    "8": 4
+   },
+   "powers": {
+    "2": "4C"
+   }
+  },
+  {
+   "name": "8C",
+   "order": 8,
+   "co1": "8B",
+   "negative": "8C",
+   "centraliser": "6144",
+   "trace": 0,
+   "frame": "2^4·8^4 / 4^4",
+   "frame_exponents": {
+    "2": 4,
+    "4": -4,
+    "8": 4
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "8": 4
+   },
+   "powers": {
+    "2": "4B"
+   }
+  },
+  {
+   "name": "8D",
+   "order": 8,
+   "co1": "8C",
+   "negative": "8E",
+   "centraliser": "12288",
+   "trace": 4,
+   "frame": "1^4·8^4 / 2^2·4^2",
+   "frame_exponents": {
+    "1": 4,
+    "2": -2,
+    "4": -2,
+    "8": 4
+   },
+   "eigenvalues": {
+    "1": 4,
+    "4": 2,
+    "8": 4
+   },
+   "powers": {
+    "2": "4D"
+   }
+  },
+  {
+   "name": "8E",
+   "order": 8,
+   "co1": "8C",
+   "negative": "8D",
+   "centraliser": "12288",
+   "trace": -4,
+   "frame": "2^2·8^4 / 1^4·4^2",
+   "frame_exponents": {
+    "1": -4,
+    "2": 2,
+    "4": -2,
+    "8": 4
+   },
+   "eigenvalues": {
+    "2": 4,
+    "4": 2,
+    "8": 4
+   },
+   "powers": {
+    "2": "4D"
+   }
+  },
+  {
+   "name": "8F",
+   "order": 8,
+   "co1": "8D",
+   "negative": "8F",
+   "centraliser": "2048",
+   "trace": 0,
+   "frame": "8^4 / 4^2",
+   "frame_exponents": {
+    "4": -2,
+    "8": 4
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "4": 2,
+    "8": 4
+   },
+   "powers": {
+    "2": "4D"
+   }
+  },
+  {
+   "name": "8G",
+   "order": 8,
+   "co1": "8E",
+   "negative": "8H",
+   "centraliser": "1536",
+   "trace": 2,
+   "frame": "1^2·2·4·8^2",
+   "frame_exponents": {
+    "1": 2,
+    "2": 1,
+    "4": 1,
+    "8": 2
+   },
+   "eigenvalues": {
+    "1": 6,
+    "2": 4,
+    "4": 3,
+    "8": 2
+   },
+   "powers": {
+    "2": "4E"
+   }
+  },
+  {
+   "name": "8H",
+   "order": 8,
+   "co1": "8E",
+   "negative": "8G",
+   "centraliser": "1536",
+   "trace": -2,
+   "frame": "2^3·4·8^2 / 1^2",
+   "frame_exponents": {
+    "1": -2,
+    "2": 3,
+    "4": 1,
+    "8": 2
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 6,
+    "4": 3,
+    "8": 2
+   },
+   "powers": {
+    "2": "4E"
+   }
+  },
+  {
+   "name": "8I",
+   "order": 8,
+   "co1": "8F",
+   "negative": "8I",
+   "centraliser": "768",
+   "trace": 0,
+   "frame": "4^2·8^2",
+   "frame_exponents": {
+    "4": 2,
+    "8": 2
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "4": 4,
+    "8": 2
+   },
+   "powers": {
+    "2": "4G"
+   }
+  },
+  {
+   "name": "9A",
+   "order": 9,
+   "co1": "9A",
+   "negative": "18A",
+   "centraliser": "3888",
+   "trace": -3,
+   "frame": "9^3 / 1^3",
+   "frame_exponents": {
+    "1": -3,
+    "9": 3
+   },
+   "eigenvalues": {
+    "3": 3,
+    "9": 3
+   },
+   "powers": {
+    "3": "3C"
+   }
+  },
+  {
+   "name": "18A",
+   "order": 18,
+   "co1": "9A",
+   "negative": "9A",
+   "centraliser": "3888",
+   "trace": 3,
+   "frame": "1^3·18^3 / 2^3·9^3",
+   "frame_exponents": {
+    "1": 3,
+    "2": -3,
+    "9": -3,
+    "18": 3
+   },
+   "eigenvalues": {
+    "6": 3,
+    "18": 3
+   },
+   "powers": {
+    "2": "9A",
+    "3": "6C"
+   }
+  },
+  {
+   "name": "9B",
+   "order": 9,
+   "co1": "9B",
+   "negative": "18B",
+   "centraliser": "972",
+   "trace": 0,
+   "frame": "9^3 / 3",
+   "frame_exponents": {
+    "3": -1,
+    "9": 3
+   },
+   "eigenvalues": {
+    "1": 2,
+    "3": 2,
+    "9": 3
+   },
+   "powers": {
+    "3": "3C"
+   }
+  },
+  {
+   "name": "18B",
+   "order": 18,
+   "co1": "9B",
+   "negative": "9B",
+   "centraliser": "972",
+   "trace": 0,
+   "frame": "3·18^3 / 6·9^3",
+   "frame_exponents": {
+    "3": 1,
+    "6": -1,
+    "9": -3,
+    "18": 3
+   },
+   "eigenvalues": {
+    "2": 2,
+    "6": 2,
+    "18": 3
+   },
+   "powers": {
+    "2": "9B",
+    "3": "6C"
+   }
+  },
+  {
+   "name": "9C",
+   "order": 9,
+   "co1": "9C",
+   "negative": "18C",
+   "centraliser": "972",
+   "trace": 3,
+   "frame": "1^3·9^3 / 3^2",
+   "frame_exponents": {
+    "1": 3,
+    "3": -2,
+    "9": 3
+   },
+   "eigenvalues": {
+    "1": 4,
+    "3": 1,
+    "9": 3
+   },
+   "powers": {
+    "3": "3C"
+   }
+  },
+  {
+   "name": "18C",
+   "order": 18,
+   "co1": "9C",
+   "negative": "9C",
+   "centraliser": "972",
+   "trace": -3,
+   "frame": "2^3·3^2·18^3 / 1^3·6^2·9^3",
+   "frame_exponents": {
+    "1": -3,
+    "2": 3,
+    "3": 2,
+    "6": -2,
+    "9": -3,
+    "18": 3
+   },
+   "eigenvalues": {
+    "2": 4,
+    "6": 1,
+    "18": 3
+   },
+   "powers": {
+    "2": "9C",
+    "3": "6C"
+   }
+  },
+  {
+   "name": "10D",
+   "order": 10,
+   "co1": "10A",
+   "negative": "10E",
+   "centraliser": "19200",
+   "trace": -2,
+   "frame": "5^2·10^2 / 1^2·2^2",
+   "frame_exponents": {
+    "1": -2,
+    "2": -2,
+    "5": 2,
+    "10": 2
+   },
+   "eigenvalues": {
+    "5": 4,
+    "10": 2
+   },
+   "powers": {
+    "2": "5A",
+    "5": "2B"
+   }
+  },
+  {
+   "name": "10E",
+   "order": 10,
+   "co1": "10A",
+   "negative": "10D",
+   "centraliser": "19200",
+   "trace": 2,
+   "frame": "1^2·10^4 / 2^4·5^2",
+   "frame_exponents": {
+    "1": 2,
+    "2": -4,
+    "5": -2,
+    "10": 4
+   },
+   "eigenvalues": {
+    "5": 2,
+    "10": 4
+   },
+   "powers": {
+    "2": "5A",
+    "5": "2C"
+   }
+  },
+  {
+   "name": "20A",
+   "order": 20,
+   "co1": "10B",
+   "negative": "20A",
+   "centraliser": "1200",
+   "trace": 0,
+   "frame": "2^3·20^3 / 4^3·10^3",
+   "frame_exponents": {
+    "2": 3,
+    "4": -3,
+    "10": -3,
+    "20": 3
+   },
+   "eigenvalues": {
+    "20": 3
+   },
+   "powers": {
+    "2": "10A",
+    "5": "4A"
+   }
+  },
+  {
+   "name": "20B",
+   "order": 20,
+   "co1": "10C",
+   "negative": "20B",
+   "centraliser": "1200",
+   "trace": 0,
+   "frame": "4^2·20^2 / 2^2·10^2",
+   "frame_exponents": {
+    "2": -2,
+    "4": 2,
+    "10": -2,
+    "20": 2
+   },
+   "eigenvalues": {
+    "4": 4,
+    "20": 2
+   },
+   "powers": {
+    "2": "10B",
+    "5": "4A"
+   }
+  },
+  {
+   "name": "10F",
+   "order": 10,
+   "co1": "10D",
+   "negative": "10G",
+   "centraliser": "1200",
+   "trace": -2,
+   "frame": "2^3·5^2·10 / 1^2",
+   "frame_exponents": {
+    "1": -2,
+    "2": 3,
+    "5": 2,
+    "10": 1
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "5": 3,
+    "10": 1
+   },
+   "powers": {
+    "2": "5B",
+    "5": "2B"
+   }
+  },
+  {
+   "name": "10G",
+   "order": 10,
+   "co1": "10D",
+   "negative": "10F",
+   "centraliser": "1200",
+   "trace": 2,
+   "frame": "1^2·2·10^3 / 5^2",
+   "frame_exponents": {
+    "1": 2,
+    "2": 1,
+    "5": -2,
+    "10": 3
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "5": 1,
+    "10": 3
+   },
+   "powers": {
+    "2": "5B",
+    "5": "2C"
+   }
+  },
+  {
+   "name": "10H",
+   "order": 10,
+   "co1": "10E",
+   "negative": "10I",
+   "centraliser": "1200",
+   "trace": 3,
+   "frame": "1^3·5·10^2 / 2^2",
+   "frame_exponents": {
+    "1": 3,
+    "2": -2,
+    "5": 1,
+    "10": 2
+   },
+   "eigenvalues": {
+    "1": 4,
+    "5": 3,
+    "10": 2
+   },
+   "powers": {
+    "2": "5C",
+    "5": "2B"
+   }
+  },
+  {
+   "name": "10I",
+   "order": 10,
+   "co1": "10E",
+   "negative": "10H",
+   "centraliser": "1200",
+   "trace": -3,
+   "frame": "2·10^3 / 1^3·5",
+   "frame_exponents": {
+    "1": -3,
+    "2": 1,
+    "5": -1,
+    "10": 3
+   },
+   "eigenvalues": {
+    "2": 4,
+    "5": 2,
+    "10": 3
+   },
+   "powers": {
+    "2": "5C",
+    "5": "2C"
+   }
+  },
+  {
+   "name": "10J",
+   "order": 10,
+   "co1": "10F",
+   "negative": "10J",
+   "centraliser": "160",
+   "trace": 0,
+   "frame": "2^2·10^2",
+   "frame_exponents": {
+    "2": 2,
+    "10": 2
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "5": 2,
+    "10": 2
+   },
+   "powers": {
+    "2": "5B",
+    "5": "2D"
+   }
+  },
+  {
+   "name": "11A",
+   "order": 11,
+   "co1": "11A",
+   "negative": "22A",
+   "centraliser": "132",
+   "trace": 2,
+   "frame": "1^2·11^2",
+   "frame_exponents": {
+    "1": 2,
+    "11": 2
+   },
+   "eigenvalues": {
+    "1": 4,
+    "11": 2
+   },
+   "powers": {
+    "11": "1A"
+   }
+  },
+  {
+   "name": "22A",
+   "order": 22,
+   "co1": "11A",
+   "negative": "11A",
+   "centraliser": "132",
+   "trace": -2,
+   "frame": "2^2·22^2 / 1^2·11^2",
+   "frame_exponents": {
+    "1": -2,
+    "2": 2,
+    "11": -2,
+    "22": 2
+   },
+   "eigenvalues": {
+    "2": 4,
+    "22": 2
+   },
+   "powers": {
+    "2": "11A",
+    "11": "2A"
+   }
+  },
+  {
+   "name": "12C",
+   "order": 12,
+   "co1": "12A",
+   "negative": "12D",
+   "centraliser": "276480",
+   "trace": -4,
+   "frame": "2^4·3^4·12^4 / 1^4·4^4·6^4",
+   "frame_exponents": {
+    "1": -4,
+    "2": 4,
+    "3": 4,
+    "4": -4,
+    "6": -4,
+    "12": 4
+   },
+   "eigenvalues": {
+    "3": 4,
+    "12": 4
+   },
+   "powers": {
+    "2": "6F",
+    "3": "4B"
+   }
+  },
+  {
+   "name": "12D",
+   "order": 12,
+   "co1": "12A",
+   "negative": "12C",
+   "centraliser": "276480",
+   "trace": 4,
+   "frame": "1^4·12^4 / 3^4·4^4",
+   "frame_exponents": {
+    "1": 4,
+    "3": -4,
+    "4": -4,
+    "12": 4
+   },
+   "eigenvalues": {
+    "6": 4,
+    "12": 4
+   },
+   "powers": {
+    "2": "6F",
+    "3": "4C"
+   }
+  },
+  {
+   "name": "12E",
+   "order": 12,
+   "co1": "12B",
+   "negative": "12E",
+   "centraliser": "9216",
+   "trace": 0,
+   "frame": "2^2·12^4 / 4^4·6^2",
+   "frame_exponents": {
+    "2": 2,
+    "4": -4,
+    "6": -2,
+    "12": 4
+   },
+   "eigenvalues": {
+    "3": 2,
+    "6": 2,
+    "12": 4
+   },
+   "powers": {
+    "2": "6F",
+    "3": "4D"
+   }
+  },
+  {
+   "name": "12F",
+   "order": 12,
+   "co1": "12C",
+   "negative": "12F",
+   "centraliser": "4608",
+   "trace": 0,
+   "frame": "6^2·12^2 / 2^2·4^2",
+   "frame_exponents": {
+    "2": -2,
+    "4": -2,
+    "6": 2,
+    "12": 2
+   },
+   "eigenvalues": {
+    "3": 4,
+    "6": 4,
+    "12": 2
+   },
+   "powers": {
+    "2": "6E",
+    "3": "4G"
+   }
+  },
+  {
+   "name": "12G",
+   "order": 12,
+   "co1": "12D",
+   "negative": "12H",
+   "centraliser": "5184",
+   "trace": -1,
+   "frame": "2·3^3·12^3 / 1·4·6^3",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "3": 3,
+    "4": -1,
+    "6": -3,
+    "12": 3
+   },
+   "eigenvalues": {
+    "1": 2,
+    "3": 3,
+    "4": 2,
+    "12": 3
+   },
+   "powers": {
+    "2": "6N",
+    "3": "4B"
+   }
+  },
+  {
+   "name": "12H",
+   "order": 12,
+   "co1": "12D",
+   "negative": "12G",
+   "centraliser": "5184",
+   "trace": 1,
+   "frame": "1·12^3 / 3^3·4",
+   "frame_exponents": {
+    "1": 1,
+    "3": -3,
+    "4": -1,
+    "12": 3
+   },
+   "eigenvalues": {
+    "2": 2,
+    "4": 2,
+    "6": 3,
+    "12": 3
+   },
+   "powers": {
+    "2": "6N",
+    "3": "4C"
+   }
+  },
+  {
+   "name": "12I",
+   "order": 12,
+   "co1": "12E",
+   "negative": "12J",
+   "centraliser": "3456",
+   "trace": 2,
+   "frame": "1^2·3^2·4^2·12^2 / 2^2·6^2",
+   "frame_exponents": {
+    "1": 2,
+    "2": -2,
+    "3": 2,
+    "4": 2,
+    "6": -2,
+    "12": 2
+   },
+   "eigenvalues": {
+    "1": 4,
+    "3": 2,
+    "4": 4,
+    "12": 2
+   },
+   "powers": {
+    "2": "6L",
+    "3": "4B"
+   }
+  },
+  {
+   "name": "12J",
+   "order": 12,
+   "co1": "12E",
+   "negative": "12I",
+   "centraliser": "3456",
+   "trace": -2,
+   "frame": "4^2·12^2 / 1^2·3^2",
+   "frame_exponents": {
+    "1": -2,
+    "3": -2,
+    "4": 2,
+    "12": 2
+   },
+   "eigenvalues": {
+    "2": 4,
+    "4": 4,
+    "6": 2,
+    "12": 2
+   },
+   "powers": {
+    "2": "6L",
+    "3": "4C"
+   }
+  },
+  {
+   "name": "24A",
+   "order": 24,
+   "co1": "12F",
+   "negative": "24A",
+   "centraliser": "864",
+   "trace": 0,
+   "frame": "4^3·24^3 / 8^3·12^3",
+   "frame_exponents": {
+    "4": 3,
+    "8": -3,
+    "12": -3,
+    "24": 3
+   },
+   "eigenvalues": {
+    "24": 3
+   },
+   "powers": {
+    "2": "12A",
+    "3": "8A"
+   }
+  },
+  {
+   "name": "12K",
+   "order": 12,
+   "co1": "12G",
+   "negative": "12K",
+   "centraliser": "576",
+   "trace": 0,
+   "frame": "4^2·12^2 / 2·6",
+   "frame_exponents": {
+    "2": -1,
+    "4": 2,
+    "6": -1,
+    "12": 2
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "3": 1,
+    "4": 4,
+    "6": 1,
+    "12": 2
+   },
+   "powers": {
+    "2": "6L",
+    "3": "4D"
+   }
+  },
+  {
+   "name": "12L",
+   "order": 12,
+   "co1": "12H",
+   "negative": "12M",
+   "centraliser": "576",
+   "trace": 1,
+   "frame": "1·2^2·3·12^2 / 4^2",
+   "frame_exponents": {
+    "1": 1,
+    "2": 2,
+    "3": 1,
+    "4": -2,
+    "12": 2
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 2,
+    "3": 3,
+    "6": 2,
+    "12": 2
+   },
+   "powers": {
+    "2": "6I",
+    "3": "4E"
+   }
+  },
+  {
+   "name": "12M",
+   "order": 12,
+   "co1": "12H",
+   "negative": "12L",
+   "centraliser": "576",
+   "trace": -1,
+   "frame": "2^3·6·12^2 / 1·3·4^2",
+   "frame_exponents": {
+    "1": -1,
+    "2": 3,
+    "3": -1,
+    "4": -2,
+    "6": 1,
+    "12": 2
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 4,
+    "3": 2,
+    "6": 3,
+    "12": 2
+   },
+   "powers": {
+    "2": "6I",
+    "3": "4F"
+   }
+  },
+  {
+   "name": "12N",
+   "order": 12,
+   "co1": "12I",
+   "negative": "12O",
+   "centraliser": "576",
+   "trace": -2,
+   "frame": "2^2·3^2·4·12 / 1^2",
+   "frame_exponents": {
+    "1": -2,
+    "2": 2,
+    "3": 2,
+    "4": 1,
+    "12": 1
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "3": 3,
+    "4": 2,
+    "6": 1,
+    "12": 1
+   },
+   "powers": {
+    "2": "6K",
+    "3": "4E"
+   }
+  },
+  {
+   "name": "12O",
+   "order": 12,
+   "co1": "12I",
+   "negative": "12N",
+   "centraliser": "576",
+   "trace": 2,
+   "frame": "1^2·4·6^2·12 / 3^2",
+   "frame_exponents": {
+    "1": 2,
+    "3": -2,
+    "4": 1,
+    "6": 2,
+    "12": 1
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "3": 1,
+    "4": 2,
+    "6": 3,
+    "12": 1
+   },
+   "powers": {
+    "2": "6K",
+    "3": "4F"
+   }
+  },
+  {
+   "name": "12P",
+   "order": 12,
+   "co1": "12J",
+   "negative": "12P",
+   "centraliser": "288",
+   "trace": 0,
+   "frame": "2·4·6·12",
+   "frame_exponents": {
+    "2": 1,
+    "4": 1,
+    "6": 1,
+    "12": 1
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 4,
+    "3": 2,
+    "4": 2,
+    "6": 2,
+    "12": 1
+   },
+   "powers": {
+    "2": "6K",
+    "3": "4G"
+   }
+  },
+  {
+   "name": "12Q",
+   "order": 12,
+   "co1": "12K",
+   "negative": "12R",
+   "centraliser": "576",
+   "trace": 3,
+   "frame": "1^3·12^3 / 2·3·4·6",
+   "frame_exponents": {
+    "1": 3,
+    "2": -1,
+    "3": -1,
+    "4": -1,
+    "6": -1,
+    "12": 3
+   },
+   "eigenvalues": {
+    "1": 2,
+    "3": 1,
+    "4": 2,
+    "6": 2,
+    "12": 3
+   },
+   "powers": {
+    "2": "6N",
+    "3": "4D"
+   }
+  },
+  {
+   "name": "12R",
+   "order": 12,
+   "co1": "12K",
+   "negative": "12Q",
+   "centraliser": "576",
+   "trace": -3,
+   "frame": "2^2·3·12^3 / 1^3·4·6^2",
+   "frame_exponents": {
+    "1": -3,
+    "2": 2,
+    "3": 1,
+    "4": -1,
+    "6": -2,
+    "12": 3
+   },
+   "eigenvalues": {
+    "2": 2,
+    "3": 2,
+    "4": 2,
+    "6": 1,
+    "12": 3
+   },
+   "powers": {
+    "2": "6N",
+    "3": "4D"
+   }
+  },
+  {
+   "name": "24B",
+   "order": 24,
+   "co1": "12L",
+   "negative": "24B",
+   "centraliser": "72",
+   "trace": 0,
+   "frame": "24^2 / 12^2",
+   "frame_exponents": {
+    "12": -2,
+    "24": 2
+   },
+   "eigenvalues": {
+    "8": 2,
+    "24": 2
+   },
+   "powers": {
+    "2": "12B",
+    "3": "8A"
+   }
+  },
+  {
+   "name": "12S",
+   "order": 12,
+   "co1": "12M",
+   "negative": "12S",
+   "centraliser": "48",
+   "trace": 0,
+   "frame": "12^2",
+   "frame_exponents": {
+    "12": 2
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "3": 2,
+    "4": 2,
+    "6": 2,
+    "12": 2
+   },
+   "powers": {
+    "2": "6P",
+    "3": "4H"
+   }
+  },
+  {
+   "name": "13A",
+   "order": 13,
+   "co1": "13A",
+   "negative": "26A",
+   "centraliser": "312",
+   "trace": -2,
+   "frame": "13^2 / 1^2",
+   "frame_exponents": {
+    "1": -2,
+    "13": 2
+   },
+   "eigenvalues": {
+    "13": 2
+   },
+   "powers": {
+    "13": "1A"
+   }
+  },
+  {
+   "name": "26A",
+   "order": 26,
+   "co1": "13A",
+   "negative": "13A",
+   "centraliser": "312",
+   "trace": 2,
+   "frame": "1^2·26^2 / 2^2·13^2",
+   "frame_exponents": {
+    "1": 2,
+    "2": -2,
+    "13": -2,
+    "26": 2
+   },
+   "eigenvalues": {
+    "26": 2
+   },
+   "powers": {
+    "2": "13A",
+    "13": "2A"
+   }
+  },
+  {
+   "name": "28A",
+   "order": 28,
+   "co1": "14A",
+   "negative": "28A",
+   "centraliser": "168",
+   "trace": 0,
+   "frame": "2^2·28^2 / 4^2·14^2",
+   "frame_exponents": {
+    "2": 2,
+    "4": -2,
+    "14": -2,
+    "28": 2
+   },
+   "eigenvalues": {
+    "28": 2
+   },
+   "powers": {
+    "2": "14A",
+    "7": "4A"
+   }
+  },
+  {
+   "name": "14C",
+   "order": 14,
+   "co1": "14B",
+   "negative": "14D",
+   "centraliser": "112",
+   "trace": 1,
+   "frame": "1·2·7·14",
+   "frame_exponents": {
+    "1": 1,
+    "2": 1,
+    "7": 1,
+    "14": 1
+   },
+   "eigenvalues": {
+    "1": 4,
+    "2": 2,
+    "7": 2,
+    "14": 1
+   },
+   "powers": {
+    "2": "7B",
+    "7": "2B"
+   }
+  },
+  {
+   "name": "14D",
+   "order": 14,
+   "co1": "14B",
+   "negative": "14C",
+   "centraliser": "112",
+   "trace": -1,
+   "frame": "2^2·14^2 / 1·7",
+   "frame_exponents": {
+    "1": -1,
+    "2": 2,
+    "7": -1,
+    "14": 2
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 4,
+    "7": 1,
+    "14": 2
+   },
+   "powers": {
+    "2": "7B",
+    "7": "2C"
+   }
+  },
+  {
+   "name": "15A",
+   "order": 15,
+   "co1": "15A",
+   "negative": "30A",
+   "centraliser": "10800",
+   "trace": 3,
+   "frame": "1^3·15^3 / 3^3·5^3",
+   "frame_exponents": {
+    "1": 3,
+    "3": -3,
+    "5": -3,
+    "15": 3
+   },
+   "eigenvalues": {
+    "15": 3
+   },
+   "powers": {
+    "3": "5A",
+    "5": "3A"
+   }
+  },
+  {
+   "name": "30A",
+   "order": 30,
+   "co1": "15A",
+   "negative": "15A",
+   "centraliser": "10800",
+   "trace": -3,
+   "frame": "2^3·3^3·5^3·30^3 / 1^3·6^3·10^3·15^3",
+   "frame_exponents": {
+    "1": -3,
+    "2": 3,
+    "3": 3,
+    "5": 3,
+    "6": -3,
+    "10": -3,
+    "15": -3,
+    "30": 3
+   },
+   "eigenvalues": {
+    "30": 3
+   },
+   "powers": {
+    "2": "15A",
+    "3": "10A",
+    "5": "6A"
+   }
+  },
+  {
+   "name": "15B",
+   "order": 15,
+   "co1": "15B",
+   "negative": "30B",
+   "centraliser": "1800",
+   "trace": -2,
+   "frame": "3^2·15^2 / 1^2·5^2",
+   "frame_exponents": {
+    "1": -2,
+    "3": 2,
+    "5": -2,
+    "15": 2
+   },
+   "eigenvalues": {
+    "3": 4,
+    "15": 2
+   },
+   "powers": {
+    "3": "5B",
+    "5": "3A"
+   }
+  },
+  {
+   "name": "30B",
+   "order": 30,
+   "co1": "15B",
+   "negative": "15B",
+   "centraliser": "1800",
+   "trace": 2,
+   "frame": "1^2·5^2·6^2·30^2 / 2^2·3^2·10^2·15^2",
+   "frame_exponents": {
+    "1": 2,
+    "2": -2,
+    "3": -2,
+    "5": 2,
+    "6": 2,
+    "10": -2,
+    "15": -2,
+    "30": 2
+   },
+   "eigenvalues": {
+    "6": 4,
+    "30": 2
+   },
+   "powers": {
+    "2": "15B",
+    "3": "10B",
+    "5": "6A"
+   }
+  },
+  {
+   "name": "15C",
+   "order": 15,
+   "co1": "15C",
+   "negative": "30C",
+   "centraliser": "360",
+   "trace": 0,
+   "frame": "15^2 / 3^2",
+   "frame_exponents": {
+    "3": -2,
+    "15": 2
+   },
+   "eigenvalues": {
+    "5": 2,
+    "15": 2
+   },
+   "powers": {
+    "3": "5A",
+    "5": "3D"
+   }
+  },
+  {
+   "name": "30C",
+   "order": 30,
+   "co1": "15C",
+   "negative": "15C",
+   "centraliser": "360",
+   "trace": 0,
+   "frame": "3^2·30^2 / 6^2·15^2",
+   "frame_exponents": {
+    "3": 2,
+    "6": -2,
+    "15": -2,
+    "30": 2
+   },
+   "eigenvalues": {
+    "10": 2,
+    "30": 2
+   },
+   "powers": {
+    "2": "15C",
+    "3": "10A",
+    "5": "6D"
+   }
+  },
+  {
+   "name": "15D",
+   "order": 15,
+   "co1": "15D",
+   "negative": "30D",
+   "centraliser": "180",
+   "trace": 1,
+   "frame": "1·3·5·15",
+   "frame_exponents": {
+    "1": 1,
+    "3": 1,
+    "5": 1,
+    "15": 1
+   },
+   "eigenvalues": {
+    "1": 4,
+    "3": 2,
+    "5": 2,
+    "15": 1
+   },
+   "powers": {
+    "3": "5B",
+    "5": "3B"
+   }
+  },
+  {
+   "name": "30D",
+   "order": 30,
+   "co1": "15D",
+   "negative": "15D",
+   "centraliser": "180",
+   "trace": -1,
+   "frame": "2·6·10·30 / 1·3·5·15",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "3": -1,
+    "5": -1,
+    "6": 1,
+    "10": 1,
+    "15": -1,
+    "30": 1
+   },
+   "eigenvalues": {
+    "2": 4,
+    "6": 2,
+    "10": 2,
+    "30": 1
+   },
+   "powers": {
+    "2": "15D",
+    "3": "10B",
+    "5": "6B"
+   }
+  },
+  {
+   "name": "15E",
+   "order": 15,
+   "co1": "15E",
+   "negative": "30E",
+   "centraliser": "60",
+   "trace": 2,
+   "frame": "1^2·15^2 / 3·5",
+   "frame_exponents": {
+    "1": 2,
+    "3": -1,
+    "5": -1,
+    "15": 2
+   },
+   "eigenvalues": {
+    "1": 2,
+    "3": 1,
+    "5": 1,
+    "15": 2
+   },
+   "powers": {
+    "3": "5C",
+    "5": "3C"
+   }
+  },
+  {
+   "name": "30E",
+   "order": 30,
+   "co1": "15E",
+   "negative": "15E",
+   "centraliser": "60",
+   "trace": -2,
+   "frame": "2^2·3·5·30^2 / 1^2·6·10·15^2",
+   "frame_exponents": {
+    "1": -2,
+    "2": 2,
+    "3": 1,
+    "5": 1,
+    "6": -1,
+    "10": -1,
+    "15": -2,
+    "30": 2
+   },
+   "eigenvalues": {
+    "2": 2,
+    "6": 1,
+    "10": 1,
+    "30": 2
+   },
+   "powers": {
+    "2": "15E",
+    "3": "10C",
+    "5": "6C"
+   }
+  },
+  {
+   "name": "16A",
+   "order": 16,
+   "co1": "16A",
+   "negative": "16A",
+   "centraliser": "64",
+   "trace": 0,
+   "frame": "2^2·16^2 / 4·8",
+   "frame_exponents": {
+    "2": 2,
+    "4": -1,
+    "8": -1,
+    "16": 2
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "8": 1,
+    "16": 2
+   },
+   "powers": {
+    "2": "8D"
+   }
+  },
+  {
+   "name": "16B",
+   "order": 16,
+   "co1": "16B",
+   "negative": "16C",
+   "centraliser": "128",
+   "trace": 2,
+   "frame": "1^2·16^2 / 2·8",
+   "frame_exponents": {
+    "1": 2,
+    "2": -1,
+    "8": -1,
+    "16": 2
+   },
+   "eigenvalues": {
+    "1": 2,
+    "4": 1,
+    "8": 1,
+    "16": 2
+   },
+   "powers": {
+    "2": "8F"
+   }
+  },
+  {
+   "name": "16C",
+   "order": 16,
+   "co1": "16B",
+   "negative": "16B",
+   "centraliser": "128",
+   "trace": -2,
+   "frame": "2·16^2 / 1^2·8",
+   "frame_exponents": {
+    "1": -2,
+    "2": 1,
+    "8": -1,
+    "16": 2
+   },
+   "eigenvalues": {
+    "2": 2,
+    "4": 1,
+    "8": 1,
+    "16": 2
+   },
+   "powers": {
+    "2": "8F"
+   }
+  },
+  {
+   "name": "18D",
+   "order": 18,
+   "co1": "18A",
+   "negative": "18E",
+   "centraliser": "432",
+   "trace": -1,
+   "frame": "9·18 / 1·2",
+   "frame_exponents": {
+    "1": -1,
+    "2": -1,
+    "9": 1,
+    "18": 1
+   },
+   "eigenvalues": {
+    "3": 2,
+    "6": 1,
+    "9": 2,
+    "18": 1
+   },
+   "powers": {
+    "2": "9A",
+    "3": "6M"
+   }
+  },
+  {
+   "name": "18E",
+   "order": 18,
+   "co1": "18A",
+   "negative": "18D",
+   "centraliser": "432",
+   "trace": 1,
+   "frame": "1·18^2 / 2^2·9",
+   "frame_exponents": {
+    "1": 1,
+    "2": -2,
+    "9": -1,
+    "18": 2
+   },
+   "eigenvalues": {
+    "3": 1,
+    "6": 2,
+    "9": 1,
+    "18": 2
+   },
+   "powers": {
+    "2": "9A",
+    "3": "6N"
+   }
+  },
+  {
+   "name": "18F",
+   "order": 18,
+   "co1": "18B",
+   "negative": "18G",
+   "centraliser": "108",
+   "trace": 2,
+   "frame": "1^2·9·18 / 2·3",
+   "frame_exponents": {
+    "1": 2,
+    "2": -1,
+    "3": -1,
+    "9": 1,
+    "18": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "3": 1,
+    "6": 1,
+    "9": 2,
+    "18": 1
+   },
+   "powers": {
+    "2": "9B",
+    "3": "6M"
+   }
+  },
+  {
+   "name": "18G",
+   "order": 18,
+   "co1": "18B",
+   "negative": "18F",
+   "centraliser": "108",
+   "trace": -2,
+   "frame": "2·3·18^2 / 1^2·6·9",
+   "frame_exponents": {
+    "1": -2,
+    "2": 1,
+    "3": 1,
+    "6": -1,
+    "9": -1,
+    "18": 2
+   },
+   "eigenvalues": {
+    "2": 2,
+    "3": 1,
+    "6": 1,
+    "9": 1,
+    "18": 2
+   },
+   "powers": {
+    "2": "9B",
+    "3": "6N"
+   }
+  },
+  {
+   "name": "18H",
+   "order": 18,
+   "co1": "18C",
+   "negative": "18I",
+   "centraliser": "108",
+   "trace": -1,
+   "frame": "2^2·9·18 / 1·6",
+   "frame_exponents": {
+    "1": -1,
+    "2": 2,
+    "6": -1,
+    "9": 1,
+    "18": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "3": 1,
+    "9": 2,
+    "18": 1
+   },
+   "powers": {
+    "2": "9C",
+    "3": "6M"
+   }
+  },
+  {
+   "name": "18I",
+   "order": 18,
+   "co1": "18C",
+   "negative": "18H",
+   "centraliser": "108",
+   "trace": 1,
+   "frame": "1·2·18^2 / 6·9",
+   "frame_exponents": {
+    "1": 1,
+    "2": 1,
+    "6": -1,
+    "9": -1,
+    "18": 2
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "6": 1,
+    "9": 1,
+    "18": 2
+   },
+   "powers": {
+    "2": "9C",
+    "3": "6N"
+   }
+  },
+  {
+   "name": "20C",
+   "order": 20,
+   "co1": "20A",
+   "negative": "20D",
+   "centraliser": "960",
+   "trace": -2,
+   "frame": "2^2·5^2·20^2 / 1^2·4^2·10^2",
+   "frame_exponents": {
+    "1": -2,
+    "2": 2,
+    "4": -2,
+    "5": 2,
+    "10": -2,
+    "20": 2
+   },
+   "eigenvalues": {
+    "5": 2,
+    "20": 2
+   },
+   "powers": {
+    "2": "10E",
+    "5": "4B"
+   }
+  },
+  {
+   "name": "20D",
+   "order": 20,
+   "co1": "20A",
+   "negative": "20C",
+   "centraliser": "960",
+   "trace": 2,
+   "frame": "1^2·20^2 / 4^2·5^2",
+   "frame_exponents": {
+    "1": 2,
+    "4": -2,
+    "5": -2,
+    "20": 2
+   },
+   "eigenvalues": {
+    "10": 2,
+    "20": 2
+   },
+   "powers": {
+    "2": "10E",
+    "5": "4C"
+   }
+  },
+  {
+   "name": "20E",
+   "order": 20,
+   "co1": "20B",
+   "negative": "20E",
+   "centraliser": "40",
+   "trace": 0,
+   "frame": "4·20",
+   "frame_exponents": {
+    "4": 1,
+    "20": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "4": 2,
+    "5": 1,
+    "10": 1,
+    "20": 1
+   },
+   "powers": {
+    "2": "10J",
+    "5": "4H"
+   }
+  },
+  {
+   "name": "20F",
+   "order": 20,
+   "co1": "20C",
+   "negative": "20G",
+   "centraliser": "40",
+   "trace": -1,
+   "frame": "2^2·5·20 / 1·4",
+   "frame_exponents": {
+    "1": -1,
+    "2": 2,
+    "4": -1,
+    "5": 1,
+    "20": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "5": 2,
+    "10": 1,
+    "20": 1
+   },
+   "powers": {
+    "2": "10H",
+    "5": "4E"
+   }
+  },
+  {
+   "name": "20G",
+   "order": 20,
+   "co1": "20C",
+   "negative": "20F",
+   "centraliser": "40",
+   "trace": 1,
+   "frame": "1·2·10·20 / 4·5",
+   "frame_exponents": {
+    "1": 1,
+    "2": 1,
+    "4": -1,
+    "5": -1,
+    "10": 1,
+    "20": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "5": 1,
+    "10": 2,
+    "20": 1
+   },
+   "powers": {
+    "2": "10H",
+    "5": "4F"
+   }
+  },
+  {
+   "name": "21A",
+   "order": 21,
+   "co1": "21A",
+   "negative": "42A",
+   "centraliser": "504",
+   "trace": 2,
+   "frame": "1^2·21^2 / 3^2·7^2",
+   "frame_exponents": {
+    "1": 2,
+    "3": -2,
+    "7": -2,
+    "21": 2
+   },
+   "eigenvalues": {
+    "21": 2
+   },
+   "powers": {
+    "3": "7A",
+    "7": "3A"
+   }
+  },
+  {
+   "name": "42A",
+   "order": 42,
+   "co1": "21A",
+   "negative": "21A",
+   "centraliser": "504",
+   "trace": -2,
+   "frame": "2^2·3^2·7^2·42^2 / 1^2·6^2·14^2·21^2",
+   "frame_exponents": {
+    "1": -2,
+    "2": 2,
+    "3": 2,
+    "6": -2,
+    "7": 2,
+    "14": -2,
+    "21": -2,
+    "42": 2
+   },
+   "eigenvalues": {
+    "42": 2
+   },
+   "powers": {
+    "2": "21A",
+    "3": "14A",
+    "7": "6A"
+   }
+  },
+  {
+   "name": "21B",
+   "order": 21,
+   "co1": "21B",
+   "negative": "42B",
+   "centraliser": "126",
+   "trace": -1,
+   "frame": "7·21 / 1·3",
+   "frame_exponents": {
+    "1": -1,
+    "3": -1,
+    "7": 1,
+    "21": 1
+   },
+   "eigenvalues": {
+    "7": 2,
+    "21": 1
+   },
+   "powers": {
+    "3": "7A",
+    "7": "3B"
+   }
+  },
+  {
+   "name": "42B",
+   "order": 42,
+   "co1": "21B",
+   "negative": "21B",
+   "centraliser": "126",
+   "trace": 1,
+   "frame": "1·3·14·42 / 2·6·7·21",
+   "frame_exponents": {
+    "1": 1,
+    "2": -1,
+    "3": 1,
+    "6": -1,
+    "7": -1,
+    "14": 1,
+    "21": -1,
+    "42": 1
+   },
+   "eigenvalues": {
+    "14": 2,
+    "42": 1
+   },
+   "powers": {
+    "2": "21B",
+    "3": "14A",
+    "7": "6B"
+   }
+  },
+  {
+   "name": "21C",
+   "order": 21,
+   "co1": "21C",
+   "negative": "42C",
+   "centraliser": "42",
+   "trace": 0,
+   "frame": "3·21",
+   "frame_exponents": {
+    "3": 1,
+    "21": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "3": 2,
+    "7": 1,
+    "21": 1
+   },
+   "powers": {
+    "3": "7B",
+    "7": "3D"
+   }
+  },
+  {
+   "name": "42C",
+   "order": 42,
+   "co1": "21C",
+   "negative": "21C",
+   "centraliser": "42",
+   "trace": 0,
+   "frame": "6·42 / 3·21",
+   "frame_exponents": {
+    "3": -1,
+    "6": 1,
+    "21": -1,
+    "42": 1
+   },
+   "eigenvalues": {
+    "2": 2,
+    "6": 2,
+    "14": 1,
+    "42": 1
+   },
+   "powers": {
+    "2": "21C",
+    "3": "14B",
+    "7": "6D"
+   }
+  },
+  {
+   "name": "22B",
+   "order": 22,
+   "co1": "22A",
+   "negative": "22C",
+   "centraliser": "44",
+   "trace": 0,
+   "frame": "2·22",
+   "frame_exponents": {
+    "2": 1,
+    "22": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "11": 1,
+    "22": 1
+   },
+   "powers": {
+    "2": "11A",
+    "11": "2D"
+   }
+  },
+  {
+   "name": "22C",
+   "order": 22,
+   "co1": "22A",
+   "negative": "22B",
+   "centraliser": "44",
+   "trace": 0,
+   "frame": "2·22",
+   "frame_exponents": {
+    "2": 1,
+    "22": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "11": 1,
+    "22": 1
+   },
+   "powers": {
+    "2": "11A",
+    "11": "2D"
+   }
+  },
+  {
+   "name": "23A",
+   "order": 23,
+   "co1": "23A",
+   "negative": "46A",
+   "centraliser": "46",
+   "trace": 1,
+   "frame": "1·23",
+   "frame_exponents": {
+    "1": 1,
+    "23": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "23": 1
+   },
+   "powers": {
+    "23": "1A"
+   }
+  },
+  {
+   "name": "46A",
+   "order": 46,
+   "co1": "23A",
+   "negative": "23A",
+   "centraliser": "46",
+   "trace": -1,
+   "frame": "2·46 / 1·23",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "23": -1,
+    "46": 1
+   },
+   "eigenvalues": {
+    "2": 2,
+    "46": 1
+   },
+   "powers": {
+    "2": "23A",
+    "23": "2A"
+   }
+  },
+  {
+   "name": "23B",
+   "order": 23,
+   "co1": "23B",
+   "negative": "46B",
+   "centraliser": "46",
+   "trace": 1,
+   "frame": "1·23",
+   "frame_exponents": {
+    "1": 1,
+    "23": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "23": 1
+   },
+   "powers": {
+    "23": "1A"
+   }
+  },
+  {
+   "name": "46B",
+   "order": 46,
+   "co1": "23B",
+   "negative": "23B",
+   "centraliser": "46",
+   "trace": -1,
+   "frame": "2·46 / 1·23",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "23": -1,
+    "46": 1
+   },
+   "eigenvalues": {
+    "2": 2,
+    "46": 1
+   },
+   "powers": {
+    "2": "23B",
+    "23": "2A"
+   }
+  },
+  {
+   "name": "24C",
+   "order": 24,
+   "co1": "24A",
+   "negative": "24C",
+   "centraliser": "576",
+   "trace": 0,
+   "frame": "2^2·24^2 / 6^2·8^2",
+   "frame_exponents": {
+    "2": 2,
+    "6": -2,
+    "8": -2,
+    "24": 2
+   },
+   "eigenvalues": {
+    "12": 2,
+    "24": 2
+   },
+   "powers": {
+    "2": "12D",
+    "3": "8B"
+   }
+  },
+  {
+   "name": "24D",
+   "order": 24,
+   "co1": "24B",
+   "negative": "24E",
+   "centraliser": "384",
+   "trace": -2,
+   "frame": "2·3^2·4·24^2 / 1^2·6·8^2·12",
+   "frame_exponents": {
+    "1": -2,
+    "2": 1,
+    "3": 2,
+    "4": 1,
+    "6": -1,
+    "8": -2,
+    "12": -1,
+    "24": 2
+   },
+   "eigenvalues": {
+    "3": 2,
+    "12": 1,
+    "24": 2
+   },
+   "powers": {
+    "2": "12E",
+    "3": "8D"
+   }
+  },
+  {
+   "name": "24E",
+   "order": 24,
+   "co1": "24B",
+   "negative": "24D",
+   "centraliser": "384",
+   "trace": 2,
+   "frame": "1^2·4·6·24^2 / 2·3^2·8^2·12",
+   "frame_exponents": {
+    "1": 2,
+    "2": -1,
+    "3": -2,
+    "4": 1,
+    "6": 1,
+    "8": -2,
+    "12": -1,
+    "24": 2
+   },
+   "eigenvalues": {
+    "6": 2,
+    "12": 1,
+    "24": 2
+   },
+   "powers": {
+    "2": "12E",
+    "3": "8E"
+   }
+  },
+  {
+   "name": "24F",
+   "order": 24,
+   "co1": "24C",
+   "negative": "24F",
+   "centraliser": "144",
+   "trace": 0,
+   "frame": "8·24 / 2·6",
+   "frame_exponents": {
+    "2": -1,
+    "6": -1,
+    "8": 1,
+    "24": 1
+   },
+   "eigenvalues": {
+    "4": 2,
+    "8": 2,
+    "12": 1,
+    "24": 1
+   },
+   "powers": {
+    "2": "12J",
+    "3": "8B"
+   }
+  },
+  {
+   "name": "24G",
+   "order": 24,
+   "co1": "24D",
+   "negative": "24G",
+   "centraliser": "96",
+   "trace": 0,
+   "frame": "12·24 / 4·8",
+   "frame_exponents": {
+    "4": -1,
+    "8": -1,
+    "12": 1,
+    "24": 1
+   },
+   "eigenvalues": {
+    "3": 2,
+    "6": 2,
+    "12": 2,
+    "24": 1
+   },
+   "powers": {
+    "2": "12F",
+    "3": "8I"
+   }
+  },
+  {
+   "name": "24H",
+   "order": 24,
+   "co1": "24E",
+   "negative": "24H",
+   "centraliser": "48",
+   "trace": 0,
+   "frame": "2·6·8·24 / 4·12",
+   "frame_exponents": {
+    "2": 1,
+    "4": -1,
+    "6": 1,
+    "8": 1,
+    "12": -1,
+    "24": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "3": 1,
+    "6": 1,
+    "8": 2,
+    "24": 1
+   },
+   "powers": {
+    "2": "12I",
+    "3": "8C"
+   }
+  },
+  {
+   "name": "24I",
+   "order": 24,
+   "co1": "24F",
+   "negative": "24J",
+   "centraliser": "48",
+   "trace": -1,
+   "frame": "2·3·4·24 / 1·8",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "3": 1,
+    "4": 1,
+    "8": -1,
+    "24": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "3": 2,
+    "4": 1,
+    "6": 1,
+    "12": 1,
+    "24": 1
+   },
+   "powers": {
+    "2": "12L",
+    "3": "8G"
+   }
+  },
+  {
+   "name": "24J",
+   "order": 24,
+   "co1": "24F",
+   "negative": "24I",
+   "centraliser": "48",
+   "trace": 1,
+   "frame": "1·4·6·24 / 3·8",
+   "frame_exponents": {
+    "1": 1,
+    "3": -1,
+    "4": 1,
+    "6": 1,
+    "8": -1,
+    "24": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "3": 1,
+    "4": 1,
+    "6": 2,
+    "12": 1,
+    "24": 1
+   },
+   "powers": {
+    "2": "12L",
+    "3": "8H"
+   }
+  },
+  {
+   "name": "52A",
+   "order": 52,
+   "co1": "26A",
+   "negative": "52A",
+   "centraliser": "52",
+   "trace": 0,
+   "frame": "2·52 / 4·26",
+   "frame_exponents": {
+    "2": 1,
+    "4": -1,
+    "26": -1,
+    "52": 1
+   },
+   "eigenvalues": {
+    "52": 1
+   },
+   "powers": {
+    "2": "26A",
+    "13": "4A"
+   }
+  },
+  {
+   "name": "28B",
+   "order": 28,
+   "co1": "28A",
+   "negative": "28C",
+   "centraliser": "56",
+   "trace": 1,
+   "frame": "1·4·7·28 / 2·14",
+   "frame_exponents": {
+    "1": 1,
+    "2": -1,
+    "4": 1,
+    "7": 1,
+    "14": -1,
+    "28": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "4": 2,
+    "7": 1,
+    "28": 1
+   },
+   "powers": {
+    "2": "14D",
+    "7": "4B"
+   }
+  },
+  {
+   "name": "28C",
+   "order": 28,
+   "co1": "28A",
+   "negative": "28B",
+   "centraliser": "56",
+   "trace": -1,
+   "frame": "4·28 / 1·7",
+   "frame_exponents": {
+    "1": -1,
+    "4": 1,
+    "7": -1,
+    "28": 1
+   },
+   "eigenvalues": {
+    "2": 2,
+    "4": 2,
+    "14": 1,
+    "28": 1
+   },
+   "powers": {
+    "2": "14D",
+    "7": "4C"
+   }
+  },
+  {
+   "name": "56A",
+   "order": 56,
+   "co1": "28B",
+   "negative": "56B",
+   "centraliser": "56",
+   "trace": 0,
+   "frame": "4·56 / 8·28",
+   "frame_exponents": {
+    "4": 1,
+    "8": -1,
+    "28": -1,
+    "56": 1
+   },
+   "eigenvalues": {
+    "56": 1
+   },
+   "powers": {
+    "2": "28A",
+    "7": "8A"
+   }
+  },
+  {
+   "name": "56B",
+   "order": 56,
+   "co1": "28B",
+   "negative": "56A",
+   "centraliser": "56",
+   "trace": 0,
+   "frame": "4·56 / 8·28",
+   "frame_exponents": {
+    "4": 1,
+    "8": -1,
+    "28": -1,
+    "56": 1
+   },
+   "eigenvalues": {
+    "56": 1
+   },
+   "powers": {
+    "2": "28A",
+    "7": "8A"
+   }
+  },
+  {
+   "name": "30F",
+   "order": 30,
+   "co1": "30A",
+   "negative": "30G",
+   "centraliser": "240",
+   "trace": 1,
+   "frame": "1·2·15·30 / 3·5·6·10",
+   "frame_exponents": {
+    "1": 1,
+    "2": 1,
+    "3": -1,
+    "5": -1,
+    "6": -1,
+    "10": -1,
+    "15": 1,
+    "30": 1
+   },
+   "eigenvalues": {
+    "15": 2,
+    "30": 1
+   },
+   "powers": {
+    "2": "15A",
+    "3": "10D",
+    "5": "6E"
+   }
+  },
+  {
+   "name": "30G",
+   "order": 30,
+   "co1": "30A",
+   "negative": "30F",
+   "centraliser": "240",
+   "trace": -1,
+   "frame": "2^2·3·5·30^2 / 1·6^2·10^2·15",
+   "frame_exponents": {
+    "1": -1,
+    "2": 2,
+    "3": 1,
+    "5": 1,
+    "6": -2,
+    "10": -2,
+    "15": -1,
+    "30": 2
+   },
+   "eigenvalues": {
+    "15": 1,
+    "30": 2
+   },
+   "powers": {
+    "2": "15A",
+    "3": "10E",
+    "5": "6F"
+   }
+  },
+  {
+   "name": "60A",
+   "order": 60,
+   "co1": "30B",
+   "negative": "60A",
+   "centraliser": "60",
+   "trace": 0,
+   "frame": "2·10·12·60 / 4·6·20·30",
+   "frame_exponents": {
+    "2": 1,
+    "4": -1,
+    "6": -1,
+    "10": 1,
+    "12": 1,
+    "20": -1,
+    "30": -1,
+    "60": 1
+   },
+   "eigenvalues": {
+    "12": 2,
+    "60": 1
+   },
+   "powers": {
+    "2": "30B",
+    "3": "20B",
+    "5": "12A"
+   }
+  },
+  {
+   "name": "60B",
+   "order": 60,
+   "co1": "30C",
+   "negative": "60B",
+   "centraliser": "60",
+   "trace": 0,
+   "frame": "6·60 / 12·30",
+   "frame_exponents": {
+    "6": 1,
+    "12": -1,
+    "30": -1,
+    "60": 1
+   },
+   "eigenvalues": {
+    "20": 1,
+    "60": 1
+   },
+   "powers": {
+    "2": "30C",
+    "3": "20A",
+    "5": "12B"
+   }
+  },
+  {
+   "name": "30H",
+   "order": 30,
+   "co1": "30D",
+   "negative": "30I",
+   "centraliser": "60",
+   "trace": 1,
+   "frame": "1·6·10·15 / 3·5",
+   "frame_exponents": {
+    "1": 1,
+    "3": -1,
+    "5": -1,
+    "6": 1,
+    "10": 1,
+    "15": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "3": 1,
+    "5": 1,
+    "6": 1,
+    "10": 1,
+    "15": 1
+   },
+   "powers": {
+    "2": "15D",
+    "3": "10F",
+    "5": "6G"
+   }
+  },
+  {
+   "name": "30I",
+   "order": 30,
+   "co1": "30D",
+   "negative": "30H",
+   "centraliser": "60",
+   "trace": -1,
+   "frame": "2·3·5·30 / 1·15",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "3": 1,
+    "5": 1,
+    "15": -1,
+    "30": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "2": 2,
+    "3": 1,
+    "5": 1,
+    "6": 1,
+    "10": 1,
+    "30": 1
+   },
+   "powers": {
+    "2": "15D",
+    "3": "10G",
+    "5": "6H"
+   }
+  },
+  {
+   "name": "30J",
+   "order": 30,
+   "co1": "30E",
+   "negative": "30K",
+   "centraliser": "60",
+   "trace": 0,
+   "frame": "2·3·5·30 / 6·10",
+   "frame_exponents": {
+    "2": 1,
+    "3": 1,
+    "5": 1,
+    "6": -1,
+    "10": -1,
+    "30": 1
+   },
+   "eigenvalues": {
+    "1": 2,
+    "3": 1,
+    "5": 1,
+    "15": 1,
+    "30": 1
+   },
+   "powers": {
+    "2": "15E",
+    "3": "10H",
+    "5": "6I"
+   }
+  },
+  {
+   "name": "30K",
+   "order": 30,
+   "co1": "30E",
+   "negative": "30J",
+   "centraliser": "60",
+   "trace": 0,
+   "frame": "2·30 / 3·5",
+   "frame_exponents": {
+    "2": 1,
+    "3": -1,
+    "5": -1,
+    "30": 1
+   },
+   "eigenvalues": {
+    "2": 2,
+    "6": 1,
+    "10": 1,
+    "15": 1,
+    "30": 1
+   },
+   "powers": {
+    "2": "15E",
+    "3": "10I",
+    "5": "6J"
+   }
+  },
+  {
+   "name": "33A",
+   "order": 33,
+   "co1": "33A",
+   "negative": "66A",
+   "centraliser": "66",
+   "trace": -1,
+   "frame": "3·33 / 1·11",
+   "frame_exponents": {
+    "1": -1,
+    "3": 1,
+    "11": -1,
+    "33": 1
+   },
+   "eigenvalues": {
+    "3": 2,
+    "33": 1
+   },
+   "powers": {
+    "3": "11A",
+    "11": "3A"
+   }
+  },
+  {
+   "name": "66A",
+   "order": 66,
+   "co1": "33A",
+   "negative": "33A",
+   "centraliser": "66",
+   "trace": 1,
+   "frame": "1·6·11·66 / 2·3·22·33",
+   "frame_exponents": {
+    "1": 1,
+    "2": -1,
+    "3": -1,
+    "6": 1,
+    "11": 1,
+    "22": -1,
+    "33": -1,
+    "66": 1
+   },
+   "eigenvalues": {
+    "6": 2,
+    "66": 1
+   },
+   "powers": {
+    "2": "33A",
+    "3": "22A",
+    "11": "6A"
+   }
+  },
+  {
+   "name": "35A",
+   "order": 35,
+   "co1": "35A",
+   "negative": "70A",
+   "centraliser": "70",
+   "trace": 1,
+   "frame": "1·35 / 5·7",
+   "frame_exponents": {
+    "1": 1,
+    "5": -1,
+    "7": -1,
+    "35": 1
+   },
+   "eigenvalues": {
+    "35": 1
+   },
+   "powers": {
+    "5": "7A",
+    "7": "5A"
+   }
+  },
+  {
+   "name": "70A",
+   "order": 70,
+   "co1": "35A",
+   "negative": "35A",
+   "centraliser": "70",
+   "trace": -1,
+   "frame": "2·5·7·70 / 1·10·14·35",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "5": 1,
+    "7": 1,
+    "10": -1,
+    "14": -1,
+    "35": -1,
+    "70": 1
+   },
+   "eigenvalues": {
+    "70": 1
+   },
+   "powers": {
+    "2": "35A",
+    "5": "14A",
+    "7": "10A"
+   }
+  },
+  {
+   "name": "36A",
+   "order": 36,
+   "co1": "36A",
+   "negative": "36B",
+   "centraliser": "72",
+   "trace": -1,
+   "frame": "2·9·36 / 1·4·18",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "4": -1,
+    "9": 1,
+    "18": -1,
+    "36": 1
+   },
+   "eigenvalues": {
+    "3": 1,
+    "9": 1,
+    "12": 1,
+    "36": 1
+   },
+   "powers": {
+    "2": "18E",
+    "3": "12G"
+   }
+  },
+  {
+   "name": "36B",
+   "order": 36,
+   "co1": "36A",
+   "negative": "36A",
+   "centraliser": "72",
+   "trace": 1,
+   "frame": "1·36 / 4·9",
+   "frame_exponents": {
+    "1": 1,
+    "4": -1,
+    "9": -1,
+    "36": 1
+   },
+   "eigenvalues": {
+    "6": 1,
+    "12": 1,
+    "18": 1,
+    "36": 1
+   },
+   "powers": {
+    "2": "18E",
+    "3": "12H"
+   }
+  },
+  {
+   "name": "39A",
+   "order": 39,
+   "co1": "39A",
+   "negative": "78A",
+   "centraliser": "78",
+   "trace": 1,
+   "frame": "1·39 / 3·13",
+   "frame_exponents": {
+    "1": 1,
+    "3": -1,
+    "13": -1,
+    "39": 1
+   },
+   "eigenvalues": {
+    "39": 1
+   },
+   "powers": {
+    "3": "13A",
+    "13": "3A"
+   }
+  },
+  {
+   "name": "78A",
+   "order": 78,
+   "co1": "39A",
+   "negative": "39A",
+   "centraliser": "78",
+   "trace": -1,
+   "frame": "2·3·13·78 / 1·6·26·39",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "3": 1,
+    "6": -1,
+    "13": 1,
+    "26": -1,
+    "39": -1,
+    "78": 1
+   },
+   "eigenvalues": {
+    "78": 1
+   },
+   "powers": {
+    "2": "39A",
+    "3": "26A",
+    "13": "6A"
+   }
+  },
+  {
+   "name": "39B",
+   "order": 39,
+   "co1": "39B",
+   "negative": "78B",
+   "centraliser": "78",
+   "trace": 1,
+   "frame": "1·39 / 3·13",
+   "frame_exponents": {
+    "1": 1,
+    "3": -1,
+    "13": -1,
+    "39": 1
+   },
+   "eigenvalues": {
+    "39": 1
+   },
+   "powers": {
+    "3": "13A",
+    "13": "3A"
+   }
+  },
+  {
+   "name": "78B",
+   "order": 78,
+   "co1": "39B",
+   "negative": "39B",
+   "centraliser": "78",
+   "trace": -1,
+   "frame": "2·3·13·78 / 1·6·26·39",
+   "frame_exponents": {
+    "1": -1,
+    "2": 1,
+    "3": 1,
+    "6": -1,
+    "13": 1,
+    "26": -1,
+    "39": -1,
+    "78": 1
+   },
+   "eigenvalues": {
+    "78": 1
+   },
+   "powers": {
+    "2": "39B",
+    "3": "26A",
+    "13": "6A"
+   }
+  },
+  {
+   "name": "40A",
+   "order": 40,
+   "co1": "40A",
+   "negative": "40B",
+   "centraliser": "80",
+   "trace": 0,
+   "frame": "2·40 / 8·10",
+   "frame_exponents": {
+    "2": 1,
+    "8": -1,
+    "10": -1,
+    "40": 1
+   },
+   "eigenvalues": {
+    "20": 1,
+    "40": 1
+   },
+   "powers": {
+    "2": "20D",
+    "5": "8B"
+   }
+  },
+  {
+   "name": "40B",
+   "order": 40,
+   "co1": "40A",
+   "negative": "40A",
+   "centraliser": "80",
+   "trace": 0,
+   "frame": "2·40 / 8·10",
+   "frame_exponents": {
+    "2": 1,
+    "8": -1,
+    "10": -1,
+    "40": 1
+   },
+   "eigenvalues": {
+    "20": 1,
+    "40": 1
+   },
+   "powers": {
+    "2": "20D",
+    "5": "8B"
+   }
+  },
+  {
+   "name": "84A",
+   "order": 84,
+   "co1": "42A",
+   "negative": "84A",
+   "centraliser": "84",
+   "trace": 0,
+   "frame": "4·6·14·84 / 2·12·28·42",
+   "frame_exponents": {
+    "2": -1,
+    "4": 1,
+    "6": 1,
+    "12": -1,
+    "14": 1,
+    "28": -1,
+    "42": -1,
+    "84": 1
+   },
+   "eigenvalues": {
+    "84": 1
+   },
+   "powers": {
+    "2": "42A",
+    "3": "28A",
+    "7": "12A"
+   }
+  },
+  {
+   "name": "60C",
+   "order": 60,
+   "co1": "60A",
+   "negative": "60D",
+   "centraliser": "120",
+   "trace": 1,
+   "frame": "1·4·6·10·15·60 / 2·3·5·12·20·30",
+   "frame_exponents": {
+    "1": 1,
+    "2": -1,
+    "3": -1,
+    "4": 1,
+    "5": -1,
+    "6": 1,
+    "10": 1,
+    "12": -1,
+    "15": 1,
+    "20": -1,
+    "30": -1,
+    "60": 1
+   },
+   "eigenvalues": {
+    "15": 1,
+    "60": 1
+   },
+   "powers": {
+    "2": "30G",
+    "3": "20C",
+    "5": "12C"
+   }
+  },
+  {
+   "name": "60D",
+   "order": 60,
+   "co1": "60A",
+   "negative": "60C",
+   "centraliser": "120",
+   "trace": -1,
+   "frame": "3·4·5·60 / 1·12·15·20",
+   "frame_exponents": {
+    "1": -1,
+    "3": 1,
+    "4": 1,
+    "5": 1,
+    "12": -1,
+    "15": -1,
+    "20": -1,
+    "60": 1
+   },
+   "eigenvalues": {
+    "30": 1,
+    "60": 1
+   },
+   "powers": {
+    "2": "30G",
+    "3": "20D",
+    "5": "12D"
+   }
+  }
+ ]
+}

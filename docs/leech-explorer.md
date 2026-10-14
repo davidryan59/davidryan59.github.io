@@ -34,6 +34,7 @@ preset frames. Leave `app/e8/` unchanged.
 - [x] Phase 4: Page, layout and the 8-dimension window (2026-10-13)
 - [x] Phase 5: WebGL 2 cloud renderer (2026-10-13)
 - [x] Phase 6: The 24-dimension window, selection, tilt and tour (2026-10-13)
+- [ ] Phase 6b: Rotation scenes, raw points and scene controls
 - [ ] Phase 7: Publish: credits, builder page, addresses and full checks
 - [ ] Phase 8: Share card
 - [ ] Phase 9: Builder thumbnail
@@ -56,6 +57,9 @@ cloud and the other nine scenes.
 - The site's E8 explorer, `app/e8/` and [e8-explorer.md](e8-explorer.md): the
   preset frames, the rigid-rotation drag and the checks. Its sources credit
   David A. Madore, David A. Richter and Pierre-Philippe Dechant.
+- T. Breuer, GAP's character table library ctbllib 1.3.9, from the ATLAS of
+  Finite Groups. [leech/co0-classes.md](leech/co0-classes.md) lists the 167
+  conjugacy classes of Co0, the lattice's symmetry group, built from it.
 
 Every picture is computed from the definitions below. No figure is copied
 from a paper.
@@ -89,7 +93,7 @@ The prototype tested each idea below. The decisions follow from its numbers.
 |---|---|---|
 | All 196,560 in a generic view | A smooth glow. Only 26 balls lie beyond radius 1.5 | One scene, as the contrast |
 | The plane turned by the 23-cycle | Exact 46-fold symmetry, but 8,546 rings on about 3,900 radii merge into a glow. All 11 such planes give the same picture | Three scenes. Filters to the 1,104 shape-A balls, or to one ball's 4,600 neighbours, show clean circles |
-| Elements of order 35 or 39 | Not tried. They have more orbits than order 23, so expect the same glow | Left out |
+| Rotations of order 35 to 84 | Tried 2026-10-14. Orders 52 to 84 glow. Middle orders give clean pictures | Eleven rotation scenes, Phase 6b |
 | E8 frames on one octad | At most 2,641 spots, with exact E8 symmetry | The opening view and the 8-dimension window |
 | Planes through lattice vectors | 25 or 29 spots | The Hexagon and Coordinates scenes |
 | Tilting 4° out of the octad | 70,081 spots in a woven texture | The Weave scene and the tilt slider |
@@ -462,6 +466,8 @@ checker mixes 10,000 operations, tests 200 pulls and checks both 8-coordinate
 and 24-coordinate address encodings.
 
 ## Phase 3: the sixteen scenes
+
+Phase 6b changes this list. It removes three scenes and adds eleven.
 
 Files: `app/leech/scenes.js`, which exports `LeechScenes`. Add its checks to
 `tools/leech/check.js` under a `Scenes` heading.
@@ -1064,6 +1070,238 @@ sixteen dark-theme scene
 screenshots and their contact sheet are in `tools/leech/renders/` for local
 review.
 
+## Phase 6b: rotation scenes, raw points and scene controls
+
+David reviewed the explorer on 2026-10-14 and asked for these changes before
+Phase 7. The explorer gains eleven scenes from rotations of the lattice. It
+loses three scenes that repeat a picture or confuse. The scene buttons fall
+into four groups. Raw points become the default look, with the density glow
+as an option. A scene change keeps the zoom and takes a time the viewer sets.
+Build it in one session, with the Node checks first.
+
+### Background
+
+Co0 is the group of every rotation that maps the lattice to itself.
+[leech/co0-classes.md](leech/co0-classes.md) lists its 167 conjugacy classes.
+A rotation of order n turns some planes by 360°/n. Project the lattice onto
+such a plane, and the picture has n-fold symmetry. The central symmetry
+x → −x doubles an odd n.
+
+A survey of all 167 classes found 444 fixed planes and 46 distinct pictures.
+The planes of order 52, 56, 70, 78 and 84 put every ball on its own spot,
+so they glow, as the 23-fold cloud does. Middle orders give clean pictures.
+Three scenes already show such planes: the opening view, Hexagon (D4's
+Coxeter plane) and the 23-fold scenes.
+
+[leech/co0-views.json](leech/co0-views.json) holds the eleven chosen planes.
+The group carries each plane to many copies with the same picture. The
+search kept the copy nearest the opening view, so a scene change moves the
+balls less. The RMS distance a ball moves from the opening view fell from
+0.56–0.79 to 0.26–0.49. A ball sits 0.58 from the centre on average, so the
+scenes are nearer, but not close. Four of the planes lie inside octad O1.
+They are the Coxeter planes of E7, D8, E6 and D5, which are root systems
+inside E8.
+
+Coxeter 84°, 132° and 156° show the same 2,641 spots on the same 65 radii
+as the opening view. E8's symmetry carries each of their planes onto the
+opening plane, so the four scenes share one still picture, with the balls in
+different places.
+
+### Files
+
+- `app/leech/scenes.js`, `viewer.js`, `cloud.js`, `overlay.js`,
+  `index.html`, `style.css` and `credits.html`.
+- `tools/leech/check.js` and `browser-check.js`.
+- This document, for the "As built" paragraph. The checklist, the Phase 3
+  note, the "What works" row and the "Later" list are already updated.
+
+### Scenes
+
+- **Remove** `cox11`, `cox13` and `sunburst`. Sunburst showed one ball's
+  4,600 neighbours. The page never explained it, and nothing else looks
+  like it.
+- **Retired addresses.** `v=cox11` and `v=cox13` open `cox7`. `v=sunburst`
+  opens `layers`.
+- **Keep `cox7`** with the sub "same spots, new places" and this caption:
+  "The same 2,641 spots as the opening view, from another of E8's Coxeter
+  planes. Each ball sits somewhere else. Switch between the two and watch
+  every ball move."
+- **Rename** two buttons. `cloud23` becomes "46-fold · 191,407 spots".
+  `rosette11` becomes "22-fold · 126,061 spots". Their ids, rows and
+  captions stay.
+- **Add** the eleven scenes below. Copy each scene's rows from
+  `co0-views.json` into a `ROTATIONS` table in `scenes.js`, keyed by class,
+  with every digit. The 8-window rows are zero outside `Leech.TRIO[0]`. The
+  8-window scenes use octad 0 and shells colour, and the 24-window scenes
+  use shapes colour. None is featured.
+
+| id | Button: label · sub | Window | Class | Spots | Symmetry | Radii | Max radius |
+|---|---|---:|---|---:|---:|---:|---:|
+| `oct18` | E7 plane · 18-fold | 8 | 18D | 955 | 18 | 42 | 1.6881 |
+| `oct14` | D8 plane · 14-fold | 8 | 14C | 1,331 | 14 | 65 | 1.6986 |
+| `oct12` | E6 plane · 12-fold | 8 | 24D | 193 | 12 | 15 | 1.7761 |
+| `oct8` | D5 plane · 8-fold | 8 | 16A | 193 | 8 | 20 | 1.8478 |
+| `rot84` | 84-fold · 196,560 spots | 24 | 84A | 196,560 | 84 | 1,290 | 1.4637 |
+| `rot66` | 66-fold · 172,657 spots | 24 | 33A | 172,657 | 66 | 1,366 | 1.5251 |
+| `rot60` | 60-fold · 70,081 spots | 24 | 60C | 70,081 | 60 | 673 | 1.4534 |
+| `rot42` | 42-fold · 25,957 spots | 24 | 21B | 25,957 | 42 | 336 | 1.4823 |
+| `rot40` | 40-fold · 70,081 spots | 24 | 40A | 70,081 | 40 | 881 | 1.5120 |
+| `rot36` | 36-fold · 47,953 spots | 24 | 36A | 47,953 | 36 | 703 | 1.4934 |
+| `rot30` | 30-fold · 7,861 spots | 24 | 15D | 7,861 | 30 | 165 | 1.5210 |
+
+Give each new scene `expect: { spots, symmetry, notSymmetry, radii,
+maxRadius }`, with `notSymmetry` twice `symmetry`. The Phase 3 checker's
+method, run on the stored rows on 2026-10-14, gave every number in the table.
+
+Captions:
+
+- `oct18`: "Inside one octad, a rotation of the lattice turns this plane by
+  20°. It is E7's Coxeter plane: 955 spots on 42 circles."
+- `oct14`: "Inside one octad, a rotation turns this plane by a fourteenth of
+  a turn. It is D8's Coxeter plane: 1,331 spots on 65 circles."
+- `oct12`: "Inside one octad, a rotation turns this plane by 30°. It is E6's
+  Coxeter plane: 193 spots on 15 circles."
+- `oct8`: "Inside one octad, a rotation turns this plane by 45°. It is D5's
+  Coxeter plane: 193 spots on 20 circles."
+- `rot84`: "The lattice's rotation of highest order, 84, turns this plane by
+  an 84th of a turn. Every ball lands on its own spot, so the picture is a
+  glow with exact 84-fold symmetry."
+- `rot66`: "A rotation of order 33 turns this plane. With the central
+  symmetry, the picture is 66-fold: 172,657 spots on 1,366 circles."
+- `rot60`: "A rotation of order 60 turns this plane by 6°. 70,081 spots lie
+  on 673 circles."
+- `rot42`: "A rotation of order 21 turns this plane. With the central
+  symmetry, the picture is 42-fold: 25,957 spots on 336 circles."
+- `rot40`: "A rotation of order 40 turns this plane by 9°. 70,081 spots lie
+  on 881 circles."
+- `rot36`: "A rotation of order 36 turns this plane by 10°. 47,953 spots lie
+  on 703 circles."
+- `rot30`: "A rotation of order 15 turns this plane by 24°. With the central
+  symmetry, the picture is 30-fold, like the opening view, but with 7,861
+  spots on 165 circles."
+
+### The grouped scene panel
+
+Give each scene a `group`. `LeechScenes.build` returns the scenes in panel
+order:
+
+1. **E8 inside Leech · one octad:** `petrie`, `cox7`, `octagonal`,
+   `squares`, `e8edges`, `weave`.
+2. **Coxeter planes · one octad:** `oct18`, `oct14`, `oct12`, `oct8`.
+3. **Rotations · all 24 dimensions:** `rot84`, `rot66`, `rot60`, `cloud23`,
+   `rot42`, `rot40`, `rot36`, `rot30`, `rosette11`, `rings23`.
+4. **Other views · all 24 dimensions:** `cloud`, `hexagon`, `coordinates`,
+   `layers`.
+
+- Each group gets a small heading across both button columns. The card body
+  scrolls when the groups do not fit.
+- The tour visits every scene in panel order.
+- The six featured scenes and the keys 1 to 6 stay as they are.
+
+### Raw points and density
+
+- **The control.** Add a segmented control, "Points: Raw | Density", to the
+  Look card. Raw is the default. Density adds `g=1` to the address.
+- **Raw.**
+  - Every spot is a dot of radius 2.5 px × dot size, whatever its pile.
+    Discs stay at 2 px × dot size.
+  - The cloud gives full colour to every pixel that holds at least one
+    visible ball. Pass a `u_raw` uniform to the show pass, and set the
+    brightness b to 1 with no white lift. Hide the Brightness slider.
+- **Density.** This is today's look. Spot size grows with the pile, and
+  cloud brightness grows with the count.
+- **The marker.** Twelve scenes have more than 4,000 spots, so Density
+  draws them as a glow: `weave`, `rot84`, `rot66`, `rot60`, `cloud23`,
+  `rot42`, `rot40`, `rot36`, `rot30`, `rosette11`, `cloud` and `layers`.
+  Their buttons show a small "◐" after the label. One line under the Points
+  control explains it: "◐ marks scenes that Density shows as a glow."
+- Crystallising at rest runs in both modes, and the status line still
+  counts spots.
+
+### Zoom across scene changes
+
+- If the zoom differs from the current scene's zoom by more than 0.1%, the
+  viewer has zoomed. A scene change then keeps that zoom.
+- Otherwise the zoom eases to the new scene's zoom over the transition.
+- Reset, the R key and the first load still set the scene's zoom.
+- The view has no pan, so position needs no change.
+
+### Transition time
+
+- Rename "Speed" to "Drift speed". The control is unchanged, and it sets
+  only the drift.
+- Add a "Scene change" slider under it, with the steps 0, 0.25, 0.5, 1,
+  1.5, 2, 3, 5 and 10 s. The default is 1 s, and 0 changes at once. The
+  output shows the time, for example "1.5 s".
+- The time applies to scene buttons, Reset and the tour. The tour rests 5 s
+  after each change.
+- A time other than 1 s adds `ct=<seconds>` to the address.
+- Transitions still align the new plane to the current one with
+  `Frame.alignPlane`, which keeps the motion as small as the planes allow.
+
+### The dimensions control
+
+The "8 · one octad | 24 · all" switch sits at the top of the Show card, but
+it changes only how drift and drag move afterwards. Pressed while the view
+is paused, it seems to do nothing. Every scene already sets its own window.
+
+- Remove the switch from the Show card.
+- Add it to the Options card under Drift and Tour, as "Drift and drag
+  through: One octad | All 24". The behaviour stays as in Phase 6.
+- One line under it explains it: "All 24 lets E8's spots dissolve into the
+  glow."
+- The M key still toggles it. Without WebGL 2, "All 24" is disabled.
+
+### Text
+
+- `index.html`, "How to explore": describe the four groups, the Points
+  control and the Scene change slider. Remove "Switch to 24 dimensions".
+- `credits.html`: add one paragraph. "Each rotation scene shows a plane that
+  an element of Co0, the lattice's symmetry group, turns. The conjugacy
+  classes come from the ATLAS of Finite Groups, through Thomas Breuer's GAP
+  character table library."
+- `scenes.js`: the header comment says "The 24 named views".
+
+### Checks
+
+Extend `tools/leech/check.js`:
+
+1. There are 24 scenes, in panel order, with the groups above. The featured
+   list is unchanged.
+2. Each `ROTATIONS` row matches `docs/leech/co0-views.json` within 1e-15.
+   Each pair of rows is orthonormal within 1e-12. The 8-window rows are
+   exactly zero outside `Leech.TRIO[0]`.
+3. The scene loop also checks `expect.radii` where it is set. Every new
+   scene passes its spots, symmetry, missing double symmetry, radii, maximum
+   radius and projection mean of 1/3.
+4. Remove the Sunburst checks.
+
+Extend `tools/leech/browser-check.js`:
+
+1. **Points.** The snapshot gains `points`. The default is `raw`. Density
+   sets `density`, and it survives a reload through `g=1`.
+2. **Zoom.** From `petrie`, press zoom in twice, then click the Squares
+   button. After the transition, the zoom is unchanged. Reset restores the
+   scene's zoom.
+3. **Transition time.** The snapshot gains `transitioning`. At 0 s, a click
+   opens the scene at once. At 3 s, the transition is still running after
+   1 s.
+4. **Dimensions.** The Show card has no `[data-window]` control. The
+   Options control switches the window, as Phase 6 describes.
+5. **Retired addresses.** `#v=cox11` opens `cox7`, and `#v=sunburst` opens
+   `layers`.
+6. **Tour.** The tour visits all 24 scenes in panel order.
+7. **Screenshots.** Write all 24 scenes in Raw to `scenes-sheet.png`, and
+   again in Density to `scenes-density-sheet.png`. Inspect both.
+8. **Screen fit.** All six sizes pass `tools/screen-fit/check.js`.
+
+Update every check that names `cox11`, `cox13` or `sunburst`.
+
+### This document
+
+After the build, tick Phase 6b in the checklist and add an "As built"
+paragraph here.
+
 ## Phase 7: publish
 
 - **`credits.html`.** The method and sources:
@@ -1180,7 +1418,6 @@ These stay out of this version:
 - motion trails, as E8 has;
 - a 4-dimension window on one tetrad, with 193 spots;
 - a scrubber between any two scenes;
-- planes of elements of order 35 or 39;
 - a 12-dimension window on a dodecad, with 43,545 spots and mostly glow;
 - the second shell;
 - one lattice explorer combining E8 and Leech.
