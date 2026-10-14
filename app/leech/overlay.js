@@ -44,7 +44,7 @@
       for(var i=0;i<input.groups.length;i++){
         var group=input.groups[i];if(group.hidden)continue;
         var colour=mixedColour(group.counts,input.colours,input.weights);if(!colour)continue;
-        var radius=input.discs?Math.max(1,2*(input.dotSize||1)):Math.max(1.6,base*Math.cbrt(group.pile/maximum));
+        var radius=input.discs?Math.max(1,2*(input.dotSize||1)):input.raw?2.5*(input.dotSize||1):Math.max(1.6,base*Math.cbrt(group.pile/maximum));
         group.radius=radius;
         if(group.selected){selected={group:group,colour:colour,radius:radius};continue;}
         var key=colour+'|'+(group.outer?'1':'0');if(!buckets.has(key))buckets.set(key,{colour:colour,outer:group.outer,items:[]});buckets.get(key).items.push(group);

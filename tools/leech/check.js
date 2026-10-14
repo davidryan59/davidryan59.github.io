@@ -7,6 +7,7 @@ const Leech = require('../../app/leech/lattice.js');
 const Frame = require('../../app/leech/frame.js');
 const E8 = require('../../app/e8/model.js');
 const LeechScenes = require('../../app/leech/scenes.js');
+const co0Views = require('../../docs/leech/co0-views.json');
 
 function close(actual, expected, tolerance, label) {
   assert.ok(Math.abs(actual - expected) <= tolerance,
@@ -285,12 +286,30 @@ console.log('  10,000 mixed steps, pull, octad window, tilt, alignment, interpol
 
 console.log('Scenes');
 const scenes = LeechScenes.build({ Leech, Frame, E8, data });
-assert.strictEqual(scenes.length, 16);
+assert.strictEqual(scenes.length, 24);
 assert.deepStrictEqual(scenes.map(scene => scene.id),
-  ['petrie', 'cox7', 'cox11', 'cox13', 'octagonal', 'squares', 'e8edges', 'weave',
-    'cloud', 'hexagon', 'coordinates', 'layers', 'rings23', 'cloud23', 'sunburst', 'rosette11']);
+  ['petrie', 'cox7', 'octagonal', 'squares', 'e8edges', 'weave',
+    'oct18', 'oct14', 'oct12', 'oct8',
+    'rot84', 'rot66', 'rot60', 'cloud23', 'rot42', 'rot40', 'rot36', 'rot30', 'rosette11', 'rings23',
+    'cloud', 'hexagon', 'coordinates', 'layers']);
 assert.deepStrictEqual(scenes.filter(scene => scene.featured).sort((a, b) => a.featured - b.featured).map(scene => scene.id),
   ['petrie', 'squares', 'cloud', 'rings23', 'hexagon', 'layers']);
+assert.deepStrictEqual(Array.from(new Set(scenes.map(scene => scene.group))), [
+  'E8 inside Leech · one octad', 'Coxeter planes · one octad',
+  'Rotations · all 24 dimensions', 'Other views · all 24 dimensions'
+]);
+
+for (const view of co0Views.views) {
+  const stored = LeechScenes.ROTATIONS[view.class];
+  assert.ok(stored, `${view.class} rotation is stored`);
+  for (let r = 0; r < 2; r++) for (let k = 0; k < 24; k++) {
+    close(stored[r][k], view.rows[r][k], 1e-15, `${view.class} row ${r}, column ${k}`);
+    if (view.window === 8 && !Leech.TRIO[0].includes(k)) assert.strictEqual(stored[r][k], 0, `${view.class} stays inside O1`);
+  }
+  close(Frame.dot(stored[0], stored[0]), 1, 1e-12, `${view.class} row 0 norm`);
+  close(Frame.dot(stored[1], stored[1]), 1, 1e-12, `${view.class} row 1 norm`);
+  close(Frame.dot(stored[0], stored[1]), 0, 1e-12, `${view.class} row product`);
+}
 
 const SQRT8 = Math.sqrt(8);
 function shownRows(scene, tilt) {
@@ -350,6 +369,7 @@ for (const scene of scenes) {
   assert.ok(hasSymmetry(result, scene.expect.symmetry), `${scene.id} ${scene.expect.symmetry}-fold symmetry`);
   if (scene.expect.notSymmetry) assert.ok(!hasSymmetry(result, scene.expect.notSymmetry), `${scene.id} lacks ${scene.expect.notSymmetry}-fold symmetry`);
   close(result.mean, 1 / 3, 1e-9, `${scene.id} projection mean`);
+  if (scene.expect.radii !== undefined) assert.strictEqual(result.radii.size, scene.expect.radii, `${scene.id} radii`);
   if (scene.expect.maxRadius !== undefined) close(+result.maxRadius.toFixed(4), scene.expect.maxRadius, 0, `${scene.id} maximum radius`);
 }
 const weave = scenes.find(scene => scene.id === 'weave');
@@ -370,14 +390,7 @@ assert.deepStrictEqual(Array.from(ringPiles.entries()).sort((a, b) => a[0] - b[0
 const cloud23 = results.get('cloud23');
 assert.ok(hasSymmetry(cloud23, 23));
 assert.strictEqual(cloud23.spots.get('0,0'), 2);
-const sunburst = results.get('sunburst');
-assert.ok(hasSymmetry(sunburst, 23));
-assert.strictEqual(sunburst.visible, 4601);
-assert.strictEqual(sunburst.radii.size, 101);
-assert.deepStrictEqual(Array.from(sunburst.radiusCounts.values()).sort((a, b) => a - b), [1, ...Array(100).fill(46)]);
-assert.strictEqual(sunburst.spots.get('0,0'), 1);
-assert.strictEqual(sunburst.radii.has(0), true);
 assert.ok(hasSymmetry(results.get('rosette11'), 11));
-console.log('  all sixteen spot counts, symmetries, radii, layers and projection means');
+console.log('  all 24 spot counts, symmetries, radii, layers and projection means');
 
 console.log('Leech checks passed.');

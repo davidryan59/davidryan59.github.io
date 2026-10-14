@@ -79,6 +79,7 @@
     uniform float u_brightness;
     uniform float u_nRef;
     uniform float u_opacity;
+    uniform bool u_raw;
     out vec4 outColour;
     void main(){
       ivec2 at=ivec2(gl_FragCoord.xy);
@@ -89,9 +90,9 @@
       for(int i=0;i<8;i++){ float amount=u_weights[i]*n[i]; total+=amount; mixed+=amount*u_colours[i]; }
       if(total<0.5){ outColour=vec4(u_background,1.0); return; }
       mixed/=total;
-      float b=clamp(log(1.0+u_brightness*total)/log(1.0+u_brightness*u_nRef),0.0,1.0);
+      float b=u_raw ? 1.0 : clamp(log(1.0+u_brightness*total)/log(1.0+u_brightness*u_nRef),0.0,1.0);
       vec3 colour=mix(u_background,mixed,b*u_opacity);
-      float lift=clamp((b-0.85)/0.15,0.0,1.0)*0.6*u_opacity;
+      float lift=u_raw ? 0.0 : clamp((b-0.85)/0.15,0.0,1.0)*0.6*u_opacity;
       outColour=vec4(mix(colour,vec3(1.0),lift),1.0);
     }`;
 
@@ -195,6 +196,7 @@
       var nRef=Math.max(2,196560*11/(4*Math.PI)/Math.pow(input.scale*dpr,2));
       gl.uniform1f(gl.getUniformLocation(showProgram,'u_nRef'),nRef);
       gl.uniform1f(gl.getUniformLocation(showProgram,'u_opacity'),input.opacity===undefined?1:input.opacity);
+      gl.uniform1i(gl.getUniformLocation(showProgram,'u_raw'),input.raw?1:0);
       gl.bindVertexArray(null);gl.drawArrays(gl.TRIANGLES,0,3);
     }
 

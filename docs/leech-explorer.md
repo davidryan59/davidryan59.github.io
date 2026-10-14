@@ -34,7 +34,7 @@ preset frames. Leave `app/e8/` unchanged.
 - [x] Phase 4: Page, layout and the 8-dimension window (2026-10-13)
 - [x] Phase 5: WebGL 2 cloud renderer (2026-10-13)
 - [x] Phase 6: The 24-dimension window, selection, tilt and tour (2026-10-13)
-- [ ] Phase 6b: Rotation scenes, raw points and scene controls
+- [x] Phase 6b: Rotation scenes, raw points and scene controls (2026-10-14)
 - [ ] Phase 7: Publish: credits, builder page, addresses and full checks
 - [ ] Phase 8: Share card
 - [ ] Phase 9: Builder thumbnail
@@ -1301,6 +1301,14 @@ Update every check that names `cox11`, `cox13` or `sunburst`.
 
 After the build, tick Phase 6b in the checklist and add an "As built"
 paragraph here.
+
+**As built, 2026-10-14.** The explorer has 24 scenes in four groups, including
+eleven exact Co0 rotation planes. Raw points are the default, while Density
+keeps the pile-sized spots and glow. Scene changes keep a user zoom and use a
+0 to 10 second control. The movement dimensions now sit with Drift and Tour.
+Retired scene addresses redirect to their replacements. Node, browser and all
+six screen-fit checks pass, and both 24-scene contact sheets show complete
+pictures.
 
 ## Phase 7: publish
 

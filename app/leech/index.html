@@ -44,10 +44,6 @@
     <section class="card show-card" aria-label="Scenes">
       <button class="card-head" type="button" aria-expanded="true"><span>Show</span><i>−</i></button>
       <div class="card-body">
-        <div class="segmented dimensions" role="group" aria-label="Dimensions">
-          <button class="segment active" type="button" data-window="8">8 · one octad</button>
-          <button class="segment" type="button" data-window="24">24 · all</button>
-        </div>
         <div id="scene-buttons" class="scene-buttons"></div>
       </div>
     </section>
@@ -57,7 +53,11 @@
       <div class="card-body">
         <div class="segmented" role="group" aria-label="Playback"><button class="segment active" id="play" type="button">Play</button><button class="segment" id="pause" type="button">Pause</button></div>
         <div class="segmented" role="group" aria-label="Motion"><button class="segment active" data-motion="drift" type="button">Drift</button><button class="segment" data-motion="tour" type="button">Tour</button></div>
-        <label class="range-row">Speed <output id="speed-output">40%</output><input id="speed" type="range" min="5" max="100" value="40"></label>
+        <span class="mini-label">Drift and drag through</span>
+        <div class="segmented dimensions" role="group" aria-label="Drift and drag dimensions"><button class="segment active" type="button" data-window="8">One octad</button><button class="segment" type="button" data-window="24">All 24</button></div>
+        <p class="control-note">All 24 lets E8's spots dissolve into the glow.</p>
+        <label class="range-row">Drift speed <output id="speed-output">40%</output><input id="speed" type="range" min="5" max="100" value="40"></label>
+        <label class="range-row">Scene change <output id="change-output">1 s</output><input id="change-time" type="range" min="0" max="8" step="1" value="3"></label>
         <label class="range-row">Drag through dimension <output id="depth-output">3</output><input id="depth" type="range" min="3" max="24" value="3"></label>
         <div id="tilt-controls">
           <label class="range-row">Tilt toward next E8 <output id="tilt-output">0°</output><input id="tilt" type="range" min="0" max="90" value="0"></label>
@@ -72,6 +72,9 @@
     <section class="card look-card" aria-label="Appearance">
       <button class="card-head" type="button" aria-expanded="true"><span>Look</span><i>−</i></button>
       <div class="card-body">
+        <span class="mini-label">Points</span>
+        <div class="segmented" role="group" aria-label="Points"><button class="segment active" data-points="raw" type="button">Raw</button><button class="segment" data-points="density" type="button">Density</button></div>
+        <p class="control-note">◐ marks scenes that Density shows as a glow.</p>
         <div class="colour-options" role="group" aria-label="Colour"><button class="choice active" data-colour="shells" type="button">Shells</button><button class="choice" data-colour="shapes" type="button">Shapes</button><button class="choice" data-colour="layers" type="button">Layers</button><button class="choice" data-colour="mono" type="button">Mono</button></div>
         <div id="legend" class="legend"></div>
         <label class="range-row">Dot size <output id="dot-output">1.0</output><input id="dot-size" type="range" min="50" max="200" value="100"></label>
@@ -94,7 +97,7 @@
       <p class="secondary" id="spot-detail"></p>
     </section>
     <section class="result-section layer-section"><span class="eyebrow">Seven layers from this ball</span><div id="layer-table"></div></section>
-    <section class="result-section prose"><h3>How to explore</h3><p>Drag empty space to rotate the viewing plane. Drag the selected marker to pull the whole projection through its hidden dimensions.</p><p>Switch to 24 dimensions for the full cloud. Pause on a structured view and the cloud crystallises into exact spots.</p></section>
+    <section class="result-section prose"><h3>How to explore</h3><p>Choose among E8 views, octad Coxeter planes, 24-dimensional rotations and other views. Drag empty space to rotate the viewing plane.</p><p>Raw shows every occupied pixel at full colour. Density reveals piles and marks its glow scenes with ◐.</p><p>Set Scene change to choose how long the balls take to move between views. Drag the selected marker to pull the projection through hidden dimensions.</p></section>
     <nav class="sources" aria-label="Sources"><a href="https://doi.org/10.4153/CJM-1967-017-0" target="_blank" rel="noopener">John Leech, <i>Notes on sphere packings</i></a><a href="../e8/">E8 root system explorer</a><a href="credits.html">Method &amp; credits</a></nav>
   </aside>
 </main>
