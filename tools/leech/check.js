@@ -387,4 +387,35 @@ assert.strictEqual(cloud23.spots.get('0,0'), 2);
 assert.ok(hasSymmetry(results.get('rosette11'), 11));
 console.log('  all 23 spot counts, symmetries, radii, layers and projection means');
 
+// Step: a roll by 360°/n in the scene's own plane lands every spot on a spot with the same pile.
+function pileMap(rows) {
+  const spots = new Map();
+  for (let i = 0; i < Leech.COUNT; i++) {
+    let x = 0, y = 0, offset = i * 24;
+    for (let k = 0; k < 24; k++) { x += rows[0][k] * data.coords[offset + k] / SQRT8; y += rows[1][k] * data.coords[offset + k] / SQRT8; }
+    const key = `${Math.round(x * 1e9)},${Math.round(y * 1e9)}`;
+    spots.set(key, (spots.get(key) || 0) + 1);
+  }
+  return spots;
+}
+function samePiles(before, after) {
+  if (before.size !== after.size) return false;
+  for (const [key, pile] of after) {
+    const [qx, qy] = key.split(',').map(Number);
+    let found = false;
+    for (let dx = -1; dx <= 1 && !found; dx++) for (let dy = -1; dy <= 1; dy++) {
+      if (before.get(`${qx + dx},${qy + dy}`) === pile) { found = true; break; }
+    }
+    if (!found) return false;
+  }
+  return true;
+}
+for (const scene of scenes) {
+  const n = scene.expect.symmetry, turned = Frame.roll(scene.rows.map(row => new Float64Array(row)), 2 * Math.PI / n / 0.007);
+  const before = pileMap(shownRows(scene, scene.tilt));
+  const after = pileMap(shownRows(Object.assign({}, scene, { rows: turned }), scene.tilt));
+  assert.ok(samePiles(before, after), `${scene.id} Step by 360°/${n}`);
+}
+console.log('  Step: every scene\'s roll by 360°/n lands each spot on a spot with the same pile');
+
 console.log('Leech checks passed.');

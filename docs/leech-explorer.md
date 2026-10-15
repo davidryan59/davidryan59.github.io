@@ -35,10 +35,10 @@ preset frames. Leave `app/e8/` unchanged.
 - [x] Phase 5: WebGL 2 cloud renderer (2026-10-13)
 - [x] Phase 6: The 24-dimension window, selection, tilt and tour (2026-10-13)
 - [x] Phase 6b: Rotation scenes, raw points and scene controls (2026-10-14)
-- [ ] Phase 6c: 36-fold opening, Spin, pan and a clean screen
-- [ ] Phase 7: Publish: credits, builder page, addresses and full checks
-- [ ] Phase 8: Share card
-- [ ] Phase 9: Builder thumbnail
+- [x] Phase 6c: 36-fold opening, Spin, pan and a clean screen (2026-10-15)
+- [x] Phase 7: Publish: credits, builder page, addresses and full checks (2026-10-15, not yet pushed)
+- [x] Phase 8: Share card (2026-10-15)
+- [x] Phase 9: Builder thumbnail (2026-10-15)
 - [ ] Phase 10: Silent film
 - [ ] Tried on a real phone, an iPad and Safari
 
@@ -1520,6 +1520,48 @@ Extend `tools/leech/browser-check.js`:
 After the build, tick Phase 6c in the checklist and add an "As built"
 paragraph here.
 
+**As built, 2026-10-15.** The page opens paused on `rot36` in Shapes colour.
+`choose` now aims at the stored `rot36` plane and leaves that plane alone.
+Every other scene moves less from the opening view than its old plane did.
+The table gives the RMS motion from `rot36`:
+
+| Class | Scene | Old plane | New plane |
+|---|---|---:|---:|
+| 84A | `rot84` | 0.591 | 0.485 |
+| 33A | `rot66` | 0.631 | 0.475 |
+| 60C | `rot60` | 0.617 | 0.490 |
+| 21B | `rot42` | 0.664 | 0.488 |
+| 40A | `rot40` | 0.632 | 0.482 |
+| 15D | `rot30` | 0.542 | 0.465 |
+| 18D | `oct18` | 0.492 | 0.482 |
+| 14C | `oct14` | 0.538 | 0.465 |
+| 24D | `oct12` | 0.511 | 0.489 |
+| 16A | `oct8` | 0.586 | 0.504 |
+
+Other notes:
+
+- A roll keeps the plane, so a right-drag, an Alt-drag or a pinch turn leaves
+  the scene lit, as Spin does. Shift-drag now pans, so a roll moved off Shift.
+- Choosing Drift, Spin or Tour also starts it playing.
+- Reset returns to the scene a view drifted or moved from.
+- A selected ball lights its circle only when the visitor chose it. The ball
+  that Seven layers selects for itself lights nothing, so the layers stay
+  bright.
+- The hovered circle takes the status line first, then the Step message for
+  5 s, then the selected ball's circle. A ring at the circle's radius marks it.
+- The Rings legend uses two columns, and the Look card stops above the Show
+  card. The light theme's two inner bands are now `#b47e00` and `#d26800`,
+  3.2:1 and 3.3:1 on the background.
+- Below 800 px of height, the scene buttons tighten and the note above them
+  hides. A phone held sideways now gets the drop-down cards that an upright
+  phone has, with three button columns in Show. Before this, its folded cards
+  left empty boxes.
+- The address is written again when a transition ends, so a Reset clears
+  `pan` and `z`.
+
+Node checks, the browser check and the screen-fit check pass at all six
+sizes, with the controls shown and hidden.
+
 ## Phase 7: publish
 
 - **`credits.html`.** The method and sources:
@@ -1553,6 +1595,16 @@ paragraph here.
 - **This spec.** Tick the checklist with dates, and add "As built" notes under
   each phase, as [krinkle.md](krinkle.md) does.
 
+**As built, 2026-10-15.** David chose the tagline "A 24D sphere packing
+with 196,560 balls round one – John Leech, 1967". It heads the app, the
+builder page entry and the share card. The builder page lists the explorer
+after E8 under Apps & Websites, with the tagline's last words linked to
+Leech's paper. `credits.html` now covers what a visitor sees, the Golay code
+and its generator polynomial, the octad finding, the rotation scenes, the
+sources and the build. `redirects/leech.html`, the address list, the site
+layout, the inventory and the README carry the new app. The address check
+waits for a push. Real phones, an iPad and Safari are still to try.
+
 ## Phase 8: share card
 
 - **The card.** Write `tools/leech/card.js`, adapted from `tools/e8/card.js`.
@@ -1565,6 +1617,12 @@ paragraph here.
   to `summary_large_image`, and `twitter:image:alt`.
   - They go in `app/leech/index.html` and `redirects/leech.html`.
   - The browser check then tests them, as E8's does.
+
+**As built, 2026-10-15.** `tools/leech/card.js` draws `social/leech.jpg`,
+167 KB, from the real app with its controls hidden. It shows E8 inside Leech
+with the E8 edges on, panned right of the title and tagline, in the light
+theme. The app page and the short address carry the card tags, and the
+browser check tests them.
 
 ## Phase 9: builder thumbnail
 
@@ -1584,6 +1642,16 @@ paragraph here.
 - **Checks.** The file is at most 300 KB, it parses, and its first and last
   keyframes match.
 - **Docs.** Add a row to `tools/thumbnails/README.md`.
+
+**As built, 2026-10-15.** `tools/thumbnails/leech.js` writes
+`assets/thumbs/leech.svg`, 143 KB. Each ring of dots is one path of
+zero-length round-capped strokes, so the 240 outer spots cost one animated
+path. The inner copy is a `<use>` of that path at half scale with a wider
+stroke. The 2,160 middle spots are three still paths, one per preset, which
+crossfade. The last change returns to the stored Petrie frame without
+alignment, so the first and last keyframes match and the loop has no jump.
+The script checks the spot counts, the half-size inner copy, the matching
+keyframes and the budget.
 
 ## Phase 10: silent film
 

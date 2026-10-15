@@ -12,6 +12,7 @@
     layout(location=4) in vec4 a_c4;
     layout(location=5) in vec4 a_c5;
     layout(location=6) in uvec4 a_class;
+    layout(location=7) in uint a_band;
     uniform vec4 u_rowX[6];
     uniform vec4 u_rowY[6];
     uniform vec4 u_selected[6];
@@ -36,7 +37,7 @@
         cls = p==32 ? 0 : (p==16 ? 1 : (p==8 ? 2 : (p==0 ? 3 : (p==-8 ? 4 : (p==-16 ? 5 : 6)))));
       }
       if (u_mode==3) cls=0;
-      if (u_mode==4) cls=min(7,int(length(vec2(x,y))*4.0));
+      if (u_mode==4) cls=int(a_band);
       v_class=cls;
       vec2 pixel=u_centre+vec2(x,-y)*u_scale;
       vec2 clip=vec2(pixel.x/u_size.x*2.0-1.0,1.0-pixel.y/u_size.y*2.0);
@@ -115,9 +116,9 @@
 
   function create(canvas, options) {
     var gl=canvas.getContext('webgl2',{alpha:false,antialias:false,preserveDrawingBuffer:true});
-    var api={supported:!!gl, resize:resize, draw:draw, destroy:destroy, loseContext:loseContext};
+    var api={supported:!!gl, resize:resize, draw:draw, destroy:destroy, loseContext:loseContext, setBands:function(){}};
     if (!gl) return api;
-    var data=options, lost=false, countProgram, showProgram, vao, buffer, framebuffer, textures=[], width=1, height=1, dpr=1;
+    var data=options, lost=false, countProgram, showProgram, vao, buffer, bandBuffer, framebuffer, textures=[], width=1, height=1, dpr=1;
 
     function build() {
       countProgram=program(gl,VERTEX_SOURCE,COUNT_FRAGMENT);
@@ -134,6 +135,9 @@
       gl.bufferData(gl.ARRAY_BUFFER,packed,gl.STATIC_DRAW);
       for(var a=0;a<6;a++) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a,4,gl.BYTE,false,28,a*4); }
       gl.enableVertexAttribArray(6); gl.vertexAttribIPointer(6,4,gl.UNSIGNED_BYTE,28,24);
+      bandBuffer=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,bandBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER,data.bands||new Uint8Array(count),gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(7); gl.vertexAttribIPointer(7,1,gl.UNSIGNED_BYTE,1,0);
       gl.bindVertexArray(null);
       framebuffer=gl.createFramebuffer();
       makeTargets();
@@ -201,8 +205,15 @@
       gl.bindVertexArray(null);gl.drawArrays(gl.TRIANGLES,0,3);
     }
 
+    // Rings colour: one band per ball, set when Rings is chosen and kept as the balls move.
+    function setBands(bands) {
+      data.bands=bands; if(lost||!bandBuffer) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER,bandBuffer); gl.bufferSubData(gl.ARRAY_BUFFER,0,bands);
+    }
+
     function loseContext() { var extension=gl.getExtension('WEBGL_lose_context'); if(extension){extension.loseContext();setTimeout(function(){extension.restoreContext();},120);} }
-    function destroy() { if(!gl)return; textures.forEach(function(t){gl.deleteTexture(t);}); if(buffer)gl.deleteBuffer(buffer);if(vao)gl.deleteVertexArray(vao);if(framebuffer)gl.deleteFramebuffer(framebuffer);if(countProgram)gl.deleteProgram(countProgram);if(showProgram)gl.deleteProgram(showProgram); }
+    function destroy() { if(!gl)return; textures.forEach(function(t){gl.deleteTexture(t);}); if(buffer)gl.deleteBuffer(buffer);if(bandBuffer)gl.deleteBuffer(bandBuffer);if(vao)gl.deleteVertexArray(vao);if(framebuffer)gl.deleteFramebuffer(framebuffer);if(countProgram)gl.deleteProgram(countProgram);if(showProgram)gl.deleteProgram(showProgram); }
+    api.setBands=setBands;
     canvas.addEventListener('webglcontextlost',function(event){event.preventDefault();lost=true;});
     canvas.addEventListener('webglcontextrestored',function(){lost=false;build();});
     try { build(); } catch(error) { console.error(error); api.supported=false; destroy(); }

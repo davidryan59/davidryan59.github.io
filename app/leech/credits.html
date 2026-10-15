@@ -1,22 +1,46 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f6f3ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)">
 <title>Method and credits · Leech Lattice Explorer</title>
-<script src="../../assets/theme.js"></script><script>Theme.initTheme();</script>
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
 <link rel="stylesheet" href="style.css">
+<script data-goatcounter="https://drbuild.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </head>
-<body class="info-page"><main>
-<a class="back" href="./">← Leech Lattice Explorer</a>
-<h1>Method and credits</h1>
-<h2>Summary</h2>
-<p>The explorer constructs the 196,560 shortest vectors of the Leech lattice from the extended binary Golay code. Every picture is computed from those coordinates.</p>
-<h2>Sources</h2>
-<p>John Leech described the lattice in <a href="https://doi.org/10.4153/CJM-1967-017-0">“Notes on sphere packings”</a>, <i>Canadian Journal of Mathematics</i> 19 (1967), 251–267.</p>
-<p>The coordinate construction follows Conway and Sloane, <i>Sphere Packings, Lattices and Groups</i>, chapter 4, section 11.</p>
-<p>The E8 viewing planes and direct manipulation build on this site's <a href="../e8/credits.html">E8 explorer</a>, which credits David A. Madore, David A. Richter and Pierre-Philippe Dechant.</p>
-<p>Each rotation scene shows a plane that an element of Co0, the lattice's symmetry group, turns. The conjugacy classes come from the ATLAS of Finite Groups, through Thomas Breuer's GAP character table library.</p>
-<h2>Rendering</h2>
-<p>The octad window groups equal restrictions and draws 2,641 Canvas spots. Dense 24-dimensional views use a two-pass WebGL 2 count buffer with RGBA8 textures.</p>
-</main></body>
+<body class="info-page">
+<main>
+  <a class="back" href="./">← Leech Lattice Explorer</a>
+  <h1>Method and credits</h1>
+
+  <h2>What you see</h2>
+  <p>In the Leech lattice, every ball touches 196,560 others. Each touching ball is a vector of length 2 from the centre of the middle ball. The explorer projects all 196,560 vectors onto a plane through the centre, and draws a dot where each one lands.</p>
+  <p>Many vectors can land on the same point. The number on each scene button counts the distinct points, which the page calls spots.</p>
+
+  <h2>The model</h2>
+  <p>The explorer builds the lattice from the extended binary Golay code. Positions 0 to 22 are the elements of GF(23), and position 23 is ∞. The code is cyclic on the first 23 positions, with generator polynomial x¹¹ + x¹⁰ + x⁶ + x⁵ + x⁴ + x² + 1, and a parity bit at ∞. It has 4,096 words: 759 of them have weight 8 and are called octads.</p>
+  <p>The vectors, scaled by √8, have three shapes. Shape A is (±4, ±4, 0²²), 1,104 vectors. Shape B is (±2⁸, 0¹⁶) on an octad, 97,152 vectors. Shape C is (∓3, ±1²³), 98,304 vectors. Every count, layer and symmetry on the page is checked against these definitions.</p>
+
+  <h2>Octads and E8</h2>
+  <p>A view that mixes all 24 coordinates turns the 196,560 points into a smooth glow, whatever symmetry the view has. Structure appears only where many vectors land on one spot.</p>
+  <p>A prototype in 2026 found a clean way in. Seen through the eight coordinates of one octad, all 196,560 vectors fall on just 2,641 spots: the centre, E8's 240 roots, a half-size copy of those roots, and a half-size copy of E8's next 2,160 vectors. So every view of E8 also works inside the Leech lattice, with E8's own symmetry. The opening scenes of the first group use this window.</p>
+
+  <h2>Rotation scenes</h2>
+  <p>Co0 is the group of rotations that map the lattice to itself. A rotation of order n turns some planes by 360°/n, and a projection onto such a plane has n-fold symmetry. Each rotation scene shows one of these planes. Step turns the picture by exactly that angle, and every spot lands on a spot.</p>
+  <p>The conjugacy classes of Co0 come from the ATLAS of Finite Groups, through Thomas Breuer's GAP character table library. Of the many copies of each plane, the explorer uses the one nearest the opening view, so the balls move less between scenes.</p>
+
+  <h2>Sources</h2>
+  <p>John Leech described the lattice in <a href="https://doi.org/10.4153/CJM-1967-017-0" target="_blank" rel="noopener">“Notes on sphere packings”</a>, <i>Canadian Journal of Mathematics</i> 19 (1967), 251–267.</p>
+  <p>The coordinates follow J. H. Conway and N. J. A. Sloane, <i>Sphere Packings, Lattices and Groups</i>, chapter 4, section 11.</p>
+  <p>The E8 viewing planes and direct manipulation build on this site's <a href="../e8/credits.html">E8 explorer</a>, which credits David A. Madore, David A. Richter and Pierre-Philippe Dechant.</p>
+
+  <h2>This implementation</h2>
+  <p>The octad window groups equal restrictions and draws its spots with the browser's 2D canvas. Views in all 24 dimensions draw every ball with a two-pass WebGL 2 count buffer, and group them into spots when the picture rests.</p>
+  <p>David Ryan commissioned this explorer in 2026. OpenAI Codex and Anthropic's Claude wrote it in plain JavaScript, with no external library or downloaded model.</p>
+</main>
+</body>
 </html>

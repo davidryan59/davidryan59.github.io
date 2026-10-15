@@ -9,6 +9,7 @@ it, then check the result with `frames.js`.
 | Picture | Script | What it shows |
 |---|---|---|
 | `assets/thumbs/e8.svg` | `e8.js` | A dark, near-full-circle view of all 240 E8 roots moving through the Petrie, Octagonal and Squares presets on a 6 s loop. `e8-light.svg` preserves the earlier light 12 s version |
+| `assets/thumbs/leech.svg` | `leech.js` | A dark circle of E8 inside the Leech lattice: one octad's 240 gold outer spots, the violet half-size copy and the 2,160 blue middle spots. It moves through Petrie, Squares and Octagonal and back on a 6 s loop, with true 8-dimensional steps. Each ring is one animated path of round-capped dots, and the inner ring re-uses the outer path at half scale, so the file is about 143 KB. The middle spots are three still layers that crossfade at each preset |
 | `assets/nonrup-thumb.js` | `nonrup.js` | A canvas, drawn live on the page: the Undecanope turns about its eleven-fold axis and sways slowly. The script writes the page's thumbnail code with the solid's vertices and faces baked in from `app/nonrup/models.js` |
 | `assets/thumbs/tiling-explorer.svg` | `tiling-explorer.js` | A patch of the Hat tiling that morphs from chevron to comet and back on a 10 s loop: 0.5 s still, 4.5 s sliding, each way. Light-mode Pastel colours, drawn from the explorer's own engine in `app/tiles/` |
 | `assets/thumbs/krinkle.svg` | `krinkle.js` | The (3, 7, 22') Modulo Krinkle tiling of the share card, centred on the swirl, zooming gently in and out on a 5 s loop. Pastel 1 colours, one per wedge, from `app/tiles/krinkle/tiling.js` |

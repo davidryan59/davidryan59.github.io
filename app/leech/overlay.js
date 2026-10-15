@@ -52,13 +52,20 @@
         var radius=input.discs?Math.max(1,2*(input.dotSize||1)):input.raw?2.5*(input.dotSize||1):Math.max(1.6,base*Math.cbrt(group.pile/maximum));
         group.radius=radius;
         if(group.selected){selected={group:group,colour:colour,radius:radius};continue;}
-        var key=colour+'|'+(group.outer?'1':'0');if(!buckets.has(key))buckets.set(key,{colour:colour,outer:group.outer,items:[]});buckets.get(key).items.push(group);
+        var dim=input.circle&&Math.abs(group.r-input.circle.radius)>1e-6;
+        var key=colour+'|'+(group.outer?'1':'0')+(dim?'d':'');if(!buckets.has(key))buckets.set(key,{colour:colour,outer:group.outer,dim:dim,items:[]});buckets.get(key).items.push(group);
       }
       buckets.forEach(function(bucket){
-        ctx.save();ctx.fillStyle=bucket.colour;ctx.beginPath();bucket.items.forEach(function(group){ctx.moveTo(group.x+group.radius,group.y);ctx.arc(group.x,group.y,group.radius,0,Math.PI*2);});ctx.fill();
+        ctx.save();if(bucket.dim)ctx.globalAlpha*=.4;ctx.fillStyle=bucket.colour;ctx.beginPath();bucket.items.forEach(function(group){ctx.moveTo(group.x+group.radius,group.y);ctx.arc(group.x,group.y,group.radius,0,Math.PI*2);});ctx.fill();
         if(bucket.outer){ctx.strokeStyle=css('--outline');ctx.lineWidth=1;ctx.stroke();}ctx.restore();
       });
       if(selected){var g=selected.group,r=selected.radius*1.4;ctx.save();ctx.shadowColor=css('--halo');ctx.shadowBlur=13;ctx.fillStyle=selected.colour;ctx.strokeStyle=css('--outline');ctx.lineWidth=2;ctx.beginPath();ctx.arc(g.x,g.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();g.radius=r;}
+    }
+
+    function circle(input) {
+      if(!input.circle)return;
+      ctx.save();ctx.strokeStyle=css('--halo');ctx.globalAlpha=.35;ctx.lineWidth=1;ctx.beginPath();
+      ctx.arc(input.centre[0],input.centre[1],input.circle.radius*input.scale,0,Math.PI*2);ctx.stroke();ctx.restore();
     }
 
     function markers(input) {
@@ -68,7 +75,7 @@
     }
 
     function draw(input) {
-      ctx.clearRect(0,0,width,height);guides(input);lines(input);ctx.save();ctx.globalAlpha=input.spotOpacity===undefined?1:input.spotOpacity;spots(input);ctx.restore();markers(input);
+      ctx.clearRect(0,0,width,height);guides(input);circle(input);lines(input);ctx.save();ctx.globalAlpha=input.spotOpacity===undefined?1:input.spotOpacity;spots(input);ctx.restore();markers(input);
     }
 
     return {resize:resize,draw:draw,context:ctx};

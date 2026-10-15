@@ -17,7 +17,8 @@ Commands:
            pictures from all fixed planes (444 planes, 46 pictures).
   coxeter  Match the pictures inside octad O1 with the Coxeter planes of E8's
            root subsystems. E7, D8, E6 and D5 give the four octad scenes.
-  choose   For each scene, find the copy of its plane nearest the opening view.
+  choose   For each scene, find the copy of its plane nearest the rot36 view,
+           the page's opening scene. rot36 keeps its stored plane.
            With --write, save docs/leech/co0-views.json.
   sheet    Draw the planes in co0-views.json to renders/co0-views-sheet.png.
 
@@ -268,11 +269,14 @@ def coxeter():
         print(f"{name}: {h}-fold Coxeter plane, {p['spots']} spots, {p['radii']} radii" + (f", same picture as class {match[0]}" if match else ''))
 
 
-# ---- choose planes near the opening view
+# ---- choose planes near the rot36 view
+TARGET = '36A'  # rot36, the opening scene
+
+
 def opening_plane():
     script = ("const E8=require('./app/e8/model.js'),Leech=require('./app/leech/lattice.js'),"
               "Frame=require('./app/leech/frame.js'),S=require('./app/leech/scenes.js');"
-              "const s=S.build({Leech,Frame,E8,data:Leech.build()}).find(x=>x.id==='petrie');"
+              "const s=S.build({Leech,Frame,E8,data:Leech.build()}).find(x=>x.id==='rot36');"
               "console.log(JSON.stringify(s.rows.map(r=>Array.from(r))));")
     out = subprocess.run(['node', '-e', script], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return np.array(json.loads(out))
@@ -323,21 +327,33 @@ def nearest_in_co0(rows, target):
 def choose(write):
     reps, classes, rng, target = sample(), table(), np.random.default_rng(7), opening_plane()
     views = []
+    old = {v['class']: v for v in json.load(open(VIEWS))['views']}
     for c, m, sub in SCENES:
         n = classes[c]['order']
         start = coxeter_plane(sub) if sub else plane(rep(reps, c), n, n // m, np.random.default_rng(0))
-        rows = align(nearest_in_octad(start, target, rng) if sub else nearest_in_co0(start, target), target)
+        if c == TARGET:
+            start = rows = np.array(old[c]['rows'])
+        else:
+            rows = align(nearest_in_octad(start, target, rng) if sub else nearest_in_co0(start, target), target)
         assert np.allclose(rows @ rows.T, np.eye(2), atol=1e-12)
         p = picture(rows); moved = motion(cosines(rows, target))
-        print(f"{c:4s} {m * (1 + m % 2):3d}-fold {p['spots']:7d} spots  motion from the opening view "
-              f"{motion(cosines(start, target)):.2f} -> {moved:.2f}")
+        before = motion(cosines(old[c]['rows'], target)) if c in old else motion(cosines(start, target))
+        print(f"{c:4s} {m * (1 + m % 2):3d}-fold {p['spots']:7d} spots  motion from rot36 "
+              f"{before:.3f} -> {moved:.3f}")
         views.append({'class': c, 'co1': classes[c]['co1'], 'turn': f'360°/{m}', 'symmetry': m * (1 + m % 2),
                       'window': 8 if sub else 24, 'spots': p['spots'], 'radii': p['radii'],
-                      'motion_from_opening': round(moved, 3), 'rows': rows.tolist()})
+                      'motion_from_rot36': round(moved, 3), 'rows': rows.tolist()})
     if write:
-        old = json.load(open(VIEWS)); old['views'] = views
+        doc = json.load(open(VIEWS)); doc['views'] = views
+        doc['about'] = ('Planes for the Leech explorer\'s rotation scenes. Each plane is turned by an element of '
+                        'the named Co0 class, so the picture has the stated symmetry. Each representative was '
+                        'chosen to lie close to the rot36 plane, the opening view, which keeps its own stored '
+                        'rows. Window-8 planes lie inside octad 0 = positions 0, 2, 4, 5, 6, 10, 11, 23.')
+        doc['motion'] = ('RMS distance a ball moves on screen between this plane and the rot36 plane, after '
+                         'the best turn within the plane. The RMS radius of a ball is 0.577; two orthogonal '
+                         'planes give 0.816.')
         with open(VIEWS, 'w') as fh:
-            json.dump(old, fh, indent=1, ensure_ascii=False); fh.write('\n')
+            json.dump(doc, fh, indent=1, ensure_ascii=False); fh.write('\n')
         print('wrote', VIEWS)
 
 
