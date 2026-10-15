@@ -75,7 +75,7 @@
         <span class="mini-label">Points</span>
         <div class="segmented" role="group" aria-label="Points"><button class="segment active" data-points="raw" type="button">Raw</button><button class="segment" data-points="density" type="button">Density</button></div>
         <p class="control-note">◐ marks scenes that Density shows as a glow.</p>
-        <div class="colour-options" role="group" aria-label="Colour"><button class="choice active" data-colour="shells" type="button">Shells</button><button class="choice" data-colour="shapes" type="button">Shapes</button><button class="choice" data-colour="layers" type="button">Layers</button><button class="choice" data-colour="mono" type="button">Mono</button></div>
+        <div class="colour-options" role="group" aria-label="Colour"><button class="choice active" data-colour="shells" type="button">Shells</button><button class="choice" data-colour="shapes" type="button">Shapes</button><button class="choice" data-colour="layers" type="button">Layers</button><button class="choice" data-colour="rings" type="button">Rings</button><button class="choice" data-colour="mono" type="button">Mono</button></div>
         <div id="legend" class="legend"></div>
         <label class="range-row">Dot size <output id="dot-output">1.0</output><input id="dot-size" type="range" min="50" max="200" value="100"></label>
         <label class="range-row">Edge strength <output id="edge-output">12%</output><input id="edge-strength" type="range" min="4" max="45" value="12"></label>
@@ -91,7 +91,7 @@
   <aside class="results" aria-live="polite">
     <div class="result-title"><span class="eyebrow">Current view</span><h2 id="scene-name">E8 inside Leech</h2><p id="scene-caption"></p></div>
     <section class="result-section">
-      <span class="eyebrow">Selected ball</span><h3 id="ball-name">Ball 0 · shape A</h3>
+      <div class="selected-head"><span class="eyebrow">Selected ball</span><button class="text-button" id="clear-selection" type="button" hidden>Clear</button></div><h3 id="ball-name">No ball selected</h3>
       <p class="coordinates" id="coordinates"></p><p class="secondary" id="ball-extra"></p>
       <div class="pile-stepper" id="pile-stepper"><button id="pile-prev" type="button" aria-label="Previous ball">‹</button><span id="pile-position"></span><button id="pile-next" type="button" aria-label="Next ball">›</button></div>
       <p class="secondary" id="spot-detail"></p>

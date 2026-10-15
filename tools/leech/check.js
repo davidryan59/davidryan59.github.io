@@ -286,14 +286,14 @@ console.log('  10,000 mixed steps, pull, octad window, tilt, alignment, interpol
 
 console.log('Scenes');
 const scenes = LeechScenes.build({ Leech, Frame, E8, data });
-assert.strictEqual(scenes.length, 24);
+assert.strictEqual(scenes.length, 23);
 assert.deepStrictEqual(scenes.map(scene => scene.id),
   ['petrie', 'cox7', 'octagonal', 'squares', 'e8edges', 'weave',
     'oct18', 'oct14', 'oct12', 'oct8',
-    'rot84', 'rot66', 'rot60', 'cloud23', 'rot42', 'rot40', 'rot36', 'rot30', 'rosette11', 'rings23',
+    'rot84', 'rot66', 'rot60', 'cloud23', 'rot42', 'rot40', 'rot36', 'rot30', 'rosette11',
     'cloud', 'hexagon', 'coordinates', 'layers']);
 assert.deepStrictEqual(scenes.filter(scene => scene.featured).sort((a, b) => a.featured - b.featured).map(scene => scene.id),
-  ['petrie', 'squares', 'cloud', 'rings23', 'hexagon', 'layers']);
+  ['petrie', 'squares', 'cloud', 'cloud23', 'hexagon', 'layers']);
 assert.deepStrictEqual(Array.from(new Set(scenes.map(scene => scene.group))), [
   'E8 inside Leech · one octad', 'Coxeter planes · one octad',
   'Rotations · all 24 dimensions', 'Other views · all 24 dimensions'
@@ -381,16 +381,10 @@ assert.ok(hasSymmetry(weave90, 30));
 const layerResult = results.get('layers');
 assert.deepStrictEqual(Array.from(layerResult.xCounts.entries()).sort((a, b) => a[0] - b[0]),
   [[-2000000, 1], [-1000000, 4600], [-500000, 47104], [0, 93150], [500000, 47104], [1000000, 4600], [2000000, 1]]);
-const rings = results.get('rings23');
-assert.ok(hasSymmetry(rings, 23));
-assert.strictEqual(rings.radii.size, 23);
-assert.deepStrictEqual(Array.from(rings.radiusCounts.values()).sort((a, b) => a - b), [...Array(22).fill(46), 92]);
-const ringPiles = Array.from(rings.spots.values()).reduce((counts, pile) => counts.set(pile, (counts.get(pile) || 0) + 1), new Map());
-assert.deepStrictEqual(Array.from(ringPiles.entries()).sort((a, b) => a[0] - b[0]), [[1, 1012], [2, 46]]);
 const cloud23 = results.get('cloud23');
 assert.ok(hasSymmetry(cloud23, 23));
 assert.strictEqual(cloud23.spots.get('0,0'), 2);
 assert.ok(hasSymmetry(results.get('rosette11'), 11));
-console.log('  all 24 spot counts, symmetries, radii, layers and projection means');
+console.log('  all 23 spot counts, symmetries, radii, layers and projection means');
 
 console.log('Leech checks passed.');

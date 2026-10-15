@@ -1310,6 +1310,32 @@ Retired scene addresses redirect to their replacements. Node, browser and all
 six screen-fit checks pass, and both 24-scene contact sheets show complete
 pictures.
 
+**Fixes, 2026-10-14.** David's review removed `23-fold rings`, which looked
+like the retired Sunburst. `v=rings23` now opens `cloud23`, which takes its
+place as featured scene 4, so 23 scenes remain. Other fixes:
+
+- A page address without `ct` now keeps the 1 s scene change. It used to
+  read as 0 s.
+- Zoom reaches 8 instead of 4.
+- The rested-spot cache is keyed by scale and centre as well as scene. Before
+  this fix, Hexagon and Coordinates kept their old spot positions when
+  zoomed.
+- A small dot replaces the cross at the centre. It has the gold of shape A
+  and the size of a raw dot, since the centre is the zero vector.
+- A new colour, Rings, colours each ball by its distance from the centre in
+  the current plane, in eight bands of 0.25 from 0 to 2. The shader and the
+  CPU use the same bands.
+- A scene change keeps the colour. Only Seven layers, which needs Layers,
+  and E8 edges, which needs shell weights, still set one.
+- The page opens with no ball selected. A Clear button in the Selected ball
+  panel does what Esc does.
+- The ring around the opposite ball is gone. Canvas could not read the
+  theme's `light-dark()` colours, so the selection ring, the guide circle and
+  the centre dot drew in black. The overlay now resolves each colour through
+  a hidden element.
+
+Node, browser and screen-fit checks pass again.
+
 ## Phase 7: publish
 
 - **`credits.html`.** The method and sources:

@@ -12,7 +12,13 @@
       ctx.setTransform(dpr,0,0,dpr,0,0);
     }
 
-    function css(name){return getComputedStyle(document.documentElement).getPropertyValue(name).trim();}
+    var probe=null,cssCache=new Map();
+    function css(name){
+      var root=document.documentElement,key=name+'|'+(root.dataset.theme||'')+'|'+matchMedia('(prefers-color-scheme: dark)').matches;
+      if(cssCache.has(key))return cssCache.get(key);
+      if(!probe){probe=document.createElement('span');probe.hidden=true;root.appendChild(probe);}
+      probe.style.color='var('+name+')';var value=getComputedStyle(probe).color;cssCache.set(key,value);return value;
+    }
     function hexRgb(hex){var n=parseInt(hex.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];}
     function mixedColour(counts,colours,weights) {
       var total=0,r=0,g=0,b=0;
@@ -23,9 +29,8 @@
 
     function guides(input) {
       ctx.save();ctx.strokeStyle=css('--guide');ctx.lineWidth=1;ctx.setLineDash([3,7]);ctx.beginPath();
-      ctx.arc(input.centre[0],input.centre[1],2*input.scale,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();
-      ctx.moveTo(input.centre[0]-6,input.centre[1]);ctx.lineTo(input.centre[0]+6,input.centre[1]);
-      ctx.moveTo(input.centre[0],input.centre[1]-6);ctx.lineTo(input.centre[0],input.centre[1]+6);ctx.stroke();ctx.restore();
+      ctx.arc(input.centre[0],input.centre[1],2*input.scale,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=input.centreColour||css('--guide');ctx.beginPath();
+      ctx.arc(input.centre[0],input.centre[1],input.centreRadius||2.5,0,Math.PI*2);ctx.fill();ctx.restore();
     }
 
     function lines(input) {
@@ -59,7 +64,7 @@
     function markers(input) {
       if(!input.marker)return;
       function ring(point,radius,alpha){if(!point)return;ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=css('--halo');ctx.lineWidth=2;ctx.shadowColor=css('--halo');ctx.shadowBlur=radius>5?10:0;ctx.beginPath();ctx.arc(point[0],point[1],radius,0,Math.PI*2);ctx.stroke();ctx.restore();}
-      ring(input.opposite,4,.65);ring(input.marker,8,1);
+      ring(input.marker,8,1);
     }
 
     function draw(input) {

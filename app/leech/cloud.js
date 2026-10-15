@@ -36,6 +36,7 @@
         cls = p==32 ? 0 : (p==16 ? 1 : (p==8 ? 2 : (p==0 ? 3 : (p==-8 ? 4 : (p==-16 ? 5 : 6)))));
       }
       if (u_mode==3) cls=0;
+      if (u_mode==4) cls=min(7,int(length(vec2(x,y))*4.0));
       v_class=cls;
       vec2 pixel=u_centre+vec2(x,-y)*u_scale;
       vec2 clip=vec2(pixel.x/u_size.x*2.0-1.0,1.0-pixel.y/u_size.y*2.0);
