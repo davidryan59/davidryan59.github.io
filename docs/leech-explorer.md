@@ -1626,32 +1626,25 @@ browser check tests them.
 
 ## Phase 9: builder thumbnail
 
-- **The tool.** Write `tools/thumbnails/leech.js`. It produces
-  `assets/thumbs/leech.svg`, an animated SMIL image like `e8.svg`.
-  - The image is a dark circle on a 6 s loop.
-  - It moves through Petrie, Squares, Octagonal and back to Petrie, with true
-    8-dimensional steps from `Frame.interpolate` inside the octad.
-- **The budget is 300 KB.**
-  - At E8's rate of about 1 KB per moving dot, the 2,641 spots cannot all
-    move. Keyframe the 240 outer spots.
-  - The inner copy is the outer group scaled by one half in every frame. Draw
-    it with `<use transform="scale(0.5)">` and a larger inherited
-    `stroke-width`, so its dots stay bigger than the outer ones.
-  - Show the 2,160 middle spots as three still layers that crossfade at each
-    preset, or thin them out.
-- **Checks.** The file is at most 300 KB, it parses, and its first and last
-  keyframes match.
-- **Docs.** Add a row to `tools/thumbnails/README.md`.
+- **The tool.** `tools/thumbnails/leech.js` writes `assets/thumbs/leech.gif`.
+  - The picture cuts between three still views of all 196,560 balls: the
+    30-fold, 36-fold and 42-fold presets, each held for 1 s.
+  - Each ball is a white disc of radius 1.2 px, drawn at 240 px on black. A
+    lone ball is at least 60% white, and piles grow brighter with the log of
+    the count.
+  - Each view is scaled so its outermost ball meets the rim, so a cut never
+    changes the size of the picture.
+  - The script carries its own GIF encoder, so it needs only Node.
+- **The budget is 300 KB.** The GIF is about 72 KB.
+- **Checks.** The script checks that each view is a 24-dimensional scene and
+  that the file is within budget.
+- **Docs.** A row in `tools/thumbnails/README.md`.
 
-**As built, 2026-10-15.** `tools/thumbnails/leech.js` writes
-`assets/thumbs/leech.svg`, 143 KB. Each ring of dots is one path of
-zero-length round-capped strokes, so the 240 outer spots cost one animated
-path. The inner copy is a `<use>` of that path at half scale with a wider
-stroke. The 2,160 middle spots are three still paths, one per preset, which
-crossfade. The last change returns to the stored Petrie frame without
-alignment, so the first and last keyframes match and the loop has no jump.
-The script checks the spot counts, the half-size inner copy, the matching
-keyframes and the budget.
+**Why stills.** The first thumbnail, built 2026-10-15, was an animated SVG of
+one octad's 2,641 spots moving through Petrie, Squares and Octagonal. A 24D
+morph between two views passes through a featureless blur, and an animated
+image of all the balls costs several hundred KB. Hard cuts between three crisp
+views show the whole lattice in a fraction of that.
 
 ## Phase 10: silent film
 

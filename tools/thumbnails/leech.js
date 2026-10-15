@@ -1,14 +1,15 @@
 /* Draw the animated Leech explorer thumbnail from the explorer's own model.
 
-   Seen through one octad, all 196,560 balls fall on 2,641 spots: the centre,
-   240 outer spots (E8's roots), an inner copy of them at half size, and 2,160
-   middle spots. The picture moves through Petrie, Squares and Octagonal and
-   back on a 6 s loop, with true 8-dimensional steps inside the octad.
+   The picture cuts between three still views of all 196,560 balls, the
+   explorer's 30-fold, 36-fold and 42-fold presets, holding each for 1 s.
+   Every ball is a white disc of radius 1.2 px on black, drawn at 240 px so
+   the 120 px thumbnail stays sharp on a high-density screen. A lone ball is
+   at least 60% white, and where balls pile up the disc grows brighter with the
+   log of the count. Each view fills the circle on its own, so a cut never
+   changes the size of the picture.
 
-   Each ring of dots is one path of zero-length round-capped strokes, so 240
-   moving dots cost one animated path. The inner ring re-uses the outer path at
-   half scale, with a larger inherited stroke width. The middle spots are three
-   still layers, one per preset, that crossfade. */
+   Three frames of 240 px greys make a small GIF, so the script writes one
+   with its own encoder and needs only Node. */
 'use strict';
 
 const fs = require('fs'), path = require('path');
@@ -17,71 +18,93 @@ const Leech = require('../../app/leech/lattice.js');
 const Frame = require('../../app/leech/frame.js');
 const LeechScenes = require('../../app/leech/scenes.js');
 
-const SQRT8 = Math.sqrt(8), DURATION = 6, RADIUS = 55, MAX_BYTES = 300 * 1024;
-const data = Leech.build(), positions = Leech.TRIO[0];
+const VIEWS = ['rot30', 'rot36', 'rot42'], HOLD = 100; // hundredths of a second
+const SIZE = 240, RADIUS = 1.2, SUPER = 4, FLOOR = 0.6, MAX_BYTES = 300 * 1024;
+const SQRT8 = Math.sqrt(8);
+const data = Leech.build();
 const scenes = LeechScenes.build({ Leech: Leech, Frame: Frame, E8: E8, data: data });
-const sceneFrame = id => {
+
+// Splat every ball as a disc on a grid SUPER times finer, then average down.
+function render(id) {
   const scene = scenes.find(item => item.id === id);
-  return Frame.octadFrame(scene.rows[0], scene.rows[1], positions);
-};
-// Align each preset to the one before, as the explorer does, but return to the
-// starting Petrie frame exactly so the loop has no jump.
-function aligned(from, to) { return Frame.complete(Frame.alignPlane(from.slice(0, 2), to.slice(0, 2)), to.slice(2)); }
-const petrie = sceneFrame('petrie'), squares = aligned(petrie, sceneFrame('squares'));
-const octagonal = aligned(squares, sceneFrame('octagonal'));
-
-const keyframes = [], times = [];
-function add(time, frame) { times.push(time); keyframes.push(frame); }
-function change(start, end, from, to) {
-  for (let step = 1; step <= 6; step++) add(start + (end - start) * step / 6, Frame.interpolate(from, to, step / 6));
+  if (!scene || scene.window !== 24) throw new Error('no 24-dimensional scene ' + id);
+  const frame = Frame.complete(scene.rows);
+  const xs = new Float64Array(Leech.COUNT), ys = new Float64Array(Leech.COUNT);
+  let reach = 0;
+  for (let i = 0; i < Leech.COUNT; i++) {
+    let x = 0, y = 0;
+    for (let k = 0; k < 24; k++) { const value = data.coords[i * 24 + k] / SQRT8; x += frame[0][k] * value; y += frame[1][k] * value; }
+    xs[i] = x; ys[i] = y; reach = Math.max(reach, Math.hypot(x, y));
+  }
+  const big = SIZE * SUPER, centre = big / 2, r = RADIUS * SUPER, span = Math.ceil(r);
+  const scale = (centre - (RADIUS + 2) * SUPER) / reach, count = new Float32Array(big * big);
+  for (let i = 0; i < Leech.COUNT; i++) {
+    const px = centre + xs[i] * scale, py = centre - ys[i] * scale;
+    for (let Y = Math.floor(py - span); Y <= Math.ceil(py + span); Y++) {
+      for (let X = Math.floor(px - span); X <= Math.ceil(px + span); X++) {
+        if ((X + 0.5 - px) ** 2 + (Y + 0.5 - py) ** 2 <= r * r) count[Y * big + X]++;
+      }
+    }
+  }
+  const covered = Array.from(count).filter(value => value > 0).sort((a, b) => a - b);
+  const ref = Math.log(1 + covered[Math.floor(covered.length * 0.995)]);
+  const pixels = new Uint8Array(SIZE * SIZE);
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      if (Math.hypot(x - SIZE / 2 + 0.5, y - SIZE / 2 + 0.5) > SIZE / 2 - 1) continue;
+      let sum = 0;
+      for (let j = 0; j < SUPER; j++) {
+        for (let i = 0; i < SUPER; i++) {
+          const value = count[(y * SUPER + j) * big + x * SUPER + i];
+          if (value) sum += Math.max(FLOOR, Math.min(1, Math.log(1 + value) / ref));
+        }
+      }
+      pixels[y * SIZE + x] = Math.round(255 * Math.pow(sum / (SUPER * SUPER), 0.75));
+    }
+  }
+  return pixels;
 }
-add(0, petrie); add(0.10, petrie);
-change(0.10, 0.30, petrie, squares); add(0.38, squares);
-change(0.38, 0.58, squares, octagonal); add(0.66, octagonal);
-change(0.66, 0.92, octagonal, petrie); add(1, petrie);
 
-const grouping = Leech.octadSpots(data.coords, data.shape, positions);
-const byShell = [0, 1, 2, 3].map(shell => grouping.spots.filter(spot => spot.shell === shell));
-const key = (coords, factor) => Array.from(coords, value => value * factor).join(',');
-const outerKeys = new Set(byShell[3].map(spot => key(spot.coords, 1)));
-if (byShell[3].length !== 240 || byShell[1].length !== 240 || byShell[2].length !== 2160) throw new Error('unexpected octad spots');
-if (!byShell[1].every(spot => outerKeys.has(key(spot.coords, 2)))) throw new Error('the inner spots are not the outer spots at half size');
-
-function project(frame, spot) {
-  let x = 0, y = 0;
-  for (let k = 0; k < 8; k++) { x += frame[0][positions[k]] * spot.coords[k] / SQRT8; y += frame[1][positions[k]] * spot.coords[k] / SQRT8; }
-  return [x, y];
+// LZW-compress one frame of 8-bit palette indices into GIF sub-blocks.
+function lzw(pixels) {
+  const clear = 256, end = 257, out = [];
+  let codeSize = 9, next = 258, dict = new Map(), bits = 0, held = 0;
+  const emit = code => {
+    held |= code << bits; bits += codeSize;
+    while (bits >= 8) { out.push(held & 255); held >>>= 8; bits -= 8; }
+  };
+  emit(clear);
+  let prefix = pixels[0];
+  for (let i = 1; i < pixels.length; i++) {
+    const key = prefix * 256 + pixels[i];
+    if (dict.has(key)) { prefix = dict.get(key); continue; }
+    emit(prefix);
+    if (next === 4096) { emit(clear); dict = new Map(); next = 258; codeSize = 9; }
+    else { dict.set(key, next++); if (next > (1 << codeSize) && codeSize < 12) codeSize++; }
+    prefix = pixels[i];
+  }
+  emit(prefix); emit(end);
+  if (bits) out.push(held & 255);
+  const blocks = [];
+  for (let i = 0; i < out.length; i += 255) blocks.push(Math.min(255, out.length - i), ...out.slice(i, i + 255));
+  return blocks;
 }
-const scale = RADIUS / Math.max(...keyframes.flatMap(frame => byShell[3].map(spot => Math.hypot(...project(frame, spot)))));
-const n = value => value.toFixed(1).replace(/\.0$/, '');
-function dots(frame, spots) {
-  return spots.map(spot => { const p = project(frame, spot); return 'M' + n(60 + p[0] * scale) + ' ' + n(60 - p[1] * scale) + 'h0'; }).join('');
+
+function gif(frames) {
+  const word = value => [value & 255, value >> 8];
+  const bytes = [...Buffer.from('GIF89a'), ...word(SIZE), ...word(SIZE), 0xf7, 0, 0];
+  for (let grey = 0; grey < 256; grey++) bytes.push(grey, grey, grey);
+  bytes.push(0x21, 0xff, 11, ...Buffer.from('NETSCAPE2.0'), 3, 1, 0, 0, 0);
+  for (const pixels of frames) {
+    bytes.push(0x21, 0xf9, 4, 0, ...word(HOLD), 0, 0);
+    bytes.push(0x2c, 0, 0, 0, 0, ...word(SIZE), ...word(SIZE), 0, 8, ...lzw(pixels), 0);
+  }
+  bytes.push(0x3b);
+  return Buffer.from(bytes);
 }
 
-const keyTimes = times.map(time => time.toFixed(3)).join(';');
-const outerValues = keyframes.map(frame => dots(frame, byShell[3]));
-// Each middle layer shows while its preset holds, fading over the first and last 30% of a change.
-function opacity(times) { return `<animate attributeName="opacity" dur="${DURATION}s" repeatCount="indefinite" calcMode="linear" keyTimes="${times.map(t => t[0].toFixed(3)).join(';')}" values="${times.map(t => t[1]).join(';')}"/>`; }
-const middle = [
-  [petrie, [[0, 1], [0.10, 1], [0.16, 0], [0.86, 0], [0.92, 1], [1, 1]]],
-  [squares, [[0, 0], [0.24, 0], [0.30, 1], [0.38, 1], [0.44, 0], [1, 0]]],
-  [octagonal, [[0, 0], [0.52, 0], [0.58, 1], [0.66, 1], [0.74, 0], [1, 0]]]
-].map(([frame, fade]) => `<path d="${dots(frame, byShell[2])}">${opacity(fade)}</path>`).join('');
-
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="120" viewBox="0 0 120 120">
-<defs><radialGradient id="b"><stop stop-color="#1c2029"/><stop offset=".68" stop-color="#101217"/><stop offset="1" stop-color="#06070a"/></radialGradient><clipPath id="c"><circle cx="60" cy="60" r="59"/></clipPath>
-<path id="o" d="${outerValues[0]}"><animate attributeName="d" dur="${DURATION}s" repeatCount="indefinite" calcMode="linear" keyTimes="${keyTimes}" values="${outerValues.join(';')}"/></path></defs>
-<g clip-path="url(#c)" fill="none" stroke-linecap="round"><rect width="120" height="120" fill="url(#b)"/>
-<g stroke="#64a9f3" stroke-width="1.15" opacity=".8">${middle}</g>
-<use xlink:href="#o" href="#o" transform="translate(60 60) scale(.5) translate(-60 -60)" stroke="#a78bfa" stroke-width="3.6"/>
-<use xlink:href="#o" href="#o" stroke="#f2cf55" stroke-width="2.3"/>
-<path d="M60 60h0" stroke="#8995a7" stroke-width="2.6"/></g>
-<circle cx="60" cy="60" r="59" fill="none" stroke="#343945"/>
-</svg>`;
-
-if (outerValues[0] !== outerValues[outerValues.length - 1]) throw new Error('first and last keyframes differ');
-const bytes = Buffer.byteLength(svg);
-if (bytes > MAX_BYTES) throw new Error('thumbnail is ' + bytes + ' bytes, over the 300 KB budget');
-const output = path.join(__dirname, '../../assets/thumbs/leech.svg');
-fs.writeFileSync(output, svg);
-console.log(output + ' ' + bytes + ' bytes');
+const file = gif(VIEWS.map(render));
+if (file.length > MAX_BYTES) throw new Error('thumbnail is ' + file.length + ' bytes, over the 300 KB budget');
+const output = path.join(__dirname, '../../assets/thumbs/leech.gif');
+fs.writeFileSync(output, file);
+console.log(output + ' ' + file.length + ' bytes');
