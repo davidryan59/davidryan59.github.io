@@ -69,6 +69,10 @@ a { color: var(--link); text-underline-offset: .2em; }
 .scene-button strong small { color: var(--link); font: 700 .58rem/1 system-ui,sans-serif; }
 .scene-button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--quiet); font-size: .57rem; }
 .scene-button.featured { min-height: 47px; }
+.scene-button .sub { display: flex; width: 100%; gap: 5px; }
+.scene-button .sub span { flex: 1 1 auto; min-width: 0; }
+.scene-button .sub em { flex: none; margin-left: auto; color: var(--muted); font-style: normal; font-variant-numeric: tabular-nums; }
+.scene-note { margin: 2px 1px 7px; }
 .scene-button.active { border-color: var(--link); background: color-mix(in srgb,var(--link) 11%,transparent); }
 .scene-button:disabled, .segment:disabled { opacity: .36; cursor: not-allowed; }
 .options-card .segmented + .segmented { margin-top: 6px; }

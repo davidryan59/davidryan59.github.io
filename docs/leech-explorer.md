@@ -35,6 +35,7 @@ preset frames. Leave `app/e8/` unchanged.
 - [x] Phase 5: WebGL 2 cloud renderer (2026-10-13)
 - [x] Phase 6: The 24-dimension window, selection, tilt and tour (2026-10-13)
 - [x] Phase 6b: Rotation scenes, raw points and scene controls (2026-10-14)
+- [ ] Phase 6c: 36-fold opening, Spin, pan and a clean screen
 - [ ] Phase 7: Publish: credits, builder page, addresses and full checks
 - [ ] Phase 8: Share card
 - [ ] Phase 9: Builder thumbnail
@@ -1335,6 +1336,189 @@ place as featured scene 4, so 23 scenes remain. Other fixes:
   a hidden element.
 
 Node, browser and screen-fit checks pass again.
+
+**Changes, 2026-10-15.** David asked for a dotted opening view and slower
+scene changes. They replace the defaults stated above.
+
+- The page opens on `rot60`, paused, in Shapes colour. Drift dissolves any
+  24-dimension view into the glow within about 2 s, so Play stays off until
+  the visitor presses it. The address writes `play=1` while playing.
+- Without WebGL 2, the page opens on `petrie` instead. Reset on a free view
+  returns to the opening scene.
+- A scene change takes 3 s by default. `ct` appears only for other times.
+- Every scene button shows its spot count at the right of its sub-line,
+  taken from `expect.spots`. A note at the top of the Show card says what the
+  number counts.
+- At rest, the status line counts spots even when the cloud draws them, for
+  example "70,081 spots · 196,560 balls".
+- The address omits `v` for the opening scene, `w` when it matches the
+  scene's window, and `c` when it matches the scene's colour.
+- The `cox7` and `rot30` captions name E8 inside Leech, where they said "the
+  opening view".
+
+---
+## Phase 6c: 36-fold opening, Spin, pan and a clean screen
+
+David reviewed the explorer again on 2026-10-15 and asked for these changes
+before Phase 7, so the share card, thumbnail and film show them. The page
+opens on the 36-fold view. A new Spin motion turns the picture in its own
+plane, so every dot stays exact while the view moves. The viewer can pan when
+zoomed, light up one circle of spots, and hide every control. Build it in one
+session, in the order below, with the Node checks first.
+
+### The 36-fold opening
+
+- Set `DEFAULT_SCENE` to `rot36`. It still opens paused, in Shapes colour.
+  Without WebGL 2, it still opens on `petrie`.
+- The bare address now opens `rot36`, and the address omits `v` for it.
+  Phase 7 is not yet live, so no old bare link needs a redirect.
+- Phase 6b chose each rotation plane near the old opening view, `petrie`.
+  Re-aim the search at `rot36`:
+  - In `tools/leech/co0_views.py`, `choose` targets the `rot36` plane, and
+    keeps the stored `rot36` rows unchanged.
+  - Rename the JSON field `motion_from_opening` to `motion_from_rot36`, and
+    update `about` and `motion` to name `rot36`.
+  - Run `choose --write`, then copy the new rows into `ROTATIONS` in
+    `scenes.js`.
+  - Record the old and new RMS motion of each scene in the "As built"
+    paragraph. A change that moves the balls further than before is
+    allowed, since the four octad scenes must stay inside octad 0.
+- The E8 scenes keep their frames, since E8's own presets set them.
+
+### Show every preset
+
+At laptop size (1,728 × 990), the Show card hides 7 of the 23 scene buttons
+below its fold, from `rot36` to `layers`.
+
+- Each group heading becomes a button that opens and closes its group, with
+  a ▸ or ▾ before the label.
+- On load, the group that holds the current scene opens. The other groups
+  open too, as far as all of them fit without the card scrolling.
+- A scene change from a key, the tour or the address opens that scene's
+  group.
+- At every screen-fit size, every group heading shows without scrolling.
+
+### Spin and Step
+
+- The Motion control becomes "Drift | Spin | Tour". The Speed slider
+  applies to Drift and Spin, so rename "Drift speed" back to "Speed".
+- **Spin** calls `Frame.roll` every frame. At 40% the picture makes one
+  turn in 60 s, and speed scales the rate in proportion.
+- Spin leaves the plane unchanged. The scene button stays lit, the caption
+  stays true, and the status line keeps its spot count.
+- Spin works in both windows and in every scene, including a free view.
+- **Step** is a button beside Spin. It turns the picture by exactly
+  360°/n, where n is the scene's symmetry, over the scene-change time.
+  It shows only when the scene has a `symmetry`.
+- Step needs no new data. Each rotation scene's plane is fixed by an
+  element of Co0 that turns it by 360°/n. That element sends each ball to
+  a ball whose spot is turned by 360°/n, so one roll draws exactly what the
+  rotation does. Each ball keeps its colour as it moves.
+- After a Step, the status line reads "Turned by 10°: every spot landed on
+  a spot", with the scene's own angle.
+- `m=spin` joins `m=tour` in the address, and `play=1` with it starts
+  spinning. Drift is still the
+  default motion.
+
+### Keep the caption honest
+
+- Once drift, a drag or a tilt moves the frame off the scene's plane, the
+  scene is left. Its button loses the lit state and gains an outline.
+- The panel title becomes "Drifting from 36-fold", or "Moved from 36-fold"
+  after a drag. The caption becomes "A view between scenes. Pause, and the
+  status line counts its spots."
+- Spin, zoom and pan do not leave the scene.
+
+### Pan when zoomed
+
+The view has had no pan, so zoom showed only the centre. The rotation
+scenes keep their separate dots on the outer circles.
+
+- Shift with a drag pans with a mouse. A two-finger drag pans on touch,
+  alongside the pinch zoom and roll. Shift with an arrow key pans by 8 px.
+- Pan is an offset of the centre, in units of the scale. It stops when the
+  picture's edge reaches the centre of the stage.
+- A scene change keeps the pan when it keeps the zoom. Reset and R clear
+  both.
+- Pan adds `pan=<x>,<y>` to the address, to three decimal places. The
+  address already uses `o` for the octad.
+
+### Light up a circle
+
+- With a mouse, hovering over a spot lights every spot on the same circle,
+  within 1e-6 of its radius. The status line says "60 spots · 120 balls on
+  this circle".
+- Selecting a ball lights its circle in the same way. This is the route on
+  touch.
+- The highlight draws on the overlay. Spots on other circles dim to 40%.
+- In the cloud renderer, read the circle from the rested-spot cache. While
+  the view moves, no circle lights.
+
+### Hide controls
+
+- H hides the header, all the cards, the status line and the results
+  panel. The stage fills the screen.
+- A small "Show controls" button fades in at the top right when the pointer
+  moves, and fades out after 2 s. H or the button brings the controls back.
+- On touch, a "Hide controls" button sits in the Options card. A tap on the
+  stage shows the "Show controls" button.
+- With Tour and the 3 s scene change, this gives a slideshow for Phase 10.
+- Hidden controls add `ui=0` to the address.
+
+### Rings colour, set once
+
+Today Rings colours each ball by its distance from the centre in the current
+plane, on every frame. The colour then only repeats what the position shows.
+Set it once instead, so the balls carry a picture's circles as they move.
+
+- Choosing Rings colours each ball by its distance from the centre at that
+  moment, in the same eight bands of 0.25. The balls keep that colour
+  through drift, Spin, drags and scene changes.
+- Choosing Rings again recolours from the current view.
+- Store the band per ball in one `Uint8Array` of 196,560 entries. The cloud
+  reads it as a vertex attribute in place of the live radius, and the spot
+  renderer reads the same array.
+- The legend gives each band's ball count, filled in when Rings is chosen.
+- An address with `c=rings` sets the colours from the view it opens on.
+- The opening view keeps Shapes colour.
+- The two inner bands in the light theme are a muddy olive (`#8a6a00`,
+  `#b25a00`). Replace them with brighter colours that keep 3:1 contrast on
+  the light background, and check `colours-light.png` again.
+
+### Checks
+
+Extend `tools/leech/check.js`:
+
+1. Each `ROTATIONS` row matches the new `co0-views.json` within 1e-15, and
+   every rotation scene still passes its spots, symmetry, radii and maximum
+   radius.
+2. **Step.** For each scene with a `symmetry`, roll the frame by 360°/n.
+   The set of spots, rounded to 1e-9, equals the set before the roll, and
+   each spot keeps its pile.
+
+Extend `tools/leech/browser-check.js`:
+
+1. **Opening.** The bare address opens `rot36`, paused, in Shapes colour.
+2. **Groups.** At laptop size, every group heading is in view, and a click
+   opens and closes its group.
+3. **Spin.** After 1 s of Spin, the snapshot's scene is still `rot36`, and
+   the plane matches within 1e-9. After 1 s of Drift, the scene is `custom`
+   and the title starts "Drifting from".
+4. **Step.** After a Step on `rot36`, the frame equals the scene's frame
+   rolled by 10°, within 1e-9.
+5. **Pan.** At zoom 4, a Shift-drag moves the centre, and `pan` appears in the
+   address. Reset clears it.
+6. **Circle.** Selecting a ball in `rot36` lights a circle, and the status
+   line gives its spot and ball counts.
+7. **Hide.** H hides every control, and H brings them back.
+8. **Rings.** Choose Rings on `rot36`, then change to `rot60`. Each ball
+   keeps its band from `rot36`, and the legend counts sum to 196,560.
+9. **Screen fit.** All six sizes pass, with the controls shown and hidden.
+
+### This document
+
+After the build, tick Phase 6c in the checklist and add an "As built"
+paragraph here.
 
 ## Phase 7: publish
 

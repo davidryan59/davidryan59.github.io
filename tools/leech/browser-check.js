@@ -43,25 +43,28 @@ async function makeContactSheet(browser,files,target){
   assert.strictEqual(await page.locator('link[rel="canonical"]').getAttribute('href'),'https://drbuild.uk/app/leech/','canonical address');
   assert.strictEqual(await page.title(),'Leech Lattice Explorer','page title');
   const stage=await page.locator('#stage').boundingBox();assert.ok(stage&&stage.width>700&&stage.height>700,'large stage');
-  let state=await snapshot(page);assert.strictEqual(state.scene,'petrie','opening scene');assert.strictEqual(state.window,8,'opening window');assert.strictEqual(state.renderer,'spots','opening renderer');assert.strictEqual(state.spotCount,2641,'opening spot count');
+  let state=await snapshot(page);assert.strictEqual(state.scene,'rot60','opening scene');assert.strictEqual(state.window,24,'opening window');assert.strictEqual(state.playing,false,'opening view is paused');
+  await page.waitForTimeout(600);assert.match(await page.locator('#renderer-status').textContent(),/^70,081 spots/,'opening status counts spots at rest');
+  assert.strictEqual(await page.locator('.scene-button .sub em').count(),23,'every scene button shows a spot count');assert.strictEqual(await page.locator('[data-scene="rot60"] .sub em').textContent(),'70,081','60-fold spot count');
+  assert.strictEqual((await snapshot(page)).transitioning,false,'no transition at load');assert.strictEqual(await page.locator('#change-output').textContent(),'3 s','scene change defaults to 3 s');
   assert.strictEqual(state.points,'raw','raw points are the default');
   assert.strictEqual(await page.locator('.show-card [data-window]').count(),0,'Show card has no dimensions control');
   assert.strictEqual(await page.locator('.options-card [data-window]').count(),2,'Options card owns the dimensions control');
   assert.strictEqual(await page.locator('.scene-button small').count(),12,'twelve Density glow markers');
 
   if(!cloudOnly){
-    await page.screenshot({path:path.join(renders,'light.png')});await page.click('.theme-toggle');await page.screenshot({path:path.join(renders,'dark.png')});
+    await openScene(page,'petrie');await page.screenshot({path:path.join(renders,'light.png')});await page.click('.theme-toggle');await page.screenshot({path:path.join(renders,'dark.png')});
     const before=await snapshot(page);await page.mouse.move(stage.x+stage.width*.72,stage.y+stage.height*.17);await page.mouse.down();await page.mouse.move(stage.x+stage.width*.72+70,stage.y+stage.height*.17+22,{steps:8});await page.mouse.up();state=await snapshot(page);
     assert.ok(state.orthogonalityError<1e-9,'orbit keeps the frame orthonormal');assert.notDeepStrictEqual(state.frame[0],before.frame[0],'orbit changes the frame');
     assert.strictEqual(state.selected,-1,'no ball selected at first');await page.evaluate(()=>window.__leechExplorer.selectOuter());state=await snapshot(page);
     const selected=state.selectedScreen;await page.mouse.move(stage.x+selected[0],stage.y+selected[1]);await page.mouse.down();await page.mouse.move(stage.x+selected[0]+60,stage.y+selected[1]+20,{steps:8});await page.mouse.up();const pulled=await snapshot(page);
     assert.ok(pulled.orthogonalityError<1e-9,'pull keeps the frame orthonormal');assert.ok(Math.hypot(pulled.selectedScreen[0]-selected[0],pulled.selectedScreen[1]-selected[1])>30,'selected ball follows a pull');
 
-    for(const id of ['petrie','cox7','octagonal','squares','e8edges','oct18','oct14','oct12','oct8']){await page.click(`[data-scene="${id}"]`);await page.waitForTimeout(1100);assert.match(page.url(),id==='petrie'?/#|\/$/:new RegExp('v='+id),'scene address '+id);}
+    for(const id of ['petrie','cox7','octagonal','squares','e8edges','oct18','oct14','oct12','oct8']){await page.click(`[data-scene="${id}"]`);await page.waitForTimeout(1100);assert.match(page.url(),new RegExp('v='+id),'scene address '+id);}
     await page.click('[data-colour="shapes"]');await page.click('[data-edges="spokes"]');await page.locator('#zoom-in').click();const configured=await snapshot(page),shared=page.url();await page.goto(shared,{waitUntil:'networkidle'});await page.waitForFunction(()=>window.__leechExplorer);const restored=await snapshot(page);
     assert.strictEqual(restored.colour,configured.colour,'shared colour');assert.strictEqual(restored.edges,configured.edges,'shared edges');assert.ok(Math.abs(restored.zoom-configured.zoom)<.002,'shared zoom');assert.strictEqual(restored.selected,configured.selected,'shared selection');
 
-    await openScene(page,'petrie');await page.locator('#zoom-in').click();await page.locator('#zoom-in').click();const zoomed=(await snapshot(page)).zoom;await page.click('[data-scene="squares"]');await page.waitForTimeout(1100);assert.ok(Math.abs((await snapshot(page)).zoom-zoomed)<1e-9,'scene change keeps a user zoom');await page.click('#reset-view');await page.waitForTimeout(1100);assert.ok(Math.abs((await snapshot(page)).zoom-.95)<1e-6,'Reset restores the scene zoom');
+    await openScene(page,'petrie');await page.locator('#zoom-in').click();await page.locator('#zoom-in').click();const zoomed=(await snapshot(page)).zoom;await page.click('[data-scene="squares"]');await page.waitForTimeout(1100);assert.ok(Math.abs((await snapshot(page)).zoom-zoomed)<1e-9,'scene change keeps a user zoom');await page.click('#reset-view');await page.waitForTimeout(3200);assert.ok(Math.abs((await snapshot(page)).zoom-.95)<1e-6,'Reset restores the scene zoom');
     await page.locator('#change-time').fill('0');await page.click('[data-scene="octagonal"]');assert.strictEqual((await snapshot(page)).transitioning,false,'zero-second scene change is immediate');await page.locator('#change-time').fill('6');await page.click('[data-scene="squares"]');await page.waitForTimeout(1000);assert.strictEqual((await snapshot(page)).transitioning,true,'three-second scene change is still running after one second');await openScene(page,'petrie');
     await page.click('.options-card [data-window="24"]');assert.strictEqual((await snapshot(page)).window,24,'Options switches to all 24 dimensions');await page.click('.options-card [data-window="8"]');assert.strictEqual((await snapshot(page)).window,8,'Options switches to one octad');
     console.log('Canvas drift draw: '+(await page.evaluate(()=>window.__leechExplorer.averageDraw())).toFixed(2)+' ms average');

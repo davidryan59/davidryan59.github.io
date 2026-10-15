@@ -103,7 +103,7 @@
 
     var captions = {
       petrie: 'Seen through one octad, all 196,560 balls fall on 2,641 spots. The 240 gold dots are a copy of E8, one ball each.',
-      cox7: 'The same 2,641 spots as the opening view, from another of E8\'s Coxeter planes. Each ball sits somewhere else. Switch between the two and watch every ball move.',
+      cox7: 'The same 2,641 spots as E8 inside Leech, from another of E8\'s Coxeter planes. Each ball sits somewhere else. Switch between the two and watch every ball move.',
       octagonal: "E8's octagonal view of the same octad, with eight-fold symmetry.",
       squares: "E8's squares view of the same octad. Some spots merge here, so 1,821 remain.",
       e8edges: 'The 240 gold balls touch each other in 6,720 pairs. These are the edges of the E8 picture, inside the Leech lattice.',
@@ -124,7 +124,7 @@
       rot42: 'A rotation of order 21 turns this plane. With the central symmetry, the picture is 42-fold: 25,957 spots on 336 circles.',
       rot40: 'A rotation of order 40 turns this plane by 9°. 70,081 spots lie on 881 circles.',
       rot36: 'A rotation of order 36 turns this plane by 10°. 47,953 spots lie on 703 circles.',
-      rot30: 'A rotation of order 15 turns this plane by 24°. With the central symmetry, the picture is 30-fold, like the opening view, but with 7,861 spots on 165 circles.'
+      rot30: 'A rotation of order 15 turns this plane by 24°. With the central symmetry, the picture is 30-fold, like E8 inside Leech, but with 7,861 spots on 165 circles.'
     };
 
     function scene(id, label, sub, windowSize, rows, settings) {
@@ -144,13 +144,13 @@
     var e8Group='E8 inside Leech · one octad',coxeterGroup='Coxeter planes · one octad';
     var rotationGroup='Rotations · all 24 dimensions',otherGroup='Other views · all 24 dimensions';
     return [
-      scene('petrie', 'E8 inside Leech', '30-fold · 2,641 spots', 8, e8('coxeter'),
+      scene('petrie', 'E8 inside Leech', '30-fold', 8, e8('coxeter'),
         { featured: 1, group: e8Group, colour: 'shells', expect: { spots: 2641, symmetry: 30, notSymmetry: 60 } }),
-      scene('cox7', 'Coxeter 84°', 'same spots, new places', 8, e8('coxeter7'),
+      scene('cox7', 'Coxeter 84°', 'new places', 8, e8('coxeter7'),
         { group: e8Group, colour: 'shells', expect: { spots: 2641, symmetry: 30, notSymmetry: 60 } }),
       scene('octagonal', 'Octagonal', '8-fold', 8, e8('octagonal'),
         { group: e8Group, colour: 'shells', expect: { spots: 2641, symmetry: 8, notSymmetry: 16 } }),
-      scene('squares', 'Squares', '1,821 spots', 8, e8('squares'),
+      scene('squares', 'Squares', '4-fold', 8, e8('squares'),
         { featured: 2, group: e8Group, colour: 'shells', expect: { spots: 1821, symmetry: 4 } }),
       scene('e8edges', 'E8 edges', '6,720 edges', 8, e8('coxeter'),
         { group: e8Group, colour: 'shells', weights: [0.25, 0.25, 0.25, 1], edges: 'e8',
@@ -162,19 +162,19 @@
       scene('oct14', 'D8 plane', '14-fold', 8, ROTATIONS['14C'], { group: coxeterGroup, colour: 'shells', expect: { spots: 1331, symmetry: 14, notSymmetry: 28, radii: 65, maxRadius: 1.6986 } }),
       scene('oct12', 'E6 plane', '12-fold', 8, ROTATIONS['24D'], { group: coxeterGroup, colour: 'shells', expect: { spots: 193, symmetry: 12, notSymmetry: 24, radii: 15, maxRadius: 1.7761 } }),
       scene('oct8', 'D5 plane', '8-fold', 8, ROTATIONS['16A'], { group: coxeterGroup, colour: 'shells', expect: { spots: 193, symmetry: 8, notSymmetry: 16, radii: 20, maxRadius: 1.8478 } }),
-      scene('rot84', '84-fold', '196,560 spots', 24, ROTATIONS['84A'], { group: rotationGroup, expect: { spots: 196560, symmetry: 84, notSymmetry: 168, radii: 1290, maxRadius: 1.4637 } }),
-      scene('rot66', '66-fold', '172,657 spots', 24, ROTATIONS['33A'], { group: rotationGroup, expect: { spots: 172657, symmetry: 66, notSymmetry: 132, radii: 1366, maxRadius: 1.5251 } }),
-      scene('rot60', '60-fold', '70,081 spots', 24, ROTATIONS['60C'], { group: rotationGroup, expect: { spots: 70081, symmetry: 60, notSymmetry: 120, radii: 673, maxRadius: 1.4534 } }),
-      scene('cloud23', '46-fold', '191,407 spots', 24, rows23, { featured: 4, group: rotationGroup, colour: 'shapes', expect: { spots: 191407, symmetry: 46, centre: 2 } }),
-      scene('rot42', '42-fold', '25,957 spots', 24, ROTATIONS['21B'], { group: rotationGroup, expect: { spots: 25957, symmetry: 42, notSymmetry: 84, radii: 336, maxRadius: 1.4823 } }),
-      scene('rot40', '40-fold', '70,081 spots', 24, ROTATIONS['40A'], { group: rotationGroup, expect: { spots: 70081, symmetry: 40, notSymmetry: 80, radii: 881, maxRadius: 1.5120 } }),
-      scene('rot36', '36-fold', '47,953 spots', 24, ROTATIONS['36A'], { group: rotationGroup, expect: { spots: 47953, symmetry: 36, notSymmetry: 72, radii: 703, maxRadius: 1.4934 } }),
-      scene('rot30', '30-fold', '7,861 spots', 24, ROTATIONS['15D'], { group: rotationGroup, expect: { spots: 7861, symmetry: 30, notSymmetry: 60, radii: 165, maxRadius: 1.5210 } }),
-      scene('rosette11', '22-fold', '126,061 spots', 24, symmetricRows11(), { group: rotationGroup, colour: 'shapes', expect: { spots: 126061, symmetry: 22 } }),
-      scene('cloud', 'All 196,560', '24 dimensions', 24, randomRows, { featured: 3, group: otherGroup, colour: 'shapes', expect: { spots: 196560, symmetry: 2, maxRadius: 1.6532 } }),
-      scene('hexagon', 'Hexagon', '25 spots', 24, hexagonRows, { featured: 5, group: otherGroup, colour: 'shapes', expect: { spots: 25, symmetry: 6, maxRadius: 2 } }),
-      scene('coordinates', 'Coordinates', '29 spots', 24, coordinateRows, { group: otherGroup, colour: 'shapes', expect: { spots: 29, symmetry: 4, maxRadius: 2 } }),
-      scene('layers', 'Seven layers', 'around one ball', 24, layerRows, { featured: 6, group: otherGroup, colour: 'layers', selected: Leech.FIXED, expect: { spots: 146907, symmetry: 2, xValues: [-2, -1, -0.5, 0, 0.5, 1, 2] } })
+      scene('rot84', '84-fold', '', 24, ROTATIONS['84A'], { group: rotationGroup, expect: { spots: 196560, symmetry: 84, notSymmetry: 168, radii: 1290, maxRadius: 1.4637 } }),
+      scene('rot66', '66-fold', '', 24, ROTATIONS['33A'], { group: rotationGroup, expect: { spots: 172657, symmetry: 66, notSymmetry: 132, radii: 1366, maxRadius: 1.5251 } }),
+      scene('rot60', '60-fold', '', 24, ROTATIONS['60C'], { group: rotationGroup, expect: { spots: 70081, symmetry: 60, notSymmetry: 120, radii: 673, maxRadius: 1.4534 } }),
+      scene('cloud23', '46-fold', '', 24, rows23, { featured: 4, group: rotationGroup, colour: 'shapes', expect: { spots: 191407, symmetry: 46, centre: 2 } }),
+      scene('rot42', '42-fold', '', 24, ROTATIONS['21B'], { group: rotationGroup, expect: { spots: 25957, symmetry: 42, notSymmetry: 84, radii: 336, maxRadius: 1.4823 } }),
+      scene('rot40', '40-fold', '', 24, ROTATIONS['40A'], { group: rotationGroup, expect: { spots: 70081, symmetry: 40, notSymmetry: 80, radii: 881, maxRadius: 1.5120 } }),
+      scene('rot36', '36-fold', '', 24, ROTATIONS['36A'], { group: rotationGroup, expect: { spots: 47953, symmetry: 36, notSymmetry: 72, radii: 703, maxRadius: 1.4934 } }),
+      scene('rot30', '30-fold', '', 24, ROTATIONS['15D'], { group: rotationGroup, expect: { spots: 7861, symmetry: 30, notSymmetry: 60, radii: 165, maxRadius: 1.5210 } }),
+      scene('rosette11', '22-fold', '', 24, symmetricRows11(), { group: rotationGroup, colour: 'shapes', expect: { spots: 126061, symmetry: 22 } }),
+      scene('cloud', 'All 196,560', 'generic', 24, randomRows, { featured: 3, group: otherGroup, colour: 'shapes', expect: { spots: 196560, symmetry: 2, maxRadius: 1.6532 } }),
+      scene('hexagon', 'Hexagon', '6-fold', 24, hexagonRows, { featured: 5, group: otherGroup, colour: 'shapes', expect: { spots: 25, symmetry: 6, maxRadius: 2 } }),
+      scene('coordinates', 'Coordinates', '4-fold', 24, coordinateRows, { group: otherGroup, colour: 'shapes', expect: { spots: 29, symmetry: 4, maxRadius: 2 } }),
+      scene('layers', 'Seven layers', 'one ball', 24, layerRows, { featured: 6, group: otherGroup, colour: 'layers', selected: Leech.FIXED, expect: { spots: 146907, symmetry: 2, xValues: [-2, -1, -0.5, 0, 0.5, 1, 2] } })
     ];
   }
 
