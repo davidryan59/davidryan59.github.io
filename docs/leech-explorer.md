@@ -39,7 +39,7 @@ preset frames. Leave `app/e8/` unchanged.
 - [x] Phase 7: Publish: credits, builder page, addresses and full checks (2026-10-15)
 - [x] Phase 8: Share card (2026-10-15)
 - [x] Phase 9: Builder thumbnail (2026-10-15)
-- [ ] Phase 10: Silent film
+- [x] Phase 10: Silent film (2026-10-19)
 - [ ] Tried on a real phone, an iPad and Safari
 
 Phases 1 to 3 run under Node alone and can be built in one session. Phase 4
@@ -1686,6 +1686,18 @@ Suggested beats, about 30 s in all:
 8. The hexagon crystallises.
 9. The 23-fold rings.
 10. The opening view returns, with the address.
+
+**As built, 2026-10-19.** David chose a different story from the beats
+above, written before the rotation scenes existed. The film moves between
+rotation scenes through scenes with few spots: Step on 36-fold, Hexagon,
+60-fold, Rings, Coordinates, 42-fold, E8 inside Leech in Shells, Next E8,
+Seven layers, 30-fold in Layers colour, and back to 36-fold. It runs 42 s
+at 1440 × 1080 and 30 fps, in the dark theme, which David chose for this
+film because the light dots read better on a dark background. Scene
+changes take 2 s. The details panel stays collapsed to its rail. A still of
+the first frame fades in over the last second, since the return to 36-fold
+lands at a slight angle and keeps the selected ball's marker. The tool is
+`tools/leech-video/`, with its own README and storyboard.
 
 ## Later
 
