@@ -289,14 +289,12 @@ const scenes = LeechScenes.build({ Leech, Frame, E8, data });
 assert.strictEqual(scenes.length, 23);
 assert.deepStrictEqual(scenes.map(scene => scene.id),
   ['petrie', 'cox7', 'octagonal', 'squares', 'e8edges', 'weave',
-    'oct18', 'oct14', 'oct12', 'oct8',
     'rot84', 'rot66', 'rot60', 'cloud23', 'rot42', 'rot40', 'rot36', 'rot30', 'rosette11',
-    'cloud', 'hexagon', 'coordinates', 'layers']);
+    'cloud', 'hexagon', 'coordinates', 'layers', 'oct18', 'oct14', 'oct12', 'oct8']);
 assert.deepStrictEqual(scenes.filter(scene => scene.featured).sort((a, b) => a.featured - b.featured).map(scene => scene.id),
   ['petrie', 'squares', 'cloud', 'cloud23', 'hexagon', 'layers']);
 assert.deepStrictEqual(Array.from(new Set(scenes.map(scene => scene.group))), [
-  'E8 inside Leech · one octad', 'Coxeter planes · one octad',
-  'Rotations · all 24 dimensions', 'Other views · all 24 dimensions'
+  'E8 inside Leech · one octad', 'Rotations · all 24 dimensions', 'Other views'
 ]);
 
 for (const view of co0Views.views) {

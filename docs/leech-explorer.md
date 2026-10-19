@@ -1138,10 +1138,10 @@ different places.
 
 | id | Button: label · sub | Window | Class | Spots | Symmetry | Radii | Max radius |
 |---|---|---:|---|---:|---:|---:|---:|
-| `oct18` | E7 plane · 18-fold | 8 | 18D | 955 | 18 | 42 | 1.6881 |
-| `oct14` | D8 plane · 14-fold | 8 | 14C | 1,331 | 14 | 65 | 1.6986 |
-| `oct12` | E6 plane · 12-fold | 8 | 24D | 193 | 12 | 15 | 1.7761 |
-| `oct8` | D5 plane · 8-fold | 8 | 16A | 193 | 8 | 20 | 1.8478 |
+| `oct18` | E7 Coxeter · 18-fold | 8 | 18D | 955 | 18 | 42 | 1.6881 |
+| `oct14` | D8 Coxeter · 14-fold | 8 | 14C | 1,331 | 14 | 65 | 1.6986 |
+| `oct12` | E6 Coxeter · 12-fold | 8 | 24D | 193 | 12 | 15 | 1.7761 |
+| `oct8` | D5 Coxeter · 8-fold | 8 | 16A | 193 | 8 | 20 | 1.8478 |
 | `rot84` | 84-fold · 196,560 spots | 24 | 84A | 196,560 | 84 | 1,290 | 1.4637 |
 | `rot66` | 66-fold · 172,657 spots | 24 | 33A | 172,657 | 66 | 1,366 | 1.5251 |
 | `rot60` | 60-fold · 70,081 spots | 24 | 60C | 70,081 | 60 | 673 | 1.4534 |
@@ -1188,11 +1188,10 @@ order:
 
 1. **E8 inside Leech · one octad:** `petrie`, `cox7`, `octagonal`,
    `squares`, `e8edges`, `weave`.
-2. **Coxeter planes · one octad:** `oct18`, `oct14`, `oct12`, `oct8`.
-3. **Rotations · all 24 dimensions:** `rot84`, `rot66`, `rot60`, `cloud23`,
+2. **Rotations · all 24 dimensions:** `rot84`, `rot66`, `rot60`, `cloud23`,
    `rot42`, `rot40`, `rot36`, `rot30`, `rosette11`, `rings23`.
-4. **Other views · all 24 dimensions:** `cloud`, `hexagon`, `coordinates`,
-   `layers`.
+3. **Other views:** `cloud`, `hexagon`, `coordinates`, `layers`, `oct18`,
+   `oct14`, `oct12`, `oct8`.
 
 - Each group gets a small heading across both button columns. The card body
   scrolls when the groups do not fit.
@@ -1318,6 +1317,18 @@ place as featured scene 4, so 23 scenes remain. Other fixes:
 - A page address without `ct` now keeps the 1 s scene change. It used to
   read as 0 s.
 - Zoom reaches 8 instead of 4.
+
+**Grouping change, 2026-10-19.** The separate Coxeter-plane group was
+removed. E7, D8, E6 and D5 Coxeter now sit at the bottom of Other views. The
+panel has three groups, and Other views no longer claims that every scene in
+it uses all 24 dimensions.
+
+**Details drawer, 2026-10-19.** The right-hand results panel is now a Details
+drawer. Its left edge supports drag resizing from 270 to 520 px, press to
+hide or restore, and arrow-key resizing. A drag toward the right edge snaps
+it closed. Wide screens show it on a first visit. Phones and short landscape
+screens hide it. Each layout remembers its own choice and the last wide-screen
+width. On an upright phone, a Details button opens the panel below the stage.
 - The rested-spot cache is keyed by scale and centre as well as scene. Before
   this fix, Hexagon and Coordinates kept their old spot positions when
   zoomed.

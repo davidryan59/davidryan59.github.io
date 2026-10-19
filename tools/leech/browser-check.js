@@ -45,6 +45,13 @@ async function makeContactSheet(browser,files,target){
   assert.strictEqual(await page.title(),'Leech Lattice Explorer','page title');
   assert.strictEqual(await page.locator('meta[property="og:image"]').getAttribute('content'),'https://drbuild.uk/social/leech.jpg','sharing card');assert.strictEqual(await page.locator('meta[name="twitter:card"]').getAttribute('content'),'summary_large_image','large Twitter card');assert.ok(await page.locator('meta[name="twitter:image:alt"]').getAttribute('content'),'card alt text');
   const stage=await page.locator('#stage').boundingBox();assert.ok(stage&&stage.width>700&&stage.height>700,'large stage');
+  const panelWidth=(await page.locator('.results').boundingBox()).width;await page.click('#details-toggle');await page.waitForTimeout(100);
+  assert.ok((await page.locator('.results').boundingBox()).width<=30,'Details press closes the panel');assert.ok((await page.locator('#stage').boundingBox()).width>stage.width+250,'closed Details expands the stage');
+  await page.click('#details-toggle');await page.waitForTimeout(100);assert.ok(Math.abs((await page.locator('.results').boundingBox()).width-panelWidth)<2,'Details press restores the panel');
+  let rail=await page.locator('#details-toggle').boundingBox(),railX=rail.x+rail.width/2;await page.mouse.move(railX,rail.y+120);await page.mouse.down();await page.mouse.move(railX-70,rail.y+120,{steps:6});await page.mouse.up();await page.waitForTimeout(100);
+  assert.ok((await page.locator('.results').boundingBox()).width>panelWidth+60,'Details rail drags wider');
+  rail=await page.locator('#details-toggle').boundingBox();railX=rail.x+rail.width/2;await page.mouse.move(railX,rail.y+120);await page.mouse.down();await page.mouse.move(railX+70,rail.y+120,{steps:6});await page.mouse.up();await page.waitForTimeout(100);
+  assert.ok(Math.abs((await page.locator('.results').boundingBox()).width-panelWidth)<3,'Details rail drags back');
   let state=await snapshot(page);assert.strictEqual(state.scene,'rot36','opening scene');assert.strictEqual(state.window,24,'opening window');assert.strictEqual(state.playing,false,'opening view is paused');assert.strictEqual(state.colour,'shapes','opening colour');
   await page.waitForTimeout(600);assert.match(await page.locator('#renderer-status').textContent(),/^47,953 spots/,'opening status counts spots at rest');
   for(const heading of await page.locator('.scene-group-heading').all()){const box=await heading.boundingBox(),body=await page.locator('.show-card .card-body').boundingBox();assert.ok(box&&box.y>=body.y&&box.y+box.height<=body.y+body.height+1,'group heading in view: '+await heading.textContent());}
@@ -119,7 +126,7 @@ async function makeContactSheet(browser,files,target){
   await openScene(page,'petrie');await page.click('#next-octad');await page.waitForTimeout(4400);state=await snapshot(page);assert.strictEqual(state.octad,1,'Next E8 changes octad');assert.ok(state.tilt<1e-8,'Next E8 clears tilt');assert.strictEqual(state.spotCount,2641,'Next E8 spot count');
 
   const visited=[];await openScene(page,'petrie');for(let i=1;i<23;i++)visited.push(await page.evaluate(()=>window.__leechExplorer.advanceTour()));assert.deepStrictEqual(visited,tourExpected().slice(1),'tour order');
-  function tourExpected(){return['petrie','cox7','octagonal','squares','e8edges','weave','oct18','oct14','oct12','oct8','rot84','rot66','rot60','cloud23','rot42','rot40','rot36','rot30','rosette11','cloud','hexagon','coordinates','layers'];}
+  function tourExpected(){return['petrie','cox7','octagonal','squares','e8edges','weave','rot84','rot66','rot60','cloud23','rot42','rot40','rot36','rot30','rosette11','cloud','hexagon','coordinates','layers','oct18','oct14','oct12','oct8'];}
 
   const sceneFiles=[],densityFiles=[];if(await page.evaluate(()=>document.documentElement.dataset.theme!=='dark'))await page.click('.theme-toggle');await page.click('[data-points="raw"]');
   for(const id of tourExpected()){await openScene(page,id);const file=path.join(sceneRenders,id+'.png');await page.screenshot({path:file});sceneFiles.push(file);}
@@ -129,7 +136,11 @@ async function makeContactSheet(browser,files,target){
   await openScene(page,'cloud');const canvas=await page.locator('#overlay').boundingBox();await page.mouse.move(canvas.x+canvas.width*.7,canvas.y+canvas.height*.72);await page.mouse.down();await page.mouse.move(canvas.x+canvas.width*.7+48,canvas.y+canvas.height*.72+18,{steps:6});await page.mouse.up();await page.waitForTimeout(180);assert.match(page.url(),/[#&]p=/,'free view address');const free=await snapshot(page),freeUrl=page.url();await page.goto(freeUrl,{waitUntil:'networkidle'});await page.waitForFunction(()=>window.__leechExplorer);const freeRestored=await snapshot(page);assert.strictEqual(freeRestored.window,24,'free 24D window reload');assert.ok(freeRestored.orthogonalityError<1e-7,'free 24D frame reload');assert.ok(Math.abs(freeRestored.frame[0][0]-free.frame[0][0])<1/32767+.0001,'free row reload');
 
   await page.evaluate(()=>window.__leechExplorer.loseContext());await page.waitForTimeout(1000);assert.strictEqual((await snapshot(page)).renderer,'cloud','cloud returns after context restore');
+  const phone=await browser.newPage({viewport:{width:393,height:659},hasTouch:true,isMobile:true});await phone.goto(root,{waitUntil:'networkidle'});await phone.waitForFunction(()=>window.__leechExplorer);
+  assert.ok(await phone.locator('#details-mobile').isVisible(),'phone has a Details button');assert.strictEqual(await phone.locator('#details-content').isVisible(),false,'phone Details defaults closed');
+  await phone.click('#details-mobile');await phone.waitForTimeout(300);assert.ok(await phone.locator('#details-content').isVisible(),'phone Details button opens the panel');assert.strictEqual(await phone.locator('#details-toggle').getAttribute('aria-expanded'),'true','phone Details state is exposed');
+  await phone.click('#details-toggle');assert.strictEqual(await phone.locator('#details-content').isVisible(),false,'phone Details heading collapses the panel');await phone.close();
   console.log('WebGL draw loop: '+(await page.evaluate(()=>window.__leechExplorer.averageDraw())).toFixed(2)+' ms average');
   assert.deepStrictEqual(errors,[],'browser errors');await browser.close();
-  console.log('Leech browser checks passed: Canvas spots, WebGL cloud, selection, tilt, tour, Spin, Step, pan, hidden controls, Rings, address and context restore.');
+  console.log('Leech browser checks passed: Canvas spots, WebGL cloud, selection, tilt, tour, Spin, Step, pan, Details drawer, hidden controls, Rings, address and context restore.');
 })().catch(error=>{console.error(error.stack||error);process.exit(1);});

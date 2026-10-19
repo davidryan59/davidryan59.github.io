@@ -141,8 +141,8 @@
       return result;
     }
 
-    var e8Group='E8 inside Leech · one octad',coxeterGroup='Coxeter planes · one octad';
-    var rotationGroup='Rotations · all 24 dimensions',otherGroup='Other views · all 24 dimensions';
+    var e8Group='E8 inside Leech · one octad';
+    var rotationGroup='Rotations · all 24 dimensions',otherGroup='Other views';
     return [
       scene('petrie', 'E8 inside Leech', '30-fold', 8, e8('coxeter'),
         { featured: 1, group: e8Group, colour: 'shells', expect: { spots: 2641, symmetry: 30, notSymmetry: 60 } }),
@@ -158,10 +158,6 @@
       scene('weave', 'Weave', 'tilt 4°', 8, e8('coxeter'),
         { group: e8Group, colour: 'shells', tilt: 4 * Math.PI / 180,
           expect: { spots: 70081, symmetry: 2, tilt45Spots: 17665, tilt90Spots: 2641, tilt90Symmetry: 30 } }),
-      scene('oct18', 'E7 plane', '18-fold', 8, ROTATIONS['18D'], { group: coxeterGroup, colour: 'shells', expect: { spots: 955, symmetry: 18, notSymmetry: 36, radii: 42, maxRadius: 1.6881 } }),
-      scene('oct14', 'D8 plane', '14-fold', 8, ROTATIONS['14C'], { group: coxeterGroup, colour: 'shells', expect: { spots: 1331, symmetry: 14, notSymmetry: 28, radii: 65, maxRadius: 1.6986 } }),
-      scene('oct12', 'E6 plane', '12-fold', 8, ROTATIONS['24D'], { group: coxeterGroup, colour: 'shells', expect: { spots: 193, symmetry: 12, notSymmetry: 24, radii: 15, maxRadius: 1.7761 } }),
-      scene('oct8', 'D5 plane', '8-fold', 8, ROTATIONS['16A'], { group: coxeterGroup, colour: 'shells', expect: { spots: 193, symmetry: 8, notSymmetry: 16, radii: 20, maxRadius: 1.8478 } }),
       scene('rot84', '84-fold', '', 24, ROTATIONS['84A'], { group: rotationGroup, expect: { spots: 196560, symmetry: 84, notSymmetry: 168, radii: 1290, maxRadius: 1.4637 } }),
       scene('rot66', '66-fold', '', 24, ROTATIONS['33A'], { group: rotationGroup, expect: { spots: 172657, symmetry: 66, notSymmetry: 132, radii: 1366, maxRadius: 1.5251 } }),
       scene('rot60', '60-fold', '', 24, ROTATIONS['60C'], { group: rotationGroup, expect: { spots: 70081, symmetry: 60, notSymmetry: 120, radii: 673, maxRadius: 1.4534 } }),
@@ -174,7 +170,11 @@
       scene('cloud', 'All 196,560', 'generic', 24, randomRows, { featured: 3, group: otherGroup, colour: 'shapes', expect: { spots: 196560, symmetry: 2, maxRadius: 1.6532 } }),
       scene('hexagon', 'Hexagon', '6-fold', 24, hexagonRows, { featured: 5, group: otherGroup, colour: 'shapes', expect: { spots: 25, symmetry: 6, maxRadius: 2 } }),
       scene('coordinates', 'Coordinates', '4-fold', 24, coordinateRows, { group: otherGroup, colour: 'shapes', expect: { spots: 29, symmetry: 4, maxRadius: 2 } }),
-      scene('layers', 'Seven layers', 'one ball', 24, layerRows, { featured: 6, group: otherGroup, colour: 'layers', selected: Leech.FIXED, expect: { spots: 146907, symmetry: 2, xValues: [-2, -1, -0.5, 0, 0.5, 1, 2] } })
+      scene('layers', 'Seven layers', 'one ball', 24, layerRows, { featured: 6, group: otherGroup, colour: 'layers', selected: Leech.FIXED, expect: { spots: 146907, symmetry: 2, xValues: [-2, -1, -0.5, 0, 0.5, 1, 2] } }),
+      scene('oct18', 'E7 Coxeter', '18-fold', 8, ROTATIONS['18D'], { group: otherGroup, colour: 'shells', expect: { spots: 955, symmetry: 18, notSymmetry: 36, radii: 42, maxRadius: 1.6881 } }),
+      scene('oct14', 'D8 Coxeter', '14-fold', 8, ROTATIONS['14C'], { group: otherGroup, colour: 'shells', expect: { spots: 1331, symmetry: 14, notSymmetry: 28, radii: 65, maxRadius: 1.6986 } }),
+      scene('oct12', 'E6 Coxeter', '12-fold', 8, ROTATIONS['24D'], { group: otherGroup, colour: 'shells', expect: { spots: 193, symmetry: 12, notSymmetry: 24, radii: 15, maxRadius: 1.7761 } }),
+      scene('oct8', 'D5 Coxeter', '8-fold', 8, ROTATIONS['16A'], { group: otherGroup, colour: 'shells', expect: { spots: 193, symmetry: 8, notSymmetry: 16, radii: 20, maxRadius: 1.8478 } })
     ];
   }
 

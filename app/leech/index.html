@@ -93,10 +93,13 @@
     <div class="zoom-card" aria-label="View controls"><button id="zoom-in" type="button" aria-label="Zoom in">+</button><button id="zoom-out" type="button" aria-label="Zoom out">−</button><button id="reset-view" type="button" aria-label="Reset view" title="Reset (R)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg></button></div>
     <div class="hover-card" id="hover-card" hidden></div>
     <button class="show-controls" id="show-controls" type="button">Show controls</button>
+    <button class="details-mobile" id="details-mobile" type="button" aria-controls="details-content" aria-expanded="false">Details ↓</button>
     <div class="stage-status"><span id="renderer-status">47,953 spots</span><span id="motion-status">drag to rotate · shift-drag to pan · H hides controls</span></div>
   </section>
 
   <aside class="results" aria-live="polite">
+    <button class="details-rail" id="details-toggle" type="button" aria-expanded="true" aria-controls="details-content" title="Drag to resize; press to hide details"><span>Details</span><i aria-hidden="true">›</i></button>
+    <div class="results-content" id="details-content">
     <div class="result-title"><span class="eyebrow">Current view</span><h2 id="scene-name">36-fold</h2><p id="scene-caption"></p></div>
     <section class="result-section">
       <div class="selected-head"><span class="eyebrow">Selected ball</span><button class="text-button" id="clear-selection" type="button" hidden>Clear</button></div><h3 id="ball-name">No ball selected</h3>
@@ -105,8 +108,9 @@
       <p class="secondary" id="spot-detail"></p>
     </section>
     <section class="result-section layer-section"><span class="eyebrow">Seven layers from this ball</span><div id="layer-table"></div></section>
-    <section class="result-section prose"><h3>How to explore</h3><p>Choose among E8 views, octad Coxeter planes, 24-dimensional rotations and other views. The number on each button counts its spots. Tap a group heading to open or close it.</p><p>Drift turns the view through hidden dimensions, so it leaves the scene. Spin turns the picture in its own plane, and Step turns it by exactly one symmetry: every spot lands on a spot.</p><p>Select a ball to inspect it. Shift-drag pans when zoomed, and H hides every control.</p><p>Rings colours each ball by its distance from the centre at the moment you choose it. The balls keep that colour as they move. Raw shows every occupied pixel at full colour. Density reveals piles and marks its glow scenes with ◐.</p></section>
+    <section class="result-section prose"><h3>How to explore</h3><p>Choose among E8 views, 24-dimensional rotations and other views. The number on each button counts its spots. Tap a group heading to open or close it.</p><p>Drift turns the view through hidden dimensions, so it leaves the scene. Spin turns the picture in its own plane, and Step turns it by exactly one symmetry: every spot lands on a spot.</p><p>Select a ball to inspect it. Shift-drag pans when zoomed, and H hides every control. Drag or press the Details edge to resize or hide this panel.</p><p>Rings colours each ball by its distance from the centre at the moment you choose it. The balls keep that colour as they move. Raw shows every occupied pixel at full colour. Density reveals piles and marks its glow scenes with ◐.</p></section>
     <nav class="sources" aria-label="Sources"><a href="https://doi.org/10.4153/CJM-1967-017-0" target="_blank" rel="noopener">John Leech, <i>Notes on sphere packings</i></a><a href="../e8/">E8 root system explorer</a><a href="credits.html">Method &amp; credits</a></nav>
+    </div>
   </aside>
 </main>
 
