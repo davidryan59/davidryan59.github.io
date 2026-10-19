@@ -40,7 +40,7 @@ preset frames. Leave `app/e8/` unchanged.
 - [x] Phase 8: Share card (2026-10-15)
 - [x] Phase 9: Builder thumbnail (2026-10-15)
 - [x] Phase 10: Silent film (2026-10-19)
-- [ ] Tried on a real phone, an iPad and Safari
+- [x] Tried on a real phone (2026-10-19): fine. The explorer is aimed at desktop browsers
 
 Phases 1 to 3 run under Node alone and can be built in one session. Phase 4
 gives a working app with the seven 8-dimension scenes. Phases 5 and 6 add the
