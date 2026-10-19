@@ -15,7 +15,7 @@
   var width=1,height=1,dpr=1,scale=1,centre=[.5,.5],origin=[.5,.5],lastTime=performance.now(),transition=null,nextAnimation=null;
   var projected=new Float32Array(Leech.COUNT*2),projectionValid=false,currentGroups=[],visibleCache=null,crystalCache=new Map();
   var pointers=new Map(),pinch=null,drag=null,tourIndex=0,tourDeadline=0,hashTimer=0,renderSamples=[];
-  var previousRenderer='spots',crystalFadeStart=0,restGroups=null,hoverRadius=null,litCircle=null,stepAnimation=null,statusMessage=null;
+  var previousRenderer='spots',crystalFadeStart=0,restGroups=null,stepAnimation=null,statusMessage=null;
   var bands=new Uint8Array(Leech.COUNT),bandsSet=false,openGroups=new Set(),showControlsTimer=0;
   var initialDriftAt=performance.now()+2600;
   var SQRT8=Math.sqrt(8),DEFAULT_SCENE='rot36',restSpots=0;
@@ -250,41 +250,21 @@
     state.renderer=renderer;state.visibleCount=visibleCount;
     if(!groups){if(renderer==='spots')groups=state.window===8&&state.tilt<1e-9?octadGroups():crystallise();else if(renderer==='discs')groups=sparseGroups();else groups=[];}
     currentGroups=groups;state.spotCount=renderer==='spots'?groups.length:0;
-    var circle=findCircle(renderer==='cloud'?restGroups:groups,renderer);
     cloudCanvas.style.visibility=drawCloud?'visible':'hidden';cloudCanvas.style.opacity=drawCloud&&renderer!=='cloud'?String(1-spotOpacity):'1';$('brightness-row').hidden=renderer!=='cloud'||state.points==='raw';
     var colours=palette(),markers=markerPositions();
     if(drawCloud){
       var rows=displayRows(),uniformRows=new Float32Array(48);for(var i=0;i<24;i++){uniformRows[i]=rows[0][i]/SQRT8;uniformRows[24+i]=rows[1][i]/SQRT8;}
-      cloud.draw({rows:uniformRows,centre:origin,scale:scale,pointSize:Math.max(1.25,2*state.dotSize),mode:modeIndex(),octad:state.octad,selected:state.colour==='layers'?rowVector(state.selected):null,colours:rgbFloats(colours),weights:new Float32Array(state.weights),background:isDark()?[17/255,19/255,24/255]:[246/255,243/255,236/255],brightness:state.brightness,opacity:circle&&renderer==='cloud'?.4:1,raw:state.points==='raw'});
+      cloud.draw({rows:uniformRows,centre:origin,scale:scale,pointSize:Math.max(1.25,2*state.dotSize),mode:modeIndex(),octad:state.octad,selected:state.colour==='layers'?rowVector(state.selected):null,colours:rgbFloats(colours),weights:new Float32Array(state.weights),background:isDark()?[17/255,19/255,24/255]:[246/255,243/255,236/255],brightness:state.brightness,opacity:1,raw:state.points==='raw'});
     }
-    var lines=edgeLines(groups),shown=renderer==='cloud'&&circle?circle.groups:groups;
-    overlay.draw({centre:origin,scale:scale,groups:shown,discs:renderer==='discs',raw:state.points==='raw'||renderer==='cloud',maxPile:shown.reduce(function(max,g){return Math.max(max,g.pile);},1),colours:colours,weights:state.weights,dotSize:state.dotSize,lines:lines,edgeStrength:state.edges==='spokes'?Math.min(.2,state.edgeStrength):state.edgeStrength,lineWidth:state.edges==='spokes'?.7:.65,spotOpacity:spotOpacity,marker:renderer==='cloud'?markers.marker:null,centreColour:paletteFor('shapes')[0],centreRadius:2.5*state.dotSize,circle:circle});
-    state.circle=circle?{radius:circle.radius,spots:circle.groups.length,balls:circle.balls}:null;
-    $('renderer-status').textContent=statusText(renderer,groups,visibleCount,circle,now);
+    var lines=edgeLines(groups);
+    overlay.draw({centre:origin,scale:scale,groups:groups,discs:renderer==='discs',raw:state.points==='raw'||renderer==='cloud',maxPile:groups.reduce(function(max,g){return Math.max(max,g.pile);},1),colours:colours,weights:state.weights,dotSize:state.dotSize,lines:lines,edgeStrength:state.edges==='spokes'?Math.min(.2,state.edgeStrength):state.edgeStrength,lineWidth:state.edges==='spokes'?.7:.65,spotOpacity:spotOpacity,marker:renderer==='cloud'?markers.marker:null,centreColour:paletteFor('shapes')[0],centreRadius:2.5*state.dotSize});
+    $('renderer-status').textContent=statusText(renderer,groups,visibleCount,now);
     previousRenderer=renderer;renderSamples.push(performance.now()-drawStart);if(renderSamples.length>120)renderSamples.shift();
   }
 
-  // The circle to light: the hovered spot's, or else the circle of a ball the visitor selected.
-  function findCircle(source,renderer){
-    if(!source||!source.length)return null;
-    var radius=hoverRadius;
-    if(radius===null&&state.selected>=0&&state.selected!==state.defaultSelected){var point=projectIndex(state.selected);radius=Math.hypot(point[0]-origin[0],point[1]-origin[1])/scale;}
-    if(radius===null)return null;
-    var key=renderer+'|'+crystalKey()+'|'+radius.toFixed(9)+'|'+source.length;
-    if(renderer!=='cloud'||!litCircle||litCircle.key!==key){
-      var lit=source.filter(function(group){return Math.abs(group.r-radius)<=1e-6;});
-      if(!lit.length)return null;
-      litCircle={key:key,radius:lit[0].r,groups:lit,balls:lit.reduce(function(total,group){return total+group.pile;},0)};
-    }
-    return litCircle;
-  }
-
-  function statusText(renderer,groups,visibleCount,circle,now){
-    var circleText=circle?circle.groups.length.toLocaleString()+' spot'+(circle.groups.length===1?'':'s')+' · '+circle.balls.toLocaleString()+' ball'+(circle.balls===1?'':'s')+' on this circle':'';
-    if(circle&&hoverRadius!==null)return circleText;
+  function statusText(renderer,groups,visibleCount,now){
     if(statusMessage&&(now>=statusMessage.until||state.playing||!state.scene||transition))statusMessage=null;
     if(statusMessage)return statusMessage.text;
-    if(circle)return circleText;
     var scene=sceneById.get(state.scene),known=scene&&!transition&&!nextAnimation&&!scene.weights&&state.weights.every(function(value){return value>0;})?scene.expect.spots:0;
     if(renderer==='cloud'){var spots=restSpots||known;return(spots?spots.toLocaleString()+' spots · ':'')+visibleCount.toLocaleString()+' balls · WebGL 2';}
     return renderer==='discs'?visibleCount.toLocaleString()+' balls':groups.length.toLocaleString()+' spots';
@@ -396,7 +376,7 @@
 
   overlayCanvas.addEventListener('pointerdown',function(event){
     if(state.uiHidden)nudgeShowControls();
-    overlayCanvas.setPointerCapture(event.pointerId);var point=local(event);pointers.set(event.pointerId,point);state.dragging=true;state.playing=false;hoverRadius=null;updateControls();
+    overlayCanvas.setPointerCapture(event.pointerId);var point=local(event);pointers.set(event.pointerId,point);state.dragging=true;state.playing=false;updateControls();
     if(pointers.size===2){var values=Array.from(pointers.values());pinch={distance:Math.hypot(values[0][0]-values[1][0],values[0][1]-values[1][1]),angle:Math.atan2(values[1][1]-values[0][1],values[1][0]-values[0][0]),zoom:state.zoom,mid:[(values[0][0]+values[1][0])/2,(values[0][1]+values[1][1])/2]};return;}
     if(event.shiftKey&&event.pointerType==='mouse'){drag={start:point,last:point,mode:'pan',moved:false};overlayCanvas.classList.add('grabbing');return;}
     var marker=markerPositions().marker,hitMarker=marker&&Math.hypot(point[0]-marker[0],point[1]-marker[1])<=(event.pointerType==='touch'?20:12);
@@ -414,9 +394,9 @@
       if(drag.mode==='pull')Frame.pull(state.frame,realVector(state.selected),dx,dy,scale,state.window-1);else if(drag.mode==='roll')Frame.roll(state.frame,dx);else Frame.orbit(state.frame,clamp(state.depth,2,state.window-1),dx,dy);
       invalidate();if(drag.mode==='roll')writeHash();else leaveScene('move');return;
     }
-    if(event.pointerType==='mouse'){var group=nearestGroup(point,7,hoverGroups()),card=$('hover-card');hoverRadius=group?group.r:null;if(group){card.hidden=false;card.style.left=Math.min(width-230,point[0]+14)+'px';card.style.top=Math.min(height-80,point[1]+14)+'px';card.textContent=(group.spot?['Centre','Inner','Middle','Outer'][group.spot.shell]+' · ':'')+group.pile.toLocaleString()+' ball'+(group.pile===1?'':'s')+' · index '+group.representative.toLocaleString();}else card.hidden=true;}
+    if(event.pointerType==='mouse'){var group=nearestGroup(point,7,hoverGroups()),card=$('hover-card');if(group){card.hidden=false;card.style.left=Math.min(width-230,point[0]+14)+'px';card.style.top=Math.min(height-80,point[1]+14)+'px';card.textContent=(group.spot?['Centre','Inner','Middle','Outer'][group.spot.shell]+' · ':'')+group.pile.toLocaleString()+' ball'+(group.pile===1?'':'s')+' · index '+group.representative.toLocaleString();}else card.hidden=true;}
   });
-  overlayCanvas.addEventListener('pointerleave',function(){hoverRadius=null;$('hover-card').hidden=true;});
+  overlayCanvas.addEventListener('pointerleave',function(){$('hover-card').hidden=true;});
   function endPointer(event){
     var point=local(event),was=drag;pointers.delete(event.pointerId);if(pointers.size<2)pinch=null;
     if(was&&!was.moved&&was.mode!=='pan'&&state.renderer==='cloud'){var index=nearestBall(point,event.pointerType==='touch'?20:12);if(index>=0)setSelected(index);}
@@ -427,7 +407,7 @@
 
   // H hides every control so the stage fills the screen. A small button brings them back.
   function setUiHidden(hidden){
-    state.uiHidden=hidden;document.body.classList.toggle('ui-hidden',hidden);$('hover-card').hidden=true;hoverRadius=null;
+    state.uiHidden=hidden;document.body.classList.toggle('ui-hidden',hidden);$('hover-card').hidden=true;
     if(hidden)nudgeShowControls();else $('show-controls').classList.remove('visible');
     resize();writeHash();
   }
@@ -491,7 +471,7 @@
 
   function orthogonalityError(){var max=0;for(var i=0;i<24;i++)for(var j=0;j<24;j++)max=Math.max(max,Math.abs(Frame.dot(state.frame[i],state.frame[j])-(i===j?1:0)));return max;}
   window.__leechExplorer={
-    snapshot:function(){var marker=state.selected>=0?markerPositions().marker:null;return{scene:state.scene||'custom',window:state.window,octad:state.octad,tilt:state.tilt*180/Math.PI,selected:state.selected,selectedScreen:marker,orthogonalityError:orthogonalityError(),renderer:state.renderer,spotCount:state.spotCount,visibleCount:state.visibleCount,spokeCount:state.spokeCount,colour:state.colour,edges:state.edges,zoom:state.zoom,playing:state.playing,motion:state.motion,points:state.points,transitioning:!!transition||!!stepAnimation,pan:state.pan.slice(),fromScene:state.fromScene,title:$('scene-name').textContent,status:$('renderer-status').textContent,uiHidden:state.uiHidden,circle:state.circle,frame:[Array.from(state.frame[0]),Array.from(state.frame[1])]};},
+    snapshot:function(){var marker=state.selected>=0?markerPositions().marker:null;return{scene:state.scene||'custom',window:state.window,octad:state.octad,tilt:state.tilt*180/Math.PI,selected:state.selected,selectedScreen:marker,orthogonalityError:orthogonalityError(),renderer:state.renderer,spotCount:state.spotCount,visibleCount:state.visibleCount,spokeCount:state.spokeCount,colour:state.colour,edges:state.edges,zoom:state.zoom,playing:state.playing,motion:state.motion,points:state.points,transitioning:!!transition||!!stepAnimation,pan:state.pan.slice(),fromScene:state.fromScene,title:$('scene-name').textContent,status:$('renderer-status').textContent,uiHidden:state.uiHidden,frame:[Array.from(state.frame[0]),Array.from(state.frame[1])]};},
     advanceTour:function(){tourIndex=(tourIndex+1)%tourOrder.length;applyScene(tourOrder[tourIndex],true,true);return tourOrder[tourIndex];},
     averageDraw:function(){return renderSamples.reduce(function(total,value){return total+value;},0)/Math.max(1,renderSamples.length);},
     loseContext:function(){cloud.loseContext();},

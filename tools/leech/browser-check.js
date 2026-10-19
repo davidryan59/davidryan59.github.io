@@ -74,7 +74,7 @@ async function makeContactSheet(browser,files,target){
     console.log('Canvas drift draw: '+(await page.evaluate(()=>window.__leechExplorer.averageDraw())).toFixed(2)+' ms average');
   }
 
-  // Phase 6c: Spin, Drift, Step, pan, circle, hide and Rings.
+  // Phase 6c: Spin, Drift, Step, pan, hide and Rings.
   const residual=(row,plane)=>{const a=plane[0],b=plane[1],da=row.reduce((t,v,i)=>t+v*a[i],0),db=row.reduce((t,v,i)=>t+v*b[i],0);return Math.sqrt(row.reduce((t,v,i)=>t+(v-da*a[i]-db*b[i])**2,0));};
   await openScene(page,'rot36');const plane36=(await snapshot(page)).frame;
   await page.click('[data-motion="spin"]');await page.waitForTimeout(1000);state=await snapshot(page);await page.click('#pause');
@@ -88,9 +88,9 @@ async function makeContactSheet(browser,files,target){
   await page.keyboard.down('Shift');await page.mouse.down();await page.mouse.move(stage.x+stage.width/2+90,stage.y+stage.height/2+40,{steps:6});await page.mouse.up();await page.keyboard.up('Shift');await page.waitForTimeout(200);state=await snapshot(page);
   assert.ok(Math.hypot(state.pan[0],state.pan[1])>.05,'Shift-drag pans');assert.strictEqual(state.scene,'rot36','pan keeps the scene');assert.match(page.url(),/[#&]pan=/,'pan address');
   await page.click('#reset-view');await page.waitForTimeout(3400);state=await snapshot(page);assert.deepStrictEqual(state.pan,[0,0],'Reset clears pan');assert.doesNotMatch(page.url(),/pan=/,'Reset clears the pan address');
-  await page.waitForTimeout(400);await page.mouse.click(stage.x+stage.width/2+70,stage.y+stage.height/2+30);await page.mouse.move(stage.x+4,stage.y+stage.height-4);await page.waitForTimeout(500);state=await snapshot(page);
-  assert.ok(state.selected>=0&&state.circle,'selecting a ball lights its circle');assert.match(state.status,/^[\d,]+ spots? · [\d,]+ balls? on this circle$/,'circle status');console.log('Circle: '+state.status);
-  await page.screenshot({path:path.join(renders,'circle.png')});await page.click('#clear-selection');
+  await page.waitForTimeout(400);await page.mouse.click(stage.x+stage.width/2+70,stage.y+stage.height/2+30);state=await snapshot(page);assert.ok(state.selected>=0,'clicking a ball selects it');
+  await page.mouse.move(stage.x+state.selectedScreen[0],stage.y+state.selectedScreen[1]);await page.waitForTimeout(500);state=await snapshot(page);
+  assert.match(state.status,/^47,953 spots/,'hover and selection keep the full picture visible');assert.strictEqual(await page.locator('#cloud').evaluate(element=>element.style.opacity),'1','hover keeps the cloud at full opacity');await page.click('#clear-selection');
   await page.keyboard.press('h');await page.waitForTimeout(200);state=await snapshot(page);assert.strictEqual(state.uiHidden,true,'H hides the controls');
   for(const selector of ['.topbar','.show-card','.options-card','.look-card','.stage-status','.results'])assert.strictEqual(await page.locator(selector).isVisible(),false,'hidden: '+selector);
   assert.match(page.url(),/[#&]ui=0/,'hidden controls address');await page.screenshot({path:path.join(renders,'hidden.png')});
@@ -131,5 +131,5 @@ async function makeContactSheet(browser,files,target){
   await page.evaluate(()=>window.__leechExplorer.loseContext());await page.waitForTimeout(1000);assert.strictEqual((await snapshot(page)).renderer,'cloud','cloud returns after context restore');
   console.log('WebGL draw loop: '+(await page.evaluate(()=>window.__leechExplorer.averageDraw())).toFixed(2)+' ms average');
   assert.deepStrictEqual(errors,[],'browser errors');await browser.close();
-  console.log('Leech browser checks passed: Canvas spots, WebGL cloud, selection, tilt, tour, Spin, Step, pan, circles, hidden controls, Rings, address and context restore.');
+  console.log('Leech browser checks passed: Canvas spots, WebGL cloud, selection, tilt, tour, Spin, Step, pan, hidden controls, Rings, address and context restore.');
 })().catch(error=>{console.error(error.stack||error);process.exit(1);});

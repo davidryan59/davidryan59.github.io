@@ -36,7 +36,7 @@ preset frames. Leave `app/e8/` unchanged.
 - [x] Phase 6: The 24-dimension window, selection, tilt and tour (2026-10-13)
 - [x] Phase 6b: Rotation scenes, raw points and scene controls (2026-10-14)
 - [x] Phase 6c: 36-fold opening, Spin, pan and a clean screen (2026-10-15)
-- [x] Phase 7: Publish: credits, builder page, addresses and full checks (2026-10-15, not yet pushed)
+- [x] Phase 7: Publish: credits, builder page, addresses and full checks (2026-10-15)
 - [x] Phase 8: Share card (2026-10-15)
 - [x] Phase 9: Builder thumbnail (2026-10-15)
 - [ ] Phase 10: Silent film
@@ -1363,7 +1363,7 @@ David reviewed the explorer again on 2026-10-15 and asked for these changes
 before Phase 7, so the share card, thumbnail and film show them. The page
 opens on the 36-fold view. A new Spin motion turns the picture in its own
 plane, so every dot stays exact while the view moves. The viewer can pan when
-zoomed, light up one circle of spots, and hide every control. Build it in one
+zoomed and hide every control. Build it in one
 session, in the order below, with the Node checks first.
 
 ### The 36-fold opening
@@ -1443,17 +1443,6 @@ scenes keep their separate dots on the outer circles.
 - Pan adds `pan=<x>,<y>` to the address, to three decimal places. The
   address already uses `o` for the octad.
 
-### Light up a circle
-
-- With a mouse, hovering over a spot lights every spot on the same circle,
-  within 1e-6 of its radius. The status line says "60 spots · 120 balls on
-  this circle".
-- Selecting a ball lights its circle in the same way. This is the route on
-  touch.
-- The highlight draws on the overlay. Spots on other circles dim to 40%.
-- In the cloud renderer, read the circle from the rested-spot cache. While
-  the view moves, no circle lights.
-
 ### Hide controls
 
 - H hides the header, all the cards, the status line and the results
@@ -1508,8 +1497,7 @@ Extend `tools/leech/browser-check.js`:
    rolled by 10°, within 1e-9.
 5. **Pan.** At zoom 4, a Shift-drag moves the centre, and `pan` appears in the
    address. Reset clears it.
-6. **Circle.** Selecting a ball in `rot36` lights a circle, and the status
-   line gives its spot and ball counts.
+6. **Selection.** Selecting a ball keeps the full picture visible.
 7. **Hide.** H hides every control, and H brings them back.
 8. **Rings.** Choose Rings on `rot36`, then change to `rot60`. Each ball
    keeps its band from `rot36`, and the legend counts sum to 196,560.
@@ -1544,11 +1532,8 @@ Other notes:
   the scene lit, as Spin does. Shift-drag now pans, so a roll moved off Shift.
 - Choosing Drift, Spin or Tour also starts it playing.
 - Reset returns to the scene a view drifted or moved from.
-- A selected ball lights its circle only when the visitor chose it. The ball
-  that Seven layers selects for itself lights nothing, so the layers stay
-  bright.
-- The hovered circle takes the status line first, then the Step message for
-  5 s, then the selected ball's circle. A ring at the circle's radius marks it.
+- Circle highlighting was removed on 2026-10-19. Hovering and selecting no
+  longer dim the picture or draw a radial ring.
 - The Rings legend uses two columns, and the Look card stops above the Show
   card. The light theme's two inner bands are now `#b47e00` and `#d26800`,
   3.2:1 and 3.3:1 on the background.
@@ -1602,8 +1587,9 @@ after E8 under Apps & Websites, with the tagline's last words linked to
 Leech's paper. `credits.html` now covers what a visitor sees, the Golay code
 and its generator polynomial, the octad finding, the rotation scenes, the
 sources and the build. `redirects/leech.html`, the address list, the site
-layout, the inventory and the README carry the new app. The address check
-waits for a push. Real phones, an iPad and Safari are still to try.
+layout, the inventory and the README carry the new app. After the push, all
+554 address checks passed against the live site. Real phones, an iPad and
+Safari are still to try.
 
 ## Phase 8: share card
 
