@@ -194,14 +194,14 @@
       ])))
     },
     stellated: {
-      // Zeng's 11/20 stellated tetrahedron, arXiv:2604.26531: a regular
+      // Zeng's Triakis Tetrahedron, arXiv:2604.26531: a regular
       // tetrahedron with a low pyramid on each face. Renshaw proved it
-      // non-Rupert in Lean in 2026, github.com/dwrensha/StellatedTetrahedron.
-      name: "Stellated tetrahedron, the 8-vertex solid",
+      // non-Rupert in Lean in 2026, github.com/dwrensha/NopertTriakisTetrahedron.
+      name: "Triakis Tetrahedron, the 8-vertex solid",
       label: "P<sub>11/20</sub>",
       short: "P<sub>11/20</sub>",
       featured: 1,
-      kind: "Stellated tetrahedron",
+      kind: "Triakis Tetrahedron",
       group: "Non-Rupert solids",
       hue: 96,
       turn: 0.4,

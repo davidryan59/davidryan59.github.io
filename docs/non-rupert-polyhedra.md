@@ -11,7 +11,7 @@ The app at `app/nonrup/`, served at `drbuild.uk/app/nonrup/` with the short addr
 - [x] Generate the C15 Noperthedron from its three published generators and their antipodes.
 - [x] Generate the C11 Undecanope from four rotational orbits and their antipodes.
 - [x] Generate the 60-vertex rhombicosidodecahedron from its standard golden-ratio coordinates.
-- [x] Add Zeng's 11/20 stellated tetrahedron from its eight published vertices.
+- [x] Add Zeng's Triakis Tetrahedron from its eight published vertices.
 - [x] Add the five Platonic solids, the buckyball and three cuboids, scaled to unit circumradius.
 - [x] Recover each polygonal convex hull and its edges in the browser.
 - [x] Compute the pass ratio, with the best twist and shift, for any pair of views.
@@ -59,7 +59,7 @@ The header follows the site's other explorers: a link back to the builder page a
 | C15 Noperthedron | 90 | 240 | 152 | yes |
 | C11 Undecanope | 88 | 242 | 156 | yes |
 | Rhombicosidodecahedron | 60 | 120 | 62 | yes |
-| Stellated tetrahedron P<sub>11/20</sub> | 8 | 18 | 12 | no |
+| Triakis Tetrahedron P<sub>11/20</sub> | 8 | 18 | 12 | no |
 
 The Platonic solids and the buckyball come from their standard coordinates, built from signs and cyclic shifts in `models.js`.
 
@@ -105,7 +105,7 @@ From seeded runs of 6 to 8 seconds for each solid:
 | C15 | 0.9999997 | The copy lined up with the hole |
 | C11 Undecanope | 0.9999995 | The copy lined up with the hole |
 | Rhombicosidodecahedron | 1.0000000 | The copy lined up with the hole |
-| Stellated tetrahedron | 0.999999 | The copy lined up with the hole |
+| Triakis Tetrahedron | 0.999999 | The copy lined up with the hole |
 
 These are the best ratios the search found in that time, not proven maxima.
 

@@ -38,6 +38,8 @@ function serve() {
   try {
     const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
+    // The analytics request delays networkidle, which changes how far the solid spins before the cut.
+    await page.route('**/gc.zgo.at/**', route => route.abort());
     await page.goto('http://127.0.0.1:' + server.address().port + '/app/nonrup/#stellated', { waitUntil: 'networkidle' });
     await page.click('#cut');
     await page.waitForTimeout(700);
@@ -65,7 +67,7 @@ function serve() {
     await page.evaluate(() => {
       document.body.insertAdjacentHTML('beforeend', '<div class="share-shade"></div><div class="share-copy">' +
         '<h1>Nopert<br>Polyhedra<br>Explorer</h1>' +
-        '<p>P<sub>11/20</sub> is an 8-vertex non-Rupert polyhedron. Its copy jams against the hole.</p>' +
+        '<p>The Triakis Tetrahedron P<sub>11/20</sub> is an 8&#8209;vertex non-Rupert polyhedron. Its copy jams against the hole.</p>' +
         '<div class="site">drbuild.uk/nopert</div></div>');
       window.dispatchEvent(new Event('resize'));
     });

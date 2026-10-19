@@ -1,4 +1,4 @@
-/* Stellated tetrahedron, turning, for the builder page's thumbnail.
+/* Triakis Tetrahedron, turning, for the builder page's thumbnail.
    Written by tools/thumbnails/nonrup.js from app/nonrup/models.js. */
 (function () {
   'use strict';
