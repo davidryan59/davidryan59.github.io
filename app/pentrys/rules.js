@@ -24,7 +24,9 @@
   var NAMES = ['', 'Single', 'Double', 'Triple', 'Quad', 'Pentrys', 'Hextrys'];
   var CRACK_TICKS = C.glassCrackSeconds.map(function (t) { return t * 60; }), FLASH_TICKS = C.glassFlashSeconds * 60, BREAK_TICKS = C.glassBreakSeconds * 60;
   var FLOOD = [[-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];   // beside and below, never above
-  var SQUARES = C.squares;
+  // config.js gives each kind as 1 in N; the rules use the chance, 1 / N.
+  var SQUARES = {};
+  Object.keys(C.squares).forEach(function (k) { SQUARES[k] = C.squares[k].map(function (e) { return [e[0], 1 / e[1]]; }); });
   var QUEUE = C.queueLength;
 
   // The seconds a row at a speed, for a game whose speed 1 falls at first
@@ -309,6 +311,7 @@
     var choiceRows = lesson || mode === 'demo' ? 0 : opts.choiceRows != null ? opts.choiceRows : C.difficulty.normal.choiceRows;
     var choosing = choiceRows > 0;
     var grid = emptyGrid(W);
+    var dealt = { squares: 0, kinds: {} };   // the squares dealt at random so far, and how many of each kind
     var nextId = 1, lessonLeft = lesson ? lesson.pieces.slice() : null;
     var lockTicks = 0, resets = 0, lowest = 0, fallAcc = 0, preview = { key: null, value: null };
 
@@ -320,6 +323,7 @@
       pause: 0, over: false, result: null, events: [], lesson: lesson,
       step: step, takeEvents: takeEvents, landing: landing, preview: showPreview,
       pieceCells: pieceCells, placeDirect: placeDirect, cycle: cycle, bump: bump, balances: function () { return balances(grid); },
+      dealt: dealt, table: table,
       deal: function () { return newPiece(); },   // the next random piece, for the tests
       glassAge: function (cell) { return ageing && cell && cell.v === 0 && cell.born != null ? g.ticks - cell.born : 0; }
     };
@@ -354,12 +358,13 @@
     // carry several.
     function rollSpecials(n) {
       var out = [];
+      dealt.squares += n;
       if (!table.length) return out;
       for (var i = 0; i < n; i++) {
         var r = random(), acc = 0;
         for (var k = 0; k < table.length; k++) {
           acc += table[k][1];
-          if (r < acc) { out.push({ i: i, kind: table[k][0] }); break; }
+          if (r < acc) { out.push({ i: i, kind: table[k][0] }); dealt.kinds[table[k][0]] = (dealt.kinds[table[k][0]] || 0) + 1; break; }
         }
       }
       return out;

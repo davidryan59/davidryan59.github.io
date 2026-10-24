@@ -63,7 +63,7 @@ comes later. David's request is kept word for word in
 - [ ] David plays each mode again, and the speeds and special-square rates
       are tuned
 - [ ] Try it on a real phone and in Safari
-- [ ] The share card
+- [x] The share card, `social/pentrys.jpg`, drawn by `tools/pentrys/card.js`
 - [ ] Music, later
 - [ ] Install on a phone as an app, later
 
@@ -752,7 +752,7 @@ name gives its square set and width.
   E and S going back and D and F going on. Escape goes back, or resumes from the pause menu.
 - The way back is always in sight. Each page off the main menu has a
   ← Back button in a header that stays put as the page scrolls. In a run,
-  the PENTRYS logo at the top of the scores goes back to the main menu:
+  the Pentrys logo at the top of the scores goes back to the main menu:
   at once from a lesson, a finished run or one not yet started, and
   through the pause menu, with Main menu chosen, from a scored run in
   play. The buttons after a game stay at the foot of its card as it
@@ -795,9 +795,16 @@ drawing functions in `tools/pentrys/look.js` as they are.
   LLNNNYYYYF
   ```
 
-- The title is PENTRYS in block letters made of squares. P, N, T and Y take
-  the colours of P5, N5, T5 and Y5, and S that of S4. E takes the colour
-  of I3, and R that of L4.
+- The title is Pentrys in Anton, slanted 9 degrees, chosen on 2026-10-24
+  after four rounds of options. A tall P reaches down to the floor of a row
+  of pieces of one to five squares under "entr", and the y's tail drops to
+  the same floor. Two streaks fall into each lowercase letter, in the
+  colours of I3, L4, P5, N5, T5 and I4. The row's pieces take the colours
+  of L3, O4, N5, I5 and T5: coral, amber, green, blue and purple, which is
+  more range than the game's own one and two, both cyan. The letters are
+  outlines in `title.js`, taken from the font by `tools/pentrys/title.py`,
+  so the game loads no font. Anton is under the SIL Open Font License, in
+  `anton-OFL.txt`.
 - The falling piece glows in its colour. Its landing outline is its
   outline, with a faint fill.
 - A 2 shows its number in a white ring. A 3 shows its number in a gold
@@ -1048,12 +1055,15 @@ way. The page runs it from the display's frames.
 | `app/pentrys/rules.js` | The well, choosing pieces, the queue, special squares, falling, locking, smashing, bombs, floods, clearing, scoring, speeds and modes |
 | `app/pentrys/lessons.js` | The tutorial's 21 lessons: wells, pieces, words and goals |
 | `app/pentrys/bot.js` | The simulated player's choice of placement, for the main menu and `sim.js` |
-| `app/pentrys/draw.js` | Drawing: the wallpaper, the well, the pieces, the queue and every effect |
+| `app/pentrys/title.js`, `anton-OFL.txt` | The title's letters as outlines from Anton, and the font's licence |
+| `app/pentrys/draw.js` | Drawing: the wallpaper, the well, the pieces, the queue, the title and every effect |
 | `app/pentrys/sound.js` | The sounds, synthesised |
 | `app/pentrys/game.js` | The main loop, input, the screens, settings, controls, high scores and the address |
 | `tools/pentrys/test.js` | The tests, in Node |
 | `tools/pentrys/sim.js` | The simulated player, in Node, with `bot.js` |
 | `tools/pentrys/perf.js` | Frame times, measured in headless Chromium |
+| `tools/pentrys/card.js` | Draws `social/pentrys.jpg`, the share card, with the game's own drawing |
+| `tools/pentrys/title.py` | Writes `title.js` from `Anton-Regular.ttf`, with fontTools |
 | `tools/pentrys/look.html`, `look.js`, `colours.html` | The still frame of the look and the colour sheet, with their pictures |
 
 The tests cover:

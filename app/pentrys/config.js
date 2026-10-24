@@ -9,39 +9,40 @@
   var Pentrys = root.Pentrys || (root.Pentrys = {});
 
   Pentrys.Config = {
-    // The chance that any one square of a new piece is each kind, for each
-    // set of special squares. Kinds: 2, 3, 0 (glass), 'flood', 'deluge',
-    // 'bomb' and 'rowbomb'. Easy, Normal and Hard each play their own set,
-    // and Custom offers all five.
+    // How rare each kind of special square is, for each set of special
+    // squares. Each entry is [kind, N]: any one square of a new piece is that
+    // kind with chance 1 in N, so a bigger N is rarer. Kinds: 2, 3, 0 (glass),
+    // 'flood', 'deluge', 'bomb' and 'rowbomb'. Easy, Normal and Hard each play
+    // their own set, and Custom offers all five.
     squares: {
       pure: [],
-      plus: [[2, 1 / 25], [3, 1 / 100]],
+      plus: [[2, 25], [3, 100]],
       easy: [               // more of the helpful squares, less glass
-        [2, 1 / 6],
-        [3, 1 / 16],
-        [0, 1 / 50],
-        ['flood', 1 / 16],
-        ['deluge', 1 / 20],
-        ['bomb', 1 / 20],
-        ['rowbomb', 1 / 25]
+        [0, 5000],
+        [2, 3],
+        [3, 1600],
+        ['flood', 1600],
+        ['deluge', 2000],
+        ['bomb', 2000],
+        ['rowbomb', 2500]
       ],
       normal: [
-        [2, 1 / 8],
-        [3, 1 / 25],
-        [0, 1 / 25],
-        ['flood', 1 / 25],
-        ['deluge', 1 / 25],
-        ['bomb', 1 / 25],
-        ['rowbomb', 1 / 25]
+        [0, 40],
+        [2, 25],
+        [3, 45],
+        ['flood', 25],
+        ['deluge', 40],
+        ['bomb', 30],
+        ['rowbomb', 50]
       ],
       hard: [               // fewer of the helpful squares, more glass
-        [2, 1 / 12],
-        [3, 1 / 50],
-        [0, 1 / 12],
-        ['flood', 1 / 50],
-        ['deluge', 1 / 80],
-        ['bomb', 1 / 40],
-        ['rowbomb', 1 / 80]
+        [0, 12],
+        [2, 12],
+        [3, 50],
+        ['flood', 50],
+        ['deluge', 80],
+        ['bomb', 40],
+        ['rowbomb', 80]
       ]
     },
 
@@ -56,6 +57,12 @@
     },
     width: 12,                  // the well, in squares, for Easy, Normal and Hard
     sizes: [3, 4, 5],           // the pieces they deal, by squares
+
+    // Custom: the choices it starts with, before a player changes them. Its
+    // width and sizes start from the two above. pace names the difficulty
+    // whose first-row time it uses; speed is its starting speed.
+    custom: { squares: 'normal', pace: 'normal', speed: 1, choiceRows: 2 },
+    customWidths: [10, 12, 14, 16, 18],   // the wells Custom offers
 
     // The pieces shown in the queue, numbered 1 to queueLength.
     queueLength: 5,
@@ -78,6 +85,15 @@
     lockRows: 1.25,             // a resting piece locks after this many rows' worth of falling time
     maxResets: 15,              // moves and turns that restart the lock time
     clearTicks: 18,             // the pause while cleared rows vanish
+
+    // Key repeat, which a player can change in Settings. das is the delay
+    // before a held key repeats, arr the time between repeats (0 jumps to
+    // the wall), both in milliseconds; sdf is the soft drop, in rows a second.
+    // Shows, below the well, how often each special square has been dealt this
+    // game, against the odds above. Set false to hide it.
+    oddsPanel: true,
+
+    keyRepeat: { das: 170, arr: 50, sdf: 20 },
 
     // Glass cracks, flashes, then breaks, at these ages in seconds.
     glassCrackSeconds: [30, 45],

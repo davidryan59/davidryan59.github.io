@@ -29,13 +29,18 @@
             ink: '#ffffff', muted: '#918c80', gauge: GOLD, need: 'rgba(230,238,255,0.85)', needFill: 'rgba(200,215,255,0.22)',
             dim: 'rgba(10,12,26,0.5)' }
   };
-  var LETTERS = {
-    P: ['###', '#.#', '###', '#..', '#..'], E: ['###', '#..', '###', '#..', '###'],
-    N: ['#..#', '##.#', '#.##', '#..#', '#..#'], T: ['###', '.#.', '.#.', '.#.', '.#.'],
-    R: ['###', '#.#', '##.', '#.#', '#.#'], Y: ['#.#', '#.#', '###', '.#.', '.#.'],
-    S: ['###', '#..', '###', '..#', '###']
+  // The title: "Pentrys" in Anton, from title.js, slanted 9 degrees, with streaks
+  // falling into the lowercase letters. The P reaches down to the floor of a row of
+  // pieces of one to five squares under "entr", and the y's tail drops to the same
+  // floor. The row takes the colours of L3, O4, N5, I5 and T5: coral, amber, green,
+  // blue and purple. Lengths are in pixels at a font size of 110.
+  var TITLE = {
+    size: 110, margin: 10, above: 80, slant: Math.tan(9 * Math.PI / 180),
+    streaks: ['I3', 'L4', 'P5', 'N5', 'T5', 'I4'],   // over e, n, t, r, y and s, two each
+    lengths: [68.9, 45.3, 40.9, 35.3, 41.4, 52.3, 35.1, 71, 56.9, 59.6, 62.7, 46.8],
+    row: [['L3', [[0, 2]]], ['O4', [[2, 2], [3, 2]]], ['N5', [[5, 1], [5, 2], [6, 2]]],
+          ['I5', [[9, 1], [8, 2], [9, 2], [10, 2]]], ['T5', [[13, 0], [12, 1], [13, 1], [14, 1], [13, 2]]]]
   };
-  var TITLE_SHAPE = { P: 'P5', E: 'I3', N: 'N5', T: 'T5', R: 'L4', Y: 'Y5', S: 'S4' };
   var TILING = ['ZIIIIIXPPP', 'ZZZTWXXXPP', 'LVZTWWXUUU', 'LVTTTWWUFU', 'LVVVNNYFFF', 'LLNNNYYYYF'];
 
   // Canvas roundRect arrived in 2022 (Safari 16). Older browsers get this.
@@ -904,22 +909,53 @@
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
   }
 
-  function logo(cv, t) {
-    var word = 'PENTRYS', cols = -1;
-    for (var i = 0; i < word.length; i++) cols += LETTERS[word[i]][0].length + 1;
-    var ctx = sizeCanvas(cv, cols * t, 5 * t), x0 = 0;
-    for (i = 0; i < word.length; i++) {
-      var ch = word[i], rows = LETTERS[ch], base = colour(TITLE_SHAPE[ch]), rim = rimLight(TITLE_SHAPE[ch]);
-      rows.forEach(function (row, y) {
-        for (var x = 0; x < row.length; x++) {
-          if (row[x] !== '#') continue;
-          var px = (x0 + x) * t, py = y * t, g = ctx.createLinearGradient(0, py, 0, py + t);
-          g.addColorStop(0, rim); g.addColorStop(0.5, base); g.addColorStop(1, base);
-          ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(px + 0.6, py + 0.6, t - 1.2, t - 1.2, t * 0.28); ctx.fill();
-        }
-      });
-      x0 += rows[0].length + 1;
+  // Where the title's parts sit, worked out once from the letters' sizes: the row's
+  // square fits 15 times under "entr", the P's height runs from the top to the row's
+  // floor, and the y's tail stretches from the baseline to the same floor.
+  function titleLayout() {
+    if (TITLE.layout) return TITLE.layout;
+    var G = Pentrys.Title.GLYPHS, u = TITLE.size / Pentrys.Title.UPM, low = 'entrys', xs = [], x = 0, lowTop = 0;
+    for (var i = 0; i < low.length; i++) { xs.push(x); x += G[low[i]].adv * u; lowTop = Math.max(lowTop, G[low[i]].top * u); }
+    var c = (xs[4] - xs[0] - TITLE.size * 0.06) / 15, top = TITLE.margin + TITLE.above, base = top + lowTop * 1.22;
+    var rowTop = base + TITLE.size * 0.13, floor = rowTop + 3 * c, pScale = (floor - top) / G.P.top;
+    var lx = G.P.adv * pScale + TITLE.size * 0.03, t = TITLE.slant, dx = TITLE.margin + t * (floor - base);
+    return (TITLE.layout = {
+      u: u, xs: xs, lx: lx, c: c, base: base, rowTop: rowTop, floor: floor, pScale: pScale, dx: dx,
+      yStretch: (floor - base) / (G.y.bottom * u), rowX: dx + lx - t * (rowTop + 1.5 * c - base),
+      w: dx + lx + x + t * (floor - top + TITLE.above) + TITLE.margin, h: floor + TITLE.margin
+    });
+  }
+  var GLYPHS = {};
+  function glyph(ctx, ch, x, base, scale) {
+    var p = GLYPHS[ch] || (GLYPHS[ch] = new root.Path2D(Pentrys.Title.GLYPHS[ch].d));
+    ctx.save(); ctx.translate(x, base); ctx.scale(scale, scale); ctx.fill(p); ctx.restore();
+  }
+  function rgba(hex, a) { var n = parseInt(hex.slice(1), 16); return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')'; }
+
+  // The title, as large as fits a box w by h pixels.
+  function logo(cv, w, h) {
+    var L = titleLayout(), G = Pentrys.Title.GLYPHS, k = Math.min(w / L.w, h / L.h);
+    var ctx = sizeCanvas(cv, Math.round(L.w * k), Math.round(L.h * k));
+    ctx.scale(k, k);
+    ctx.save();
+    ctx.translate(L.dx, L.base); ctx.transform(1, 0, -TITLE.slant, 1, 0, 0); ctx.translate(0, -L.base);
+    for (var i = 0; i < 6; i++) {
+      var ch = 'entrys'[i], x = L.lx + L.xs[i], aw = G[ch].adv * L.u, top = L.base - G[ch].top * L.u - 9, c = colour(TITLE.streaks[i]);
+      for (var j = 0; j < 2; j++) {
+        var len = TITLE.lengths[2 * i + j], g = ctx.createLinearGradient(0, top - len, 0, top);
+        g.addColorStop(0, rgba(c, 0)); g.addColorStop(1, rgba(c, 0.95));
+        ctx.fillStyle = g; ctx.beginPath(); ctx.roundRect(x + aw * (j ? 0.7 : 0.3) - 3, top - len, 6, len, 3); ctx.fill();
+      }
     }
+    ctx.fillStyle = WELL.ink;
+    glyph(ctx, 'P', 0, L.floor, L.pScale);
+    for (i = 0; i < 6; i++) if (i !== 4) glyph(ctx, 'entrys'[i], L.lx + L.xs[i], L.base, L.u);
+    var yx = L.lx + L.xs[4];
+    ctx.save(); ctx.beginPath(); ctx.rect(yx - 100, 0, 200, L.base + 0.6); ctx.clip(); glyph(ctx, 'y', yx, L.base, L.u); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(yx - 100, L.base, 200, L.h); ctx.clip();
+    ctx.translate(0, L.base); ctx.scale(1, L.yStretch); ctx.translate(0, -L.base); glyph(ctx, 'y', yx, L.base, L.u); ctx.restore();
+    ctx.restore();
+    TITLE.row.forEach(function (p) { drawPiece(ctx, p[1], p[0], L.rowX, L.rowTop, L.c); });
   }
 
   // A small picture of a piece, for the page's text: the tutorial and How to play.

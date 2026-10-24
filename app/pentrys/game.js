@@ -36,7 +36,7 @@
   // Settings, keys and records -------------------------------------------------------
 
   // Custom's choices are kept apart from the rest, and start from Normal.
-  var CUSTOM = { squares: 'normal', width: C.width, sizes: C.sizes.slice(), pace: 'normal', speed: 1, choiceRows: C.difficulty.normal.choiceRows };
+  var CUSTOM = Object.assign({ width: C.width, sizes: C.sizes.slice() }, C.custom);
   var settings = Object.assign({ hand: 'right', effects: 'full', sound: true }, load('settings', {}));
   if (settings.custom && !settings.custom.pace) delete settings.custom.speed;   // from before each difficulty had its own speeds
   settings.custom = Object.assign({}, CUSTOM, settings.custom || {});
@@ -64,7 +64,7 @@
   };
   if (!LAYOUTS[settings.hand]) settings.hand = 'right';
   function defaultKeys() { return LAYOUTS[settings.hand]; }
-  var DEFAULT_TIMING = { das: 170, arr: 50, sdf: 20 };
+  var DEFAULT_TIMING = C.keyRepeat;
   var saved = load('controls', {});
   var keys = {}, timing = Object.assign({}, DEFAULT_TIMING, saved.timing || {});
   ACTIONS.forEach(function (a) { keys[a[0]] = (saved.keys && saved.keys[a[0]]) ? saved.keys[a[0]].slice(0, 2) : defaultKeys()[a[0]].slice(); });
@@ -727,7 +727,7 @@
     }
     seg('set-squares', SQUARE_SETS, function (set) { return set[1]; }, function (set) { return cu.squares === set[0]; }, function (set) { cu.squares = set[0]; });
     SQUARE_SETS.forEach(function (set) { if (set[0] === cu.squares) $('squares-hint').textContent = set[2]; });
-    seg('set-width', [10, 12, 14, 16, 18], String, function (n) { return cu.width === n; }, function (n) { cu.width = n; });
+    seg('set-width', C.customWidths, String, function (n) { return cu.width === n; }, function (n) { cu.width = n; });
     seg('set-sizes', [1, 2, 3, 4, 5], function (n) { return (cu.sizes.indexOf(n) >= 0 ? '✓ ' : '') + n; }, function (n) { return cu.sizes.indexOf(n) >= 0; }, function (n) {
       var i = cu.sizes.indexOf(n);
       if (i >= 0 && cu.sizes.length > 1) cu.sizes.splice(i, 1); else if (i < 0) cu.sizes.push(n);
@@ -942,7 +942,26 @@
     $('best').textContent = '–';
   }
   function setScore(v, now) { shown.from = shown.score; shown.to = v; shown.t0 = now; }
+  // The odds panel: for each kind of special square, its odds as set (1 in N),
+  // the squares of it dealt so far, and the odds those make. Four times a second.
+  var ODDS_KINDS = [[2, '×2'], [3, '×3'], [0, 'glass'], ['flood', 'flood'], ['deluge', 'deluge'], ['bomb', 'bomb'], ['rowbomb', 'rowbomb']], oddsAt = 0;
+  function oddsText() {
+    var d = game.dealt, rows = ['kind      set 1 in  dealt  seen 1 in   (' + d.squares + ' squares dealt)'];
+    ODDS_KINDS.forEach(function (k) {
+      var entry = game.table.filter(function (e) { return e[0] === k[0]; })[0], n = d.kinds[k[0]] || 0;
+      rows.push(k[1].padEnd(9) + (entry ? String(Math.round(1 / entry[1] * 100) / 100) : 'off').padStart(8) + String(n).padStart(8) +
+                (n ? String(Math.round(d.squares / n * 10) / 10) : '–').padStart(12));
+    });
+    return rows.join('\n');
+  }
+  function updateOdds(now) {
+    var el = $('odds'), on = C.oddsPanel && game && game.dealt && game.mode !== 'tutorial' && screen === null;
+    if (el.hidden === !!on) el.hidden = !on;
+    if (on && now - oddsAt > 250) { oddsAt = now; el.textContent = oddsText(); }
+  }
+
   function updateHud(now) {
+    updateOdds(now);
     if (game.score !== shown.to) setScore(game.score, now);
     if (shown.t0) {
       var t = Math.min(1, (now - shown.t0) / 300);
@@ -960,7 +979,8 @@
   function layout() {
     pickMode();
     var g = active(), W = g ? g.width : C.width, phone = isPhone(), v = viewport();
-    Draw.logo($('logo'), phone || (mode === 'hand' && v.h < 500) ? 4 : 7);   // before measuring: a blank canvas is 300 x 150
+    var tight = phone || (mode === 'hand' && v.h < 500);
+    Draw.logo($('logo'), tight ? 112 : 196, tight ? 34 : 120);   // before measuring: a blank canvas is 300 x 150
     var board = $('board'), left = $('left'), gameEl = $('game'), next = $('next');
     var wellCols = Draw.GAUGE + W + 0.2, wellRows = Draw.TOP + Rules.ROWS + 0.4, s, q, row = false, zoom = 1, queue, sideW = 0;
     var span = 5 * Rules.QUEUE;   // the queue's length in its own squares: five to a slot
@@ -1011,7 +1031,7 @@
   function paintBackground() {
     pickMode();
     Draw.wallpaper($('wall'), isLight());
-    Draw.logo($('biglogo'), compact() ? 9 : 12);
+    Draw.logo($('biglogo'), compact() ? 252 : 336, compact() ? 150 : 200);
   }
 
   var resizeTimer = 0;
@@ -1042,7 +1062,7 @@
     if (h.get('seed') != null && h.get('seed') !== '') opts.seed = Math.floor(+h.get('seed')) >>> 0;
     if (mode === 'custom') {
       var w = +h.get('width');
-      if ([10, 12, 14, 16, 18].indexOf(w) >= 0) opts.width = w;
+      if (C.customWidths.indexOf(w) >= 0) opts.width = w;
       if (h.get('sizes')) { var sz = h.get('sizes').split('').map(Number).filter(function (x) { return x >= 1 && x <= 5; }); if (sz.length) opts.sizes = sz; }
       if (Rules.SQUARES[h.get('squares')]) opts.squares = h.get('squares');
     }
