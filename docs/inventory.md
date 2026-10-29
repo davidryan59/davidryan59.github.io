@@ -155,9 +155,10 @@ An independent review of the immutable marketplace contract deployed in June
 2017 for the 10,000 CryptoPunks. The audit found no exploitable vulnerability
 and reconciled its 3,145.153320691470851579 ETH balance to its liabilities,
 exactly to the wei. It records one medium integration hazard, two low defects
-and three informational findings. The builder page entry uses an original
-24 × 24 pixel-art punk. The page uses `social/cryptopunks.jpg` as its share
-card.
+and three informational findings. The builder page entry uses a synthetic
+24 × 24 punk composed from the original layer system. Its trait combination
+does not occur in the original 10,000. The page uses
+`social/cryptopunks.jpg` as its share card.
 
 | Item | Link | Status |
 |---|---|---|

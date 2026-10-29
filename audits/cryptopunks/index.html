@@ -15,9 +15,9 @@
 <meta property="og:image" content="https://drbuild.uk/social/cryptopunks.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="An original pixel-art punk beside CryptoPunksMarket's exact solvency result, over its deployed bytecode">
+<meta property="og:image:alt" content="A right-facing synthetic CryptoPunk with a beard and an earring beside CryptoPunksMarket's exact solvency result, over its deployed bytecode">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image:alt" content="An original pixel-art punk beside CryptoPunksMarket's exact solvency result, over its deployed bytecode">
+<meta name="twitter:image:alt" content="A right-facing synthetic CryptoPunk with a beard and an earring beside CryptoPunksMarket's exact solvency result, over its deployed bytecode">
 <meta name="twitter:creator" content="@davidryan59">
 <link rel="stylesheet" href="../../assets/site.css">
 <script src="../../assets/theme.js"></script>
@@ -39,9 +39,9 @@
 
 <a class="back" href="../../index.html">← David Ryan's builder page</a>
 
-<img class="paper-thumb punk-thumb" src="../../assets/cryptopunks-punk.png" width="132" height="132" alt="An original pixel-art punk with a teal mohawk and dark sunglasses">
+<img class="paper-thumb punk-thumb" src="../../assets/cryptopunks-punk.png" width="132" height="132" alt="A left-facing synthetic CryptoPunk with a beard and an earring">
 <h1>CryptoPunksMarket security audit</h1>
-<p class="tagline">Audit by David Ryan using Codex (GPT-5)<br>2026&#8209;10&#8209;28 against block 26,291,046<br>Contract on Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/address/0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB#code"><code>CryptoPunksMarket</code></a></p>
+<p class="tagline">Audit by David Ryan using Codex (GPT-5.6 Sol High)<br>2026&#8209;10&#8209;28 against block 26,291,046<br>Contract on Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/address/0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB#code"><code>CryptoPunksMarket</code></a></p>
 
 <p>
   CryptoPunksMarket is the immutable contract that records ownership and runs
@@ -59,7 +59,7 @@
 <div class="panel provenance">
   <h2>How this audit was made</h2>
   <p>
-    I commissioned this independent audit from Codex (GPT-5). It read the
+    I commissioned this independent audit from Codex. It read the
     deployed bytecode, the verified source and mainnet state at one pinned
     block. The report records the commands, evidence and limits so that its
     results can be checked.
@@ -99,28 +99,28 @@ at their own boundary.</p>
 <td class="id"><a href="#m-1--withdrawals-forward-only-2300-gas">M-1</a></td>
 <td><span class="sev sev-medium">Medium</span></td>
 <td>Withdrawals forward only 2300 gas</td>
-<td>Up to 3,145.133320691470851579 ETH, or $7,432,453.26</td>
+<td>Up to 3,145 ETH, ($7.4M)</td>
 </tr>
 <tr>
 <td class="id"><a
 href="#l-1--a-zero-address-transfer-can-strand-an-active-bid">L-1</a></td>
 <td><span class="sev sev-low">Low</span></td>
 <td>A zero-address transfer can strand an active bid</td>
-<td>0.02 ETH, or $47.26, is stranded now</td>
+<td>0.02 ETH ($47), is stranded now</td>
 </tr>
 <tr>
 <td class="id"><a
 href="#l-2--accepted-bid-events-record-zero-value-and-zero-buyer">L-2</a></td>
 <td><span class="sev sev-low">Low</span></td>
 <td>Accepted-bid events record zero value and zero buyer</td>
-<td>0 ETH, or $0, at risk; event data is wrong</td>
+<td>0 ETH, at risk; event data is wrong</td>
 </tr>
 <tr>
 <td class="id"><a
 href="#i-1--the-interface-is-erc-20-shaped-but-represents-unique-punks">I-1</a></td>
 <td><span class="sev sev-info">Info</span></td>
 <td>The interface is ERC-20-shaped but represents unique punks</td>
-<td>0 ETH, or $0, within this contract</td>
+<td>0 ETH, within this contract</td>
 </tr>
 <tr>
 <td class="id"><a
@@ -135,7 +135,7 @@ href="#i-3--the-initial-assignment-counter-could-underflow-before-finalisation">
 <td><span class="sev sev-info">Info</span></td>
 <td>The initial assignment counter could underflow before
 finalisation</td>
-<td>0 ETH, or $0, now; the path is dead</td>
+<td>0 ETH, now; the path is dead</td>
 </tr>
 </tbody>
 </table>
@@ -291,7 +291,7 @@ embargo.</p>
 <h3 id="m-1--withdrawals-forward-only-2300-gas">M-1 · Withdrawals
 forward only 2300 gas <span class="sev sev-medium">Medium</span></h3>
 <p><strong>Priced exposure.</strong> The known amount lost through this
-cause is 0 ETH, or $0. The gross balance that can pass through these
+cause is 0 ETH. The gross balance that can pass through these
 payout paths is 3,145.133320691470851579 ETH, or $7,432,453.26. This
 excludes the independently stranded 0.02 ETH bid in L-1.</p>
 <p><code>withdraw()</code> clears
@@ -368,7 +368,7 @@ id="i-1--the-interface-is-erc-20-shaped-but-represents-unique-punks">I-1
 · The interface is ERC-20-shaped but represents unique punks <span
 class="sev sev-info">Info</span></h3>
 <p><strong>Priced exposure.</strong> This causes no direct loss within
-the contract: 0 ETH, or $0. Downstream accounting can still be
+the contract: 0 ETH. Downstream accounting can still be
 wrong.</p>
 <p>The contract exposes <code>name</code>, <code>symbol</code>,
 <code>decimals</code>, <code>totalSupply</code>, <code>balanceOf</code>
@@ -410,7 +410,7 @@ value, so a mempool observer cannot lower the seller's settlement.</p>
 id="i-3--the-initial-assignment-counter-could-underflow-before-finalisation">I-3
 · The initial assignment counter could underflow before finalisation
 <span class="sev sev-info">Info</span></h3>
-<p><strong>Priced exposure.</strong> The live path exposes 0 ETH, or $0.
+<p><strong>Priced exposure.</strong> The live path exposes 0 ETH.
 Assignment is closed, and the owner cannot reach the affected
 subtraction.</p>
 <p>Before finalisation, <code>setInitialOwner</code> did not preserve

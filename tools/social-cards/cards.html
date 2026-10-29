@@ -47,7 +47,7 @@
   .audit .panel { width: 600px; padding: 20px 36px 24px; }
   .audit svg { display: block; margin: 0 auto 6px; }
   .punk-audit-visual { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 0 auto 10px; }
-  .punk-audit-visual img { width: 190px; height: 190px; image-rendering: pixelated; background: #b8c6d1; border-radius: 18px; }
+  .punk-audit-visual img { width: 190px; height: 190px; image-rendering: pixelated; background: #638596; border-radius: 18px; }
   .punk-solvency { width: 280px; color: #3d3c63; text-align: left; }
   .punk-solvency strong { display: block; font-size: 34px; font-weight: normal; line-height: 1.1; }
   .punk-solvency span { display: block; margin-top: 12px; color: #1552a1; font-size: 25px; line-height: 1.2; }
@@ -196,7 +196,7 @@
         '<text x="222" y="200" text-anchor="middle" font-size="20" fill="' + LINE + '">code</text>' +
         box(10, 'ecrecover', '83%') + box(126, 'ERC-1271', '17%') + '</svg>';
     },
-    // An original pixel punk leads; the exact solvency result stays beside it.
+    // A synthetic punk built from the original 24 x 24 layer system leads.
     cryptopunks: function () {
       return '<div class="punk-audit-visual"><img src="/assets/cryptopunks-punk.png" alt="">' +
         '<div class="punk-solvency"><strong>3,145.1533 ETH</strong>' +

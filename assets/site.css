@@ -86,7 +86,8 @@ li:last-child { margin-bottom: 0; }
 }
 .paper-thumb.punk-thumb {
   image-rendering: pixelated;
-  background: light-dark(#b8c6d1, #394550);
+  background: #638596;
+  transform: scaleX(-1);
 }
 /* A 42-character address has no break opportunity of its own, so on a narrow
    screen it sets the page's minimum width and pushes every paragraph past the
