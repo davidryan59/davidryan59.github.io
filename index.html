@@ -183,6 +183,10 @@
   .thumb-link.square .thumb {
     border-radius: calc(var(--head) * 0.12);
   }
+  .punk-thumb {
+    image-rendering: pixelated;
+    background: light-dark(#b8c6d1, #394550);
+  }
   @media (max-width: 480px) {
     :root { --head: 88px; }
     .portrait-stack { shape-margin: 0.85rem; }
@@ -736,6 +740,16 @@
     Since 2025, EIP-7702 has let ordinary accounts carry code, which Permit2 was not designed for.
     <br><b>Summary</b>: no exploitable vulnerability, deployed code identical to the verified source,
     and four medium findings, one caused by EIP-7702, which moved about one in six signers onto the smart contract wallet signature check.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/cryptopunks/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb punk-thumb" src="assets/cryptopunks-punk.png" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/cryptopunks/index.html">CryptoPunksMarket</a>
+    – the immutable marketplace contract deployed in June 2017 for the 10,000 CryptoPunks.
+    At the review block it held 3,145.1533 ETH for pending withdrawals and active bids.
+    <br><b>Summary</b>: no exploitable vulnerability, exact solvency to the wei,
+    one medium integration hazard, two low defects and three informational findings.
   </li>
 </ul>
 

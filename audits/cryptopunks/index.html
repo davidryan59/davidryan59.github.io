@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CryptoPunksMarket security audit – Ethereum mainnet</title>
+<meta name="description" content="A security audit of CryptoPunksMarket on Ethereum mainnet, from the deployed runtime bytecode and live state. No exploitable vulnerability. Exact solvency to the wei, one medium integration hazard and two low defects.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://drbuild.uk/audits/cryptopunks/">
+<meta property="og:title" content="CryptoPunksMarket security audit – Ethereum mainnet">
+<meta property="og:description" content="Read from the deployed runtime bytecode and live state. No exploitable vulnerability. Its 3,145.1533 ETH balance matched its liabilities exactly, to the wei.">
+<meta property="og:image" content="https://drbuild.uk/social/cryptopunks.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="An original pixel-art punk beside CryptoPunksMarket's exact solvency result, over its deployed bytecode">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="An original pixel-art punk beside CryptoPunksMarket's exact solvency result, over its deployed bytecode">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="stylesheet" href="../../assets/site.css">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+<script data-goatcounter="https://drbuild.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+
+<button class="theme-toggle" type="button" hidden>
+  <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4.1"/>
+    <path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+  </svg>
+  <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+    <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+  </svg>
+</button>
+
+<a class="back" href="../../index.html">← David Ryan's builder page</a>
+
+<img class="paper-thumb punk-thumb" src="../../assets/cryptopunks-punk.png" width="132" height="132" alt="An original pixel-art punk with a teal mohawk and dark sunglasses">
+<h1>CryptoPunksMarket security audit</h1>
+<p class="tagline">Audit by David Ryan using Codex (GPT-5)<br>2026&#8209;10&#8209;28 against block 26,291,046<br>Contract on Ethereum mainnet: <a target="_blank" rel="noopener" href="https://etherscan.io/address/0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB#code"><code>CryptoPunksMarket</code></a></p>
+
+<p>
+  CryptoPunksMarket is the immutable contract that records ownership and runs
+  the original marketplace for the 10,000 CryptoPunks. It was deployed in
+  June 2017, before ERC-721 existed, so its ownership, transfer, bid and sale
+  interfaces are unique to this collection.
+</p>
+<p>
+  <strong>This review found no exploitable vulnerability.</strong> Its ETH
+  balance matched all pending withdrawals and active bids exactly, to the wei.
+  One medium integration hazard and two low defects remain for callers and
+  event consumers to handle.
+</p>
+
+<div class="panel provenance">
+  <h2>How this audit was made</h2>
+  <p>
+    I commissioned this independent audit from Codex (GPT-5). It read the
+    deployed bytecode, the verified source and mainnet state at one pinned
+    block. The report records the commands, evidence and limits so that its
+    results can be checked.
+  </p>
+</div>
+
+<h2 id="summary">Summary</h2>
+<p>CryptoPunksMarket holds no exploitable vulnerability. Its ETH
+liabilities reconcile exactly, its owner powers are inert, and its
+unchecked arithmetic is safe under the contract's fixed bounds.</p>
+<p>One Medium integration hazard remains. Both withdrawal paths use
+Solidity's <code>transfer</code>, so they forward only 2300 gas. A
+recipient contract with an expensive receive path can never collect its
+own ETH.</p>
+<p>Two Low defects affect live state or event consumers. A zero-address
+transfer has stranded a 0.02 ETH bid on Punk 685. Accepted bids also
+emit a <code>PunkBought</code> event with a zero value and zero
+buyer.</p>
+<p>Three Informational findings cover the non-standard interface, market
+ordering and a historical owner-only counter weakness that is now
+unreachable.</p>
+<p>The contract is immutable. Integrators must handle these behaviours
+at their own boundary.</p>
+<h2 id="findings-at-a-glance">Findings at a glance</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Severity</th>
+<th>Finding</th>
+<th>Priced exposure at block 26,291,046</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="id"><a href="#m-1--withdrawals-forward-only-2300-gas">M-1</a></td>
+<td><span class="sev sev-medium">Medium</span></td>
+<td>Withdrawals forward only 2300 gas</td>
+<td>Up to 3,145.133320691470851579 ETH, or $7,432,453.26</td>
+</tr>
+<tr>
+<td class="id"><a
+href="#l-1--a-zero-address-transfer-can-strand-an-active-bid">L-1</a></td>
+<td><span class="sev sev-low">Low</span></td>
+<td>A zero-address transfer can strand an active bid</td>
+<td>0.02 ETH, or $47.26, is stranded now</td>
+</tr>
+<tr>
+<td class="id"><a
+href="#l-2--accepted-bid-events-record-zero-value-and-zero-buyer">L-2</a></td>
+<td><span class="sev sev-low">Low</span></td>
+<td>Accepted-bid events record zero value and zero buyer</td>
+<td>0 ETH, or $0, at risk; event data is wrong</td>
+</tr>
+<tr>
+<td class="id"><a
+href="#i-1--the-interface-is-erc-20-shaped-but-represents-unique-punks">I-1</a></td>
+<td><span class="sev sev-info">Info</span></td>
+<td>The interface is ERC-20-shaped but represents unique punks</td>
+<td>0 ETH, or $0, within this contract</td>
+</tr>
+<tr>
+<td class="id"><a
+href="#i-2--market-ordering-requires-caller-side-protection">I-2</a></td>
+<td><span class="sev sev-info">Info</span></td>
+<td>Market ordering requires caller-side protection</td>
+<td>Limited to the caller-authorised price or bid</td>
+</tr>
+<tr>
+<td class="id"><a
+href="#i-3--the-initial-assignment-counter-could-underflow-before-finalisation">I-3</a></td>
+<td><span class="sev sev-info">Info</span></td>
+<td>The initial assignment counter could underflow before
+finalisation</td>
+<td>0 ETH, or $0, now; the path is dead</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Counts: 0 critical, 0 high, 1 medium, 2 low, 3 informational.</p>
+<p>USD values use the Chainlink ETH/USD answer of $2,363.16 at the
+pinned block.</p>
+<h2 id="verified-onchain-facts">Verified onchain facts</h2>
+<div class="table-wrap">
+<table class="facts">
+<tbody>
+<tr>
+<td>Address</td>
+<td><code>0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB</code></td>
+</tr>
+<tr>
+<td>Deployed</td>
+<td>Block 3,914,495, 2017-06-22 19:40:00 UTC</td>
+</tr>
+<tr>
+<td>Deployer and stored owner</td>
+<td><code>0xC352B534e8b987e036A93539Fd6897F53488e56a</code></td>
+</tr>
+<tr>
+<td>Creation transaction</td>
+<td><code>0x0885b9e5184f497595e1ae2652d63dbdb2785de2e498af837d672f5765f28430</code></td>
+</tr>
+<tr>
+<td>Compiler</td>
+<td>solc <code>0.4.11+commit.68ef5810</code>, optimiser enabled, 200
+runs</td>
+</tr>
+<tr>
+<td>Runtime code</td>
+<td>6,969 bytes: 6,926 executable plus a 43-byte bzzr0 metadata
+trailer</td>
+</tr>
+<tr>
+<td>Instructions</td>
+<td>5,035 decoded</td>
+</tr>
+<tr>
+<td>Dispatch table</td>
+<td>27 selectors, matching every function in the verified ABI</td>
+</tr>
+<tr>
+<td>Upgrade and destruction paths</td>
+<td>No proxy slot, <code>DELEGATECALL</code>, <code>CALLCODE</code> or
+<code>SELFDESTRUCT</code></td>
+</tr>
+<tr>
+<td>Supply state</td>
+<td><code>totalSupply = 10,000</code>;
+<code>nextPunkIndexToAssign = 0</code></td>
+</tr>
+<tr>
+<td>Assignment state</td>
+<td><code>allPunksAssigned = true</code>;
+<code>punksRemainingToAssign = 0</code></td>
+</tr>
+<tr>
+<td>ETH held</td>
+<td>3,145.153320691470851579 ETH</td>
+</tr>
+<tr>
+<td>Pending withdrawals</td>
+<td>2,952.112920691470851579 ETH across 816 non-zero accounts</td>
+</tr>
+<tr>
+<td>Active bids</td>
+<td>12 bids totalling 193.0404 ETH</td>
+</tr>
+<tr>
+<td>Surplus or shortfall</td>
+<td>0 wei</td>
+</tr>
+<tr>
+<td>ETH/USD</td>
+<td>$2,363.16 from Chainlink ETH/USD</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The following commands reproduce the state rows. Every call uses
+block <code>0x1912b66</code>, which is decimal block 26,291,046.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> tools/probe.py <span class="at">--block</span> 0x1912b66 screen <span class="dt">\</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> tools/probe.py created <span class="dt">\</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> tools/probe.py <span class="at">--block</span> 0x1912b66 balance <span class="dt">\</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> tools/probe.py <span class="at">--block</span> 0x1912b66 batch <span class="dt">\</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb <span class="dt">\</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  0x18160ddd 0x52f29a25 0x8126c38a 0xc0d6ce63 <span class="at">--as</span> uint</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> tools/probe.py <span class="at">--block</span> 0x1912b66 batch <span class="dt">\</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb <span class="dt">\</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">--slots</span> 0-14 <span class="at">--as</span> raw</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> tools/probe.py <span class="at">--block</span> 0x1912b66 batch <span class="dt">\</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb <span class="dt">\</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">--sweep</span> 0x6e743fa9 <span class="at">--range</span> 0-9999 <span class="at">--word</span> 3 <span class="at">--as</span> 1e18 <span class="at">--sum</span> <span class="dt">\</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">--multicall</span> <span class="at">--chunk</span> 500</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> tools/probe.py <span class="at">--block</span> 0x1912b66 batch <span class="dt">\</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  0xb47e3cd837ddf8e4c57f05d70ab865de6e193bbb <span class="dt">\</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">--sweep</span> 0xf3f43703 <span class="at">--args</span> liability-addresses.txt <span class="at">--as</span> 1e18 <span class="at">--sum</span> <span class="dt">\</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">--multicall</span> <span class="at">--chunk</span> 500</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> tools/probe.py <span class="at">--block</span> 0x1912b66 batch <span class="dt">\</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419 <span class="dt">\</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  0xfeaf968c <span class="at">--word</span> 1 <span class="at">--as</span> uint</span></code></pre></div>
+<p>The exact compiler comes from the verified source. The archival build
+records the 200-run optimiser setting and reproduces all 6,969 deployed
+bytes.</p>
+<h2 id="method">Method</h2>
+<p>I pinned one Ethereum block before reading state. I then read runtime
+code, proxy slots, ordinary storage, public getters and ETH balances
+from that block.</p>
+<p>The opcode walker strips the 43-byte metadata trailer before
+decoding. Its executable sweep found no upgrade or destruction opcode.
+All 27 dispatcher selectors match the verified ABI.</p>
+<p>The source came from the explorer verification record. Larva Labs'
+archival build independently confirms that the published source compiles
+byte-for-byte to the deployed program. The GitHub source therefore does
+not differ from the deployed source.</p>
+<p>I swept all 10,000 <code>punkBids</code> entries. I built the
+withdrawal address universe from 96,165 bid events and 30,638 sale
+events in the official CryptoPunks history API. Their bidder, seller and
+buyer fields produced 13,413 unique addresses.</p>
+<p>Those event roles cover every route into
+<code>pendingWithdrawals</code>. The routes are sale proceeds, displaced
+bids, and a bid refunded when its bidder receives the punk. I then swept
+<code>pendingWithdrawals</code> for all 13,413 addresses.</p>
+<p><code>tools/probe.py logs</code> was attempted first. Blockscout
+returned HTTP 429 before the historical scan completed. The official
+history supplied the same event roles without depending on that
+rate-limited explorer route.</p>
+<p>Prior work changed two checks. Etherscan lists a DTF audit dated
+2021-09-02, but its linked report was unavailable during this review.
+The NFTX incident post-mortem describes a 2021 integration loss
+involving directed Punk offers. The deployed source confirms that the
+loss sat in the recipient vault's caller accounting, outside this
+contract.</p>
+<p>The Medium issue is explicit in the public source and supplies no
+attacker method. It therefore does not require a private vulnerability
+embargo.</p>
+<h2 id="findings">Findings</h2>
+<h3 id="m-1--withdrawals-forward-only-2300-gas">M-1 · Withdrawals
+forward only 2300 gas <span class="sev sev-medium">Medium</span></h3>
+<p><strong>Priced exposure.</strong> The known amount lost through this
+cause is 0 ETH, or $0. The gross balance that can pass through these
+payout paths is 3,145.133320691470851579 ETH, or $7,432,453.26. This
+excludes the independently stranded 0.02 ETH bid in L-1.</p>
+<p><code>withdraw()</code> clears
+<code>pendingWithdrawals[msg.sender]</code>, then uses
+<code>msg.sender.transfer(amount)</code>.
+<code>withdrawBidForPunk()</code> clears the bid, then uses the same
+transfer primitive. Each call forwards exactly 2300 gas.</p>
+<p>A recipient contract whose receive path exceeds 2300 gas cannot
+collect its ETH. The transfer reverts, so Ethereum restores the cleared
+state. The funds remain recorded, but only that same address may
+retry.</p>
+<p>The bid path has the same problem. An outbid contract receives a
+pending withdrawal. A contract withdrawing its live bid receives a
+direct 2300-gas transfer. Neither route lets it nominate another
+recipient.</p>
+<p>Gas repricing can create this failure after an integration launches.
+A fixed stipend that worked before Istanbul may fail after an opcode
+repricing.</p>
+<p><strong>Mitigation.</strong> A contract bidder or seller must expose
+a receive path that fits inside 2300 gas. Otherwise, use a thin receiver
+that can forward later.</p>
+<h3 id="l-1--a-zero-address-transfer-can-strand-an-active-bid">L-1 · A
+zero-address transfer can strand an active bid <span
+class="sev sev-low">Low</span></h3>
+<p><strong>Priced exposure.</strong> Punk 685 has a stranded bid of 0.02
+ETH, or $47.26.</p>
+<p><code>transferPunk()</code> accepts the zero address. It clears any
+sale offer but leaves an unrelated bid in place.
+<code>withdrawBidForPunk()</code> then rejects the withdrawal because it
+requires the punk owner to be non-zero.</p>
+<p>The live state proves this sequence matters. Punk 685 has owner
+<code>0x0000000000000000000000000000000000000000</code> and an active
+0.02 ETH bid from
+<code>0x8e4237fd48bbb843683c93bacad6a6966c9e9883</code>. That bidder now
+carries 23 bytes of account code, but the owner guard fails before
+payout behaviour matters.</p>
+<p>No owner can accept the bid, and the bidder cannot withdraw it. No
+function can restore a punk from the zero address. The 0.02 ETH is
+permanently locked.</p>
+<p><strong>Mitigation.</strong> Treat the zero address as a destructive
+burn. Never transfer a punk there while any bid exists. A caller should
+withdraw its bid before a known burn, although it cannot force the owner
+to wait.</p>
+<h3 id="l-2--accepted-bid-events-record-zero-value-and-zero-buyer">L-2 ·
+Accepted-bid events record zero value and zero buyer <span
+class="sev sev-low">Low</span></h3>
+<p><strong>Priced exposure.</strong> The direct value at risk is 0 ETH,
+or $0. Ownership and seller credit remain correct.</p>
+<p><code>acceptBidForPunk()</code> creates a local storage reference
+named <code>bid</code>. It copies <code>bid.value</code> into
+<code>amount</code>, clears the stored bid, and credits the seller with
+<code>amount</code>. It then emits <code>PunkBought</code> from the
+cleared storage reference.</p>
+<p>The resulting event records <code>value = 0</code> and a zero buyer.
+Transaction <a
+href="https://etherscan.io/tx/0xc3a7637cb286a9ed96aa6294506d3af97ff6f2a644b64bd6962aa94743cddf66"
+target="_blank" rel="noopener"><code>0xc3a763…ddf66</code></a> accepted
+a 62 ETH bid for Punk 3960 at block 15,390,973. Its
+<code>Transfer</code> event names the real buyer. Its
+<code>PunkBought</code> event reports zero for both fields.</p>
+<p>The misreported 62 ETH would equal $146,515.92 at this review's
+exchange rate. The seller still received the correct 62 ETH credit.</p>
+<p>Indexers cannot treat every <code>PunkBought</code> event as
+authoritative. They must identify an accepted bid from the transaction
+call and preceding bid state.</p>
+<p>The other events carry the values used by their state change.
+Ordinary <code>buyPunk</code> calls also emit a correct
+<code>PunkBought</code> event.</p>
+<p><strong>Mitigation.</strong> Reconcile accepted-bid events against
+<code>Transfer</code>, transaction input and storage history. Keep
+ordinary <code>buyPunk</code> events on a separate path.</p>
+<h3
+id="i-1--the-interface-is-erc-20-shaped-but-represents-unique-punks">I-1
+· The interface is ERC-20-shaped but represents unique punks <span
+class="sev sev-info">Info</span></h3>
+<p><strong>Priced exposure.</strong> This causes no direct loss within
+the contract: 0 ETH, or $0. Downstream accounting can still be
+wrong.</p>
+<p>The contract exposes <code>name</code>, <code>symbol</code>,
+<code>decimals</code>, <code>totalSupply</code>, <code>balanceOf</code>
+and an ERC-20-shaped <code>Transfer</code>. It has no ERC-20
+<code>transfer</code>, allowance or <code>transferFrom</code>
+function.</p>
+<p>It also has no ERC-721 <code>ownerOf</code>, approval,
+<code>safeTransferFrom</code>, <code>tokenURI</code> or ERC-165 support.
+Ownership lives in <code>punkIndexToAddress(index)</code>.</p>
+<p>The ERC-20-shaped <code>Transfer</code> carries the value
+<code>1</code>, not the punk index. A generic event consumer learns that
+an account count changed, but not which punk moved.
+<code>PunkTransfer</code> supplies the index for manual transfers.
+Purchases instead rely on <code>PunkBought</code>, which has the
+accepted-bid defect above.</p>
+<h3 id="i-2--market-ordering-requires-caller-side-protection">I-2 ·
+Market ordering requires caller-side protection <span
+class="sev sev-info">Info</span></h3>
+<p><strong>Priced exposure.</strong> The contract cannot take more than
+the ETH a caller submits. The exposed amount is therefore the
+caller-authorised purchase price or bid, with no additional protocol
+balance at risk.</p>
+<p>A public fixed-price offer goes to the first valid
+<code>buyPunk</code> transaction. Another buyer can move ahead in the
+mempool. Later buyers revert after the ownership or offer checks
+fail.</p>
+<p>A private offer enforces <code>onlySellTo == msg.sender</code>. An
+outsider cannot buy it directly. A recipient contract can reintroduce a
+race if it credits its own external caller without checking the punk
+owner. NFTX documented a 6 ETH loss from that downstream mistake in
+2021.</p>
+<p><code>buyPunk</code> treats the offer value as a minimum. It credits
+the seller with all of <code>msg.value</code> and refunds no excess.
+Buyers should send the exact price that they intend to pay.</p>
+<p>Bid acceptance uses the seller's <code>minPrice</code>. A lower bid
+reverts. A bidder can withdraw or replace a bid only with a higher
+value, so a mempool observer cannot lower the seller's settlement.</p>
+<h3
+id="i-3--the-initial-assignment-counter-could-underflow-before-finalisation">I-3
+· The initial assignment counter could underflow before finalisation
+<span class="sev sev-info">Info</span></h3>
+<p><strong>Priced exposure.</strong> The live path exposes 0 ETH, or $0.
+Assignment is closed, and the owner cannot reach the affected
+subtraction.</p>
+<p>Before finalisation, <code>setInitialOwner</code> did not preserve
+its remaining-count invariant when the owner reassigned a punk to the
+zero address. That operation decremented the old holder, assigned zero,
+and did not increment <code>punksRemainingToAssign</code>.</p>
+<p>A later reassignment from zero treated the same punk as newly
+assigned and decremented the counter again. Repeating the sequence could
+make the counter reach zero early or wrap below zero.</p>
+<p>The weakness required the trusted owner and only affected initial
+assignment. <code>allPunksAssigned</code> is now true, so
+<code>setInitialOwner</code> reverts before this code. The current
+assignment flag is true, and its remaining counter is zero.</p>
+<h3 id="stale-offers-and-bids">Stale offers and bids</h3>
+<p>The state transitions are internally consistent.</p>
+<ul>
+<li>A manual transfer clears its sale offer. Any unrelated bid remains
+live.</li>
+<li>If the recipient is the bidder, the transfer clears that bid and
+credits its value to the recipient's pending withdrawal.</li>
+<li><code>buyPunk</code> clears the offer. An unrelated bid remains
+live.</li>
+<li>If the buyer is the bidder, <code>buyPunk</code> clears and refunds
+that bid through <code>pendingWithdrawals</code>.</li>
+<li><code>acceptBidForPunk</code> clears both the sale offer and the
+accepted bid.</li>
+</ul>
+<p>At the pinned block, four active bids also had open sale offers.
+Punks 1930, 4202, 5170 and 6938 had offers of 32.980711, 40, 65 and
+32.97 ETH. Their bids were 0.01, 38, 45 and 30.5 ETH. This confirms that
+unrelated offers and bids coexist as the source specifies.</p>
+<h3 id="ordering-and-reentrancy">Ordering and reentrancy</h3>
+<p><code>buyPunk</code> changes ownership and balances, clears the
+offer, and credits the seller. It then clears a bid from the buyer, if
+one exists. It makes no external call.</p>
+<p><code>acceptBidForPunk</code> changes ownership and balances, clears
+the offer, snapshots the bid value, clears the bid, and credits the
+seller. It makes no external call.</p>
+<p><code>enterBidForPunk</code> credits the displaced bidder before
+replacing the bid. The credit is an internal accounting write, with no
+external call.</p>
+<p><code>withdraw</code> snapshots the credit and writes zero before
+transferring ETH. <code>withdrawBidForPunk</code> snapshots and clears
+the bid before transferring ETH. Each transfer forwards 2300 gas. A
+failed transfer reverts the whole call, so Ethereum restores the earlier
+state.</p>
+<p>These sequences follow checks-effects-interactions. Reentrancy cannot
+observe an uncleared withdrawal or bid, and the stipend prevents a
+useful stateful callback. The fixed stipend creates M-1 instead.</p>
+<h2 id="what-the-contract-cannot-do">What the contract cannot do</h2>
+<ul>
+<li>It cannot upgrade, delegate execution, deploy another contract or
+destroy itself.</li>
+<li>It cannot pause transfers, sales, bids or withdrawals.</li>
+<li>It cannot mint more than 10,000 punks.</li>
+<li>Its owner cannot assign or reassign a punk now.</li>
+<li>It cannot seize a punk, change a bid, set a fee or redirect a
+withdrawal.</li>
+<li>It cannot recover a punk or ETH sent into an unreachable state.</li>
+<li>It cannot choose arbitrary call targets or calldata. Its external
+value transfers are the two fixed-stipend withdrawal paths.</li>
+</ul>
+<p>The stored owner is the original deployer. Three functions check that
+address.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Owner-gated function</th>
+<th>Present effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>setInitialOwner</code></td>
+<td>Always reverts because <code>allPunksAssigned</code> is true</td>
+</tr>
+<tr>
+<td><code>setInitialOwners</code></td>
+<td>Any non-empty call reaches <code>setInitialOwner</code> and reverts;
+an empty call changes nothing</td>
+</tr>
+<tr>
+<td><code>allInitialOwnersAssigned</code></td>
+<td>Can only write <code>true</code> over the existing <code>true</code>
+value</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>No function changes <code>owner</code>. The remaining owner authority
+is inert.</p>
+<h2 id="why-2017-arithmetic-is-safe-here">Why 2017 arithmetic is safe
+here</h2>
+<p>Solidity 0.4.11 does not check overflow or underflow. This contract
+uses no SafeMath, so each arithmetic operation needs its own bound.</p>
+<p><code>setInitialOwner</code> safely decrements an old holder's
+balance because that holder owns the punk. Its remaining-count decrement
+did have the owner-only weakness described in I-3. The whole function is
+now dead because assignment has closed.</p>
+<p><code>getPunk</code> checks that assignments are complete, that a
+punk is unowned, and that the remaining count is non-zero. The live
+remaining count is zero, so this path is also dead.</p>
+<p>Every market transfer decrements the current owner's
+<code>balanceOf</code>. Ownership of that punk proves the balance is at
+least one. No subtraction can underflow.</p>
+<p>Each <code>balanceOf</code> increment is bounded by the fixed supply
+of 10,000. No account can approach the uint256 limit.</p>
+<p><code>nextPunkIndexToAssign</code> is never modified after its zero
+initialisation. <code>totalSupply</code> is written once as 10,000. The
+<code>setInitialOwners</code> loop counter is bounded by calldata length
+and transaction gas, far below 2^256 iterations.</p>
+<p>Every bid value comes directly from <code>msg.value</code>. A
+replacement must exceed the stored bid, and the displaced value moves
+unchanged into a withdrawal credit.</p>
+<p>Each <code>pendingWithdrawals</code> addition is backed by ETH
+already held in the contract. Overflow would require almost 2^256 wei.
+Ethereum's total supply is many orders of magnitude lower.</p>
+<p>The exact solvency reconciliation corroborates these invariants. No
+unchecked operation has created or erased a wei of liability.</p>
+<h2 id="compiler-risk">Compiler risk</h2>
+<p>The verified build used solc 0.4.11 with the optimiser enabled for
+200 runs. The Solidity project lists 19 known bugs for that exact
+release. None intersects this source.</p>
+<p>The contract has no memory byte deletion or mutable storage array
+operations. It never resizes its stored strings. It also has no signed
+arrays, function pointers, inheritance, libraries, exponentiation,
+<code>delegatecall</code>, <code>ecrecover</code>, nested array decoding
+or empty-string external calls. These facts clear 16 entries.</p>
+<p><code>ImplicitConstructorCallvalueCheck</code> requires a missing
+constructor and an inherited constructor. This contract has an explicit
+payable constructor and no inheritance.</p>
+<p><code>KeccakCaching</code> affects optimiser reuse of hashes with
+equal rounded memory contents but different lengths. The source has no
+inline assembly. Its compiler-generated mapping hashes always use fixed,
+full-word inputs.</p>
+<p><code>ZeroFunctionSelector</code> does not apply. All 27 dispatched
+selectors are non-zero, and the contract defines no payable
+fallback.</p>
+<p>The 19 checked names follow.</p>
+<ul>
+<li><code>MemoryByteArrayElementDeleteClearsWholeWord</code></li>
+<li><code>LostStorageArrayWriteOnSlotOverflow</code></li>
+<li><code>DirtyBytesArrayToStorage</code></li>
+<li><code>KeccakCaching</code></li>
+<li><code>EmptyByteArrayCopy</code></li>
+<li><code>DynamicArrayCleanup</code></li>
+<li><code>ImplicitConstructorCallvalueCheck</code></li>
+<li><code>TupleAssignmentMultiStackSlotComponents</code></li>
+<li><code>MemoryArrayCreationOverflow</code></li>
+<li><code>privateCanBeOverridden</code></li>
+<li><code>SignedArrayStorageCopy</code></li>
+<li><code>UninitializedFunctionPointerInConstructor_0.4.x</code></li>
+<li><code>IncorrectEventSignatureInLibraries_0.4.x</code></li>
+<li><code>ExpExponentCleanup</code></li>
+<li><code>NestedArrayFunctionCallDecoder</code></li>
+<li><code>ZeroFunctionSelector</code></li>
+<li><code>DelegateCallReturnValue</code></li>
+<li><code>ECRecoverMalformedInput</code></li>
+<li><code>SkipEmptyStringLiteral</code></li>
+</ul>
+<h2 id="the-solvency-result">The solvency result</h2>
+<p>The contract was exactly solvent at block 26,291,046.</p>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th style="text-align: right;">ETH</th>
+<th style="text-align: right;">USD at $2,363.16/ETH</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pending withdrawals</td>
+<td style="text-align: right;">2,952.112920691470851579</td>
+<td style="text-align: right;">$6,976,315.17</td>
+</tr>
+<tr>
+<td>12 active bids</td>
+<td style="text-align: right;">193.0404</td>
+<td style="text-align: right;">$456,185.35</td>
+</tr>
+<tr>
+<td><strong>Total liabilities</strong></td>
+<td
+style="text-align: right;"><strong>3,145.153320691470851579</strong></td>
+<td style="text-align: right;"><strong>$7,432,500.52</strong></td>
+</tr>
+<tr>
+<td>Contract ETH balance</td>
+<td style="text-align: right;">3,145.153320691470851579</td>
+<td style="text-align: right;">$7,432,500.52</td>
+</tr>
+<tr>
+<td><strong>Surplus or shortfall</strong></td>
+<td style="text-align: right;"><strong>0</strong></td>
+<td style="text-align: right;"><strong>$0.00</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The equality is exact in wei:</p>
+<pre class="text"><code>2,952,112,920,691,470,851,579
+  193,040,400,000,000,000,000
+=3,145,153,320,691,470,851,579 wei</code></pre>
+<p>The 0.02 ETH stranded bid remains a liability in the active-bid
+total. Exact solvency therefore does not imply that every creditor can
+withdraw.</p>
+<h2 id="integration-checklist">Integration checklist</h2>
+<ol type="1">
+<li>Read ownership from <code>punkIndexToAddress(index)</code>. Do not
+call ERC-721 <code>ownerOf</code>.</li>
+<li>Use the punk index in <code>PunkTransfer</code>,
+<code>PunkBought</code> or <code>Assign</code>. The ERC-20-shaped
+<code>Transfer</code> value is always one.</li>
+<li>Reconstruct accepted bids from transaction input,
+<code>Transfer</code> and bid state. Their <code>PunkBought</code> value
+and buyer are zero.</li>
+<li>Send the exact intended price to <code>buyPunk</code>. Excess ETH
+goes to the seller.</li>
+<li>Treat public listings as first-transaction-wins. Use a directed
+offer when a specific buyer must receive the punk.</li>
+<li>A recipient contract must bind its external caller to the punk owner
+before it consumes a directed offer. The native <code>onlySellTo</code>
+check is insufficient for the recipient's own accounting.</li>
+<li>Keep any withdrawal receive path below 2300 gas. The contract cannot
+pay a different address.</li>
+<li>Check for a live bid before any zero-address transfer. The bid can
+become permanently unreachable.</li>
+<li>Use an ERC-721 wrapper when an integration requires approvals, safe
+transfers or ERC-165. The legacy WrappedPunks contract is
+<code>0xb7F7F6C52F2e2fdb1963Eab30438024864c313F6</code>. The later
+CryptoPunks721 wrapper is
+<code>0x000000000000003607fce1aC9E043a86675C5C2F</code>.</li>
+<li>Read images and attributes from the sealed 2021 data contract at
+<code>0x16F5A35647D6F03D5D3da7b35409D65ba03aF3B2</code>. They are not
+stored here.</li>
+</ol>
+<p>Do not confuse this contract with the earlier deployment at
+<code>0x6Ba6f2207e343923BA692e5Cae646Fb0F566DB8D</code>. The earlier
+address still has 4,131 bytes of runtime code onchain. Larva Labs states
+that its purchase path allocated sale funds to the buyer instead of the
+seller. CryptoPunksMarket is the replacement reviewed here and does not
+carry that error.</p>
+<h2 id="limits-of-this-review">Limits of this review</h2>
+<ul>
+<li>The scope is the single CryptoPunksMarket address. The earlier
+contract, wrappers, data contract, websites and downstream protocols
+were not audited.</li>
+<li>This was a manual source, bytecode and live-state review. It did not
+include formal verification, symbolic execution or fuzzing.</li>
+<li>The withdrawal address universe came from the official event history
+after Blockscout rate-limited the raw log scan. The 13,413-address state
+sweep itself completed without an error.</li>
+<li>The Medium finding states gross custody exposure. This review did
+not prove which of the 816 current creditors have receive code exceeding
+2300 gas.</li>
+<li>State and USD values move after block 26,291,046.</li>
+</ul>
+<h2 id="links">Links</h2>
+<ul class="links">
+<li><a
+href="https://etherscan.io/address/0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB#code"
+target="_blank"
+rel="noopener">Etherscan verified contract and 2021 DTF audit listing</a></li>
+<li><a
+href="https://larvalabs.com/archive" target="_blank"
+rel="noopener">Larva Labs archival build and byte-for-byte source verification</a></li>
+<li><a
+href="https://files.larvalabs.com/cryptopunks/archival/contract.json"
+target="_blank"
+rel="noopener">Official archive contract facts</a></li>
+<li><a
+href="https://www.larvalabs.com/cryptopunks/market" target="_blank"
+rel="noopener">Official explanation of the earlier contract bug</a></li>
+<li><a
+href="https://etherscan.io/tx/0xc3a7637cb286a9ed96aa6294506d3af97ff6f2a644b64bd6962aa94743cddf66"
+target="_blank"
+rel="noopener">Accepted 62 ETH bid example</a></li>
+<li><a
+href="https://marketing.nftx.io/blog/nftx-v2-punk-incident-post-mortem"
+target="_blank"
+rel="noopener">NFTX v2 PUNK integration incident post-mortem</a></li>
+<li><a
+href="https://cryptopunks.app/llms.txt" target="_blank"
+rel="noopener">Official CryptoPunks API documentation</a></li>
+<li><a
+href="https://721.cryptopunks.app/" target="_blank"
+rel="noopener">Official CryptoPunks721 wrapper</a></li>
+<li><a
+href="https://github.com/ethereum/solidity/blob/develop/docs/bugs_by_version.json"
+target="_blank"
+rel="noopener">Solidity bugs by compiler version</a></li>
+<li><a href="../../index.html">David Ryan's builder page</a></li>
+</ul>
+
+<script>Theme.wireThemeToggle();</script>
+
+</body>
+</html>

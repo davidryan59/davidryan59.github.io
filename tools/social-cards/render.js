@@ -7,7 +7,7 @@
    Chromium (npm install playwright, then npx playwright install chromium),
    and a network connection: it screenshots Dino Dash and ReTuner live, drives the Nopert, E8 and Noble
    explorers, and
-   reads the four audited contracts' bytecode from a public Ethereum RPC.
+   reads the five audited contracts' bytecode from a public Ethereum RPC.
 
    Stage 1 draws the pictures the cards are made from into a temporary
    folder: the tiling tabs with their panels hidden, two patches built in
@@ -25,7 +25,7 @@ const OUT = path.join(ROOT, 'social');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'social-cards-'));
 const MAX_BYTES = 300 * 1024;
 const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'krinkle', 'puzzle', 'merge-fractals', 'moving-mondrian',
-               'weth9', 'uniswap-v2', 'dai', 'permit2', 'parfly', 'salary-loan'];
+               'weth9', 'uniswap-v2', 'dai', 'permit2', 'cryptopunks', 'parfly', 'salary-loan'];
 // Cards drawn from their own words and diagram, with no picture from stage 1.
 const STANDALONE = ['parfly', 'salary-loan'];
 
@@ -89,7 +89,8 @@ const CONTRACTS = {
   weth9: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
   'uniswap-v2': '0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc',
   dai: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
-  permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3'
+  permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+  cryptopunks: '0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB'
 };
 const RPC = 'https://ethereum-rpc.publicnode.com';
 

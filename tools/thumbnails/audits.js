@@ -1,4 +1,4 @@
-/* Draws the four security-audit pictures in assets/thumbs/: weth9.svg,
+/* Draws four security-audit pictures in assets/thumbs/: weth9.svg,
    uniswap-v2.svg, dai.svg and permit2.svg. Each is the diagram on that
    audit's social card (tools/social-cards/cards.html), redrawn for 120 px
    with the words cut down to what still reads at that size. Stills, light

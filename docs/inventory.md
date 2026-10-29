@@ -149,6 +149,20 @@ David's reply to Ari Eiberman's question on X about being paid in Bitcoin. It co
 Aave steps, the loan-to-value arithmetic and the risks. Listed on the page under
 Ethereum & NFTs, with a thumbnail and a share card (`social/salary-loan.jpg`). Not yet pushed.
 
+### CryptoPunksMarket security audit
+
+An independent review of the immutable marketplace contract deployed in June
+2017 for the 10,000 CryptoPunks. The audit found no exploitable vulnerability
+and reconciled its 3,145.153320691470851579 ETH balance to its liabilities,
+exactly to the wei. It records one medium integration hazard, two low defects
+and three informational findings. The builder page entry uses an original
+24 × 24 pixel-art punk. The page uses `social/cryptopunks.jpg` as its share
+card.
+
+| Item | Link | Status |
+|---|---|---|
+| CryptoPunksMarket security audit, 2026-10-28 | [drbuild.uk/audits/cryptopunks/](https://drbuild.uk/audits/cryptopunks/) | Built 2026-10-29, not yet pushed |
+
 ## Music
 | Item | Link | Status |
 |---|---|---|

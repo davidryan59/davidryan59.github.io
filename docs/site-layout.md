@@ -56,7 +56,7 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
 | `/parfly/privacy` | The Parfly store listing. No redirect: a store reads it directly | `app/parfly/privacy.html`, with a `permalink` |
 | `/moving-mondrian/?token=N` | The `external_url` of every token, recorded onchain. It cannot change once the contract owner gives up ownership | `moving-mondrian/index.html` |
 | `/merge-fractals/` | Links to the mint page | `merge-fractals/index.html` |
-| `/audits/weth9/`, `/audits/uniswap-v2/`, `/audits/dai/`, `/audits/permit2/` | Posts and CVs that cite an audit | `audits/<name>/index.html` |
+| `/audits/weth9/`, `/audits/uniswap-v2/`, `/audits/dai/`, `/audits/permit2/`, `/audits/cryptopunks/` | Posts and CVs that cite an audit | `audits/<name>/index.html` |
 | `/guides/salary-loan/` | Posts that link the guide | `guides/salary-loan/index.html` |
 | `/papers/polygonal-spectre.pdf`, `/papers/undecanope.pdf`, `/papers/monotile-clusters.pdf` | Posts about each paper. Always the newest draft | `papers/` |
 | `/papers/polygonal-spectre/`, `/papers/undecanope/`, `/papers/monotile-clusters/`, `/papers/rid-nopert-audit/` | The paper and audit pages. Share these | `papers/<name>/index.html` |

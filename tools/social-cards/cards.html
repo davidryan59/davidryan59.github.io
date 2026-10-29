@@ -46,6 +46,12 @@
   }
   .audit .panel { width: 600px; padding: 20px 36px 24px; }
   .audit svg { display: block; margin: 0 auto 6px; }
+  .punk-audit-visual { display: flex; align-items: center; justify-content: center; gap: 28px; margin: 0 auto 10px; }
+  .punk-audit-visual img { width: 190px; height: 190px; image-rendering: pixelated; background: #b8c6d1; border-radius: 18px; }
+  .punk-solvency { width: 280px; color: #3d3c63; text-align: left; }
+  .punk-solvency strong { display: block; font-size: 34px; font-weight: normal; line-height: 1.1; }
+  .punk-solvency span { display: block; margin-top: 12px; color: #1552a1; font-size: 25px; line-height: 1.2; }
+  .punk-solvency small { display: block; margin-top: 8px; color: #8a8578; font-size: 20px; }
   .audit h1 { font-size: 48px; }
   .audit p { font-size: 23px; margin-top: 8px; }
   .audit .site { margin-top: 12px; }
@@ -189,6 +195,12 @@
         '<text x="222" y="38" text-anchor="middle" font-size="20" fill="' + LINE + '">no code</text>' +
         '<text x="222" y="200" text-anchor="middle" font-size="20" fill="' + LINE + '">code</text>' +
         box(10, 'ecrecover', '83%') + box(126, 'ERC-1271', '17%') + '</svg>';
+    },
+    // An original pixel punk leads; the exact solvency result stays beside it.
+    cryptopunks: function () {
+      return '<div class="punk-audit-visual"><img src="/assets/cryptopunks-punk.png" alt="">' +
+        '<div class="punk-solvency"><strong>3,145.1533 ETH</strong>' +
+        '<span>balance = liabilities</span><small>exactly, to the wei</small></div></div>';
     }
   };
   function audit(key, title, sub) {
@@ -250,6 +262,7 @@
     'uniswap-v2': function () { return audit('uniswap-v2', 'Uniswap V2 security audit', 'No exploitable vulnerability across 519,134 pairs'); },
     dai: function () { return audit('dai', 'DAI security audit', 'No exploitable vulnerability, and the mint authority closed since 2019'); },
     permit2: function () { return audit('permit2', 'Permit2 security audit', 'No exploitable vulnerability, and a signature check EIP-7702 changed'); },
+    cryptopunks: function () { return audit('cryptopunks', 'CryptoPunksMarket security audit', 'No exploitable vulnerability, and exact solvency to the wei'); },
     'salary-loan': function () { return guide('salary-loan', 'Crypto salary guide', 'Borrow stablecoins on Aave instead of selling, and the arithmetic that keeps you safe'); },
     parfly: parfly
   };
