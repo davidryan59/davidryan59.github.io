@@ -267,9 +267,27 @@
     'uniform int u_hand;',
     'uniform int u_handTurn;',
     'uniform float u_turnStep;',
+    // Tile styles (see docs/tiling-styles.md): the style, its switch, the
+    // light as a world direction, and the chunk's origin as integer pairs.
+    'uniform int u_style;',
+    'uniform int u_st;',
+    'uniform vec2 u_light;',
+    'uniform ivec4 u_cell;',
+    'uniform highp sampler2D u_styleTex;',
+    'uniform highp sampler2D u_shapeTex;',
+    'uniform int u_shapeRow;',
+    'uniform int u_nc;',
     'out vec2 v_local;',
     'out vec2 v_rel;',
+    'out vec2 v_cam;',
     'flat out uvec3 v_bits;',
+    'flat out vec3 v_glow;',
+    'flat out vec2 v_light;',
+    'flat out vec3 v_tf;',
+    'flat out uint v_seed;',
+    'uint mixHash(uint h) { h ^= h >> 16; h *= 0x7feb352du; h ^= h >> 15; h *= 0x846ca68bu; h ^= h >> 16; return h; }',
+    // A point of Z[w], stored as x + iy, back to its integer pair (m, n).
+    'ivec2 cellOf(vec2 v) { int n = int(round(v.y / 0.8660254037844386)); return ivec2(int(round(v.x - 0.5 * float(n))), n); }',
     'void main() {',
     '  uint turn = a_bits.x & TURN_MASK;',
     '  bool flip = (a_bits.x & FLIP_BIT) != 0u;',
@@ -293,7 +311,8 @@
     '#endif',
     '  if (hide) {',
     '    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);',
-    '    v_local = vec2(0.0); v_rel = vec2(0.0); v_bits = uvec3(0u);',
+    '    v_local = vec2(0.0); v_rel = vec2(0.0); v_cam = vec2(0.0); v_bits = uvec3(0u);',
+    '    v_glow = vec3(0.0); v_light = vec2(0.0, 1.0); v_tf = vec3(1.0, 0.0, 0.0); v_seed = 0u;',
     '#if FORMAT == 1',
     '    v_rc = ivec2(0);',
     '#endif',
@@ -313,7 +332,35 @@
     '  gl_Position = vec4((u_view * w) / u_half, 0.0, 1.0);',
     '  v_local = a_local;',
     '  v_rel = w - u_anchor;',
+    '  v_cam = w;',
     '  v_bits = a_bits;',
+    '  v_tf = vec3(c, s, flip ? 1.0 : 0.0);',
+    '  v_seed = 0u; v_glow = vec3(0.0); v_light = vec2(0.0, 1.0);',
+    '#if FORMAT == 0',
+    // The seed hashes the tile's place: the chunk's origin plus the tile's
+    // offset, both as exact integer pairs, so it never changes. The light
+    // turns into the tile's own frame, undoing its turn and mirror.
+    '  if (u_style > 0) {',
+    '    ivec4 q = u_cell + ivec4(cellOf(a_pr.xy), cellOf(a_pr.zw));',
+    '    uint h = mixHash(uint(q.x) ^ mixHash(uint(q.y) + 0x9e3779b9u ^ mixHash(uint(q.z) * 0x85ebca6bu ^ mixHash(uint(q.w) + 0xc2b2ae35u))));',
+    '    v_seed = h;',
+    '    vec2 l = vec2(c * u_light.x + s * u_light.y, -s * u_light.x + c * u_light.y);',
+    '    if (flip) l.y = -l.y;',
+    '    v_light = l;',
+    // Glow takes the seed's candidate point, or with its switch on Top
+    // left a point towards the light, reaching to the farthest corner.
+    '    if (u_style == 1 && u_st == 1) {',
+    '      vec4 dp = texelFetch(u_styleTex, ivec2(0, 2 + u_shapeRow), 0);',
+    '      vec2 pt = dp.xy + 0.6 * dp.z * l;',
+    '      float r = 0.0;',
+    '      for (int j = 0; j < NC; j++) {',
+    '        if (j >= u_nc) break;',
+    '        r = max(r, distance(pt, texelFetch(u_shapeTex, ivec2(j, u_shapeRow), 0).xy));',
+    '      }',
+    '      v_glow = vec3(pt, r);',
+    '    } else v_glow = texelFetch(u_styleTex, ivec2(int(h & 15u), u_shapeRow), 0).xyz;',
+    '  }',
+    '#endif',
     '}'
   ].join('\n');
 
@@ -336,7 +383,12 @@
     'precision highp int;',
     'in vec2 v_local;',
     'in vec2 v_rel;',
+    'in vec2 v_cam;',
     'flat in uvec3 v_bits;',
+    'flat in vec3 v_glow;',
+    'flat in vec2 v_light;',
+    'flat in vec3 v_tf;',
+    'flat in uint v_seed;',
     '#if FORMAT == 1',
     'flat in ivec2 v_rc;',
     'uniform int u_k;',
@@ -371,6 +423,15 @@
     'uniform vec3 u_dotCol[2];',
     'uniform float u_dotRange;',
     'uniform float u_dotR;',
+    'uniform int u_style;',
+    'uniform int u_st;',
+    'uniform float u_sv;',
+    'uniform highp sampler2D u_styleTex;',
+    'uniform highp sampler2D u_domeTex;',
+    'uniform vec4 u_domeBox[2];',
+    'uniform int u_domeOn;',
+    'uniform vec2 u_lamp;',
+    'uniform float u_lampK;',
     'out vec4 outColor;',
     'vec4 corner(int i) { return texelFetch(u_shapeTex, ivec2(i, u_shapeRow), 0); }',
     '#if FORMAT == 1',
@@ -443,6 +504,201 @@
     '  }',
     '  return best * L;',
     '}',
+    /* Tile styles, as docs/tiling-styles.md sets out. Each shifts the
+       tile's own colour in OKLCH, so it works with every scheme. Lengths
+       are in tile units, where the posters drew 3.4 mm to a unit. */
+    'uint mixHash(uint h) { h ^= h >> 16; h *= 0x7feb352du; h ^= h >> 15; h *= 0x846ca68bu; h ^= h >> 16; return h; }',
+    'vec3 linOf(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }',
+    'vec3 srgbOf(vec3 c) { c = clamp(c, 0.0, 1.0); return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }',
+    'vec3 labOf(vec3 c) {',
+    '  c = linOf(c);',
+    '  vec3 q = pow(max(vec3(0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b,',
+    '    0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b,',
+    '    0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b), 0.0), vec3(1.0 / 3.0));',
+    '  return vec3(0.2104542553 * q.x + 0.7936177850 * q.y - 0.0040720468 * q.z,',
+    '    1.9779984951 * q.x - 2.4285922050 * q.y + 0.4505937099 * q.z,',
+    '    0.0259040371 * q.x + 0.7827717662 * q.y - 0.8086757660 * q.z);',
+    '}',
+    'vec3 rgbOfLab(vec3 o) {',
+    '  float l = o.x + 0.3963377774 * o.y + 0.2158037573 * o.z;',
+    '  float m = o.x - 0.1055613458 * o.y - 0.0638541728 * o.z;',
+    '  float s = o.x - 0.0894841775 * o.y - 1.2914855480 * o.z;',
+    '  l = l * l * l; m = m * m * m; s = s * s * s;',
+    '  return srgbOf(vec3(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,',
+    '    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,',
+    '    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s));',
+    '}',
+    // The colour b, in OKLab, lightened by dL with its chroma times cm. A
+    // lighter shade loses some chroma, as on the posters.
+    'vec3 shadeL(vec3 b, float dL, float cm) {',
+    '  float k = cm * (dL > 0.0 ? max(0.4, 1.0 - 2.0 * dL) : 1.0);',
+    '  return rgbOfLab(vec3(clamp(b.x + dL, 0.0, 1.0), b.yz * k));',
+    '}',
+    // The light from the top left, in the tile's frame, and how much a facet
+    // facing n with slope sl gains or loses against a flat one.
+    'vec3 light3(vec2 l) { return normalize(vec3(normalize(l) * 1.41421356, 1.4)); }',
+    'float litN(vec2 n, float sl, vec3 L) { vec3 N = normalize(vec3(n * sl, 1.0)); return dot(N, L) - L.z; }',
+    'vec2 toLocal(vec2 v) {',
+    '  vec2 l = vec2(v_tf.x * v.x + v_tf.y * v.y, -v_tf.y * v.x + v_tf.x * v.y);',
+    '  return v_tf.z > 0.5 ? vec2(l.x, -l.y) : l;',
+    '}',
+    'float glowK(vec2 q) { return clamp(distance(q, v_glow.xy) / max(v_glow.z, 1e-6), 0.0, 1.0); }',
+    // Coverage of lines spacing sp apart at angle a, each 2 hw wide.
+    'float lineCov(vec2 p, float a, float sp, float hw, float px) {',
+    '  float v = dot(p, vec2(-sin(a), cos(a)));',
+    '  float d = abs(fract(v / sp + 0.5) - 0.5) * sp;',
+    '  return clamp((hw - d) / px + 0.5, 0.0, 1.0);',
+    '}',
+    'float boxD(vec2 p, float h, float r) { vec2 q = abs(p) - vec2(h - r); return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }',
+    // A pattern fades to its average colour as its spacing falls from 6 to
+    // 3 device pixels, so it never shimmers.
+    'float fadeOf(float sp, float px) { return smoothstep(3.0, 6.0, sp / px); }',
+    'vec3 styleFill(vec3 fill, float dmin, vec2 nmin) {',
+    '  vec3 b = labOf(fill);',
+    '  vec2 p = v_local;',
+    '  float px = 1.0 / u_scale;',
+    // How dark the tile's colour is: 0 for Pastel's light tiles, 1 for its
+    // dark mirrored ones. Dark tiles take lighter patterns, as on the posters.
+    '  float m = clamp((0.8 - b.x) / 0.2, 0.0, 1.0);',
+    '  float gk = glowK(p);',
+    '  vec3 L = light3(v_light);',
+    '  if (u_style == 1) {',
+    '    float dL = u_st == 0 ? mix(0.08, -0.12, gk)',
+    '      : gk < 0.55 ? mix(0.08, -0.02, gk / 0.55) : mix(-0.02, -0.12, (gk - 0.55) / 0.45);',
+    '    return shadeL(b, u_sv * dL, 1.0 + u_sv * mix(-0.05, 0.12, gk));',
+    '  }',
+    '  if (u_style == 2) {',
+    '    float top = 0.0;',
+    '    vec3 Lp = L;',
+    '    if (u_st == 1) {',
+    '      vec2 lw = u_lamp - v_cam;',
+    '      Lp = normalize(vec3(normalize(toLocal(lw)), 0.8));',
+    '      top = 0.05 - u_lampK * length(lw);',
+    '    }',
+    '    float rim = top + (u_st == 1 ? 0.7 : 0.6) * litN(nmin, 1.4, Lp);',
+    '    return shadeL(b, mix(rim, top, clamp((dmin - u_sv) / px + 0.5, 0.0, 1.0)), 1.0);',
+    '  }',
+    '  if (u_style == 3) {',
+    // The solved membrane's slope, read bilinearly from whichever of the
+    // four nearest texels lie inside the tile. Until it is solved, and
+    // where none do, a dome from the edge distance stands in: slope 1 at
+    // the edge, 0 at the deepest point.
+    '    vec2 g = vec2(0.0);',
+    '    float got = 0.0;',
+    '    if (u_domeOn == 1) {',
+    '      vec4 bx = u_domeBox[u_shapeRow];',
+    '      int N = int(bx.w);',
+    '      vec2 q = (p - bx.xy) / bx.z - 0.5;',
+    '      ivec2 i0 = ivec2(floor(q));',
+    '      vec2 f = q - floor(q);',
+    '      vec3 acc = vec3(0.0);',
+    '      for (int k = 0; k < 4; k++) {',
+    '        ivec2 o = ivec2(k & 1, k >> 1), ij = clamp(i0 + o, ivec2(0), ivec2(N - 1));',
+    '        vec4 t = texelFetch(u_domeTex, ivec2(ij.x, ij.y + u_shapeRow * N), 0);',
+    '        float w = (o.x == 1 ? f.x : 1.0 - f.x) * (o.y == 1 ? f.y : 1.0 - f.y) * t.w;',
+    '        acc += vec3(t.yz * w, w);',
+    '      }',
+    '      if (acc.z > 1e-4) { g = acc.xy / acc.z; got = 1.0; }',
+    '    }',
+    '    if (got < 0.5) {',
+    '      float D = max(texelFetch(u_styleTex, ivec2(0, 2 + u_shapeRow), 0).z, 1e-6);',
+    '      g = -(1.0 - clamp(dmin / D, 0.0, 1.0)) * nmin;',
+    '    }',
+    '    vec3 N3 = normalize(vec3(-g, 1.0));',
+    '    return shadeL(b, u_sv * clamp((dot(N3, L) - L.z) / 0.2965, -1.0, 1.0), 1.0);',
+    '  }',
+    '  if (u_style == 4) {',
+    // Lines 1.1 mm apart at 15 degrees in the tile's frame, each from
+    // 0.03 mm wide at the glow point to 0.6 mm at the far corner at 1.
+    '    float sp = 0.3235, g = u_sv;',
+    '    float mid = 0.315 + max(0.0, g - 1.0) * 0.25;',
+    '    float hw = 0.5 * max(0.01, mid + g * 0.285 * (2.0 * gk - 1.0)) / 3.4;',
+    '    vec3 bg = shadeL(b, 0.04, 1.0), ink = shadeL(b, -0.22 + 0.02 * m, 1.0);',
+    '    float cov = lineCov(p, 0.2617994, sp, hw, px), avg = 2.0 * hw / sp;',
+    '    if (v_tf.z > 0.5) {',
+    '      cov = max(cov, lineCov(p, 1.8325957, sp, hw, px));',
+    '      avg = 1.0 - (1.0 - avg) * (1.0 - avg);',
+    '    }',
+    '    return mix(bg, ink, mix(avg, cov, fadeOf(sp, px)));',
+    '  }',
+    '  if (u_style == 5) {',
+    // One dot on each point of a 1.3 mm grid at 45 degrees. Its radius
+    // changes with the glow at the dot's centre, by u_sv of the full range.
+    // The tint is the tile's own colour, or 12% lighter on a dark tile, as
+    // on Tilings No. 7, so the page stays rich.
+    '    float sp = 0.3824;',
+    '    vec2 r = vec2(p.x + p.y, p.y - p.x) * 0.70710678 / sp;',
+    '    vec2 cc = round(r);',
+    '    float k = glowK(vec2(cc.x - cc.y, cc.x + cc.y) * 0.70710678 * sp);',
+    '    float lo = mix(0.06, 0.22, m), hi = mix(0.52, 0.62, m), md = 0.5 * (lo + hi);',
+    '    float rad = (md + u_sv * (lo + (hi - lo) * k - md)) / 3.4;',
+    '    vec3 bg = shadeL(b, 0.12 * m, 1.0), ink = shadeL(b, mix(-0.2, -0.05, m), 1.3);',
+    '    float cov = clamp((rad - length(r - cc) * sp) / px + 0.5, 0.0, 1.0);',
+    '    float avg = min(1.0, 3.14159265 * rad * rad / (sp * sp));',
+    '    return mix(bg, ink, mix(avg, cov, fadeOf(sp, px)));',
+    '  }',
+    '  if (u_style == 6) {',
+    // Tesserae 1.9 mm square on a 2.2 mm grid, in four close shades. Rings
+    // lays them round the glow point instead, one shade to a ring. As on
+    // Tilings No. 9, they run from 6% lighter at the glow point to 10%
+    // darker at the far corner, and the joints take the tile's deep rim
+    // colour, so the colour runs right through the tile.
+    '    float G = 0.6471;',
+    '    float MQ[4] = float[4](0.0, 0.05, -0.05, 0.025);',
+    '    float q, k;',
+    '    vec2 lp;',
+    '    if (u_st == 0) {',
+    '      vec2 cell = floor(p / G);',
+    '      ivec2 ci = ivec2(cell);',
+    '      lp = p - (cell + 0.5) * G;',
+    '      q = MQ[(ci.x & 1) + 2 * (ci.y & 1)];',
+    '      k = glowK((cell + 0.5) * G);',
+    '    } else {',
+    '      vec2 d = p - v_glow.xy;',
+    '      float ring = floor(length(d) / G + 0.5);',
+    '      uint hr = mixHash(v_seed ^ (uint(ring) * 0x9e3779b1u));',
+    '      q = MQ[int(hr & 3u)];',
+    '      lp = d;',
+    '      if (ring > 0.5) {',
+    '        float n = round(6.2831853 * ring), ph = float((hr >> 8) & 1023u) / 1024.0 * 6.2831853;',
+    '        float ac = ph + round((atan(d.y, d.x) - ph) / (6.2831853 / n)) * 6.2831853 / n;',
+    '        vec2 u = vec2(cos(ac), sin(ac)), rel = d - ring * G * u;',
+    '        lp = vec2(dot(rel, u), dot(rel, vec2(-u.y, u.x)));',
+    '      }',
+    '      k = clamp(ring * G / max(v_glow.z, 1e-6), 0.0, 1.0);',
+    '    }',
+    '    vec3 grout = shadeL(b, -0.13, 1.12), tes = shadeL(b, q + 0.03 + u_sv * (0.06 - 0.16 * k), 1.03);',
+    // Faded, the tesserae take their mean shade and the pixel's own glow,
+    // so no cell-to-cell speckle is left to shimmer.
+    '    vec3 far = mix(grout, shadeL(b, 0.03625 + u_sv * (0.06 - 0.16 * gk), 1.03), 0.746);',
+    '    float cov = clamp(-boxD(lp, 0.2794, 0.0588) / px + 0.5, 0.0, 1.0);',
+    '    return mix(far, mix(grout, tes, cov), fadeOf(G, px));',
+    '  }',
+    '  if (u_style == 7) {',
+    // Strips 1.6 mm a square, woven over and under on a dark backing, each
+    // shaded across its width. Shade lightens the strips near the glow
+    // point; Gaps narrows them away from it.
+    '    float sp = 0.4706;',
+    '    vec2 cell = floor(p / sp);',
+    '    ivec2 ci = ivec2(cell);',
+    '    bool horiz = ((ci.x + ci.y) & 1) == 0;',
+    '    float k = glowK((cell + 0.5) * sp);',
+    '    float w = u_st == 1 ? sp * clamp(0.75 + u_sv * (0.22 - 0.53 * k), 0.3, 0.98) : 0.75 * sp;',
+    '    float gd = u_st == 0 ? u_sv * (0.08 - 0.24 * k) : 0.0;',
+    '    vec2 f = p - cell * sp;',
+    '    float across = horiz ? f.y : f.x, gap = 0.5 * (sp - w), t = (across - gap) / w;',
+    '    vec3 back = shadeL(b, -0.2, 1.2), endC = shadeL(b, -0.2 + gd, 1.2);',
+    '    vec3 hC = shadeL(b, 0.05 + gd, 1.0), vC = shadeL(b, -0.07 + gd, 1.2);',
+    '    vec3 sc = horiz ? hC : vC;',
+    '    sc = mix(sc, endC, clamp((t - 0.6) / 0.4, 0.0, 1.0));',
+    '    float inside = clamp(min(across - gap, gap + w - across) / px + 0.5, 0.0, 1.0);',
+    '    float fw = u_st == 1 ? sp * clamp(0.75 + u_sv * (0.22 - 0.53 * gk), 0.3, 0.98) : 0.75 * sp;',
+    '    float fg = u_st == 0 ? u_sv * (0.08 - 0.24 * gk) : 0.0;',
+    '    vec3 avg = mix(back, mix(0.5 * (shadeL(b, 0.05 + fg, 1.0) + shadeL(b, -0.07 + fg, 1.2)), shadeL(b, -0.2 + fg, 1.2), 0.2), fw / sp);',
+    '    return mix(avg, mix(back, sc, inside), fadeOf(sp, px));',
+    '  }',
+    '  return fill;',
+    '}',
     'void main() {',
     '  uint turn = v_bits.x & TURN_MASK;',
     '  bool flip = (v_bits.x & FLIP_BIT) != 0u;',
@@ -454,6 +710,11 @@
     '  vec3 fill = texelFetch(u_palette, ivec2(classOf(turn, flip), 0), 0).rgb;',
     '  float cov[6];',
     '  for (int k = 0; k < 6; k++) cov[k] = 0.0;',
+    // The nearest edge, for Bevel and Dome: its distance and outward
+    // normal, from the winding sign kept with the shape's depth.
+    '  float dmin = 1e9;',
+    '  vec2 nmin = vec2(0.0, 1.0);',
+    '  float wind = u_style > 0 ? texelFetch(u_styleTex, ivec2(0, 2 + u_shapeRow), 0).w : 1.0;',
     // A block of edges whose circle lies farther from this pixel than the
     // widest line reaches adds no ink, so it is skipped. A pixel lies near
     // only a few edges, which keeps a tile of 146 edges cheap.
@@ -469,8 +730,11 @@
     '      if (i >= u_nc) break;',
     '      vec4 cb = i + 1 == u_nc ? c0 : corner(i + 1);',
     '      vec2 a = ca.xy, b = cb.xy;',
-    '      float d = edgeDist(v_local, a, b, int(ca.z), flip) * u_scale;',
+    '      float dl = edgeDist(v_local, a, b, int(ca.z), flip), d = dl * u_scale;',
     '      ca = cb;',
+    '      vec2 e = b - a;',
+    '      float el = length(e);',
+    '      if (dl < dmin && el > 1e-9) { dmin = dl; nmin = wind * vec2(e.y, -e.x) / el; }',
     '      int lv = u_levels ? int(min(edgeLevel(i), 5u)) : 0;',
     '      cov[lv] = max(cov[lv], clamp(u_width[lv] + 0.5 - d, 0.0, 1.0));',
     '      if (u_levels) {',
@@ -487,7 +751,7 @@
     '  float lf = dot(pow(fill, vec3(2.2)), wt);',
     '  float le = dot(pow(u_edge, vec3(2.2)), wt), la = dot(pow(u_edgeAlt, vec3(2.2)), wt);',
     '  bool alt = (max(lf, la) + 0.05) / (min(lf, la) + 0.05) > (max(lf, le) + 0.05) / (min(lf, le) + 0.05);',
-    '  vec3 col = mix(fill, alt ? u_edgeAlt : u_edge, cov[0] * u_edgeAlpha);',
+    '  vec3 col = mix(u_style > 0 ? styleFill(fill, dmin, nmin) : fill, alt ? u_edgeAlt : u_edge, cov[0] * u_edgeAlpha);',
     '  for (int k = 1; k < 6; k++) col = mix(col, alt ? u_lineAlt : u_line, cov[k]);',
     // Grid dots: a disc on each corner of this tile that sits on a grid.
     '  if (u_gridOn != 0) {',
@@ -640,7 +904,8 @@
       ['u_chunk', 'u_ab', 'u_view', 'u_half', 'u_anchor', 'u_hand', 'u_handTurn', 'u_turnStep', 'u_shapeTex', 'u_shapeRow',
       'u_nc', 'u_palette', 'u_k', 'u_w', 'u_tau', 'u_rows', 'u_scale', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line',
       'u_edgeAlt', 'u_lineAlt', 'u_prof', 'u_profN', 'u_profMax',
-      'u_reach', 'u_cull', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat', 'u_dotCol', 'u_dotRange', 'u_dotR']);
+      'u_reach', 'u_cull', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat', 'u_dotCol', 'u_dotRange', 'u_dotR',
+      'u_style', 'u_st', 'u_sv', 'u_light', 'u_cell', 'u_styleTex', 'u_domeTex', 'u_domeBox', 'u_domeOn', 'u_lamp', 'u_lampK']);
     var overProg = program(OVERLAY_VS, OVERLAY_FS, ['u_half', 'u_inv', 'u_anchor', 'u_on', 'u_lat', 'u_gap',
       'u_col', 'u_scale', 'u_px', 'u_picks', 'u_nPicks', 'u_pickCol']);
     var overVao = gl.createVertexArray();
@@ -659,6 +924,171 @@
     var PALETTE = 256;
     var shapeTex = floatTexture(NC, 4), paletteTex = floatTexture(PALETTE, 1);
     var shapeData = new Float32Array(NC * 4 * 4), paletteData = new Float32Array(PALETTE * 4);
+
+    /* ------------------------------------------------- tile styles */
+
+    // The eight tile styles of the Hat, Spectre and Hat (extended) pages,
+    // which pass styles: true. Each has at most one slider and one
+    // two-way switch. See docs/tiling-styles.md.
+    function pct(v) { return Math.round(v * 100) + '%'; }
+    var STYLES = [
+      { id: 'flat', name: 'Flat' },
+      { id: 'glow', name: 'Glow',
+        slider: { label: 'Strength', min: 0, max: 1, step: 0.01, def: 1, fmt: pct },
+        toggle: { label: 'Centre', options: ['Random', 'Top left'] } },
+      { id: 'bevel', name: 'Bevel',
+        slider: { label: 'Rim', min: 0.08, max: 0.45, step: 0.01, def: 0.24, fmt: function (v) { return v.toFixed(2); } },
+        toggle: { label: 'Light', options: ['Sun', 'Lamp'] } },
+      { id: 'dome', name: 'Dome',
+        slider: { label: 'Light', min: 0.05, max: 0.15, step: 0.005, def: 0.1, fmt: pct } },
+      { id: 'engraved', name: 'Engraved',
+        slider: { label: 'Glow', min: 0, max: 1.5, step: 0.01, def: 1, fmt: pct } },
+      { id: 'halftone', name: 'Halftone',
+        slider: { label: 'Glow', min: 0, max: 1, step: 0.01, def: 0.75, fmt: pct } },
+      { id: 'mosaic', name: 'Mosaic',
+        slider: { label: 'Glow', min: 0, max: 1, step: 0.01, def: 1, fmt: pct },
+        toggle: { label: 'Layout', options: ['Grid', 'Rings'] } },
+      { id: 'weave', name: 'Weave',
+        slider: { label: 'Glow', min: 0, max: 1, step: 0.01, def: 1, fmt: pct },
+        toggle: { label: 'Glow as', options: ['Shade', 'Gaps'] } }
+    ];
+    var styleOn = !!cfg.styles, style = 'flat', styleVals = {};
+    function styleDefaults() {
+      STYLES.forEach(function (st) { styleVals[st.id] = { v: st.slider ? st.slider.def : 0, t: 0 }; });
+    }
+    styleDefaults();
+    function styleDef(id) { return STYLES.filter(function (st) { return st.id === (id || style); })[0]; }
+    function styleIndex() { return styleOn ? STYLES.indexOf(styleDef()) : 0; }
+    function setStyleVal(id, v, t) {
+      var st = styleDef(id), val = styleVals[id];
+      if (st.slider && isFinite(v)) val.v = Math.max(st.slider.min, Math.min(st.slider.max, v));
+      if (st.toggle) val.t = t === 1 ? 1 : 0;
+    }
+
+    // Per tile shape and hand: the point deepest inside the outline and its
+    // depth, the outline's winding sign, and 16 glow points. Each glow point
+    // starts at the deepest point and heads for a corner picked by a fixed
+    // seed, stopping where it would come within 30% of the depth of the
+    // edge. So the points move smoothly as the shape changes.
+    var styleTex = floatTexture(16, 4), styleData = new Float32Array(16 * 4 * 4), styleSig = null;
+    var DOME_N = 128, domeTex = styleOn ? floatTexture(DOME_N, 2 * DOME_N) : null;
+    var domeBox = new Float32Array(8), domeSig = null, domeWant = null, domeTimer = 0;
+    function seeded(seed) {
+      return function () {
+        seed = (seed + 0x6D2B79F5) | 0;
+        var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function segD(p, a, b) {
+      var dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy;
+      var t = l ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l)) : 0;
+      return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+    }
+    function edgeD(p, poly) {
+      var d = Infinity;
+      for (var i = 0; i < poly.length; i++) d = Math.min(d, segD(p, poly[i], poly[(i + 1) % poly.length]));
+      return d;
+    }
+    function inside(p, poly) { return winding(poly, p[0], p[1]) !== 0; }
+    function lerp(a, b, t) { return [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]; }
+    function styleOutline(hand) { return tidy(cfg.shape.outline(cfg.shape.lod(200), hand)); }
+    function shapeStyle(hand) {
+      var poly = styleOutline(hand), cs = cfg.shape.corners(hand) || poly;
+      var xs = poly.map(function (q) { return q[0]; }), ys = poly.map(function (q) { return q[1]; });
+      var x0 = Math.min.apply(null, xs), y0 = Math.min.apply(null, ys);
+      var w = Math.max.apply(null, xs) - x0, h = Math.max.apply(null, ys) - y0, step = Math.max(w, h) / 40;
+      var deep = [x0 + w / 2, y0 + h / 2], D = -1;
+      function tryAt(q) { if (!inside(q, poly)) return; var d = edgeD(q, poly); if (d > D) { D = d; deep = q; } }
+      for (var i = 0; i <= 40; i++) for (var j = 0; j <= 40; j++) tryAt([x0 + i * step, y0 + j * step]);
+      var c0 = deep;
+      for (i = -5; i <= 5; i++) for (j = -5; j <= 5; j++) tryAt([c0[0] + i * step / 5, c0[1] + j * step / 5]);
+      var ok = function (q) { return inside(q, poly) && edgeD(q, poly) >= 0.3 * D; };
+      var r = seeded(0x5eed), cands = [];
+      for (var c = 0; c < 16; c++) {
+        var tgt = lerp(deep, cs[Math.floor(r() * cs.length)], 0.25 + 0.65 * r()), lo = 0, hi = 1;
+        if (ok(tgt)) lo = 1;
+        else {
+          for (var k = 1; k <= 24; k++) if (!ok(lerp(deep, tgt, k / 24))) { hi = k / 24; lo = (k - 1) / 24; break; }
+          for (k = 0; k < 10; k++) { var mid = (lo + hi) / 2; if (ok(lerp(deep, tgt, mid))) lo = mid; else hi = mid; }
+        }
+        var pt = lerp(deep, tgt, lo), reach = 0;
+        poly.forEach(function (q) { reach = Math.max(reach, Math.hypot(q[0] - pt[0], q[1] - pt[1])); });
+        cands.push([pt[0], pt[1], reach]);
+      }
+      return { cands: cands, deep: deep, D: D, wind: area(cs) < 0 ? -1 : 1 };
+    }
+    function updateStyleData() {
+      var sig = cfg.shape.signature();
+      if (sig === styleSig) return;
+      styleSig = sig;
+      styleData.fill(0);
+      hands.forEach(function (hd, row) {
+        var sd = shapeStyle(hd > 0 ? 1 : 0);
+        sd.cands.forEach(function (c, i) { styleData.set([c[0], c[1], c[2], 0], 4 * (row * 16 + i)); });
+        styleData.set([sd.deep[0], sd.deep[1], sd.D, sd.wind], 4 * ((2 + row) * 16));
+      });
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, styleTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 16, 4, gl.RGBA, gl.FLOAT, styleData);
+    }
+
+    // The Dome: a membrane held at 0 on the tile's edge and pushed up from
+    // below, solved by over-relaxation on a DOME_N square grid per hand, as
+    // the posters solve it. Each height is scaled so 95% of the dome is no
+    // steeper than 45 degrees. A texel holds the height, its slope and
+    // whether it lies inside the tile.
+    function solveDome(hand, row, out) {
+      var N = DOME_N, poly = styleOutline(hand);
+      var xs = poly.map(function (q) { return q[0]; }), ys = poly.map(function (q) { return q[1]; });
+      var x0 = Math.min.apply(null, xs), y0 = Math.min.apply(null, ys);
+      var cell = Math.max(Math.max.apply(null, xs) - x0, Math.max.apply(null, ys) - y0) / (N - 2);
+      x0 -= cell; y0 -= cell;
+      var free = new Uint8Array(N * N), u = new Float32Array(N * N), i, j, k;
+      for (j = 1; j < N - 1; j++) for (i = 1; i < N - 1; i++) if (inside([x0 + (i + 0.5) * cell, y0 + (j + 0.5) * cell], poly)) free[j * N + i] = 1;
+      var om = 2 / (1 + Math.PI / N);
+      for (var it = 0; it < 3 * N; it++) for (j = 1; j < N - 1; j++) for (i = 1; i < N - 1; i++) {
+        k = j * N + i;
+        if (free[k]) u[k] += om * ((u[k - 1] + u[k + 1] + u[k - N] + u[k + N] + 1) / 4 - u[k]);
+      }
+      var top = 0;
+      for (k = 0; k < N * N; k++) top = Math.max(top, u[k]);
+      var at = function (k2, own) { return free[k2] ? u[k2] : own; };
+      var slopes = [], gx = new Float32Array(N * N), gy = new Float32Array(N * N);
+      for (j = 1; j < N - 1; j++) for (i = 1; i < N - 1; i++) {
+        k = j * N + i;
+        if (!free[k]) continue;
+        gx[k] = (at(k + 1, u[k]) - at(k - 1, u[k])) / (2 * cell * top);
+        gy[k] = (at(k + N, u[k]) - at(k - N, u[k])) / (2 * cell * top);
+        slopes.push(Math.hypot(gx[k], gy[k]));
+      }
+      slopes.sort(function (a, b) { return a - b; });
+      var steep = slopes[Math.floor(0.95 * slopes.length)] || 1;
+      for (k = 0; k < N * N; k++) out.set([u[k] / top / steep, gx[k] / steep, gy[k] / steep, free[k]], 4 * (row * N * N + k));
+      domeBox.set([x0, y0, cell, N], 4 * row);
+    }
+    // Solve once the shape has held still for 250 ms, so a drag of the
+    // shape slider stays smooth. Until then the shader's stand-in shows.
+    function wantDome() {
+      var sig = cfg.shape.signature();
+      if (sig === domeSig || sig === domeWant) return;
+      domeWant = sig;
+      clearTimeout(domeTimer);
+      domeTimer = setTimeout(function () {
+        if (cfg.shape.signature() !== domeWant) return;
+        var out = new Float32Array(4 * DOME_N * DOME_N * 2);
+        hands.forEach(function (hd, row) { solveDome(hd > 0 ? 1 : 0, row, out); });
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, domeTex);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, DOME_N, 2 * DOME_N, gl.RGBA, gl.FLOAT, out);
+        domeSig = domeWant;
+        domeWant = null;
+        requestDraw();
+      }, 250);
+    }
+    // A chunk's origin as integer pairs of Z[w], for the tile seed.
+    function cellOf(v) { var n = Math.round(v[1] / H3); return [Math.round(v[0] - n / 2), n]; }
 
     /* -------------------------------------------------- tile meshes */
 
@@ -719,7 +1149,8 @@
         }
       }
       gl.bindVertexArray(null);
-      return { vao: vao, buf: buf, count: m.count, i: m.i, j: m.j, P0: m.P0, R0: m.R0, lo: m.lo, hi: m.hi, used: frame };
+      return { vao: vao, buf: buf, count: m.count, i: m.i, j: m.j, P0: m.P0, R0: m.R0, cell: cellOf(m.P0).concat(cellOf(m.R0)),
+        lo: m.lo, hi: m.hi, used: frame };
     }
 
     function dropChunk(c) {
@@ -854,6 +1285,7 @@
       if (cfg.onReady) cfg.onReady(info);
       keepCustoms();
       renderSchemeSelect();
+      renderStyle();
       renderLegend();
       changed();
     }
@@ -1046,6 +1478,66 @@
 
     // One small tile, turned and flipped as it appears on the map, and turned
     // with the view so it matches the screen. SVG runs y down, so y flips.
+    /* --------------------------------------------------- style menu */
+
+    // With styles the panel runs from the general to the particular: the
+    // Style menu on the top row with the theme toggle and Hide, then the
+    // style's slider and switch, then the colour menu with the dice, then
+    // the key. The slider, switch and key fold away with Hide; the two menus
+    // stay.
+    var styleRow = null, styleSelEl = null;
+    if (styleOn) {
+      var head = document.querySelector('#legend .legend-head');
+      styleSelEl = document.createElement('select');
+      styleSelEl.id = 'style';
+      styleSelEl.setAttribute('aria-label', 'Tile style');
+      styleSelEl.innerHTML = STYLES.map(function (st) { return '<option value="' + st.id + '">' + st.name + '</option>'; }).join('');
+      head.insertBefore(styleSelEl, head.firstChild);
+      styleRow = document.createElement('div');
+      styleRow.className = 'style-row';
+      head.insertAdjacentElement('afterend', styleRow);
+      var schemeRow = document.createElement('div');
+      schemeRow.className = 'scheme-row';
+      schemeRow.appendChild(schemeEl);
+      schemeRow.appendChild(document.getElementById('random-colours'));
+      styleRow.insertAdjacentElement('afterend', schemeRow);
+      styleSelEl.addEventListener('change', function () {
+        style = styleSelEl.value;
+        renderStyle();
+        saveOptions();
+        changed();
+      });
+    }
+    function showStyle() {
+      if (!styleRow) return;
+      styleRow.hidden = !legendOpen || !styleRow.firstChild;
+    }
+    function renderStyle() {
+      if (!styleRow) return;
+      var st = styleDef(), val = styleVals[style], html = '';
+      styleSelEl.value = style;
+      if (st.slider) {
+        html += '<label class="slider"><span>' + st.slider.label + '</span><output>' + st.slider.fmt(val.v) + '</output>' +
+          '<input type="range" min="' + st.slider.min + '" max="' + st.slider.max + '" step="' + st.slider.step + '" value="' + val.v + '"></label>';
+      }
+      if (st.toggle) {
+        html += '<div class="seg" role="group" aria-label="' + st.toggle.label + '"><span>' + st.toggle.label + '</span><div>' +
+          st.toggle.options.map(function (o, i) {
+            return '<button type="button" data-t="' + i + '" aria-pressed="' + (val.t === i) + '">' + o + '</button>';
+          }).join('') + '</div></div>';
+      }
+      styleRow.innerHTML = html;
+      showStyle();
+      var range = styleRow.querySelector('input'), out = styleRow.querySelector('output');
+      if (range) {
+        range.addEventListener('input', function () { val.v = +range.value; out.textContent = st.slider.fmt(val.v); requestDraw(); });
+        range.addEventListener('change', function () { saveOptions(); changed(); });
+      }
+      Array.prototype.forEach.call(styleRow.querySelectorAll('.seg button'), function (b) {
+        b.addEventListener('click', function () { val.t = +b.dataset.t; renderStyle(); saveOptions(); changed(); });
+      });
+    }
+
     function tileSvg(cls, colour) {
       var c = classList()[cls];
       var pts = cfg.shape.outline(1, cfg.shape.handByTurn ? c.turn & 1 : c.flip), cx = 0, cy = 0;
@@ -1096,6 +1588,7 @@
     }
 
     function renderLegend() {
+      showStyle();
       if (!theme || !info) return;
       var g = currentGrouping(), cols = groupColours();
       var html = '';
@@ -1306,6 +1799,29 @@
       gl.uniform1f(U.u_scale, k);
       gl.uniform1i(U.u_classMode, classMode());
       gl.uniform1f(U.u_turnStep, turnStep());
+      // The tile style, its settings, and the light from the top left of the
+      // screen as a world direction. The lamp sits 15% in from the top left
+      // corner and dims by a quarter across the screen's diagonal.
+      var sIdx = styleIndex(), sVal = styleVals[style];
+      gl.uniform1i(U.u_style, sIdx);
+      if (sIdx) {
+        updateStyleData();
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, styleTex);
+        gl.uniform1i(U.u_styleTex, 2);
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, domeTex);
+        gl.uniform1i(U.u_domeTex, 3);
+        gl.uniform1i(U.u_st, sVal.t);
+        gl.uniform1f(U.u_sv, sVal.v);
+        var lw = rot([-Math.SQRT1_2, Math.SQRT1_2], -view.rot), lamp = screenToRel(-0.35 * W, -0.35 * Hh);
+        gl.uniform2f(U.u_light, lw[0], lw[1]);
+        gl.uniform2f(U.u_lamp, lamp[0], lamp[1]);
+        gl.uniform1f(U.u_lampK, 0.25 * s / Math.hypot(W, Hh));
+        if (style === 'dome') wantDome();
+        gl.uniform1i(U.u_domeOn, style === 'dome' && domeSig === cfg.shape.signature() ? 1 : 0);
+        gl.uniform4fv(U.u_domeBox, domeBox);
+      }
       paletteData.fill(0);
       classColours().slice(0, PALETTE).forEach(function (c, i) { paletteData.set(c, 4 * i); });
       gl.activeTexture(gl.TEXTURE0);
@@ -1313,9 +1829,11 @@
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, PALETTE, 1, gl.RGBA, gl.FLOAT, paletteData);
       gl.uniform1i(U.u_palette, 0);
       gl.uniform1i(U.u_levels, outlines ? 1 : 0);
-      gl.uniform3fv(U.u_edge, theme.edge);
+      // Glow draws its edges as dark lead, in both themes.
+      var lead = style === 'glow' && sIdx ? hex('#24221e') : null;
+      gl.uniform3fv(U.u_edge, lead || theme.edge);
       gl.uniform3fv(U.u_line, theme.line);
-      gl.uniform3fv(U.u_edgeAlt, theme.edgeAlt);
+      gl.uniform3fv(U.u_edgeAlt, lead || theme.edgeAlt);
       gl.uniform3fv(U.u_lineAlt, theme.lineAlt);
       gl.uniform3fv(U.u_hot, theme.hot);
       gl.uniform3fv(U.u_hot2, theme.hot2);
@@ -1330,7 +1848,7 @@
       }
       // Supertile lines thicken with the supertile's size on screen, about
       // 2.8 times per level, so small supertiles never bury their tiles.
-      var widths = [1.0];
+      var widths = [lead ? 2.4 : 1.0];
       for (var lv = 1; lv <= 5; lv++) {
         var wd = Math.min(6, Math.max(0, 0.45 * Math.log2(s * Math.pow(2.8, lv) / 4)));
         if (widths[lv - 1] > 0 && lv > 1) wd = Math.max(wd, widths[lv - 1] + 0.4);
@@ -1404,7 +1922,12 @@
       gl.uniform1i(U.u_nc, nc);
       gl.uniform1f(U.u_reach, (Math.max.apply(null, widths) * dpr / 2 + 1.5) / k);
       // Past this distance from a block's circle no line reaches a pixel.
-      gl.uniform1f(U.u_cull, (Math.max.apply(null, widths) * dpr / 2 + 1) / k);
+      // Bevel needs the nearest edge across its rim, and Dome across the
+      // whole tile until its membrane is solved, then near the edge only.
+      var cull = (Math.max.apply(null, widths) * dpr / 2 + 1) / k;
+      if (sIdx && style === 'bevel') cull = Math.max(cull, sVal.v + 2 / k);
+      if (sIdx && style === 'dome') cull = domeSig === cfg.shape.signature() ? Math.max(cull, 3 * domeBox[2] + 2 / k) : 1e9;
+      gl.uniform1f(U.u_cull, cull);
 
       // Grid.
       var lat = grid.on && grid.picks.length ? lattices() : [], on = 0, latM = new Float32Array(8), gp = [0, 0];
@@ -1474,6 +1997,7 @@
           gl.uniform1i(U.u_shapeRow, hi);
           draws.forEach(function (d) {
             gl.uniform2f(U.u_chunk, d.o[0], d.o[1]);
+            if (sIdx) gl.uniform4i(U.u_cell, d.c.cell[0], d.c.cell[1], d.c.cell[2], d.c.cell[3]);
             gl.bindVertexArray(d.c.vao);
             gl.drawArraysInstanced(gl.TRIANGLES, first, count, d.c.count);
           });
@@ -1616,6 +2140,10 @@
       if (slope) v.push(fmt(view.R[0] - st.R[0], 2), fmt(view.R[1] - st.R[1], 2));
       var parts = ['v=' + v.join(','), 'c=' + encodeURIComponent(sel)];
       if (sel.indexOf('custom:') === 0) parts.push('k=' + customs[sel.slice(7)].map(function (h) { return h.slice(1); }).join('-'));
+      if (styleOn && style !== 'flat') {
+        var sv = styleVals[style], sd = styleDef();
+        parts.push('s=' + [style].concat(sd.slider ? [fmt(sv.v, 3)] : [], sd.toggle ? [sv.t] : []).join(','));
+      }
       var extra = cfg.hashGet ? cfg.hashGet() : {};
       // A comma stays as it is, so a pair such as mk=3,7 reads plainly.
       Object.keys(extra).forEach(function (key) { parts.push(key + '=' + encodeURIComponent(extra[key]).replace(/%2C/gi, ',')); });
@@ -1640,6 +2168,11 @@
           }
         } else sel = q.c;
       }
+      // s=style,slider,switch. A link without one shows Flat.
+      if (styleOn) {
+        var sp = (q.s || 'flat').split(',');
+        if (styleDef(sp[0])) { style = sp[0]; setStyleVal(style, parseFloat(sp[1]), parseInt(sp[2], 10)); }
+      }
       if (!q.v) return false;
       var v = q.v.split(',').map(parseFloat);
       if (v.length < 3 || v.some(isNaN)) return false;
@@ -1655,7 +2188,7 @@
     function saveOptions() {
       try {
         localStorage.setItem(store, JSON.stringify({ sel: sel, customs: customs, outlines: outlines,
-          grid: { on: grid.on, on0: grid.on0, on30: grid.on30 } }));
+          grid: { on: grid.on, on0: grid.on0, on30: grid.on30 }, style: style, styleVals: styleVals }));
       } catch (e) {}
     }
     function loadOptions() {
@@ -1669,6 +2202,10 @@
         });
         if (o.sel && (presets[o.sel] || (o.sel.indexOf('custom:') === 0 && customs[o.sel.slice(7)]))) sel = o.sel;
         outlines = !!o.outlines;
+        if (styleOn && o.styleVals) Object.keys(o.styleVals).forEach(function (id) {
+          if (styleDef(id) && o.styleVals[id]) setStyleVal(id, +o.styleVals[id].v, +o.styleVals[id].t);
+        });
+        if (styleOn && o.style && styleDef(o.style)) style = o.style;
         if (o.grid && hasGrid) { grid.on = !!o.grid.on; grid.on0 = o.grid.on0 !== false; grid.on30 = o.grid.on30 !== false; }
       } catch (e) {}
     }
@@ -1898,11 +2435,15 @@
     /* ------------------------------------------------------- reset */
 
     // Each panel resets its own options to how the page first opens. The
-    // colour panel: the first preset and no custom colours. The theme is
+    // colour panel: the first preset, no custom colours, and Flat with
+    // every style setting at its default. The theme is
     // left alone, since it is shared with the rest of the site.
     function resetColours() {
       sel = cfg.defaultScheme || cfg.presets[0].id;
       customs = {};
+      style = 'flat';
+      styleDefaults();
+      renderStyle();
       renderSchemeSelect();
       saveOptions();
       renderLegend();
@@ -1935,6 +2476,7 @@
       if (cfg.onReady) cfg.onReady(info);
       keepCustoms();
       renderSchemeSelect();
+      renderStyle();
       renderLegend();
       if (grid.on) gridChanged();
       requestDraw();
@@ -1951,11 +2493,12 @@
     }
     renderGridHint();
     renderSchemeSelect();
+    renderStyle();
 
     Theme.wireThemeToggle();
     new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     window.addEventListener('resize', resize);
-    window.addEventListener('hashchange', function () { if (info && readHash()) { renderSchemeSelect(); renderLegend(); requestDraw(); } });
+    window.addEventListener('hashchange', function () { if (info && readHash()) { renderSchemeSelect(); renderStyle(); renderLegend(); requestDraw(); } });
     resize();
     applyTheme();
     startWorkers();

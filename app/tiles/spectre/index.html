@@ -363,6 +363,14 @@
   // Common and rare and Plain keep a dark version, since one of their
   // colours stands in for the background.
   var presets = [
+    // Rich is Pastel 0.03 darker with 1.7 times the chroma, as on the
+    // Monotiles posters.
+    { id: 'rich', name: 'Rich', grouping: 'all12', colours: function () {
+      return classes.map(function (cl, k) {
+        var rare = k % 2 === 1;
+        return oklch(rare ? 0.61 : 0.85, (rare ? 0.15 : 0.075) * 1.7, k * 30 + 25);
+      });
+    } },
     { id: 'pastel', name: 'Pastel', grouping: 'all12', colours: function () {
       return classes.map(function (cl, k) {
         var rare = k % 2 === 1;
@@ -408,6 +416,7 @@
     classes: classes,
     groupings: groupings,
     presets: presets,
+    styles: true,
     shape: shape,
     gridSpacing: function (v) { return [v[0], v[1]]; },
     tileRadius: function () { return (6 + Math.abs(st.bend)) * Math.max(ab[0], ab[1]); },

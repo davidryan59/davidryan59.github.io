@@ -119,11 +119,20 @@ drbuild.uk/demos/ redirect to the new ones.
 ## Options
 
 - **Panels.** Colour lives in the bottom-left panel: the scheme menu, the
-  dice, the theme toggle, the key and Reset colours. Shape, supertiles and
+  dice, the theme toggle, the key and Reset colours. On the pages with tile
+  styles, the Style menu takes the panel's top row and the scheme menu moves
+  below it. Shape, supertiles and
   grid live top right, with their own Reset options. Neither reset touches
   the theme, which the whole site shares, or the view, which the home
   button resets. About sits in the title card's top right corner, and the
   compass, zoom and turn buttons stack bottom right, as on a map.
+- **Tile styles.** The Hat, Spectre and Hat (extended) pages pass
+  `styles: true`, which adds a Style menu under the scheme menu: Flat, Glow,
+  Bevel, Dome, Engraved, Halftone, Mosaic and Weave, each with at most one
+  slider and one switch. Flat is the default. Krinkle has no Style menu.
+  See [tiling-styles.md](tiling-styles.md).
+- **Rich.** The first preset on those three pages, and so the default:
+  Pastel 0.03 darker with 1.7 times the chroma, as on the Monotiles posters.
 - **Colours.** Each page lists presets under its groupings. The Spectre
   groups its 12 orientations by turn modulo 30°, 60°, 90°, 120°, 180° or
   360°. The Hat has 12 colours, 2 (by hand) or 1. It has no grouping by turn

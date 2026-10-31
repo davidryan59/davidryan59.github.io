@@ -364,12 +364,20 @@
     { id: 'hand', name: '2 colours, hand', n: 2, of: function (k) { return k >= 6 ? 1 : 0; }, cols: 1 },
     { id: 'one', name: '1 colour', n: 1, of: function () { return 0; }, cols: 1 }
   ];
-  // Pastel and Rainbow look the same in light and dark mode. The tiles fill
+  // Rich, Pastel and Rainbow look the same in light and dark mode. The tiles fill
   // the screen, and a darker Pastel turned murky. Each tile takes whichever
   // ink contrasts with it, so dark mode changes only the panels. Mirrored
   // hats and Plain keep a dark version, since one of their colours stands
   // in for the background.
   var presets = [
+    // Rich is Pastel 0.03 darker with 1.7 times the chroma, as on the
+    // Monotiles posters.
+    { id: 'rich', name: 'Rich', grouping: 'turnhand', colours: function () {
+      return classes.map(function (cl, k) {
+        var m = k >= 6, hue = (k % 6) * 60 + 25;
+        return oklch(m ? 0.57 : 0.85, (m ? 0.15 : 0.075) * 1.7, hue);
+      });
+    } },
     { id: 'pastel', name: 'Pastel', grouping: 'turnhand', colours: function () {
       return classes.map(function (cl, k) {
         var m = k >= 6, hue = (k % 6) * 60 + 25;
@@ -404,6 +412,7 @@
     classes: classes,
     groupings: groupings,
     presets: presets,
+    styles: true,
     shape: shape,
     gridSpacing: function (v) { return [v[0], v[1]]; },
     tileRadius: tileRadius,
