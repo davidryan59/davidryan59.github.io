@@ -83,9 +83,10 @@ a { color: var(--link); }
 .title .puzzle-link { font-size: 0.82rem; white-space: nowrap; }
 
 /* The Hat | Spectre | Hat (extended) | Krinkle switch, styled as joined
-   tabs. Hat, Spectre and Krinkle share one width, the widest of their
-   labels, and Hat (extended) takes the width of its own. Where the card is
-   too narrow for that, as on a phone, the shared columns give way first. */
+   tabs. Hat, Spectre and Krinkle share one width, at least 4.5rem, and Hat
+   (extended) takes the width of its own label. The 4.5rem leaves about
+   20 px spare in the title card on a laptop. On a narrow phone the
+   minimum shrinks with the screen, so the tabs always fit the card. */
 .switch {
   display: inline-grid;
   grid-template-columns: 1fr 1fr auto 1fr;
@@ -96,6 +97,7 @@ a { color: var(--link); }
 }
 .switch a { padding: 0.2rem 0.55rem; text-decoration: none; color: var(--h3); text-align: center; white-space: nowrap; }
 .switch a + a { border-left: 1px solid var(--ring); }
+.switch a:nth-child(-n+2), .switch a:nth-child(4) { min-width: min(4.5rem, calc((100vw - 160px) / 3)); box-sizing: border-box; }
 .switch a[aria-current="page"] { background: var(--ring); color: var(--h1); }
 .switch a:hover { color: var(--h1); }
 

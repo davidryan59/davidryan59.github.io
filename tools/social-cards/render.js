@@ -29,11 +29,13 @@ const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'krinkle', 'puzzle',
 // Cards drawn from their own words and diagram, with no picture from stage 1.
 const STANDALONE = ['parfly', 'salary-loan'];
 
-// The tiling views, as each tab's address bar holds them.
+// The tiling views, as each tab's address bar holds them. The three tabs
+// with tile styles show Rich colours in Glow, each tile lit from its own
+// random point, as chosen on 2026-10-31.
 const TILINGS = {
-  hat: '/app/tiles/hat/#v=0,0,14,0,0,0&c=pastel&t=30',
-  spectre: '/app/tiles/spectre/#v=0,0,16,0&c=rainbow2&e=curve&b=0.18&a=alt&p=waves%3A1',
-  'hat-extended': '/app/tiles/hat-extended/#v=0,0,34,0,0,0&c=pastel&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55',
+  hat: '/app/tiles/hat/#v=0,0,14,0,0,0&c=rich&t=30&s=glow,1,0',
+  spectre: '/app/tiles/spectre/#v=0,0,16,0&c=rich&e=curve&b=0.18&a=alt&p=waves%3A1&s=glow,1,0',
+  'hat-extended': '/app/tiles/hat-extended/#v=0,0,34,0,0,0&c=rich&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55&s=glow,1,0',
   // The (3, 7, 22') tile. The centre of the fan sits right of the card's
   // panel, so the swirl shows.
   krinkle: '/app/tiles/krinkle/#v=-25,0,16,0&c=pastel&mk=3,7&t=2&o=1&a=fan'
