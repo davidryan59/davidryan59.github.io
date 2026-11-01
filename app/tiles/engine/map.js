@@ -240,7 +240,7 @@
   /* ----------------------------------------------------------- shaders */
 
   /* The tile shaders are compiled per page with two constants. NC is the
-     most corners a tile can have: 14 for the Hat and Spectre, 146 for
+     most corners a tile can have: 14 for the Hat and Spectre, 242 for
      Krinkle. FORMAT is the tile record: 0 for the Hat and Spectre (see
      tiling-core.js), 1 for Krinkle (see krinkle/tiling.js). In format 1 a
      tile has a plain centre, row r and column c, an 8-bit turn and two
@@ -336,14 +336,19 @@
     '  v_bits = a_bits;',
     '  v_tf = vec3(c, s, flip ? 1.0 : 0.0);',
     '  v_seed = 0u; v_glow = vec3(0.0); v_light = vec2(0.0, 1.0);',
-    '#if FORMAT == 0',
-    // The seed hashes the tile's place: the chunk's origin plus the tile's
-    // offset, both as exact integer pairs, so it never changes. The light
-    // turns into the tile's own frame, undoing its turn and mirror.
     '  if (u_style > 0) {',
+    // The seed hashes the tile's place, so it never changes. Hat and
+    // Spectre use their exact Z[w] position. Krinkle uses its wedge, row
+    // and column, which also distinguishes the two sides of a grain seam.
+    '#if FORMAT == 1',
+    '    uint h = mixHash(turn ^ mixHash(uint(a_rc.x) + 0x9e3779b9u ^ mixHash(uint(a_rc.y) + 0x85ebca6bu)));',
+    '#else',
     '    ivec4 q = u_cell + ivec4(cellOf(a_pr.xy), cellOf(a_pr.zw));',
     '    uint h = mixHash(uint(q.x) ^ mixHash(uint(q.y) + 0x9e3779b9u ^ mixHash(uint(q.z) * 0x85ebca6bu ^ mixHash(uint(q.w) + 0xc2b2ae35u))));',
+    '#endif',
     '    v_seed = h;',
+    // The light turns into the tile's own frame, undoing its turn and
+    // mirror. Krinkle never mirrors a tile, but its wedges rotate it.
     '    vec2 l = vec2(c * u_light.x + s * u_light.y, -s * u_light.x + c * u_light.y);',
     '    if (flip) l.y = -l.y;',
     '    v_light = l;',
@@ -360,7 +365,6 @@
     '      v_glow = vec3(pt, r);',
     '    } else v_glow = texelFetch(u_styleTex, ivec2(int(h & 15u), u_shapeRow), 0).xyz;',
     '  }',
-    '#endif',
     '}'
   ].join('\n');
 
@@ -927,9 +931,9 @@
 
     /* ------------------------------------------------- tile styles */
 
-    // The eight tile styles of the Hat, Spectre and Hat (extended) pages,
-    // which pass styles: true. Each has at most one slider and one
-    // two-way switch. See docs/tiling-styles.md.
+    // The eight available tile styles. A page passes true for all of them,
+    // or an array of ids for a smaller set. Each has at most one slider and
+    // one two-way switch. See docs/tiling-styles.md.
     function pct(v) { return Math.round(v * 100) + '%'; }
     var STYLES = [
       { id: 'flat', name: 'Flat' },
@@ -952,12 +956,15 @@
         slider: { label: 'Glow', min: 0, max: 1, step: 0.01, def: 1, fmt: pct },
         toggle: { label: 'Glow as', options: ['Shade', 'Gaps'] } }
     ];
-    var styleOn = !!cfg.styles, style = 'flat', styleVals = {};
+    var styleOn = !!cfg.styles;
+    var styleChoices = Array.isArray(cfg.styles) ? STYLES.filter(function (st) { return cfg.styles.indexOf(st.id) >= 0; }) : STYLES;
+    if (styleOn && !styleChoices.some(function (st) { return st.id === 'flat'; })) styleChoices.unshift(STYLES[0]);
+    var style = 'flat', styleVals = {};
     function styleDefaults() {
       STYLES.forEach(function (st) { styleVals[st.id] = { v: st.slider ? st.slider.def : 0, t: 0 }; });
     }
     styleDefaults();
-    function styleDef(id) { return STYLES.filter(function (st) { return st.id === (id || style); })[0]; }
+    function styleDef(id) { return styleChoices.filter(function (st) { return st.id === (id || style); })[0]; }
     function styleIndex() { return styleOn ? STYLES.indexOf(styleDef()) : 0; }
     function setStyleVal(id, v, t) {
       var st = styleDef(id), val = styleVals[id];
@@ -998,12 +1005,22 @@
       var poly = styleOutline(hand), cs = cfg.shape.corners(hand) || poly;
       var xs = poly.map(function (q) { return q[0]; }), ys = poly.map(function (q) { return q[1]; });
       var x0 = Math.min.apply(null, xs), y0 = Math.min.apply(null, ys);
-      var w = Math.max.apply(null, xs) - x0, h = Math.max.apply(null, ys) - y0, step = Math.max(w, h) / 40;
+      var w = Math.max.apply(null, xs) - x0, h = Math.max.apply(null, ys) - y0;
       var deep = [x0 + w / 2, y0 + h / 2], D = -1;
       function tryAt(q) { if (!inside(q, poly)) return; var d = edgeD(q, poly); if (d > D) { D = d; deep = q; } }
-      for (var i = 0; i <= 40; i++) for (var j = 0; j <= 40; j++) tryAt([x0 + i * step, y0 + j * step]);
-      var c0 = deep;
-      for (i = -5; i <= 5; i++) for (j = -5; j <= 5; j++) tryAt([c0[0] + i * step / 5, c0[1] + j * step / 5]);
+      // A square grid can miss a very long, thin Krinkle tile. Every
+      // triangle centroid is inside, so it gives the search a safe start.
+      // Refine round the best centroid at scales set by the tile's depth.
+      var tris = triangulate(poly);
+      for (var i = 0; i < tris.length; i += 3) tryAt([(tris[i][0] + tris[i + 1][0] + tris[i + 2][0]) / 3,
+        (tris[i][1] + tris[i + 1][1] + tris[i + 2][1]) / 3]);
+      if (D < 0) tryAt(deep);
+      var step = Math.max(D, Math.min(w, h) / 20);
+      for (var pass = 0; pass < 4; pass++) {
+        var c0 = deep;
+        for (i = -4; i <= 4; i++) for (var j = -4; j <= 4; j++) tryAt([c0[0] + i * step / 4, c0[1] + j * step / 4]);
+        step /= 3;
+      }
       var ok = function (q) { return inside(q, poly) && edgeD(q, poly) >= 0.3 * D; };
       var r = seeded(0x5eed), cands = [];
       for (var c = 0; c < 16; c++) {
@@ -1491,7 +1508,7 @@
       styleSelEl = document.createElement('select');
       styleSelEl.id = 'style';
       styleSelEl.setAttribute('aria-label', 'Tile style');
-      styleSelEl.innerHTML = STYLES.map(function (st) { return '<option value="' + st.id + '">' + st.name + '</option>'; }).join('');
+      styleSelEl.innerHTML = styleChoices.map(function (st) { return '<option value="' + st.id + '">' + st.name + '</option>'; }).join('');
       head.insertBefore(styleSelEl, head.firstChild);
       styleRow = document.createElement('div');
       styleRow.className = 'style-row';

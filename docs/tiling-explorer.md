@@ -71,7 +71,7 @@ drbuild.uk/demos/ redirect to the new ones.
   coded beside its corner. The class colours go in a second texture of 256
   entries. Uniform arrays would overflow on a phone once a tile has 64
   corners. A page sets the most corners with `maxCorners`: 14 by default,
-  146 for Krinkle, whose tile has 2k + 2 corners and k runs to 72.
+  242 for Krinkle, whose tile has 2k + 2 corners and k runs to 120.
 - **Edge blocks.** The shader measures edges in blocks of four. Two more
   texture rows hold, for each block, a circle round its corners that also
   reaches as far as a profile strays from its edge. A pixel farther from the
@@ -127,10 +127,10 @@ drbuild.uk/demos/ redirect to the new ones.
   button resets. About sits in the title card's top right corner, and the
   compass, zoom and turn buttons stack bottom right, as on a map.
 - **Tile styles.** The Hat, Spectre and Hat (extended) pages pass
-  `styles: true`, which adds a Style menu under the scheme menu: Flat, Glow,
-  Bevel, Dome, Engraved, Halftone, Mosaic and Weave, each with at most one
-  slider and one switch. Flat is the default. Krinkle has no Style menu.
-  See [tiling-styles.md](tiling-styles.md).
+  `styles: true`, which adds Flat, Glow, Bevel, Dome, Engraved, Halftone,
+  Mosaic and Weave. Krinkle passes a list with Flat, Glow, Bevel and
+  Engraved. Each style has at most one slider and one switch. Flat is the
+  default. See [tiling-styles.md](tiling-styles.md).
 - **Rich.** The first preset on those three pages, and so the default:
   Pastel 0.03 darker with 1.7 times the chroma, as on the Monotiles posters.
 - **Colours.** Each page lists presets under its groupings. The Spectre

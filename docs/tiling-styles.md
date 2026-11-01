@@ -3,10 +3,11 @@
 ## Summary
 
 The Hat, Spectre and Hat (extended) pages can draw each tile in one of eight
-styles, picked from a Style menu on the colour panel's top row. Each style shades the
-inside of a tile on the graphics card, from the tile's own coordinates, so
-the map keeps its frame rate as it pans, zooms and reshapes. The styles come
-from a set first drawn for printed posters. Krinkle keeps flat colour.
+styles, picked from a Style menu on the colour panel's top row. Krinkle has
+a smaller set: Flat, Glow, Bevel and Engraved. Each style shades the inside
+of a tile on the graphics card, from the tile's own coordinates, so the map
+keeps its frame rate as it pans, zooms and reshapes. The styles come from a
+set first drawn for printed posters.
 
 The same change adds a Rich colour scheme, which becomes the default on the
 three pages. Pastel stays in the list, below it.
@@ -19,6 +20,7 @@ three pages. Pastel stays in the list, below it.
 - [x] Per-tile seed from the tile's place in the tiling.
 - [x] Glow points and depth worked out per tile shape.
 - [x] The eight styles in the tile shader.
+- [x] Flat, Glow, Bevel and Engraved on Krinkle.
 - [x] Dome membrane solved per shape after the shape stops changing.
 - [x] Zoom fade for the four pattern styles.
 - [ ] Check on a phone and an iPad.
@@ -44,11 +46,11 @@ use them: a tint at the tile's own colour, and tesserae in full colour.
 
 ## How it works
 
-- **Seed.** Each tile's position is an exact pair of Z[w] numbers. The vertex
-  shader rounds the chunk's origin and the tile's offset to integer pairs,
-  adds them, and hashes the four integers. The seed depends only on the
-  tile's place, so it holds through panning, zooming, reshaping and
-  rebuilding chunks.
+- **Seed.** A Hat or Spectre tile's position is an exact pair of Z[w]
+  numbers. The vertex shader rounds the chunk's origin and tile offset to
+  integer pairs, then hashes the four integers. Krinkle hashes its wedge,
+  row and column. Each seed depends only on the tile's place, so it holds
+  through panning, zooming, reshaping and rebuilding chunks.
 - **Glow points.** For each tile shape and hand, the page finds the point
   deepest inside the outline, then 16 candidate points: each starts from the
   deepest point towards a seeded corner, and stops where it would come
@@ -73,12 +75,12 @@ use them: a tint at the tile's own colour, and tesserae in full colour.
 
 ## The colour panel
 
-On these three pages the panel runs from the general to the particular. The
+On all four pages the panel runs from the general to the particular. The
 Style menu takes the top row, with the theme toggle and Hide. The style's
 slider and switch come next, then the colour menu with the dice, then the
 key. Hide folds the slider, switch and key; both menus stay. No style
 carries a caption: the menu, slider and switch labels say enough, and a
-line of text under them was clutter. Krinkle keeps its own panel, with the colour menu on top.
+line of text under them was clutter.
 
 ## Address bar and storage
 
