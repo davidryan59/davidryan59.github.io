@@ -7,6 +7,10 @@ address, `davidryan59.github.io`, redirects there.
   rendered from [docs/inventory.md](docs/inventory.md).
 - `app/` – the apps a visitor can run, one folder each, served at
   `drbuild.uk/app/<name>/`.
+  - `app/fractal/` – the Fractal Explorer: build linked iterated function
+    systems on square and triangle grids or with free affine maps. It reports
+    convergence, dimension, overlap and the convex hull. See
+    [docs/fractal-explorer.md](docs/fractal-explorer.md).
   - `app/e8/` – a direct-manipulation explorer for all 240 roots and 6,720
     edges of E8. Rotate its 2D projection through eight dimensions or grab
     one root and pull the complete system. See [docs/e8-explorer.md](docs/e8-explorer.md).
@@ -101,6 +105,7 @@ there first, then render it into `index.html`.
 
 ## Docs
 
+- [docs/fractal-explorer.md](docs/fractal-explorer.md) – rule editing, affine maps, linked dimensions, hulls and overlap
 - [docs/site-layout.md](docs/site-layout.md) – how the site is filed, and the addresses that must keep working
 - [docs/e8-explorer.md](docs/e8-explorer.md) – the E8 roots, projection model, direct manipulation and structural views
 - [docs/leech-explorer.md](docs/leech-explorer.md) – the Leech lattice's 196,560 shortest vectors, the octad window, the rotation scenes and the build phases

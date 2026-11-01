@@ -83,6 +83,10 @@
   .parfly .panel img { width: 128px; height: 128px; border-radius: 28px; flex: none; }
   .parfly h1 { font-size: 46px; }
   .parfly p { font-size: 23px; }
+
+  /* Fractal Explorer: its opening Sieve rule across the dark canvas. */
+  .fractal { background: #11151b; }
+  .fractal .panel { width: 570px; background: rgba(253, 251, 246, .96); }
 </style>
 </head>
 <body>
@@ -227,6 +231,25 @@
       words('Parfly privacy policy', 'No account, no ads, no analytics. Your rides stay on your phone.') + '</div></div></div>';
   }
 
+  function fractal() {
+    var cells = [{ x: 0, y: 0, s: 1 }];
+    for (var level = 0; level < 6; level++) {
+      var next = [];
+      cells.forEach(function (cell) {
+        var s = cell.s / 2;
+        next.push({ x: cell.x, y: cell.y, s: s });
+        next.push({ x: cell.x, y: cell.y + s, s: s });
+        next.push({ x: cell.x + s, y: cell.y + s, s: s });
+      });
+      cells = next;
+    }
+    var squares = cells.map(function (cell) {
+      return '<rect x="' + (305 + 590 * cell.x) + '" y="' + (20 + 590 * cell.y) + '" width="' + (590 * cell.s + .5) + '" height="' + (590 * cell.s + .5) + '"/>';
+    }).join('');
+    return '<div class="card fractal"><svg class="fill" viewBox="0 0 1200 630"><g fill="#e9b44c">' + squares + '</g></svg>' +
+      '<div class="panel">' + words('Fractal Explorer', 'Place turned, flipped and stretched copies. Read the limit.', 'drbuild.uk/fractal') + '</div></div>';
+  }
+
   function builder() {
     function img(src, pos) { return '<div class="tile"><img src="' + src + '" style="object-position: ' + (pos || '50% 50%') + '" alt=""></div>'; }
     function artTile(f) { return '<div class="tile art"><img src="' + f + '" alt=""></div>'; }
@@ -264,7 +287,8 @@
     permit2: function () { return audit('permit2', 'Permit2 security audit', 'No exploitable vulnerability, and a signature check EIP-7702 changed'); },
     cryptopunks: function () { return audit('cryptopunks', 'CryptoPunksMarket security audit', 'No exploitable vulnerability, and exact solvency to the wei'); },
     'salary-loan': function () { return guide('salary-loan', 'Crypto salary guide', 'Borrow stablecoins on Aave instead of selling, and the arithmetic that keeps you safe'); },
-    parfly: parfly
+    parfly: parfly,
+    fractal: fractal
   };
 
   // A title stays on one line: a long one shrinks until it fits its box.

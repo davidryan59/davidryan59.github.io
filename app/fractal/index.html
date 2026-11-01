@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f1efe8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111419" media="(prefers-color-scheme: dark)">
+<title>Fractal Explorer</title>
+<meta name="description" content="Build a self-similar rule from turned, flipped and stretched copies, then inspect its fractal, dimension, hull and overlap.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/app/fractal/">
+<meta property="og:title" content="Fractal Explorer">
+<meta property="og:description" content="Build linked self-similar rules and watch their fractals appear live.">
+<meta property="og:image" content="https://drbuild.uk/social/fractal.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A gold Sierpinski triangle behind the title Fractal Explorer">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="A gold Sierpinski triangle behind the title Fractal Explorer">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="canonical" href="https://drbuild.uk/app/fractal/">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M3 29V3h26v26z' fill='%23111419'/%3E%3Cg fill='%23e9b44c'%3E%3Cpath d='M5 27V5h11v11H5zM16 27V16h11v11z'/%3E%3C/g%3E%3C/svg%3E">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+<link rel="stylesheet" href="style.css">
+<script data-goatcounter="https://drbuild.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="../../index.html">← David Ryan's builder page</a>
+  <div class="title-block">
+    <h1>Fractal Explorer</h1>
+    <p>Place the copies. Read the limit.</p>
+  </div>
+  <div class="top-actions">
+    <button class="theme-toggle icon-button" type="button" hidden>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/></svg>
+    </button>
+    <button class="icon-button" id="fullscreen" type="button" aria-label="Enter full screen" title="Full screen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="workspace">
+  <aside class="editor-panel panel" aria-label="Rule editor">
+    <div class="panel-head">
+      <div><span class="eyebrow">Rule</span><strong id="rule-name">Sierpinski sieve</strong></div>
+      <select id="demo" aria-label="Open a demo">
+        <option value="sieve">Sieve</option>
+        <option value="linked">Linked F + R</option>
+        <option value="free">Free placement</option>
+        <option value="blankSquare">Blank square</option>
+        <option value="blankTriangle">Blank triangle</option>
+      </select>
+    </div>
+
+    <div class="letter-row">
+      <div id="letter-tabs" class="letter-tabs" role="tablist" aria-label="Rule letters"></div>
+      <button id="add-letter" class="small-button" type="button">+ Letter</button>
+    </div>
+
+    <div class="editor-wrap">
+      <canvas id="rule-editor" tabindex="0" aria-label="Edit the selected letter's children"></canvas>
+      <p id="editor-hint" class="canvas-hint">Tap an empty cell to add a child.</p>
+    </div>
+
+    <section class="selection" aria-labelledby="selection-heading">
+      <div class="section-heading">
+        <h2 id="selection-heading">Selected child</h2>
+        <output id="selection-name">None</output>
+      </div>
+      <div class="button-row">
+        <button id="turn-child" type="button">Turn</button>
+        <button id="flip-child" type="button">Flip</button>
+        <button id="remove-child" class="danger" type="button">Remove</button>
+      </div>
+      <div class="field-grid">
+        <label>Letter<select id="child-letter"></select></label>
+        <label id="block-field">Block rows <input id="block-size" type="number" min="1" max="5" step="1" value="1"></label>
+        <label id="block-cols-field">Block cols <input id="block-cols" type="number" min="1" max="5" step="1" value="1"></label>
+      </div>
+    </section>
+
+    <section class="numbers" aria-labelledby="numbers-heading">
+      <div class="section-heading">
+        <h2 id="numbers-heading">Numbers</h2>
+        <span id="numbers-kind">position · scale · angle</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr id="numbers-head"></tr></thead>
+          <tbody id="numbers-body"></tbody>
+        </table>
+      </div>
+      <p class="table-note">Free values accept 1/3 and √2/2. Select a row to edit its child.</p>
+    </section>
+  </aside>
+
+  <section class="visuals" aria-label="Fractal views">
+    <div class="iteration-panel">
+      <div class="iteration-title"><span class="eyebrow">Iterations</span><span>level 0 → 4</span></div>
+      <div class="iteration-strip" id="iteration-strip">
+        <figure><canvas data-level="0"></canvas><figcaption>0</figcaption></figure>
+        <figure><canvas data-level="1"></canvas><figcaption>1</figcaption></figure>
+        <figure><canvas data-level="2"></canvas><figcaption>2</figcaption></figure>
+        <figure><canvas data-level="3"></canvas><figcaption>3</figcaption></figure>
+        <figure><canvas data-level="4"></canvas><figcaption>4</figcaption></figure>
+      </div>
+    </div>
+
+    <div class="main-stage" id="main-stage">
+      <canvas id="limit" tabindex="0" aria-label="Fractal limit view"></canvas>
+
+      <div class="corner corner-tl">
+        <label><span>Mode</span><select id="mode"><option value="square">Square grid</option><option value="triangle">Triangle grid</option><option value="free">Free</option></select></label>
+        <label><span>Letter</span><select id="start-letter"></select></label>
+      </div>
+
+      <div class="corner corner-tr">
+        <div class="grid-fields">
+          <label><span>Rows</span><input id="grid-rows" type="number" min="2" max="5" value="2"></label>
+          <label id="cols-field"><span>Cols</span><input id="grid-cols" type="number" min="2" max="5" value="2"></label>
+          <label><span>Level</span><input id="depth" type="range" min="1" max="12" value="7"><output id="depth-value">7</output></label>
+        </div>
+        <button id="toggle-menu" class="menu-button" type="button" aria-expanded="false">Rule options</button>
+        <div id="toggle-popover" class="toggle-popover" hidden>
+          <div class="rule-toggles">
+            <label><input id="toggle-stretch" type="checkbox"> Stretch</label>
+            <label><input id="toggle-blocks" type="checkbox"> Blocks</label>
+            <label><input id="toggle-stacking" type="checkbox"> Stacking</label>
+            <label><input id="toggle-per-letter" type="checkbox"> Grid per letter</label>
+          </div>
+          <div class="limits">
+            <span class="popover-heading">Calculation limits</span>
+            <div class="preset-row" role="group" aria-label="Calculation preset">
+              <button type="button" data-preset="fast">Fast</button>
+              <button type="button" data-preset="balanced">Balanced</button>
+              <button type="button" data-preset="detailed">Detailed</button>
+              <button type="button" data-preset="custom" disabled>Custom</button>
+            </div>
+            <details id="advanced-limits">
+              <summary>Advanced</summary>
+              <label class="limit-row"><span>Minimum iterations <output id="min-depth-value">4</output></span><input id="min-depth" type="range" min="0" max="8" step="1" value="4"></label>
+              <label class="limit-row"><span>Maximum copies <output id="max-copies-value">60,000</output></span><input id="max-copies" type="range" min="0" max="8" step="1" value="5"></label>
+              <label class="limit-row"><span>Minimum scale <output id="min-scale-value">1/10,000</output></span><input id="min-scale" type="range" min="0" max="6" step="1" value="3"></label>
+              <label class="limit-row"><span>Calculation time <output id="max-time-value">250 ms</output></span><input id="max-time" type="range" min="0" max="8" step="1" value="4"></label>
+              <label class="limit-row"><span>Analysis depth <output id="analysis-depth-value">7</output></span><input id="analysis-depth" type="range" min="4" max="10" step="1" value="7"></label>
+              <label class="limit-select">Hull refinement<select id="hull-iterations"><option value="8">8 steps</option><option value="16">16 steps</option><option value="32" selected>32 steps</option><option value="64">64 steps</option></select></label>
+            </details>
+          </div>
+        </div>
+      </div>
+
+      <div class="corner corner-bl">
+        <span>Colour by letter</span>
+        <div id="palette-key" class="palette-key"></div>
+      </div>
+
+      <div class="corner corner-br">
+        <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+        <button id="home-view" type="button">Home</button>
+        <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+        <button id="toggle-hull" type="button" aria-pressed="true">Hull</button>
+      </div>
+
+      <div id="notice" class="notice" role="status" hidden></div>
+      <div class="stage-caption"><span id="instance-count">0 frames</span><span>drag to pan · wheel or pinch to zoom</span></div>
+    </div>
+  </section>
+
+  <aside class="readout-panel panel" aria-label="Rule readouts">
+    <section class="status-card">
+      <span class="eyebrow">Status</span>
+      <strong id="status-badge" data-status="converges">Converges</strong>
+      <p id="status-detail"></p>
+    </section>
+    <dl class="readouts">
+      <div><dt>Formula</dt><dd id="dimension">log 3 / log 2</dd></div>
+      <div><dt>Value</dt><dd id="dimension-value">1.585</dd></div>
+      <div><dt>Box count</dt><dd id="box-dimension">1.58</dd></div>
+      <div><dt>Overlap</dt><dd id="overlap">None found</dd></div>
+      <div><dt>Hull corners</dt><dd id="hull-corners">3</dd></div>
+      <div><dt>Hull area</dt><dd id="hull-area">0.5000</dd></div>
+    </dl>
+    <section class="explanation">
+      <h2>What you are seeing</h2>
+      <p id="explanation-text">Three half-size copies leave the top-right quarter empty. Repeating that rule makes the right-angled Sierpinski triangle.</p>
+    </section>
+    <section class="share">
+      <button id="copy-link" type="button">Copy this rule's link</button>
+      <p>Every edit updates the page address.</p>
+    </section>
+    <details class="help">
+      <summary>How to edit</summary>
+      <p>Grid mode: tap a cell, then turn, flip, relabel, or remove its child.</p>
+      <p>Free mode: drag a frame to move it. Drag a corner to turn and scale. With Stretch on, drag a side handle.</p>
+    </details>
+  </aside>
+</main>
+
+<script src="model.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

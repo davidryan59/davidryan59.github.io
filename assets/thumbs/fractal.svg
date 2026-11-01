@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="A gold Sierpinski triangle">
+  <rect width="120" height="120" rx="10" fill="#11151b"/>
+  <defs>
+    <g id="f0"><rect width="1" height="1"/></g>
+    <g id="f1"><use href="#f0" transform="scale(.5)"/><use href="#f0" transform="translate(0 .5) scale(.5)"/><use href="#f0" transform="translate(.5 .5) scale(.5)"/></g>
+    <g id="f2"><use href="#f1" transform="scale(.5)"/><use href="#f1" transform="translate(0 .5) scale(.5)"/><use href="#f1" transform="translate(.5 .5) scale(.5)"/></g>
+    <g id="f3"><use href="#f2" transform="scale(.5)"/><use href="#f2" transform="translate(0 .5) scale(.5)"/><use href="#f2" transform="translate(.5 .5) scale(.5)"/></g>
+    <g id="f4"><use href="#f3" transform="scale(.5)"/><use href="#f3" transform="translate(0 .5) scale(.5)"/><use href="#f3" transform="translate(.5 .5) scale(.5)"/></g>
+    <g id="f5"><use href="#f4" transform="scale(.5)"/><use href="#f4" transform="translate(0 .5) scale(.5)"/><use href="#f4" transform="translate(.5 .5) scale(.5)"/></g>
+  </defs>
+  <g transform="translate(12 12) scale(96)" fill="#e9b44c"><use href="#f5"/></g>
+  <path d="M12 12v96h96z" fill="none" stroke="#f6f0db" stroke-width="1" stroke-dasharray="3 3" opacity=".75"/>
+</svg>

@@ -2,12 +2,12 @@
 
 ## Summary
 
-The Hat, Spectre and Hat (extended) pages can draw each tile in one of eight
-styles, picked from a Style menu on the colour panel's top row. Krinkle has
-a smaller set: Flat, Glow, Bevel and Engraved. Each style shades the inside
-of a tile on the graphics card, from the tile's own coordinates, so the map
-keeps its frame rate as it pans, zooms and reshapes. The styles come from a
-set first drawn for printed posters.
+The Hat, Spectre and Hat (extended) pages offer seven surface styles. A Style
+menu sits on the colour panel's top row. Krinkle has a smaller surface set:
+Flat, Glow and Engraved. It can add a bevel to any surface. Each style shades
+the tile on the graphics card from its own coordinates. The map keeps its
+frame rate as it pans, zooms and reshapes. The styles come from a set first
+drawn for printed posters.
 
 The same change adds a Rich colour scheme, which becomes the default on the
 three pages. Pastel stays in the list, below it.
@@ -19,8 +19,9 @@ three pages. Pastel stays in the list, below it.
 - [x] Style and settings in the address bar and in saved options.
 - [x] Per-tile seed from the tile's place in the tiling.
 - [x] Glow points and depth worked out per tile shape.
-- [x] The eight styles in the tile shader.
-- [x] Flat, Glow, Bevel and Engraved on Krinkle.
+- [x] The seven surface styles and the Bevel finish in the tile shader.
+- [x] Flat, Glow and Engraved on Krinkle, with Bevel as an optional finish.
+- [x] Aligned or seeded varied directions for Engraved.
 - [x] Dome membrane solved per shape after the shape stops changing.
 - [x] Zoom fade for the four pattern styles.
 - [ ] Check on a phone and an iPad.
@@ -31,9 +32,8 @@ three pages. Pastel stays in the list, below it.
 |---|---|---|---|
 | Flat | none | none | One colour per tile, as before. |
 | Glow | Strength | Centre: Random or Top left | A radial gradient from a glow point, with dark lead lines. Random takes each tile's own seeded point; Top left takes a point towards the light. |
-| Bevel | Rim | Light: Sun or Lamp | A sloped rim round each tile. Sun lights from the top left of the screen; Lamp lights each pixel from a lamp near the top left, dimming with distance. |
 | Dome | Light, 5% to 15% | none | A smooth cushion: a membrane held at the tile's edge and pushed up from below. |
-| Engraved | Glow, 0 to 1.5 | none | Fine lines at 15° in the tile's frame, cross-hatched on mirrored tiles. Each line thickens away from the glow point. |
+| Engraved | Glow, 0 to 1.5 | Direction: Aligned or Varied | Fine lines in the tile's frame, cross-hatched on mirrored tiles. Aligned uses 15°. Varied picks one of six directions from the tile's seed. Each line thickens away from the glow point. |
 | Halftone | Glow, 0% to 100% | none | Dots on a 45° grid in the tile's frame, on a tint at the tile's own colour, or 12% lighter on a dark tile. Each dot grows away from the glow point. |
 | Mosaic | Glow | Layout: Grid or Rings | Square tesserae in four close shades, from 6% lighter at the glow point to 10% darker at the far corner, on joints of the tile's deep rim colour. They lie on a grid or in rings round the glow point. |
 | Weave | Glow | Glow as: Shade or Gaps | Strips woven over and under. Shade lightens near the glow point; Gaps narrows the strips away from it. |
@@ -43,6 +43,14 @@ defaults match the posters: Glow at full strength, Engraved at 1, which runs
 each line from 0.03 to 0.6 of its maximum weight, Dome at 10%, Halftone at
 75%. Halftone and Mosaic in the Rich scheme match the printed posters that
 use them: a tint at the tile's own colour, and tesserae in full colour.
+
+Bevel is a finish rather than a surface. Its switch and Rim slider follow
+the selected surface controls. Sun lights from the top left of the screen.
+Lamp lights each pixel from a lamp near the top left and dims with distance.
+Bevel works with every surface except Dome. Hat always offers it. Spectre,
+Hat (extended) and Krinkle offer it only when their edge profile is Straight.
+The present lighting normal belongs to the straight edge chord, so a bevel
+on a shaped edge would not follow its local direction.
 
 ## How it works
 
@@ -76,14 +84,16 @@ use them: a tint at the tile's own colour, and tesserae in full colour.
 ## The colour panel
 
 On all four pages the panel runs from the general to the particular. The
-Style menu takes the top row, with the theme toggle and Hide. The style's
-slider and switch come next, then the colour menu with the dice, then the
-key. Hide folds the slider, switch and key; both menus stay. No style
-carries a caption: the menu, slider and switch labels say enough, and a
-line of text under them was clutter.
+Style menu takes the top row, with the theme toggle and Hide. The surface
+controls and available Bevel controls come next, then the colour menu with
+the dice, then the key. Hide folds those controls and the key; both menus
+stay. No style carries a caption: the control labels say enough, and a line
+of text under them was clutter.
 
 ## Address bar and storage
 
-`s=<style>,<slider>,<switch>` holds the style when it is not Flat. Each style
-remembers its own settings in saved options. Reset colours also resets the
-style to Flat and every setting to its default.
+`s=<style>,<slider>,<switch>` holds the style when it is not Flat.
+`bv=<rim>,<light>` adds Bevel. Old links whose style is Bevel open as Flat
+with Bevel on. Each style remembers its own settings in saved options.
+Reset colours also resets the style to Flat, turns Bevel off and restores
+every setting to its default.

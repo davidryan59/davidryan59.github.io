@@ -271,6 +271,7 @@
     // light as a world direction, and the chunk's origin as integer pairs.
     'uniform int u_style;',
     'uniform int u_st;',
+    'uniform int u_bevelOn;',
     'uniform vec2 u_light;',
     'uniform ivec4 u_cell;',
     'uniform highp sampler2D u_styleTex;',
@@ -336,7 +337,7 @@
     '  v_bits = a_bits;',
     '  v_tf = vec3(c, s, flip ? 1.0 : 0.0);',
     '  v_seed = 0u; v_glow = vec3(0.0); v_light = vec2(0.0, 1.0);',
-    '  if (u_style > 0) {',
+    '  if (u_style > 0 || u_bevelOn == 1) {',
     // The seed hashes the tile's place, so it never changes. Hat and
     // Spectre use their exact Z[w] position. Krinkle uses its wedge, row
     // and column, which also distinguishes the two sides of a grain seam.
@@ -430,6 +431,9 @@
     'uniform int u_style;',
     'uniform int u_st;',
     'uniform float u_sv;',
+    'uniform int u_bevelOn;',
+    'uniform int u_bevelT;',
+    'uniform float u_bevelV;',
     'uniform highp sampler2D u_styleTex;',
     'uniform highp sampler2D u_domeTex;',
     'uniform vec4 u_domeBox[2];',
@@ -557,6 +561,18 @@
     // A pattern fades to its average colour as its spacing falls from 6 to
     // 3 device pixels, so it never shimmers.
     'float fadeOf(float sp, float px) { return smoothstep(3.0, 6.0, sp / px); }',
+    'vec3 bevelFill(vec3 fill, float dmin, vec2 nmin, vec3 L, float px) {',
+    '  vec3 b = labOf(fill);',
+    '  float top = 0.0;',
+    '  vec3 Lp = L;',
+    '  if (u_bevelT == 1) {',
+    '    vec2 lw = u_lamp - v_cam;',
+    '    Lp = normalize(vec3(normalize(toLocal(lw)), 0.8));',
+    '    top = 0.05 - u_lampK * length(lw);',
+    '  }',
+    '  float rim = top + (u_bevelT == 1 ? 0.7 : 0.6) * litN(nmin, 1.4, Lp);',
+    '  return shadeL(b, mix(rim, top, clamp((dmin - u_bevelV) / px + 0.5, 0.0, 1.0)), 1.0);',
+    '}',
     'vec3 styleFill(vec3 fill, float dmin, vec2 nmin) {',
     '  vec3 b = labOf(fill);',
     '  vec2 p = v_local;',
@@ -618,9 +634,10 @@
     '    float mid = 0.315 + max(0.0, g - 1.0) * 0.25;',
     '    float hw = 0.5 * max(0.01, mid + g * 0.285 * (2.0 * gk - 1.0)) / 3.4;',
     '    vec3 bg = shadeL(b, 0.04, 1.0), ink = shadeL(b, -0.22 + 0.02 * m, 1.0);',
-    '    float cov = lineCov(p, 0.2617994, sp, hw, px), avg = 2.0 * hw / sp;',
+    '    float a = u_st == 1 ? float(v_seed % 6u) * 0.5235988 : 0.2617994;',
+    '    float cov = lineCov(p, a, sp, hw, px), avg = 2.0 * hw / sp;',
     '    if (v_tf.z > 0.5) {',
-    '      cov = max(cov, lineCov(p, 1.8325957, sp, hw, px));',
+    '      cov = max(cov, lineCov(p, a + 1.5707963, sp, hw, px));',
     '      avg = 1.0 - (1.0 - avg) * (1.0 - avg);',
     '    }',
     '    return mix(bg, ink, mix(avg, cov, fadeOf(sp, px)));',
@@ -718,7 +735,7 @@
     // normal, from the winding sign kept with the shape's depth.
     '  float dmin = 1e9;',
     '  vec2 nmin = vec2(0.0, 1.0);',
-    '  float wind = u_style > 0 ? texelFetch(u_styleTex, ivec2(0, 2 + u_shapeRow), 0).w : 1.0;',
+    '  float wind = (u_style > 0 || u_bevelOn == 1) ? texelFetch(u_styleTex, ivec2(0, 2 + u_shapeRow), 0).w : 1.0;',
     // A block of edges whose circle lies farther from this pixel than the
     // widest line reaches adds no ink, so it is skipped. A pixel lies near
     // only a few edges, which keeps a tile of 146 edges cheap.
@@ -755,7 +772,9 @@
     '  float lf = dot(pow(fill, vec3(2.2)), wt);',
     '  float le = dot(pow(u_edge, vec3(2.2)), wt), la = dot(pow(u_edgeAlt, vec3(2.2)), wt);',
     '  bool alt = (max(lf, la) + 0.05) / (min(lf, la) + 0.05) > (max(lf, le) + 0.05) / (min(lf, le) + 0.05);',
-    '  vec3 col = mix(u_style > 0 ? styleFill(fill, dmin, nmin) : fill, alt ? u_edgeAlt : u_edge, cov[0] * u_edgeAlpha);',
+    '  vec3 surface = u_style > 0 ? styleFill(fill, dmin, nmin) : fill;',
+    '  if (u_bevelOn == 1) surface = bevelFill(surface, dmin, nmin, light3(v_light), 1.0 / u_scale);',
+    '  vec3 col = mix(surface, alt ? u_edgeAlt : u_edge, cov[0] * u_edgeAlpha);',
     '  for (int k = 1; k < 6; k++) col = mix(col, alt ? u_lineAlt : u_line, cov[k]);',
     // Grid dots: a disc on each corner of this tile that sits on a grid.
     '  if (u_gridOn != 0) {',
@@ -909,7 +928,7 @@
       'u_nc', 'u_palette', 'u_k', 'u_w', 'u_tau', 'u_rows', 'u_scale', 'u_classMode', 'u_levels', 'u_width', 'u_edgeAlpha', 'u_edge', 'u_line',
       'u_edgeAlt', 'u_lineAlt', 'u_prof', 'u_profN', 'u_profMax',
       'u_reach', 'u_cull', 'u_pass', 'u_hot', 'u_hot2', 'u_gridOn', 'u_lat', 'u_dotCol', 'u_dotRange', 'u_dotR',
-      'u_style', 'u_st', 'u_sv', 'u_light', 'u_cell', 'u_styleTex', 'u_domeTex', 'u_domeBox', 'u_domeOn', 'u_lamp', 'u_lampK']);
+      'u_style', 'u_st', 'u_sv', 'u_bevelOn', 'u_bevelT', 'u_bevelV', 'u_light', 'u_cell', 'u_styleTex', 'u_domeTex', 'u_domeBox', 'u_domeOn', 'u_lamp', 'u_lampK']);
     var overProg = program(OVERLAY_VS, OVERLAY_FS, ['u_half', 'u_inv', 'u_anchor', 'u_on', 'u_lat', 'u_gap',
       'u_col', 'u_scale', 'u_px', 'u_picks', 'u_nPicks', 'u_pickCol']);
     var overVao = gl.createVertexArray();
@@ -931,9 +950,10 @@
 
     /* ------------------------------------------------- tile styles */
 
-    // The eight available tile styles. A page passes true for all of them,
-    // or an array of ids for a smaller set. Each has at most one slider and
-    // one two-way switch. See docs/tiling-styles.md.
+    // The seven surface styles and the legacy Bevel entry. A page passes
+    // true for all surfaces, or an array of ids for a smaller set. Pages
+    // with the Bevel modifier remove its legacy entry. See
+    // docs/tiling-styles.md.
     function pct(v) { return Math.round(v * 100) + '%'; }
     var STYLES = [
       { id: 'flat', name: 'Flat' },
@@ -946,7 +966,8 @@
       { id: 'dome', name: 'Dome',
         slider: { label: 'Light', min: 0.05, max: 0.15, step: 0.005, def: 0.1, fmt: pct } },
       { id: 'engraved', name: 'Engraved',
-        slider: { label: 'Glow', min: 0, max: 1.5, step: 0.01, def: 1, fmt: pct } },
+        slider: { label: 'Glow', min: 0, max: 1.5, step: 0.01, def: 1, fmt: pct },
+        toggle: { label: 'Direction', options: ['Aligned', 'Varied'] } },
       { id: 'halftone', name: 'Halftone',
         slider: { label: 'Glow', min: 0, max: 1, step: 0.01, def: 0.75, fmt: pct } },
       { id: 'mosaic', name: 'Mosaic',
@@ -957,15 +978,22 @@
         toggle: { label: 'Glow as', options: ['Shade', 'Gaps'] } }
     ];
     var styleOn = !!cfg.styles;
-    var styleChoices = Array.isArray(cfg.styles) ? STYLES.filter(function (st) { return cfg.styles.indexOf(st.id) >= 0; }) : STYLES;
+    var styleChoices = Array.isArray(cfg.styles) ? STYLES.filter(function (st) { return cfg.styles.indexOf(st.id) >= 0; }) : STYLES.slice();
+    if (cfg.bevelModifier) styleChoices = styleChoices.filter(function (st) { return st.id !== 'bevel'; });
     if (styleOn && !styleChoices.some(function (st) { return st.id === 'flat'; })) styleChoices.unshift(STYLES[0]);
     var style = 'flat', styleVals = {};
+    var BEVEL_MIN = 0.04;
+    var bevel = { on: false, v: 0.24, t: 0 };
     function styleDefaults() {
       STYLES.forEach(function (st) { styleVals[st.id] = { v: st.slider ? st.slider.def : 0, t: 0 }; });
     }
     styleDefaults();
     function styleDef(id) { return styleChoices.filter(function (st) { return st.id === (id || style); })[0]; }
     function styleIndex() { return styleOn ? STYLES.indexOf(styleDef()) : 0; }
+    function bevelAvailable() {
+      return !!cfg.bevelModifier && style !== 'dome' &&
+        (typeof cfg.bevelModifier !== 'function' || cfg.bevelModifier());
+    }
     function setStyleVal(id, v, t) {
       var st = styleDef(id), val = styleVals[id];
       if (st.slider && isFinite(v)) val.v = Math.max(st.slider.min, Math.min(st.slider.max, v));
@@ -1543,15 +1571,40 @@
             return '<button type="button" data-t="' + i + '" aria-pressed="' + (val.t === i) + '">' + o + '</button>';
           }).join('') + '</div></div>';
       }
+      if (bevelAvailable()) {
+        html += '<div class="seg bevel-on" role="group" aria-label="Bevel"><span>Bevel</span><div>' +
+          ['Off', 'On'].map(function (o, i) {
+            return '<button type="button" data-bevel-on="' + i + '" aria-pressed="' + (+bevel.on === i) + '">' + o + '</button>';
+          }).join('') + '</div></div>';
+        if (bevel.on) {
+          html += '<label class="slider bevel-rim"><span>Rim</span><output>' + bevel.v.toFixed(2) + '</output>' +
+            '<input type="range" min="' + BEVEL_MIN + '" max="0.45" step="0.01" value="' + bevel.v + '"></label>' +
+            '<div class="seg bevel-light" role="group" aria-label="Bevel light"><span>Light</span><div>' +
+            ['Sun', 'Lamp'].map(function (o, i) {
+              return '<button type="button" data-bevel-light="' + i + '" aria-pressed="' + (bevel.t === i) + '">' + o + '</button>';
+            }).join('') + '</div></div>';
+        }
+      }
       styleRow.innerHTML = html;
       showStyle();
-      var range = styleRow.querySelector('input'), out = styleRow.querySelector('output');
+      var range = styleRow.querySelector('label.slider:not(.bevel-rim) input'), out = range && range.parentNode.querySelector('output');
       if (range) {
         range.addEventListener('input', function () { val.v = +range.value; out.textContent = st.slider.fmt(val.v); requestDraw(); });
         range.addEventListener('change', function () { saveOptions(); changed(); });
       }
       Array.prototype.forEach.call(styleRow.querySelectorAll('.seg button'), function (b) {
-        b.addEventListener('click', function () { val.t = +b.dataset.t; renderStyle(); saveOptions(); changed(); });
+        if (b.dataset.t !== undefined) b.addEventListener('click', function () { val.t = +b.dataset.t; renderStyle(); saveOptions(); changed(); });
+      });
+      Array.prototype.forEach.call(styleRow.querySelectorAll('[data-bevel-on]'), function (b) {
+        b.addEventListener('click', function () { bevel.on = b.dataset.bevelOn === '1'; renderStyle(); saveOptions(); changed(); });
+      });
+      var bevelRange = styleRow.querySelector('.bevel-rim input'), bevelOut = styleRow.querySelector('.bevel-rim output');
+      if (bevelRange) {
+        bevelRange.addEventListener('input', function () { bevel.v = +bevelRange.value; bevelOut.textContent = bevel.v.toFixed(2); requestDraw(); });
+        bevelRange.addEventListener('change', function () { saveOptions(); changed(); });
+      }
+      Array.prototype.forEach.call(styleRow.querySelectorAll('[data-bevel-light]'), function (b) {
+        b.addEventListener('click', function () { bevel.t = +b.dataset.bevelLight; renderStyle(); saveOptions(); changed(); });
       });
     }
 
@@ -1821,7 +1874,9 @@
       // corner and dims by a quarter across the screen's diagonal.
       var sIdx = styleIndex(), sVal = styleVals[style];
       gl.uniform1i(U.u_style, sIdx);
-      if (sIdx) {
+      var bevelActive = bevelAvailable() && bevel.on;
+      gl.uniform1i(U.u_bevelOn, bevelActive ? 1 : 0);
+      if (sIdx || bevelActive) {
         updateStyleData();
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, styleTex);
@@ -1831,6 +1886,8 @@
         gl.uniform1i(U.u_domeTex, 3);
         gl.uniform1i(U.u_st, sVal.t);
         gl.uniform1f(U.u_sv, sVal.v);
+        gl.uniform1i(U.u_bevelT, bevel.t);
+        gl.uniform1f(U.u_bevelV, bevel.v);
         var lw = rot([-Math.SQRT1_2, Math.SQRT1_2], -view.rot), lamp = screenToRel(-0.35 * W, -0.35 * Hh);
         gl.uniform2f(U.u_light, lw[0], lw[1]);
         gl.uniform2f(U.u_lamp, lamp[0], lamp[1]);
@@ -1943,6 +2000,7 @@
       // whole tile until its membrane is solved, then near the edge only.
       var cull = (Math.max.apply(null, widths) * dpr / 2 + 1) / k;
       if (sIdx && style === 'bevel') cull = Math.max(cull, sVal.v + 2 / k);
+      if (bevelActive) cull = Math.max(cull, bevel.v + 2 / k);
       if (sIdx && style === 'dome') cull = domeSig === cfg.shape.signature() ? Math.max(cull, 3 * domeBox[2] + 2 / k) : 1e9;
       gl.uniform1f(U.u_cull, cull);
 
@@ -2161,6 +2219,7 @@
         var sv = styleVals[style], sd = styleDef();
         parts.push('s=' + [style].concat(sd.slider ? [fmt(sv.v, 3)] : [], sd.toggle ? [sv.t] : []).join(','));
       }
+      if (cfg.bevelModifier && bevel.on) parts.push('bv=' + fmt(bevel.v, 3) + ',' + bevel.t);
       var extra = cfg.hashGet ? cfg.hashGet() : {};
       // A comma stays as it is, so a pair such as mk=3,7 reads plainly.
       Object.keys(extra).forEach(function (key) { parts.push(key + '=' + encodeURIComponent(extra[key]).replace(/%2C/gi, ',')); });
@@ -2188,7 +2247,16 @@
       // s=style,slider,switch. A link without one shows Flat.
       if (styleOn) {
         var sp = (q.s || 'flat').split(',');
-        if (styleDef(sp[0])) { style = sp[0]; setStyleVal(style, parseFloat(sp[1]), parseInt(sp[2], 10)); }
+        if (cfg.bevelModifier && sp[0] === 'bevel') {
+          style = 'flat'; bevel.on = true;
+          if (isFinite(parseFloat(sp[1]))) bevel.v = Math.max(BEVEL_MIN, Math.min(0.45, parseFloat(sp[1])));
+          bevel.t = parseInt(sp[2], 10) === 1 ? 1 : 0;
+        } else if (styleDef(sp[0])) { style = sp[0]; setStyleVal(style, parseFloat(sp[1]), parseInt(sp[2], 10)); }
+        if (cfg.bevelModifier && q.bv) {
+          var bp = q.bv.split(','); bevel.on = true;
+          if (isFinite(parseFloat(bp[0]))) bevel.v = Math.max(BEVEL_MIN, Math.min(0.45, parseFloat(bp[0])));
+          bevel.t = parseInt(bp[1], 10) === 1 ? 1 : 0;
+        }
       }
       if (!q.v) return false;
       var v = q.v.split(',').map(parseFloat);
@@ -2205,7 +2273,7 @@
     function saveOptions() {
       try {
         localStorage.setItem(store, JSON.stringify({ sel: sel, customs: customs, outlines: outlines,
-          grid: { on: grid.on, on0: grid.on0, on30: grid.on30 }, style: style, styleVals: styleVals }));
+          grid: { on: grid.on, on0: grid.on0, on30: grid.on30 }, style: style, styleVals: styleVals, bevel: bevel }));
       } catch (e) {}
     }
     function loadOptions() {
@@ -2222,7 +2290,18 @@
         if (styleOn && o.styleVals) Object.keys(o.styleVals).forEach(function (id) {
           if (styleDef(id) && o.styleVals[id]) setStyleVal(id, +o.styleVals[id].v, +o.styleVals[id].t);
         });
-        if (styleOn && o.style && styleDef(o.style)) style = o.style;
+        if (cfg.bevelModifier && o.style === 'bevel') {
+          style = 'flat'; bevel.on = true;
+          if (o.styleVals && o.styleVals.bevel) {
+            if (isFinite(+o.styleVals.bevel.v)) bevel.v = Math.max(BEVEL_MIN, Math.min(0.45, +o.styleVals.bevel.v));
+            bevel.t = +o.styleVals.bevel.t === 1 ? 1 : 0;
+          }
+        } else if (styleOn && o.style && styleDef(o.style)) style = o.style;
+        if (cfg.bevelModifier && o.bevel) {
+          bevel.on = !!o.bevel.on;
+          if (isFinite(+o.bevel.v)) bevel.v = Math.max(BEVEL_MIN, Math.min(0.45, +o.bevel.v));
+          bevel.t = +o.bevel.t === 1 ? 1 : 0;
+        }
         if (o.grid && hasGrid) { grid.on = !!o.grid.on; grid.on0 = o.grid.on0 !== false; grid.on30 = o.grid.on30 !== false; }
       } catch (e) {}
     }
@@ -2460,6 +2539,7 @@
       customs = {};
       style = 'flat';
       styleDefaults();
+      bevel = { on: false, v: 0.24, t: 0 };
       renderStyle();
       renderSchemeSelect();
       saveOptions();
@@ -2522,7 +2602,7 @@
 
     /* ---------------------------------------------------- page API */
 
-    map.shapeChanged = function () { renderLegendSoon(); changed(); };
+    map.shapeChanged = function () { renderStyle(); renderLegendSoon(); changed(); };
     map.setAB = function (a, b) { ab = [a, b]; renderLegendSoon(); changed(); };
     map.ab = function () { return ab.slice(); };
     map.info = function () { return info; };

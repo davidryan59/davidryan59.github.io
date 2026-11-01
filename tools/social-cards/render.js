@@ -25,9 +25,9 @@ const OUT = path.join(ROOT, 'social');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'social-cards-'));
 const MAX_BYTES = 300 * 1024;
 const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'krinkle', 'puzzle', 'merge-fractals', 'moving-mondrian',
-               'weth9', 'uniswap-v2', 'dai', 'permit2', 'cryptopunks', 'parfly', 'salary-loan'];
+               'weth9', 'uniswap-v2', 'dai', 'permit2', 'cryptopunks', 'parfly', 'salary-loan', 'fractal'];
 // Cards drawn from their own words and diagram, with no picture from stage 1.
-const STANDALONE = ['parfly', 'salary-loan'];
+const STANDALONE = ['parfly', 'salary-loan', 'fractal'];
 
 // The tiling views, as each tab's address bar holds them. The four tabs
 // with tile styles show Rich colours in Glow, each tile lit from its own
