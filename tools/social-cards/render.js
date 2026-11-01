@@ -29,7 +29,7 @@ const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'krinkle', 'puzzle',
 // Cards drawn from their own words and diagram, with no picture from stage 1.
 const STANDALONE = ['parfly', 'salary-loan'];
 
-// The tiling views, as each tab's address bar holds them. The three tabs
+// The tiling views, as each tab's address bar holds them. The four tabs
 // with tile styles show Rich colours in Glow, each tile lit from its own
 // random point, as chosen on 2026-10-31.
 const TILINGS = {
@@ -38,7 +38,7 @@ const TILINGS = {
   'hat-extended': '/app/tiles/hat-extended/#v=0,0,34,0,0,0&c=rich&t=30&e=jigsaw&ha=0.22&hb=0.22&a=S&p=neck%3A0.55&s=glow,1,0',
   // The (3, 7, 22') tile. The centre of the fan sits right of the card's
   // panel, so the swirl shows.
-  krinkle: '/app/tiles/krinkle/#v=-25,0,16,0&c=pastel&mk=3,7&t=2&o=1&a=fan'
+  krinkle: '/app/tiles/krinkle/#v=-25,0,16,0&c=pastel&mk=3,7&t=2&o=1&a=fan&s=glow,1,0'
 };
 // The Tiling Puzzle's card shows a Hat patch and a Spectre patch, each built
 // by four presses of Fill a ring, so its rings show in their colours.
