@@ -1,13 +1,42 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="A gold Sierpinski triangle">
-  <rect width="120" height="120" rx="10" fill="#11151b"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="A Sierpiński sieve morphing through three linked square generators">
+  <style>
+    .child { transform-box: fill-box; transform-origin: center; }
+    .p-child { animation: p-morph 10s ease-in-out infinite; }
+    .r-child { animation: r-morph 10s ease-in-out infinite; }
+    @keyframes r-morph {
+      0%, 14%, 48%, 88%, 100% { opacity: 1; transform: translate(0, 0); }
+      29%, 38% { opacity: 1; transform: translate(0, -100%); }
+      56%, 76% { opacity: 0; transform: translate(0, -100%); }
+    }
+    @keyframes p-morph {
+      0%, 48%, 88%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+      60%, 73% { transform: translate(100%, -100%) rotate(82deg) scale(.82); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .p-child, .r-child { animation: none; }
+    }
+  </style>
+
+  <rect width="120" height="120" fill="#10151d"/>
   <defs>
-    <g id="f0"><rect width="1" height="1"/></g>
-    <g id="f1"><use href="#f0" transform="scale(.5)"/><use href="#f0" transform="translate(0 .5) scale(.5)"/><use href="#f0" transform="translate(.5 .5) scale(.5)"/></g>
-    <g id="f2"><use href="#f1" transform="scale(.5)"/><use href="#f1" transform="translate(0 .5) scale(.5)"/><use href="#f1" transform="translate(.5 .5) scale(.5)"/></g>
-    <g id="f3"><use href="#f2" transform="scale(.5)"/><use href="#f2" transform="translate(0 .5) scale(.5)"/><use href="#f2" transform="translate(.5 .5) scale(.5)"/></g>
-    <g id="f4"><use href="#f3" transform="scale(.5)"/><use href="#f3" transform="translate(0 .5) scale(.5)"/><use href="#f3" transform="translate(.5 .5) scale(.5)"/></g>
-    <g id="f5"><use href="#f4" transform="scale(.5)"/><use href="#f4" transform="translate(0 .5) scale(.5)"/><use href="#f4" transform="translate(.5 .5) scale(.5)"/></g>
+    <g id="s0"><rect x=".04" y=".04" width=".92" height=".92" rx=".025" fill="currentColor"/></g>
+    <g id="s1"><use href="#s0" transform="scale(.5)"/><use href="#s0" transform="translate(0 .5) scale(.5)"/><use href="#s0" transform="translate(.5 .5) scale(.5)"/></g>
+    <g id="s2"><use href="#s1" transform="scale(.5)"/><use href="#s1" transform="translate(0 .5) scale(.5)"/><use href="#s1" transform="translate(.5 .5) scale(.5)"/></g>
+    <g id="s3"><use href="#s2" transform="scale(.5)"/><use href="#s2" transform="translate(0 .5) scale(.5)"/><use href="#s2" transform="translate(.5 .5) scale(.5)"/></g>
+    <g id="s4"><use href="#s3" transform="scale(.5)"/><use href="#s3" transform="translate(0 .5) scale(.5)"/><use href="#s3" transform="translate(.5 .5) scale(.5)"/></g>
+    <g id="s5"><use href="#s4" transform="scale(.5)"/><use href="#s4" transform="translate(0 .5) scale(.5)"/><use href="#s4" transform="translate(.5 .5) scale(.5)"/></g>
   </defs>
-  <g transform="translate(12 12) scale(96)" fill="#e9b44c"><use href="#f5"/></g>
-  <path d="M12 12v96h96z" fill="none" stroke="#f6f0db" stroke-width="1" stroke-dasharray="3 3" opacity=".75"/>
+
+  <!-- F, P and R begin in the three Sierpiński generator positions. -->
+  <g transform="translate(8 8) scale(104)">
+    <g color="#ffd84a"><use href="#s5" transform="scale(.5)"/></g>
+    <g transform="translate(0 .5) scale(.5)" color="#ff514d">
+      <g class="child p-child"><use href="#s5"/></g>
+    </g>
+    <g transform="translate(.5 .5) scale(.5)" color="#3f8cff">
+      <g class="child r-child"><use href="#s5"/></g>
+    </g>
+  </g>
+
+  <rect x="1" y="1" width="118" height="118" fill="none" stroke="#eef3fb" stroke-opacity=".32" stroke-width="2"/>
 </svg>
