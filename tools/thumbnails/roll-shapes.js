@@ -1,12 +1,13 @@
-/* Draws assets/thumbs/roll-shapes.svg and roll-shapes-dark.svg: a Rolling Shapes
-   curve drawing itself. A circle of size 49 rolls inside a 5-petal flower of size
-   120, with the pen on its rim. The ratio is 120/49, so the curve closes after 49
-   laps and has 5-fold symmetry. It draws in 4 s, holds for 2 s, and undraws in 0.5 s,
-   on a 6.8 s loop.
+/* Draws assets/thumbs/roll-shapes.svg and roll-shapes-dark.svg: the share card's
+   Rolling Shapes curve drawing itself. A circle rolls inside a rounded heptagon of
+   size 120, with one flat edge at the bottom and the pen on the circle's rim. The
+   circle's size is 120 * 51/182, so the curve closes after 51 laps, and 7 divides
+   182, so it has 7-fold symmetry. It draws slowly over 7 s, holds for 2 s, and
+   undraws in 0.5 s, on a 9.8 s loop.
 
-   The rainbow runs round five times along the path. A 72-degree turn of the picture
-   moves a point one fifth of the way along the path, so the colours keep the
-   symmetry too.
+   The rainbow runs round seven times along the path. A turn of one seventh moves a
+   point a whole number of sevenths along the path, so the colours keep the rotation.
+   The pen starts over the bottom edge's midpoint, so the curve is mirror-symmetric.
 
    Run from anywhere: node tools/thumbnails/roll-shapes.js
 
@@ -14,8 +15,8 @@
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 
-const SIZE = 1200, RADIUS = 570, SEGMENTS = 60, TOLERANCE = 0.45, RAINBOWS = 5;
-const LOOP = 6.8, DRAW = [0, 4], UNDRAW = [6, 6.5];
+const SIZE = 1200, RADIUS = 570, SEGMENTS = 84, TOLERANCE = 0.45, RAINBOWS = 7;
+const LOOP = 9.8, DRAW = [0, 7], UNDRAW = [9, 9.5];
 const LOOKS = {
   'roll-shapes.svg': { bg: '#fdfbf6', outline: '#b9b4a8', lightness: 44 },
   'roll-shapes-dark.svg': { bg: '#14151a', outline: '#4b4c55', lightness: 62 },
@@ -56,13 +57,24 @@ function pathData(points) {
 (async () => {
   const { buildShape, bounds } = await import('../../app/roll-shapes/shapes.js');
   const { formulaPoses } = await import('../../app/roll-shapes/rolling.js');
-  const outer = buildShape('flower', { petals: 5, depth: 0.06 }, 120), inner = buildShape('circle', {}, 49);
-  const { poses, count } = formulaPoses(outer, inner, 49, { maxPoses: 49 * 700 });
+  const size = 120 * 51 / 182;
+  const outer = buildShape('polygon', { sides: 7, round: 0.5, bulge: 0 }, 120), inner = buildShape('circle', {}, size);
+  const { poses, count } = formulaPoses(outer, inner, 51, { maxPoses: 51 * 700 });
 
-  /* One petal points straight down, so that the star in the middle points up. */
+  /* The polygon's own frame has its flat edge at the bottom. World y points up. */
   const k = RADIUS / bounds(outer).far, c = SIZE / 2;
-  const place = (x, y) => [c + k * y, c + k * x];
-  const penX = inner.x[0], penY = inner.y[0];
+  const place = (x, y) => [c + k * x, c - k * y];
+
+  /* The arc at the bottom edge's midpoint: a rim pen touches the wall there. */
+  let mid = 0, low = Infinity;
+  for (let i = 0; i < outer.n; i++) {
+    const j = (i + 1) % outer.n;
+    if (outer.x[i] * outer.x[j] > 0) continue;
+    const t = outer.x[i] === outer.x[j] ? 0 : -outer.x[i] / (outer.x[j] - outer.x[i]), y = outer.y[i] + t * (outer.y[j] - outer.y[i]);
+    if (y < low) { low = y; mid = outer.cum[i] + t * outer.len[i]; }
+  }
+  const angle = (mid % size) / size * Math.PI * 2, radius = size / (Math.PI * 2);
+  const penX = radius * Math.cos(angle), penY = radius * Math.sin(angle);
   const curve = [];
   for (let i = 0; i < count; i++) {
     const p = i * 4, x = poses[p] * penX - poses[p + 1] * penY + poses[p + 2], y = poses[p + 1] * penX + poses[p] * penY + poses[p + 3];
@@ -70,7 +82,6 @@ function pathData(points) {
   }
   const outline = [];
   for (let v = 0; v < outer.n; v++) outline.push(place(outer.x[v], outer.y[v]));
-  outline.push(outline[0]);
 
   const pieces = [];
   for (let s = 0; s < SEGMENTS; s++) {

@@ -38,7 +38,8 @@ const state = {
 /* ------- Settings in the address ------- */
 
 const num = v => +(+v).toFixed(6);
-const encodeShape = s => [s.type, num(s.size), ...SHAPES[s.type].params.map(p => num(s.params[p.key] ?? p.value))].join('~');
+/* A size keeps nearly all its digits, or a curve that Close made exact would reopen in a shared link. */
+const encodeShape = s => [s.type, +(+s.size).toPrecision(14), ...SHAPES[s.type].params.map(p => num(s.params[p.key] ?? p.value))].join('~');
 function decodeShape(text, fallback) {
   const bits = String(text || '').split('~'), type = bits[0];
   if (!SHAPES[type]) return clone(fallback);

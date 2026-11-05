@@ -26,9 +26,13 @@ export const PRESETS = [
     inner: { type: 'ellipse', size: 30, params: { stretch: 1.6 } }, pens: [focus(0), rim(0)] },
   { key: 'flower', label: 'Small circle in a flower', status: 'rolls', closes: 2,
     outer: { type: 'flower', size: 120, params: { petals: 5, depth: 0.25 } }, inner: circle(16), pens: [free(radial(0.8))] },
-  /* The builder page's picture: 120/49 closes after 49 laps with 5-fold symmetry. */
+  /* 120/49 closes after 49 laps with 5-fold symmetry. */
   { key: 'star', label: 'Five-point star', status: 'rolls', closes: 49,
     outer: { type: 'flower', size: 120, params: { petals: 5, depth: 0.06 } }, inner: circle(49), pens: [rim(0)] },
+  /* The share card and builder page picture. 182/51 closes after 51 laps with 7-fold
+     symmetry. The pen starts over the bottom edge's midpoint, so the curve is mirror-symmetric. */
+  { key: 'heptagon', label: 'Seven-sided ring', status: 'rolls', closes: 51,
+    outer: { type: 'polygon', size: 120, params: { sides: 7, round: 0.5, bulge: 0 } }, inner: circle(120 * 51 / 182), pens: [rim(0.436674)] },
   { key: 'tumble', label: 'Square tumbling in a circle', status: 'tumbles', closes: 8,
     outer: circle(120), inner: { type: 'polygon', size: 45.0363, params: { sides: 4, round: 0, bulge: 0 } }, pens: [corner(0)] },
   { key: 'reuleaux', label: 'Bulged triangle in a circle', status: 'rolls', closes: 3,
