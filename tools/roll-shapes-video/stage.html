@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+  html, body { margin: 0; background: #14151a; overflow: hidden; }
+  canvas { position: fixed; inset: 0; width: 1080px; height: 1080px; }
+</style></head><body>
+<canvas id="view" width="2160" height="2160"></canvas>
+<script type="module">
+import { buildShape, bounds } from '/app/roll-shapes/shapes.js';
+import { formulaPoses, forSide } from '/app/roll-shapes/rolling.js';
+import { strokeCurve, drawShapes, drawPen, penCurve } from '/app/roll-shapes/draw.js';
+import { FPS, LENGTH, ADDRESS, SLIDERS, scenesAt, captionsAt } from './timeline.js';
+
+const S = 2160, ctx = document.getElementById('view').getContext('2d');
+const BRIGHT = ['#ff5573', '#55a8ff', '#3fd884', '#ffae3d', '#c07dff', '#3fd8d8'];
+const BG = '#14151a';
+/* The app's own dark look, at this canvas's scale. */
+const look = { scale: 2, dark: true, outer: 'rgba(235,232,222,0.75)', inner: 'rgba(235,232,222,0.85)', fill: 'rgba(235,232,222,0.07)', overlap: 'rgba(226,32,48,0.55)', penRing: BG };
+
+/* Picture area: clear of the caption above and the slider below. */
+const AREA = { cx: S / 2, cy: S / 2 + 50, half: 850 };
+
+const shapeCache = new Map();
+function shape(def) {
+  const key = JSON.stringify(def);
+  if (!shapeCache.has(key)) {
+    if (shapeCache.size > 40) shapeCache.clear();
+    shapeCache.set(key, buildShape(def.type, def.params, def.size));
+  }
+  return shapeCache.get(key);
+}
+const poseCache = new Map();
+function posesFor(outerDef, innerDef, laps) {
+  const key = JSON.stringify([outerDef, innerDef, laps]);
+  if (!poseCache.has(key)) {
+    if (poseCache.size > 30) poseCache.clear();
+    poseCache.set(key, formulaPoses(shape(outerDef), forSide(shape(innerDef), 1), laps, { maxPoses: 90000 }));
+  }
+  return poseCache.get(key);
+}
+
+function viewFor(outer) {
+  const b = bounds(outer), k = 2 * AREA.half / Math.max(b.maxX - b.minX, b.maxY - b.minY);
+  return { k, cx: AREA.cx - k * (b.minX + b.maxX) / 2, cy: AREA.cy + k * (b.minY + b.maxY) / 2 };
+}
+
+function poseAt(p, index) {
+  const i = Math.min(p.count - 1, Math.max(0, Math.floor(index))) * 4, d = p.poses;
+  return [d[i], d[i + 1], d[i + 2], d[i + 3]];
+}
+
+function drawScene(scene, t, sink) {
+  const outer = shape(scene.outer), inner = shape(scene.inner), view = viewFor(outer);
+  const p = posesFor(scene.outer, scene.inner, scene.laps);
+  ctx.save();
+  ctx.globalAlpha = scene.alpha;
+  for (const k of scene.kept || []) {
+    const def = { ...scene.inner, size: k.size }, kp = posesFor(scene.outer, def, k.laps), r = scene.keepPen * k.size / (Math.PI * 2);
+    strokeCurve(ctx, view, penCurve(kp.poses, kp.count, r, 0), 0, kp.count - 1, { colour: BRIGHT[k.colour], rainbow: false, width: 1.3, scale: 2, dark: true });
+  }
+  scene.pens.forEach((pen, i) => {
+    const pts = penCurve(p.poses, p.count, pen.point[0], pen.point[1]);
+    const last = Math.floor((pen.drawn ?? 1) * (p.count - 1));
+    strokeCurve(ctx, view, pts, 0, last, { colour: BRIGHT[pen.colour ?? i], rainbow: scene.rainbow, width: 1.3, scale: 2, dark: true });
+  });
+  /* The shapes: the parked inner shape, as at rest, or the rolling one. */
+  tracedOuter(outer, view);
+  const pose = scene.roll != null ? poseAt(p, scene.roll * p.count / scene.laps) : poseAt(p, 0);
+  const showInner = scene.roll != null ? 1 - scene.parked : 0;
+  if (showInner > 0) {
+    ctx.globalAlpha = scene.alpha * showInner;
+    drawInner(inner, view, pose, scene, 0);
+  }
+  if (scene.parked > 0 && !(scene.roll != null && showInner > 0 && scene.parked === 0)) {
+    ctx.globalAlpha = scene.alpha * scene.parked;
+    drawInner(inner, view, poseAt(p, 0), scene, scene.parked);
+  }
+  ctx.restore();
+  if (sink) sink({ view, pose: poseAt(p, 0), pens: scene.pens, alpha: scene.alpha });
+}
+function tracedOuter(outer, view) {
+  ctx.lineWidth = 2.8; ctx.lineJoin = 'round'; ctx.strokeStyle = look.outer;
+  ctx.beginPath();
+  for (let i = 0; i < outer.n; i++) { const x = view.cx + view.k * outer.x[i], y = view.cy - view.k * outer.y[i]; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+  ctx.closePath(); ctx.stroke();
+}
+function drawInner(inner, view, pose, scene) {
+  const [c, s, tx, ty] = pose;
+  ctx.beginPath();
+  for (let i = 0; i < inner.n; i += 2) {
+    const wx = c * inner.x[i] - s * inner.y[i] + tx, wy = s * inner.x[i] + c * inner.y[i] + ty;
+    const x = view.cx + view.k * wx, y = view.cy - view.k * wy;
+    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = look.fill; ctx.fill();
+  ctx.strokeStyle = look.inner; ctx.lineWidth = 2.8; ctx.stroke();
+  scene.pens.forEach((pen, i) => {
+    const wx = c * pen.point[0] - s * pen.point[1] + tx, wy = s * pen.point[0] + c * pen.point[1] + ty;
+    drawPen(ctx, view, wx, wy, scene.rainbow ? '#ff5573' : BRIGHT[pen.colour ?? i], { ...look, scale: 2.2 });
+  });
+}
+
+function pill(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+
+function drawPointer(x, y, pressed) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(pressed ? 2.5 : 2.8, pressed ? 2.5 : 2.8);
+  ctx.beginPath();
+  ctx.moveTo(0, 0); ctx.lineTo(0, 17); ctx.lineTo(4.5, 13); ctx.lineTo(7.5, 19.5); ctx.lineTo(10, 18.4); ctx.lineTo(7.2, 12.2); ctx.lineTo(13, 12); ctx.closePath();
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#111'; ctx.lineWidth = 1.1; ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+function drawSlider(slider, alpha) {
+  const def = SLIDERS[slider.key], W = 1160, H = 150, X = (S - W) / 2, Y = S - H - 30;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(28,29,35,0.94)'; ctx.strokeStyle = '#3a3a40'; ctx.lineWidth = 2;
+  pill(X, Y, W, H, 22); ctx.fill(); ctx.stroke();
+  ctx.font = '46px system-ui, -apple-system, sans-serif'; ctx.fillStyle = '#f5f3ec'; ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left'; ctx.fillText(def.label, X + 44, Y + 48);
+  ctx.textAlign = 'right'; ctx.fillText(slider.value.toFixed(def.digits), X + W - 44, Y + 48);
+  const u = def.log ? Math.log(slider.value / def.min) / Math.log(def.max / def.min) : (slider.value - def.min) / (def.max - def.min);
+  const tx0 = X + 44, tw = W - 88, ty = Y + 108, knob = tx0 + tw * Math.max(0, Math.min(1, u));
+  ctx.lineCap = 'round'; ctx.lineWidth = 11;
+  ctx.strokeStyle = '#3a3a40'; ctx.beginPath(); ctx.moveTo(tx0, ty); ctx.lineTo(tx0 + tw, ty); ctx.stroke();
+  ctx.strokeStyle = '#7aa6e0'; ctx.beginPath(); ctx.moveTo(tx0, ty); ctx.lineTo(knob, ty); ctx.stroke();
+  ctx.fillStyle = '#7aa6e0'; ctx.beginPath(); ctx.arc(knob, ty, 19, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  return { x: knob, y: ty };
+}
+
+function drawCaption(c) {
+  ctx.save();
+  ctx.globalAlpha = c.alpha;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#f5f3ec';
+  ctx.font = (c.title ? 128 : 96) + 'px Georgia, "Times New Roman", serif';
+  ctx.fillText(c.main, 56, c.title ? 140 : 118);
+  ctx.fillStyle = '#b9b6ad';
+  ctx.font = '50px Georgia, "Times New Roman", serif';
+  ctx.fillText(c.small, 58, c.title ? 212 : 186);
+  ctx.restore();
+}
+
+function drawFrame(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, S, S);
+  const scenes = scenesAt(t);
+  let top = null;
+  for (const scene of scenes) drawScene(scene, t, info => { top = { ...info, scene }; });
+  ctx.save();
+  ctx.font = '46px Georgia, "Times New Roman", serif'; ctx.textAlign = 'right'; ctx.fillStyle = '#7aa6e0'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(ADDRESS, S - 56, 92);
+  ctx.restore();
+  for (const c of captionsAt(t)) drawCaption(c);
+
+  /* The one control in use, with the pointer on it. */
+  const live = scenes.find(s => s.slider) ;
+  if (live) {
+    const sl = live.slider, a = Math.min(1, Math.min(t - sl.from, sl.to - t) / 0.3);
+    const fade = a <= 0 ? 0 : (1 - Math.cos(Math.PI * a)) / 2;
+    if (fade > 0) {
+      const knob = drawSlider(sl, fade);
+      ctx.save(); ctx.globalAlpha = fade; drawPointer(knob.x + 4, knob.y + 4, false); ctx.restore();
+    }
+  }
+  const tapping = scenes.find(s => s.tap != null);
+  if (tapping) {
+    const u = t - tapping.tap, outer = shape(tapping.outer), view = viewFor(outer), p = posesFor(tapping.outer, tapping.inner, tapping.laps), pose = poseAt(p, 0);
+    const pen = tapping.pens[Math.min(tapping.pens.length - 1, tapping.tap - 25)];
+    if (pen) {
+      const [c, s, tx, ty] = pose, wx = c * pen.point[0] - s * pen.point[1] + tx, wy = s * pen.point[0] + c * pen.point[1] + ty;
+      const x = view.cx + view.k * wx, y = view.cy - view.k * wy;
+      if (u < 0.35) { ctx.save(); ctx.globalAlpha = 1 - u / 0.35; ctx.strokeStyle = BRIGHT[pen.colour]; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, 18 + u * 110, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      ctx.save(); ctx.globalAlpha = tapping.alpha; drawPointer(x + 6, y + 6, u < 0.2); ctx.restore();
+    }
+  }
+  const keeping = scenes.find(s => s.keepPress != null);
+  const keptScene = scenes.find(s => s.kept);
+  if (keptScene && t < 39.4) {
+    const W = 450, H = 104, X = S - W - 56, Y = 130, on = keeping ? 1 : 0;
+    ctx.save();
+    ctx.fillStyle = on ? '#7aa6e0' : 'rgba(28,29,35,0.94)'; ctx.strokeStyle = on ? '#7aa6e0' : '#3a3a40'; ctx.lineWidth = 2;
+    pill(X, Y, W, H, 16); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = on ? BG : '#f5f3ec'; ctx.font = '46px system-ui, -apple-system, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Keep this layer', X + W / 2, Y + H / 2);
+    ctx.restore();
+  }
+}
+
+window.stageInfo = { frames: Math.round(LENGTH * FPS), fps: FPS };
+window.frame = n => drawFrame(n / FPS);
+window.seconds = t => drawFrame(t);
+window.stageReady = true;
+</script>
+</body></html>
