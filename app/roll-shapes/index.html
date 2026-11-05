@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rolling Shapes</title>
+<meta name="description" content="Roll any shape inside or around any shape. Drag pens onto the inner shape and watch it draw. Corners and poor fits tumble instead of refusing to run.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/app/roll-shapes/">
+<meta property="og:title" content="Rolling Shapes">
+<meta property="og:description" content="Roll any shape inside or around any other. Pens draw the curve, and corners tumble.">
+<meta property="og:image" content="https://drbuild.uk/social/roll-shapes.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A rainbow spirograph with 5-fold symmetry, drawn by a circle rolling inside a flower, beside the title Rolling Shapes">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="A rainbow spirograph with 5-fold symmetry, drawn by a circle rolling inside a flower, beside the title Rolling Shapes">
+<meta name="twitter:creator" content="@davidryan59">
+<link rel="canonical" href="https://drbuild.uk/app/roll-shapes/">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+<link rel="stylesheet" href="style.css">
+<script data-goatcounter="https://drbuild.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="../../index.html"><span aria-hidden="true">←</span> <span class="back-long">David Ryan's builder page</span></a>
+  <h1>Rolling Shapes</h1>
+  <button class="icon" id="fullscreen" type="button" aria-label="Full screen" title="Full screen (F)" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+  </button>
+</header>
+
+<main class="stage" id="stage">
+  <canvas id="kept" aria-hidden="true"></canvas>
+  <canvas id="curves" aria-hidden="true"></canvas>
+  <canvas id="shapes" tabindex="0" aria-label="The rolling shapes. Drag a pen to move it. Tap to add a pen, and tap a pen to remove it. Scroll to zoom, and drag empty space to move the view."></canvas>
+
+  <section class="card tl" aria-label="Shapes">
+    <button class="fold" type="button" aria-expanded="false">Shapes</button>
+    <div class="body">
+      <label class="field"><span>Preset</span><select id="preset"></select></label>
+      <label class="field"><span>Outer shape</span><select id="outer-type"></select></label>
+      <label class="field"><span>Inner shape</span><select id="inner-type"></select></label>
+      <div class="seg" role="group" aria-label="Inner shape rolls">
+        <button type="button" id="side-in">Inside</button><button type="button" id="side-out">Outside</button>
+      </div>
+      <label class="check"><input type="checkbox" id="overlap"> Allow overlap</label>
+    </div>
+  </section>
+
+  <section class="card tr" aria-label="Sizes and laps">
+    <button class="fold" type="button" aria-expanded="false">Sizes</button>
+    <div class="body">
+      <h2 id="outer-name">Outer</h2>
+      <div id="outer-sliders"></div>
+      <h2 id="inner-name">Inner</h2>
+      <div id="inner-sliders"></div>
+      <h2>Curve</h2>
+      <div id="lap-slider"></div>
+      <button type="button" id="close" title="Change the inner size to the nearest value that closes in this many laps or fewer">Close</button>
+    </div>
+  </section>
+
+  <section class="card bl" aria-label="Look">
+    <button class="fold" type="button" aria-expanded="false">Look</button>
+    <div class="body">
+      <label class="field"><span>Colours</span><select id="scheme"></select></label>
+      <label class="check"><input type="checkbox" id="rainbow"> Rainbow along the path</label>
+      <div id="width-slider"></div>
+      <label class="check"><input type="checkbox" id="show" checked> Show shapes</label>
+      <button class="theme-toggle" type="button" hidden>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/></svg>
+        <span>Light or dark</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="card br" aria-label="View and save">
+    <button class="fold" type="button" aria-expanded="false">Save</button>
+    <div class="body">
+      <div class="row">
+        <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+        <button type="button" id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+        <button type="button" id="zoom-fit" title="Fit the shapes to the view">Fit</button>
+      </div>
+      <div class="row">
+        <button type="button" id="png" title="Save a picture">PNG</button>
+        <button type="button" id="svg" title="Save as vector lines">SVG</button>
+        <button type="button" id="link" title="Copy a link to this exact view">Copy link</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="transport">
+  <button type="button" id="play" class="main" aria-label="Play">Play</button>
+  <label class="speed" title="Speed of rolling"><span>Speed</span><input type="range" id="speed" min="0" max="1000" step="1" aria-label="Speed"></label>
+  <button type="button" id="all">Draw all<span class="long"> at once</span></button>
+  <button type="button" id="keep" title="Keep this curve in the view while you change the settings">Keep this layer</button>
+  <button type="button" id="clear" title="Remove the kept layers">Clear</button>
+  <div class="readout" id="readout" role="status" aria-live="polite">
+    <strong id="state"></strong><span id="detail"></span>
+    <progress id="progress" max="1" value="0" hidden></progress>
+  </div>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

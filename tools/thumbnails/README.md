@@ -18,6 +18,7 @@ it, then check the result with `frames.js`.
 | `assets/thumbs/dice-to-seed.svg` | `dice-to-seed.js` | Six red dice thrown into the corner of a craps table. They settle, rest and fade on an 11 s loop |
 | `assets/thumbs/pentrys.svg` | `pentrys.js` | A still: a glowing X falls above a stack of six pieces in a dark well. The colours and lighting are the game's own, from `app/pentrys/pieces.js` and `app/pentrys/draw.js` |
 | `assets/thumbs/smash.svg` | `smash.js` | A monitor showing a white web page takes a hammer blow: cracks, black ink, then lines of stuck pixels, and back to whole on an 8 s loop. The damage is the page's own, from `app/smash/damage.js` with seed 7 |
+| `assets/thumbs/roll-shapes.svg`, `roll-shapes-dark.svg` | `roll-shapes.js` | A circle rolling inside a 5-petal flower draws a rainbow curve of 49 laps with 5-fold symmetry. It draws in 4 s, holds for 2 s and undraws in 0.5 s, on a 6.8 s loop. The curve is the app's own, from `app/roll-shapes/` |
 | `assets/thumbs/sieve.svg` | `sieve.js` | A hundred square, 0 to 99. 2, 3, 5 and 7 are chosen in turn and their multiples turn pale, until only primes stay grey, then it fades back on an 8 s loop. The rules and colours are the page's own, from `app/sieve/model.js` |
 | `assets/thumbs/retuner.svg` | `retuner.js` | The left half of ReTuner's keyboard. The note keys breathe and the octave rings turn, slowly |
 | `assets/thumbs/dino-dash.svg` | `dino-dash.js` | A lap of a Dino Dash maze on a 6.4 s loop: coins, the "Yay!" at the tenth, a dinosaur, a cat and an eagle |

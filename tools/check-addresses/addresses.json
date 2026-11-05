@@ -43,6 +43,7 @@
     { "path": "/smash/index.html", "title": "Smash Screen", "stub": "/app/smash/" },
     { "path": "/sieve", "title": "Sieve of Eratosthenes", "stub": "/app/sieve/" },
     { "path": "/pentrys", "title": "Pentrys", "stub": "/app/pentrys/" },
+    { "path": "/roll-shapes", "title": "Rolling Shapes", "stub": "/app/roll-shapes/" },
     { "path": "/app/tiles/", "title": "Hat tiling – a family of aperiodic monotiles", "stub": "/app/tiles/hat/" },
     { "path": "/app/tiles/hat/", "title": "Hat tiling – a family of aperiodic monotiles", "direct": true },
     { "path": "/app/tiles/spectre/", "title": "Spectre tiling", "direct": true },
@@ -53,6 +54,7 @@
     { "path": "/app/smash/", "title": "Smash Screen", "direct": true },
     { "path": "/app/sieve/", "title": "Sieve of Eratosthenes", "direct": true },
     { "path": "/app/pentrys/", "title": "Pentrys", "direct": true },
+    { "path": "/app/roll-shapes/", "title": "Rolling Shapes", "direct": true },
     { "path": "/app/parfly/", "title": "Parfly – record a journey by GPS", "direct": true }
   ],
   "files": [
@@ -77,6 +79,7 @@
     "/social/merge-fractals.jpg",
     "/social/moving-mondrian.jpg",
     "/social/noble.jpg",
+    "/social/roll-shapes.jpg",
     "/social/nonrup.jpg",
     "/social/parfly.jpg",
     "/social/polygonal-spectre-paper.jpg",
