@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rolling Shapes: examples</title>
+<style>
+ body{margin:0;background:#fbfaf7;color:#1d2230;font:16px/1.45 system-ui,sans-serif}
+ main{max-width:1500px;margin:auto;padding:24px}
+ h1{font-size:28px;margin:0 0 6px} h2{font-size:21px;margin:34px 0 4px} p{margin:4px 0 14px;max-width:80ch}
+ .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+ figure{margin:0;background:#fff;border:1px solid #e3e0d8;border-radius:10px;padding:10px}
+ canvas{width:100%;aspect-ratio:1;display:block}
+ figcaption b{display:block;margin-top:6px}
+ .tag{display:inline-block;padding:1px 8px;border-radius:9px;font-size:13px;font-weight:600;margin-top:4px}
+ .ok{background:#d9f5e3;color:#116a39}.bad{background:#fde0de;color:#a3221b}.info{background:#e4e9fd;color:#2b3fa3}
+ small{color:#656b7a;display:block;margin-top:3px}
+</style></head><body><main>
+<h1>Rolling Shapes: examples</h1>
+<p>Every panel uses the real rolling maths: the shapes meet at one point and do not slip. The inner shape moves live. The blue and orange lines are two pens.</p>
+<h2>Question 4: shapes with dents, in Pass through</h2>
+<p>Red shows the inner shape crossing the outer shape. With no red, the motion is physically real. A flower rolling in a circle always crosses, because its dents should never touch. Stay inside would roll it on its petal tips.</p>
+<div class="grid" id="nonconvex"></div>
+<h2>Question 2: sizes that close and sizes that do not</h2>
+<p>The same ellipse in the same circle. Only the size ratio changes. The last two panels use an irrational ratio, so the line never returns to its start.</p>
+<div class="grid" id="closing"></div>
+<h2>Question 2: tumbling and closing</h2>
+<p>A square tumbling in a circle. A tumbling shape skips part of the rim, so a simple size ratio no longer gives a short curve. Clean rolling at 30 in 70 would close after 3 laps. A small size change brings the tumbling square back to a short curve.</p>
+<div class="grid" id="tumble"></div>
+</main>
+<script>
+/*ENGINE*/
+/*NONCONVEX*/
+const E = window.RollEngine, S = E.SHAPES;
+const BLUE = '#2b5bff', ORANGE = '#ff6a13';
+const defs = { c: () => S.circle(), f5: () => S.flower(5, .25), p: () => S.peanut(.45), e: () => S.ellipse(1, .6), f3: () => S.flower(3, .12), f3b: () => S.flower(3, .25) };
+const panels = [];
+
+function outline(shape) { const n = 720, a = new Float32Array(n * 2); for (let i = 0; i < n; i++) { const k = Math.floor(i / n * 8192); a[2 * i] = shape.X[k]; a[2 * i + 1] = shape.Y[k]; } return a; }
+function pathOf(ctx, a, closed) { ctx.beginPath(); ctx.moveTo(a[0], a[1]); for (let i = 2; i < a.length; i += 2) ctx.lineTo(a[i], a[i + 1]); if (closed) ctx.closePath(); }
+
+function addPanel(host, title, tagClass, tag, note, opts) {
+  const fig = document.createElement('figure');
+  fig.innerHTML = '<canvas width="760" height="760"></canvas><figcaption><b>' + title + '</b><span class="tag ' + tagClass + '">' + tag + '</span><small>' + note + '</small></figcaption>';
+  host.appendChild(fig);
+  const cv = fig.querySelector('canvas'), ctx = cv.getContext('2d');
+  const out = opts.outer, w = Math.max(...out.filter((_, i) => i % 2 === 0).map(Math.abs)), h = Math.max(...out.filter((_, i) => i % 2).map(Math.abs));
+  const scale = 360 / Math.max(w, h) * (opts.fit || 1);
+  const base = document.createElement('canvas'); base.width = base.height = 760;
+  const b = base.getContext('2d');
+  b.translate(380, 380); b.scale(scale, -scale); b.lineJoin = 'round';
+  b.lineWidth = (opts.lw || 1.5) / scale;
+  const t0 = performance.now();
+  opts.traces.forEach(([pts, colour]) => { b.strokeStyle = colour; b.globalAlpha = opts.alpha || .9; pathOf(b, pts, false); b.stroke(); });
+  panels.push({ cv, ctx, base, scale, opts, ms: performance.now() - t0, seen: false, fig });
+  return panels[panels.length - 1];
+}
+
+function drawPanel(p, time) {
+  const { ctx, base, scale, opts } = p;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, 760, 760); ctx.drawImage(base, 0, 0);
+  ctx.translate(380, 380); ctx.scale(scale, -scale);
+  const poly = opts.innerAt(time);
+  ctx.fillStyle = 'rgba(40,60,160,.13)'; pathOf(ctx, poly, true); ctx.fill();
+  ctx.save(); pathOf(ctx, poly, true); ctx.clip();
+  ctx.fillStyle = 'rgba(230,30,30,.75)'; ctx.beginPath();
+  ctx.rect(-2000, -2000, 4000, 4000); const o = opts.outer; ctx.moveTo(o[0], o[1]); for (let i = 2; i < o.length; i += 2) ctx.lineTo(o[i], o[i + 1]); ctx.closePath(); ctx.fill('evenodd');
+  ctx.restore();
+  ctx.lineWidth = 1.6 / scale; ctx.strokeStyle = '#2a3050'; pathOf(ctx, poly, true); ctx.stroke();
+  ctx.lineWidth = 2.6 / scale; ctx.strokeStyle = '#1d2230'; pathOf(ctx, opts.outer, true); ctx.stroke();
+  opts.pensAt(time).forEach(([x, y, colour]) => { ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(x, y, 5 / scale, 0, 7); ctx.fill(); });
+}
+
+function rollPanel(host, title, tagClass, tag, note, cfg) {
+  const so = cfg.so, si = cfg.si, outer = E.makeShape(cfg.outerF, so), inner = E.makeShape(cfg.innerF, si);
+  const pens = cfg.pens, t0 = performance.now();
+  const traces = pens.map(([x, y, colour]) => [E.trace(outer, inner, [x, y], cfg.laps), colour]);
+  const calc = performance.now() - t0;
+  const innerPts = outline(inner), o = outline(outer);
+  const speed = so / 14;
+  const p = addPanel(host, title, tagClass, tag, note, {
+    outer: o, traces, lw: cfg.lw, alpha: cfg.alpha,
+    innerAt: t => { const q = E.place(outer, inner, t * speed), a = new Float32Array(innerPts.length); for (let i = 0; i < a.length; i += 2) { const w = E.apply(q, innerPts[i], innerPts[i + 1]); a[i] = w[0]; a[i + 1] = w[1]; } return a; },
+    pensAt: t => { const q = E.place(outer, inner, t * speed); return pens.map(([x, y, c]) => { const w = E.apply(q, x, y); return [w[0], w[1], c]; }); },
+  });
+  if (cfg.timed) p.fig.querySelector('small').textContent += ' ' + (traces[0][0].length / 2 / 1e6).toFixed(1) + ' million points per pen, computed in ' + Math.round(calc / pens.length) + ' ms per pen.';
+  return p;
+}
+
+function tumblePanel(host, title, tagClass, tag, note, si, so, hops) {
+  const T = E.tumbler(4, si, so), rim = T.rho * .98, pens = [[T.rho * .45, 0, BLUE], [rim, 0, ORANGE]];
+  const c = new Float32Array(720 * 2); for (let i = 0; i < 720; i++) { c[2 * i] = T.R * Math.cos(i / 720 * E.TAU); c[2 * i + 1] = T.R * Math.sin(i / 720 * E.TAU); }
+  const corners = [0, 1, 2, 3].map(T.corner);
+  addPanel(host, title, tagClass, tag, note, {
+    outer: c, traces: pens.map(([x, y, col]) => [T.trace([x, y], hops), col]), lw: hops > 800 ? .5 : 1.5, alpha: hops > 800 ? .5 : .9,
+    innerAt: t => { const f = T.pose(t * 2.2), a = new Float32Array(8); corners.forEach((q, i) => { const w = f(q[0], q[1]); a[2 * i] = w[0]; a[2 * i + 1] = w[1]; }); return a; },
+    pensAt: t => { const f = T.pose(t * 2.2); return pens.map(([x, y, col]) => { const w = f(x, y); return [w[0], w[1], col]; }); },
+  });
+}
+
+NONCONVEX.forEach(n => {
+  const sizeInner = n.si / (2 * Math.PI);
+  const pens = n.i === 'c' ? [[sizeInner * .45, 0, BLUE], [sizeInner * .95, 0, ORANGE]]
+    : n.i === 'e' ? [[0, 0, BLUE], [n.si / 5.3 * .95, 0, ORANGE]]
+    : [[0, 0, BLUE], [n.si / 8 * .95, 0, ORANGE]];
+  const tag = n.clean ? 'Never crosses' : 'Crosses on ' + n.share + '% of the path, by up to ' + n.depth + '% of the width';
+  const ratio = 'Sizes ' + n.si + ' in ' + n.so + '. Closes after ' + n.laps + (n.laps === 1 ? ' lap.' : ' laps.');
+  rollPanel(document.getElementById('nonconvex'), n.title, n.clean ? 'ok' : 'bad', tag, ratio, { so: n.so, si: n.si, outerF: defs[n.o](), innerF: defs[n.i](), laps: n.laps, pens });
+});
+
+const closing = document.getElementById('closing'), ell = S.ellipse(1, .6), cir = S.circle();
+const ellPens = si => { const a = si / 5.105; return [[a * .35, 0, BLUE], [a * .95, 0, ORANGE]]; };
+const golden = 120 * 0.3819660113;
+[
+  ['Sizes 48 in 120', 'ok', 'Closes after 2 laps', 48, 2, {}],
+  ['Sizes 50 in 120', 'ok', 'Closes after 5 laps', 50, 5, {}],
+  ['Sizes 47 in 120', 'ok', 'Closes after 47 laps', 47, 47, { lw: .8, alpha: .75 }],
+  ['Irrational size, 10 laps', 'info', 'Never closes', golden, 10, { lw: 1 }],
+  ['Irrational size, 1,000 laps', 'info', 'Never closes', golden, 1000, { lw: .35, alpha: .35, timed: true }],
+].forEach(([title, cls, tag, si, laps, more]) => rollPanel(closing, title, cls, tag, 'Ellipse in a circle.', { so: 120, si, outerF: cir, innerF: ell, laps, pens: ellPens(si), ...more }));
+
+const tumbleHost = document.getElementById('tumble');
+const so = 70, whole = 30, near = 4 * 2 * (so / E.TAU) * Math.sin(Math.PI / 9);
+const px = so / E.TAU * 2 / 760, W = E.tumbler(4, whole, so), N = E.tumbler(4, near, so);
+const wClose = W.lapsToClose(px, 3000), nClose = N.lapsToClose(px, 3000);
+window.TUMBLE = { wClose, nClose, nearPct: (near / whole - 1) * 100, near };
+tumblePanel(tumbleHost, 'Sizes 30 in 70, 16 laps', 'info', 'Still open', 'The hop angle is not a simple fraction of a turn.', whole, so, Math.round(16 * W.hopsPerLap));
+tumblePanel(tumbleHost, 'Sizes 30 in 70, ' + Math.round(wClose.laps) + ' laps', 'info', 'Back within a pixel of its start', 'The same square, left to run. It never closes exactly.', whole, so, wClose.hops);
+tumblePanel(tumbleHost, 'Sizes ' + near.toFixed(2) + ' in 70', 'ok', 'Closes after ' + Math.round(nClose.laps) + ' laps', 'The square is ' + ((near / whole - 1) * 100).toFixed(1) + '% larger than 30. ', near, so, nClose.hops);
+
+const io = new IntersectionObserver(es => es.forEach(e => { panels.find(p => p.cv === e.target).seen = e.isIntersecting; }));
+panels.forEach(p => { io.observe(p.cv); drawPanel(p, 0); });
+const start = performance.now();
+(function tick(now) { const t = (now - start) / 1000; panels.forEach(p => { if (p.seen) drawPanel(p, t); }); requestAnimationFrame(tick); })(start);
+</script></body></html>
