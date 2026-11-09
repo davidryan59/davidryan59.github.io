@@ -11,6 +11,10 @@ const focus = i => ({ kind: 'focus', i });
 const radial = r => r / (Math.PI * 2);
 
 export const PRESETS = [
+  /* The opening curve, David's choice on 2026-11-09. It stays open, so it draws 113 laps. */
+  { key: 'weave', label: 'Seven-sided weave', status: 'rolls', closes: null, laps: 113,
+    outer: { type: 'polygon', size: 120, params: { sides: 7, round: 0.37, bulge: 0 } }, inner: circle(37.774263),
+    pens: [rim(0.048723), free(0.066374, 0.064677)] },
   { key: 'peanut', label: 'Circle in a peanut', status: 'rolls', closes: 5,
     outer: { type: 'peanut', size: 120, params: { waist: 0.45 } }, inner: circle(50), pens: [free(radial(0.8))] },
   { key: 'hypotrochoid', label: 'Classic hypotrochoid', status: 'rolls', closes: 3,

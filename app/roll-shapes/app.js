@@ -31,7 +31,7 @@ const opening = PRESETS[0];
 
 const state = {
   outer: clone(opening.outer), inner: clone(opening.inner),
-  side: 1, overlap: false, laps: 100, pens: clone(opening.pens),
+  side: 1, overlap: false, laps: opening.laps || 100, pens: clone(opening.pens),
   scheme: 'bright', rainbow: false, width: 1.2, show: true, secondsPerLap: 6,
 };
 
@@ -401,6 +401,7 @@ const drawSoon = () => {
 
 /* ------- Play ------- */
 
+const INTRO_SECONDS = 25;
 const play = { active: false, paused: false, index: 0, drawn: 0, last: 0, frame: 0, intro: false };
 
 function startPlay(intro = false) {
@@ -429,7 +430,9 @@ function tick(now) {
   const dt = Math.min(0.1, (now - play.last) / 1000);
   play.last = now;
   const lapsShown = Math.max(path.laps || 1, 1e-6);
-  play.index += path.count / lapsShown / state.secondsPerLap * dt;
+  /* The opening play takes at most INTRO_SECONDS, however many laps the curve has. */
+  const secondsPerLap = play.intro ? Math.min(state.secondsPerLap, INTRO_SECONDS / lapsShown) : state.secondsPerLap;
+  play.index += path.count / lapsShown / secondsPerLap * dt;
   const target = Math.min(path.count - 1, Math.floor(play.index));
   if (target > play.drawn) {
     const l = look();
@@ -699,7 +702,7 @@ function applyPreset(preset) {
   for (const shape of [state.outer, state.inner]) shape.params = { ...defaultParams(shape.type), ...shape.params };
   state.side = preset.side || 1;
   state.overlap = false;
-  state.laps = 100;
+  state.laps = preset.laps || 100;
   state.pens = clone(preset.pens);
   $('preset').value = preset.key;
   resetCamera();
