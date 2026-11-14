@@ -271,7 +271,8 @@
     stretchEl.value = String(stretch);
     stretchOut.textContent = spectre ? 'Tile(1, 1), one shape'
       : stretch < 45 ? 'a : b = ' + Math.tan(t).toFixed(2) + ' : 1' : 'a : b = 1 : ' + (1 / Math.tan(t)).toFixed(2);
-    stretchTick.classList.toggle('on', spectre);
+    // The tick lights while the slider is near the Spectre.
+    stretchTick.classList.toggle('on', Math.abs(stretch - 45) <= 2);
   }
   function applyStretch() {
     ab = abAt(stretch);
@@ -583,14 +584,14 @@
     r.addEventListener('change', function () { if (r.checked) { st.arrangement = r.value; edgesChanged(); } });
   });
 
+  // The slider moves freely while dragged. On release, a slider within
+  // half a degree of the Spectre settles on it exactly.
   stretchEl.addEventListener('input', function () {
-    var v = parseFloat(stretchEl.value);
-    // A sticky stop at the Spectre itself.
-    if (Math.abs(v - 45) < 1.5) v = 45;
-    stretch = v;
+    stretch = parseFloat(stretchEl.value);
     applyStretch();
   });
   stretchEl.addEventListener('change', function () {
+    if (Math.abs(stretch - 45) <= 0.5) { stretch = 45; applyStretch(); }
     try { localStorage.setItem('spectre-stretch', String(stretch)); } catch (e) {}
     map.changed();
   });

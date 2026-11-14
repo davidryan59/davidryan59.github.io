@@ -321,6 +321,7 @@
   /* ---------------------------------------------------------- controls */
 
   var shapeEl = document.getElementById('shape');
+  var NEAR = 2, SETTLE = 0.5;
   var outEl = document.getElementById('shape-out'), ticks = document.querySelectorAll('#ticks button');
 
   function applyShape() {
@@ -333,18 +334,20 @@
     var t = deg * Math.PI / 180;
     outEl.textContent = named ? named[2]
       : deg <= 45 ? 'a : b = ' + Math.tan(t).toFixed(2) + ' : 1' : 'a : b = 1 : ' + (1 / Math.tan(t)).toFixed(2);
-    Array.prototype.forEach.call(ticks, function (b) { b.classList.toggle('on', +b.dataset.deg === deg); });
+    // A tick lights while the slider is near its shape.
+    Array.prototype.forEach.call(ticks, function (b) { b.classList.toggle('on', Math.abs(+b.dataset.deg - deg) <= NEAR); });
     map.setAB(ab[0], ab[1]);
   }
 
+  // The slider moves freely while dragged. On release, a slider within
+  // SETTLE degrees of a named shape settles on it exactly.
   shapeEl.addEventListener('input', function () {
-    var v = parseFloat(shapeEl.value);
-    // Sticky stops at the named shapes, wider at the three in the middle.
-    NAMED.forEach(function (n) { if (Math.abs(v - n[0]) < (n[0] % 90 ? 3 : 1.25)) v = n[0]; });
-    deg = v;
+    deg = parseFloat(shapeEl.value);
     applyShape();
   });
   shapeEl.addEventListener('change', function () {
+    NAMED.forEach(function (n) { if (Math.abs(deg - n[0]) <= SETTLE) deg = n[0]; });
+    applyShape();
     try { localStorage.setItem('hat-shape', String(deg)); } catch (e) {}
     map.changed();
   });
