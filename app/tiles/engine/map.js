@@ -489,7 +489,10 @@
     // Distance to edge i, following its profile when it has one. The
     // edge's symmetry is applied to the point, which measures the same
     // distance as applying it to the profile.
-    'float edgeDist(vec2 p, vec2 a, vec2 b, int code, bool flip) {',
+    // dir is the direction, a to b, of the edge piece nearest p. Bevel
+    // lights each piece of a triangle or trapezium edge by its own slope.
+    'float edgeDist(vec2 p, vec2 a, vec2 b, int code, bool flip, out vec2 dir) {',
+    '  dir = b - a;',
     '  float d = segDist(p, a, b);',
     '  int pb = (code >> 4) & 1;',
     '  int np = pb == 1 ? u_profN.y : u_profN.x;',
@@ -506,10 +509,16 @@
     '  if ((g & 2) != 0) pp.y = -pp.y;',
     '  int off = pb * 65;',
     '  float best = 1e9;',
+    '  int kb = 0;',
     '  for (int k = 0; k < 64; k++) {',
     '    if (k >= np - 1) break;',
-    '    best = min(best, segDist(pp, u_prof[off + k], u_prof[off + k + 1]));',
+    '    float sk = segDist(pp, u_prof[off + k], u_prof[off + k + 1]);',
+    '    if (sk < best) { best = sk; kb = k; }',
     '  }',
+    // A mirror in x or in y turns the piece's slope over, a to b.
+    '  vec2 sd = u_prof[off + kb + 1] - u_prof[off + kb];',
+    '  if (((g & 1) != 0) != ((g & 2) != 0)) sd.y = -sd.y;',
+    '  dir = sd.x * ue + sd.y * n;',
     '  return best * L;',
     '}',
     /* Tile styles, as docs/tiling-styles.md sets out. Each shifts the
@@ -751,9 +760,9 @@
     '      if (i >= u_nc) break;',
     '      vec4 cb = i + 1 == u_nc ? c0 : corner(i + 1);',
     '      vec2 a = ca.xy, b = cb.xy;',
-    '      float dl = edgeDist(v_local, a, b, int(ca.z), flip), d = dl * u_scale;',
+    '      vec2 e;',
+    '      float dl = edgeDist(v_local, a, b, int(ca.z), flip, e), d = dl * u_scale;',
     '      ca = cb;',
-    '      vec2 e = b - a;',
     '      float el = length(e);',
     '      if (dl < dmin && el > 1e-9) { dmin = dl; nmin = wind * vec2(e.y, -e.x) / el; }',
     '      int lv = u_levels ? int(min(edgeLevel(i), 5u)) : 0;',
@@ -2148,10 +2157,6 @@
       renderLegendSoon();
       changed();
     }
-    // Snap back to north when a turn ends within four degrees of it.
-    function snapNorth() {
-      if (view.rot !== 0 && Math.abs(view.rot) < 4 * Math.PI / 180) { anim.rotTo = 0; requestDraw(); }
-    }
     var legendTimer = 0;
     function renderLegendSoon() { clearTimeout(legendTimer); legendTimer = setTimeout(renderLegend, 120); }
 
@@ -2370,7 +2375,6 @@
       if (turnDrag && e.pointerId === turnDrag.id) {
         turnDrag = null;
         canvas.classList.remove('dragging');
-        snapNorth();
         renderLegend();
         return;
       }
@@ -2378,7 +2382,6 @@
       var wasPinch = pointers.size === 2;
       pointers.delete(e.pointerId);
       if (pointers.size < 2) pinch = null;
-      if (wasPinch) snapNorth();
       if (pointers.size === 1) {
         var q = pointers.values().next().value;
         trail = [{ t: e.timeStamp, x: q.x, y: q.y }];
@@ -2446,7 +2449,7 @@
       rotateAbout(-(e.rotation - gesture.rotation) * Math.PI / 180, e.clientX, e.clientY);
       gesture = { scale: e.scale, rotation: e.rotation };
     });
-    canvas.addEventListener('gestureend', function (e) { e.preventDefault(); snapNorth(); renderLegend(); });
+    canvas.addEventListener('gestureend', function (e) { e.preventDefault(); renderLegend(); });
 
     document.addEventListener('keydown', function (e) {
       var tag = (e.target && e.target.tagName) || '';

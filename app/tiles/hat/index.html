@@ -321,7 +321,7 @@
   /* ---------------------------------------------------------- controls */
 
   var shapeEl = document.getElementById('shape');
-  var NEAR = 2, SETTLE = 0.5;
+  var NEAR = 2;
   var outEl = document.getElementById('shape-out'), ticks = document.querySelectorAll('#ticks button');
 
   function applyShape() {
@@ -339,15 +339,13 @@
     map.setAB(ab[0], ab[1]);
   }
 
-  // The slider moves freely while dragged. On release, a slider within
-  // SETTLE degrees of a named shape settles on it exactly.
+  // The slider moves freely and never settles on a named shape. A click
+  // on a tick sets that shape exactly.
   shapeEl.addEventListener('input', function () {
     deg = parseFloat(shapeEl.value);
     applyShape();
   });
   shapeEl.addEventListener('change', function () {
-    NAMED.forEach(function (n) { if (Math.abs(deg - n[0]) <= SETTLE) deg = n[0]; });
-    applyShape();
     try { localStorage.setItem('hat-shape', String(deg)); } catch (e) {}
     map.changed();
   });

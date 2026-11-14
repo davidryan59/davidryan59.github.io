@@ -167,7 +167,7 @@
       <p class="note" id="offset-note" hidden>With offset the central edge is walked from both sides in opposite directions, so only Double fits.</p>
       <div class="slider" id="bend-box">
         <span>Height</span><output id="bend-out"></output>
-        <input type="range" id="bend" min="-0.75" max="0.75" step="0.005" data-stops="0" aria-label="Height">
+        <input type="range" id="bend" min="-0.75" max="0.75" step="0.005" aria-label="Height">
         <div class="limits" id="limits"></div>
         <div class="ticks zero"><button type="button" id="bend-zero" title="Straight edges">0</button></div>
         <div class="limit-note" id="limit-note"></div>
@@ -178,15 +178,16 @@
       </div>
       <div class="slider" data-param="peak">
         <span>Peak position</span><output></output>
-        <input type="range" min="0" max="1" step="0.01" data-stops="0,0.5,1" aria-label="Peak position">
+        <input type="range" min="0" max="1" step="0.01" aria-label="Peak position">
+        <div class="ticks" data-ticks="peak"><button type="button" data-v="0">0</button><button type="button" data-v="0.5">0.5</button><button type="button" data-v="1">1</button></div>
       </div>
       <div class="slider" data-param="rise">
         <span>Rising side</span><output></output>
-        <input type="range" min="0" max="1" step="0.01" data-stops="0,0.5" aria-label="Rising side">
+        <input type="range" min="0" max="1" step="0.01" aria-label="Rising side">
       </div>
       <div class="slider" data-param="fall">
         <span>Falling side</span><output></output>
-        <input type="range" min="0" max="1" step="0.01" data-stops="0,0.5" aria-label="Falling side">
+        <input type="range" min="0" max="1" step="0.01" aria-label="Falling side">
       </div>
       <div class="slider" data-param="neck">
         <span>Neck width</span><output></output>
@@ -770,7 +771,7 @@
     presets: presets,
     defaultScheme: 'pastel',
     styles: ['flat', 'glow', 'engraved'],
-    bevelModifier: straight,
+    bevelModifier: function () { return !!SS.BY_ID[st.shape].bevel; },
     shape: shape,
     tileRadius: function () { return built.circumradius + (straight() ? 0 : Math.abs(st.bend)) + 0.5; },
     onReady: onReady,
@@ -1090,13 +1091,9 @@
     });
   });
 
-  // Sticky stops: a slider near one of its data-stops snaps to it.
-  function snap(input, v) {
-    var stops = (input.dataset.stops || '').split(',').filter(Boolean).map(parseFloat);
-    var reach = 0.04 * (parseFloat(input.max) - parseFloat(input.min));
-    stops.forEach(function (x) { if (Math.abs(v - x) < reach) v = x; });
-    return v;
-  }
+  // The 0 lights while the height is near it. The slider passes through
+  // 0 freely; a click on the 0 sets it exactly.
+  var ZERO_NEAR = 0.02;
   function signed(x) { return (x > 0 ? '+' : x < 0 ? '−' : '') + Math.abs(x).toFixed(2); }
   function describe(k) {
     var v = st.params[k];
@@ -1184,11 +1181,11 @@
     offsetNote.hidden = st.shape === 'line' || !st.offset;
     bendEl.value = String(st.bend);
     bendOut.textContent = signed(st.bend);
-    zeroEl.classList.toggle('on', straight());
+    zeroEl.classList.toggle('on', Math.abs(st.bend) <= ZERO_NEAR);
     Object.keys(sliders).forEach(function (k) {
       var on = def.params.indexOf(k) >= 0;
       sliders[k].box.hidden = !on;
-      if (on) { sliders[k].input.value = String(st.params[k]); sliders[k].out.textContent = describe(k); }
+      if (on) { sliders[k].input.value = String(st.params[k]); sliders[k].out.textContent = describe(k); lightTicks(k); }
     });
     Array.prototype.forEach.call(arrEls, function (x) {
       x.checked = x.value === effArr();
@@ -1239,7 +1236,7 @@
   function setBend(v, final) {
     st.bend = v;
     bendOut.textContent = signed(v);
-    zeroEl.classList.toggle('on', straight());
+    zeroEl.classList.toggle('on', Math.abs(st.bend) <= ZERO_NEAR);
     map.shapeChanged();
     if (final) { bendEl.value = String(v); scheduleLimits(); map.changed(); }
   }
@@ -1256,7 +1253,7 @@
     edgesChanged();
   });
   bendEl.addEventListener('input', function () {
-    var v = snap(bendEl, parseFloat(bendEl.value));
+    var v = parseFloat(bendEl.value);
     if (v !== 0) zoomForCurves();
     setBend(v, false);
   });
@@ -1265,11 +1262,24 @@
   bendEl.addEventListener('dblclick', function () { setBend(0, true); });
   Object.keys(sliders).forEach(function (k) {
     sliders[k].input.addEventListener('input', function () {
-      st.params[k] = snap(sliders[k].input, parseFloat(sliders[k].input.value));
+      st.params[k] = parseFloat(sliders[k].input.value);
       // The trapezium's two sloping sides must fit inside one hump.
       if (k === 'rise' && st.params.rise + st.params.fall > 1) st.params.fall = +(1 - st.params.rise).toFixed(2);
       if (k === 'fall' && st.params.rise + st.params.fall > 1) st.params.rise = +(1 - st.params.fall).toFixed(2);
       edgesChanged();
+    });
+  });
+  // Peak position has ticks at 0, 0.5 and 1. The slider passes through
+  // them freely; a click on a tick sets it exactly, and a tick lights
+  // while the slider is near it.
+  function lightTicks(k) {
+    Array.prototype.forEach.call(sliders[k].box.querySelectorAll('.ticks button'), function (b) {
+      b.classList.toggle('on', Math.abs(st.params[k] - +b.dataset.v) <= 0.02);
+    });
+  }
+  Object.keys(sliders).forEach(function (k) {
+    Array.prototype.forEach.call(sliders[k].box.querySelectorAll('.ticks button'), function (b) {
+      b.addEventListener('click', function () { st.params[k] = +b.dataset.v; edgesChanged(); });
     });
   });
   Array.prototype.forEach.call(arrEls, function (r) {

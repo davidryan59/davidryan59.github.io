@@ -28,11 +28,13 @@
 (function (global) {
   'use strict';
 
+  // bevel: the shape is all straight pieces, so Bevel can take it at any
+  // height. Curve and Jigsaw are smooth, so they never offer Bevel.
   var SHAPES = [
-    { id: 'line', name: 'Line', params: [] },
+    { id: 'line', name: 'Line', params: [], bevel: true },
     { id: 'curve', name: 'Curve', params: ['waves'] },
-    { id: 'triangle', name: 'Triangle', params: ['peak'], set: { peak: 0.5 } },
-    { id: 'trapezium', name: 'Trapezium', params: ['rise', 'fall'], set: { rise: 0.2, fall: 0.2 } },
+    { id: 'triangle', name: 'Triangle', params: ['peak'], set: { peak: 0.5 }, bevel: true },
+    { id: 'trapezium', name: 'Trapezium', params: ['rise', 'fall'], set: { rise: 0.2, fall: 0.2 }, bevel: true },
     { id: 'jigsaw', name: 'Jigsaw', params: ['neck'] }
   ];
   var BY_ID = {};
