@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Northwind, rebuilt – an Access database as a web app</title>
+<meta name="description" content="Northwind Traders, the sample database that shipped with Microsoft Access, rebuilt as a web app. Orders, customers, stock, invoices and reports, in any browser and on a phone.">
+<meta property="og:title" content="Northwind, rebuilt – an Access database as a web app">
+<meta property="og:description" content="The sample database that shipped with Microsoft Access, rebuilt as a web app that works on a phone.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/app/northwind/">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+<link rel="stylesheet" href="style.css">
+<script data-goatcounter="https://drbuild.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
+</head>
+<body>
+<div id="app">
+  <nav id="nav" aria-label="Sections">
+    <a class="brand" href="#/">Northwind <span>Traders</span></a>
+    <a href="#/" data-nav="home">Home</a>
+    <a href="#/orders" data-nav="orders">Orders</a>
+    <a href="#/customers" data-nav="customers">Customers</a>
+    <a href="#/products" data-nav="products">Products</a>
+    <a href="#/suppliers" data-nav="suppliers" class="wide-only">Suppliers</a>
+    <a href="#/staff" data-nav="staff" class="wide-only">Staff</a>
+    <a href="#/reports" data-nav="reports" class="wide-only">Reports</a>
+    <a href="#/about" data-nav="about" class="wide-only">About this rebuild</a>
+    <a href="#/more" data-nav="more" class="narrow-only">More</a>
+    <a class="credit wide-only" href="../../">Built by David Ryan<br>drbuild.uk</a>
+  </nav>
+
+  <header id="bar">
+    <div class="search" role="search">
+      <input type="search" id="find" placeholder="Search orders, customers, products" aria-label="Search everything" autocomplete="off">
+      <div id="found" class="found" hidden></div>
+    </div>
+    <a class="button primary" id="new-order" href="#/orders/new"><span class="long">New order</span><span class="short" aria-hidden="true">+</span></a>
+    <button type="button" class="icon theme-toggle" hidden>◐</button>
+    <button type="button" class="icon" id="fullscreen" title="Full screen" aria-label="Full screen" hidden>⛶</button>
+  </header>
+
+  <main id="main" tabindex="-1"></main>
+</div>
+<div id="tip" class="tip" hidden></div>
+
+<script src="data.js"></script>
+<script src="model.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
