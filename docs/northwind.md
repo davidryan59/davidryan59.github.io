@@ -27,10 +27,11 @@ browser, so it needs no server and no account.
 - [x] Browser workflow checks at all six sizes in both themes; invoice printed to A4 PDF (2026-11-18)
 - [ ] Try it on a real phone and a real iPad
 - [ ] Share card in `social/`, and `og:image` in `index.html`
-- [ ] Entry in `docs/inventory.md` and on the builder page
+- [x] Entry in `docs/inventory.md` and on the builder page, with light and dark static square thumbnails (2026-11-18; prepared locally)
+- [x] Top-left link to the builder page in all three layouts; the bottom-left credit stays (2026-11-18)
 - [ ] Address in `tools/check-addresses/addresses.json`, and in `docs/site-layout.md`
 - [ ] Short address `redirects/northwind.html`, if one is wanted
-- [ ] Entry in the root `README.md`
+- [x] Entry in the root `README.md` (2026-11-18)
 
 ## The sample and its licence
 

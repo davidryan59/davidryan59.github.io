@@ -180,6 +180,11 @@ does not occur in the original 10,000. The page uses
 | Smash Screen: a game of breaking screens with seven weapons, in Fun Mode or against the clock in Anger Mode. Built 2026-09-26, made a game 2026-09-27. Listed on the page third under Games, after Sonic | [drbuild.uk/app/smash/](https://drbuild.uk/app/smash/) | The toy is live, checked 2026-09-26; the game is built and not yet pushed. drbuild.uk/smash redirects here |
 | npm profile | [npmjs.com/~davidryan](https://www.npmjs.com/~davidryan) | Live, confirmed in browser 2026-08-14. Blocked to automated checks; the four packages below were confirmed instead via the npm registry's own search API, which has no such block |
 
+### Business apps
+| Item | Link | Status |
+|---|---|---|
+| Northwind: Microsoft's Access sample database rebuilt for the browser, with 830 orders, customers, products, invoices and sales reports. Changes stay in each visitor's browser | [drbuild.uk/app/northwind/](https://drbuild.uk/app/northwind/) | Builder entry prepared locally on 2026-11-18, after Cross and Wing Publishing and before dice-to-seed. Static square thumbnail: `assets/thumbs/northwind.svg` |
+
 ### Maths apps
 | Item | Link | Status |
 |---|---|---|

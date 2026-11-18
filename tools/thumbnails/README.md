@@ -8,6 +8,7 @@ it, then check the result with `frames.js`.
 
 | Picture | Script | What it shows |
 |---|---|---|
+| `assets/thumbs/northwind.svg`, `northwind-dark.svg` | `northwind.js` | A static square dashboard in light and dark themes: Northwind header, 830 orders, sales bars and order rows |
 | `assets/thumbs/e8.svg` | `e8.js` | A dark, near-full-circle view of all 240 E8 roots moving through the Petrie, Octagonal and Squares presets on a 6 s loop. `e8-light.svg` preserves the earlier light 12 s version |
 | `assets/thumbs/leech.gif` | `leech.js` | A black circle of all 196,560 Leech balls as white dots, cutting between the explorer's 30-fold, 36-fold and 42-fold views every 1 s. Each ball is a disc of radius 1.2 px at 240 px, brighter where balls pile up. Three frames of 240 px greys come to about 72 KB, written by the script's own GIF encoder |
 | `assets/nonrup-thumb.js`, `assets/rid-paper-thumb.js`, `assets/undecanope-paper-thumb.js` | `nonrup.js` | A canvas, drawn live on the page: a solid turns and sways slowly. The script writes the page's thumbnail code with the solid's vertices and faces baked in from `app/nonrup/models.js`. Run `node tools/thumbnails/nonrup.js stellated nonrup-thumb nonrup-thumb.js`, then `rid rid-paper-thumb rid-paper-thumb.js` and `c11 undecanope-paper-thumb undecanope-paper-thumb.js`. A paper page reuses the same file and names its own canvas in the script tag: `<script data-canvas="rid-paper-page-thumb" src="…">` |

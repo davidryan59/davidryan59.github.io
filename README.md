@@ -7,6 +7,9 @@ address, `davidryan59.github.io`, redirects there.
   rendered from [docs/inventory.md](docs/inventory.md).
 - `app/` – the apps a visitor can run, one folder each, served at
   `drbuild.uk/app/<name>/`.
+  - `app/northwind/` – Microsoft's Access sample rebuilt for the browser:
+    orders, customers, products, invoices and reports. Changes stay in the
+    visitor's browser. See [docs/northwind.md](docs/northwind.md).
   - `app/fractal/` – the Fractal Explorer: build linked iterated function
     systems on square and triangle grids or with free affine maps. It reports
     convergence, dimension, overlap and the convex hull. See
