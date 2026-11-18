@@ -11,6 +11,7 @@
     { "path": "/audits/permit2/", "title": "Permit2 security audit", "direct": true },
     { "path": "/audits/cryptopunks/", "title": "CryptoPunksMarket security audit", "direct": true },
     { "path": "/guides/salary-loan/", "title": "Spend a crypto salary without selling it", "direct": true },
+    { "path": "/testimonials/", "title": "Testimonials – David Ryan", "direct": true },
     { "path": "/papers/polygonal-spectre/", "title": "A two-parameter family of polygonal Spectres", "direct": true },
     { "path": "/papers/undecanope/", "title": "The Undecanope: an 88-vertex convex polyhedron without Rupert's property", "direct": true },
     { "path": "/app/fractal/", "title": "Fractal Explorer", "direct": true },
