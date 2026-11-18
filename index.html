@@ -479,7 +479,7 @@
 </script>
 <h1>David Ryan's Builder Page</h1>
 <p class="hire">Product builder and software developer. I turn old spreadsheets and databases into web apps, and I build new apps.</p>
-<p class="open-to-offers"><strong>Open to Offers.</strong> Email <a href="mailto:david@drbuild.uk">david@drbuild.uk</a>, alternatively <a target="_blank" rel="noopener" href="https://www.linkedin.com/in/davidryan59/">LinkedIn</a> or <a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a></p>
+<p class="open-to-offers"><strong>Open to Offers.</strong> Contact: <a href="mailto:david@drbuild.uk">david@drbuild.uk</a> · <a target="_blank" rel="noopener" href="https://www.linkedin.com/in/davidryan59/">LinkedIn</a> · <a target="_blank" rel="noopener" href="https://x.com/davidryan59">Twitter</a> · <a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a></p>
 <p class="intro">
   Hi, I'm David! I love building cool tech stuff. This page contains
   everything I've built or published, all in one place.
@@ -532,96 +532,12 @@
     repetition in your rolls, and asks for more until every check passes.
   </li>
   <li>
-    <a class="thumb-link" target="_blank" rel="noopener" href="https://re-tuner.web.app/" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/retuner.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a target="_blank" rel="noopener" href="https://re-tuner.web.app/">ReTuner</a>
-    – a musical instrument with Just Intonation tuning, that retunes itself as you play.
-    Here is the <a target="_blank" rel="noopener" href="https://github.com/davidryan59/retuner">code on GitHub</a>.
-  </li>
-  <li>
     <a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a>
     – my public repositories, code for what I'm building
   </li>
   <li>
     <a href="index.html" data-droste>David Ryan's Builder Page</a>
     – have you checked it out yet?
-  </li>
-</ul>
-
-<h3 id="salesforce-certifications">Salesforce Certifications</h3>
-<ul>
-  <li>Platform Administrator – March 2018</li>
-  <li>Platform Developer – August 2018</li>
-  <li>Agentforce Service Consultant – August 2018</li>
-  <li>Agentforce Sales Consultant – October 2018</li>
-  <li>Platform App Builder – September 2019</li>
-  <li>Platform Administrator II – September 2019</li>
-</ul>
-<p class="section-note">
-  All verifiable at Salesforce's
-  <a target="_blank" rel="noopener" href="https://trailhead.salesforce.com/credentials/verification">credential verification page</a>.
-</p>
-
-<h3 id="security-audits">Security Audits</h3>
-<p class="section-note">
-  I've been using the latest AI models to audit smart contracts for common DeFi protocols.
-  This is both for my own curiosity, and to help the Ethereum community,
-  since there is great value in having multiple independent audits of high value protocols.
-  I hope you find it useful!
-</p>
-<ul>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/weth9/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/weth9.svg" data-theme-light="assets/thumbs/weth9.svg" data-theme-dark="assets/thumbs/weth9-dark.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/weth9/index.html">WETH</a>
-    – Wrapped ETH is central and critical in Ethereum DeFi.
-    This contract was deployed in Dec 2017 and contains around 2,000,000 ETH.
-    I did this independent audit using Claude Opus 5 in Aug 2026.
-    <br><b>Summary</b>: no exploitable vulnerability,
-    two medium integration hazards, and a checklist for anyone building on top of it.
-  </li>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/uniswap-v2/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/uniswap-v2.svg" data-theme-light="assets/thumbs/uniswap-v2.svg" data-theme-dark="assets/thumbs/uniswap-v2-dark.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/uniswap-v2/index.html">Uniswap V2</a>
-    – the pair, factory and router contracts deployed by Uniswap in 2020.
-    With over 700 forks they control over $2 billion of assets.
-    Governance switched on the protocol fee in Dec 2025, after 5.6 years of dormant code.
-    <br><b>Summary</b>: no exploitable vulnerability, the live fee arithmetic proven overflow-free,
-    and three medium findings, the largest a fee that charges staking yield as trading revenue.
-  </li>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/dai/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/dai.svg" data-theme-light="assets/thumbs/dai.svg" data-theme-dark="assets/thumbs/dai-dark.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/dai/index.html">DAI</a>
-    – the decentralised stablecoin deployed by MakerDAO (now Sky) in Nov 2019, with over $4 billion of DAI minted.
-    The main risk is the wrong person calling mint, so this audit traces it through 16.9 million blocks of chain history.
-    <br><b>Summary</b>: no exploitable vulnerability, the mint authority proven closed to a single address since 2019,
-    and two medium findings in a signed-approval function that predates EIP-2612.
-  </li>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/permit2/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/permit2.svg" data-theme-light="assets/thumbs/permit2.svg" data-theme-dark="assets/thumbs/permit2-dark.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/permit2/index.html">Permit2</a>
-    – the contract Uniswap deployed in Nov 2022 so that apps can take token allowances from a signature, with over 700,000 transactions on Ethereum mainnet.
-    Since 2025, EIP-7702 has let ordinary accounts carry code, which Permit2 was not designed for.
-    <br><b>Summary</b>: no exploitable vulnerability, deployed code identical to the verified source,
-    and four medium findings, one caused by EIP-7702, which moved about one in six signers onto the smart contract wallet signature check.
-  </li>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/cryptopunks/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb punk-thumb" src="assets/cryptopunks-punk.png" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/cryptopunks/index.html">CryptoPunksMarket</a>
-    – the immutable marketplace contract deployed in June 2017 for the 10,000 CryptoPunks.
-    At the review block it held 3,145 ETH for pending withdrawals and active bids.
-    <br><b>Summary</b>: no exploitable vulnerability, exact solvency to the wei,
-    one medium integration hazard, two low defects.
   </li>
 </ul>
 
@@ -723,8 +639,92 @@
     – place turned, flipped, scaled and stretched copies inside a square or triangle.
     Link letters into one rule, then read its limit, dimension, convex hull and overlap.
   </li>
+  <li class="thumb-item">
+    <a class="thumb-link" target="_blank" rel="noopener" href="https://re-tuner.web.app/" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/retuner.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a target="_blank" rel="noopener" href="https://re-tuner.web.app/">ReTuner</a>
+    – a musical instrument with Just Intonation tuning, that retunes itself as you play.
+    Here is the <a target="_blank" rel="noopener" href="https://github.com/davidryan59/retuner">code on GitHub</a>.
+  </li>
 </ul>
 
+
+<h3 id="security-audits">Security Audits</h3>
+<p class="section-note">
+  I've been using the latest AI models to audit smart contracts for common DeFi protocols.
+  This is both for my own curiosity, and to help the Ethereum community,
+  since there is great value in having multiple independent audits of high value protocols.
+  I hope you find it useful!
+</p>
+<ul>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/weth9/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/weth9.svg" data-theme-light="assets/thumbs/weth9.svg" data-theme-dark="assets/thumbs/weth9-dark.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/weth9/index.html">WETH</a>
+    – Wrapped ETH is central and critical in Ethereum DeFi.
+    This contract was deployed in Dec 2017 and contains around 2,000,000 ETH.
+    I did this independent audit using Claude Opus 5 in Aug 2026.
+    <br><b>Summary</b>: no exploitable vulnerability,
+    two medium integration hazards, and a checklist for anyone building on top of it.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/uniswap-v2/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/uniswap-v2.svg" data-theme-light="assets/thumbs/uniswap-v2.svg" data-theme-dark="assets/thumbs/uniswap-v2-dark.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/uniswap-v2/index.html">Uniswap V2</a>
+    – the pair, factory and router contracts deployed by Uniswap in 2020.
+    With over 700 forks they control over $2 billion of assets.
+    Governance switched on the protocol fee in Dec 2025, after 5.6 years of dormant code.
+    <br><b>Summary</b>: no exploitable vulnerability, the live fee arithmetic proven overflow-free,
+    and three medium findings, the largest a fee that charges staking yield as trading revenue.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/dai/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/dai.svg" data-theme-light="assets/thumbs/dai.svg" data-theme-dark="assets/thumbs/dai-dark.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/dai/index.html">DAI</a>
+    – the decentralised stablecoin deployed by MakerDAO (now Sky) in Nov 2019, with over $4 billion of DAI minted.
+    The main risk is the wrong person calling mint, so this audit traces it through 16.9 million blocks of chain history.
+    <br><b>Summary</b>: no exploitable vulnerability, the mint authority proven closed to a single address since 2019,
+    and two medium findings in a signed-approval function that predates EIP-2612.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/permit2/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/permit2.svg" data-theme-light="assets/thumbs/permit2.svg" data-theme-dark="assets/thumbs/permit2-dark.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/permit2/index.html">Permit2</a>
+    – the contract Uniswap deployed in Nov 2022 so that apps can take token allowances from a signature, with over 700,000 transactions on Ethereum mainnet.
+    Since 2025, EIP-7702 has let ordinary accounts carry code, which Permit2 was not designed for.
+    <br><b>Summary</b>: no exploitable vulnerability, deployed code identical to the verified source,
+    and four medium findings, one caused by EIP-7702, which moved about one in six signers onto the smart contract wallet signature check.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/cryptopunks/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb punk-thumb" src="assets/cryptopunks-punk.png" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/cryptopunks/index.html">CryptoPunksMarket</a>
+    – the immutable marketplace contract deployed in June 2017 for the 10,000 CryptoPunks.
+    At the review block it held 3,145 ETH for pending withdrawals and active bids.
+    <br><b>Summary</b>: no exploitable vulnerability, exact solvency to the wei,
+    one medium integration hazard, two low defects.
+  </li>
+</ul>
+
+<h3 id="salesforce-certifications">Salesforce Certifications</h3>
+<ul>
+  <li>Platform Administrator – March 2018</li>
+  <li>Platform Developer – August 2018</li>
+  <li>Agentforce Service Consultant – August 2018</li>
+  <li>Agentforce Sales Consultant – October 2018</li>
+  <li>Platform App Builder – September 2019</li>
+  <li>Platform Administrator II – September 2019</li>
+</ul>
+<p class="section-note">
+  All verifiable at Salesforce's
+  <a target="_blank" rel="noopener" href="https://trailhead.salesforce.com/credentials/verification">credential verification page</a>.
+</p>
 
 <h3 id="games">Games</h3>
 <p>
