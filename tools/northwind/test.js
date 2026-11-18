@@ -99,4 +99,96 @@ test('search finds an order, a customer and a product', () => {
   assert.ok(m.search('chai').some(h => h.href === '#/products/1'));
 });
 
+test('short searches include products after more than ten customers', () => {
+  const hits = Model.create(seed).search('no');
+  assert.ok(hits.filter(h => h.type === 'Customer').length > 10);
+  assert.ok(hits.some(h => h.label === 'Northwoods Cranberry Sauce'));
+  assert.ok(hits.some(h => h.type === 'Supplier'));
+});
+
+test('search folds case and accents, trims spaces and matches every word', () => {
+  const m = Model.create(seed);
+  assert.ok(m.search('COTE').some(h => h.label === 'Côte de Blaye'));
+  assert.deepStrictEqual(m.search('  CHO  '), m.search('cho'));
+  assert.deepStrictEqual(m.search('  blaye   COTE '), m.search('cote blaye'));
+  assert.ok(m.search('mexico antonio').some(h => h.href === '#/customers/ANTON'));
+  assert.ok(m.search('chai beverages').some(h => h.href === '#/products/1'));
+  assert.ok(!m.search('chai seafood').some(h => h.href === '#/products/1'));
+  assert.deepStrictEqual(m.search('   '), []);
+  assert.deepStrictEqual(m.search('no-such-record-zzzz'), []);
+});
+
+test('search reaches all five types without a shared cutoff', () => {
+  const m = Model.create(seed);
+  for (const [q, type] of [['10248', 'Order'], ['alfreds', 'Customer'], ['no', 'Product'], ['exotic', 'Supplier'], ['nancy', 'Staff']]) {
+    assert.ok(m.search(q).some(h => h.type === type), q + ': ' + type);
+  }
+  const hits = m.search('no');
+  for (const type of ['Order', 'Customer', 'Product', 'Supplier']) assert.ok(hits.some(h => h.type === type), type);
+  const expected = m.all('products').filter(p => m.matches(p.productName, 'no'));
+  for (const p of expected) assert.ok(hits.some(h => h.href === '#/products/' + p.id));
+});
+
+function periodFixture() {
+  const m = Model.create(seed);
+  m.all('orders').forEach(o => m.deleteOrder(o.id));
+  ['2023-12-31', '2024-01-01', '2024-01-07', '2024-01-08', '2024-02-29', '2024-04-01', '2025-01-01'].forEach((day, i) => {
+    m.saveOrder({ customerID: 'ALFKI', orderDate: day, freight: 99 }, [{ productID: 1, unitPrice: 10, quantity: i + 1, discount: 0.1 }]);
+  });
+  return m;
+}
+
+test('sales periods use calendar boundaries and Monday weeks', () => {
+  const m = periodFixture();
+  const weeks = m.reports.period('week');
+  assert.strictEqual(weeks[0].from, '2023-12-25');
+  assert.deepStrictEqual(weeks.find(r => r.from === '2024-01-01'), { key: '2024-01-01', from: '2024-01-01', to: '2024-01-08', orders: 2, sales: 45 });
+  const months = m.reports.period('month');
+  assert.strictEqual(months.find(r => r.from === '2024-01-01').sales, 81);
+  assert.strictEqual(months.find(r => r.from === '2024-02-01').to, '2024-03-01');
+  assert.strictEqual(months.find(r => r.from === '2024-03-01').sales, 0);
+  assert.strictEqual(m.reports.period('quarter').find(r => r.from === '2024-01-01').sales, 126);
+  assert.strictEqual(m.reports.period('year').find(r => r.from === '2024-01-01').sales, 180);
+  assert.deepStrictEqual(m.reports.period(), months);
+});
+
+test('every period total and its order drill-down agree', () => {
+  const m = periodFixture();
+  for (const period of ['week', 'month', 'quarter', 'year']) {
+    const rows = m.reports.period(period);
+    assert.strictEqual(rows.reduce((n, r) => n + r.sales, 0), 252);
+    assert.strictEqual(rows.reduce((n, r) => n + r.orders, 0), 7);
+    for (const r of rows) {
+      const orders = m.ordersInPeriod(r.from, r.to);
+      assert.strictEqual(orders.length, r.orders);
+      assert.strictEqual(orders.reduce((n, o) => n + m.subtotal(o.id), 0), r.sales);
+    }
+  }
+  m.all('orders').forEach(o => m.deleteOrder(o.id));
+  assert.deepStrictEqual(m.reports.period('week'), []);
+});
+
+test('period totals remain correct when dates move and orders change', () => {
+  const m = Model.create(seed, { today: '2026-11-18' });
+  m.saveOrder({ customerID: 'ALFKI', orderDate: '2026-12-31' }, [{ productID: 1, unitPrice: 12.34, quantity: 3, discount: 0.1 }]);
+  m.deleteOrder(10248);
+  const expected = m.all('orders').reduce((n, o) => n + m.subtotal(o.id), 0);
+  for (const period of ['week', 'month', 'quarter', 'year']) {
+    assert.ok(Math.abs(m.reports.period(period).reduce((n, r) => n + r.sales, 0) - expected) < 0.001);
+  }
+});
+
+test('the product picker searches name and category and ranks recent purchases first', () => {
+  const m = Model.create(seed);
+  const choices = m.productChoices('ALFKI', '');
+  assert.strictEqual(choices.length, 77);
+  assert.ok(choices[0].recent);
+  const firstOther = choices.findIndex(e => !e.recent);
+  assert.ok(choices.slice(firstOther).every(e => !e.recent));
+  assert.ok(m.productChoices('', 'BEVERAGES chai').some(e => e.product.id === 1));
+  assert.ok(m.productChoices('', 'cote').some(e => e.product.productName === 'Côte de Blaye'));
+  const id = m.saveProduct({ productName: 'A new product', categoryID: 1, discontinued: 1 });
+  assert.ok(m.productChoices('ALFKI', '').some(e => e.product.id === id));
+});
+
 console.log('\n' + passed + ' tests passed');

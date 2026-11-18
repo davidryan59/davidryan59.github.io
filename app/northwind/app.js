@@ -18,6 +18,7 @@
   var actions = {};        // the current screen's click handlers, by data-action name
   var listState = {};      // search, filter and sort of each list, kept while the page is open
   var reportYear = null;
+  var reportPeriod = 'month';
 
   /* ---- formatting ---- */
   var moneyFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -126,7 +127,7 @@
       var q = st.q.trim().toLowerCase(), f = filters.filter(function (x) { return x.id === st.filter; })[0] || filters[0];
       var col = cfg.cols[st.sort];
       var rows = cfg.rows.filter(function (r) {
-        return (!f.test || f.test(r)) && (!q || cfg.text(r).toLowerCase().indexOf(q) >= 0);
+        return (!f.test || f.test(r)) && (!q || M.matches(cfg.text(r), q));
       }).sort(function (a, b) {
         var x = col.value(a), y = col.value(b);
         if (x == null || x === '') return y == null || y === '' ? 0 : 1;
@@ -206,14 +207,14 @@
     var max = niceMax(Math.max.apply(null, data.map(function (d) { return d.sales; })));
     return '<div class="chart"><div class="axis" aria-hidden="true">' + [0, 1, 2, 3, 4].map(function (i) {
       return '<span>' + shortMoney(max * i / 4) + '</span>';
-    }).join('') + '</div><div class="plot" role="list">' + data.map(function (d) {
-      return '<div class="col" role="listitem" tabindex="0" data-tip="' + esc(monthName(d.key) + '|' + money(d.sales) + ' from ' + num(d.orders) + ' orders') + '" aria-label="' +
-        esc(monthName(d.key) + ', ' + money(d.sales)) + '"><i style="height:' + (100 * d.sales / max).toFixed(2) + '%"></i><b>' + MONTHS[+d.key.slice(5) - 1].charAt(0) + '</b></div>';
+    }).join('') + '</div><div class="plot" role="group" aria-label="Sales by month">' + data.map(function (d) {
+      return '<a class="col" href="' + periodHref(d) + '" data-tip="' + esc(monthName(d.key) + '|' + money(d.sales) + ' from ' + num(d.orders) + ' orders') + '" aria-label="' +
+        esc(monthName(d.key) + ', ' + money(d.sales)) + '"><i style="height:' + (100 * d.sales / max).toFixed(2) + '%"></i><b>' + MONTHS[+d.key.slice(5) - 1].charAt(0) + '</b></a>';
     }).join('') + '</div></div>';
   }
   var orderCols = [
     { label: 'Order', cls: 'primary', num: false, value: function (o) { return o.id; } },
-    { label: 'Customer', nolabel: true, value: function (o) { return customerName(o.customerID); } },
+    { label: 'Customer', nolabel: true, value: function (o) { return customerName(o.customerID); }, html: function (o) { return link('#/customers/' + o.customerID, customerName(o.customerID)); } },
     { label: 'Ordered', value: function (o) { return o.orderDate; }, html: function (o) { return date(o.orderDate); } },
     { label: 'Required', cls: 'skip', value: function (o) { return o.requiredDate; }, html: function (o) { return date(o.requiredDate); } },
     { label: 'Status', cls: 'side', value: function (o) { return M.status(o); }, html: statusPill },
@@ -238,7 +239,7 @@
       '<div class="panel intro"><p><strong>This is Northwind Traders, the sample database that shipped with Microsoft Access, rebuilt as a web app.</strong> ' +
       'Add an order, edit a customer, print an invoice, or open it on your phone. ' + link('#/about', 'About this rebuild') + '</p></div>' +
       '<div class="tiles">' +
-      tile('Sales, last 30 days', money(k.sales30).replace(/\.\d\d$/, ''), change ? Math.abs(change) + '% ' + (change > 0 ? 'up' : 'down') + ' on the 30 days before' : '', '#/reports/sales-by-quarter', change > 0 ? 'up' : 'down') +
+      tile('Sales, last 30 days', money(k.sales30).replace(/\.\d\d$/, ''), change ? Math.abs(change) + '% ' + (change > 0 ? 'up' : 'down') + ' on the 30 days before' : '', '#/reports/sales-by-period?period=month', change > 0 ? 'up' : 'down') +
       tile('Orders to ship', num(k.toShip), 'Not yet sent to the customer', '#/orders?filter=open') +
       tile('Late orders', num(k.late), k.late ? 'Past the date the customer needs them' : 'None are late', '#/orders?filter=late', k.late ? 'alert' : '') +
       tile('Products to reorder', num(k.reorder), 'At or below the reorder level', '#/products?filter=reorder', k.reorder ? 'alert' : '') +
@@ -257,9 +258,10 @@
   /* ---- orders ---- */
   function ordersList(m, query) {
     listView({
-      key: 'orders', nav: 'orders', title: 'Orders', query: query,
+      key: 'orders:' + (query.from || '') + ':' + (query.to || ''), nav: 'orders', title: 'Orders', query: query,
+      crumb: query.from && query.to ? 'Ordered ' + date(query.from) + ' to ' + date(NorthwindModel.addDays(query.to, -1)) + ' · ' + link('#/orders', 'Clear period') : '',
       buttons: '<a class="button primary" href="#/orders/new">New order</a>',
-      rows: M.all('orders'), cols: orderCols, sort: 0, dir: -1, href: orderHref,
+      rows: M.ordersInPeriod(query.from, query.to), cols: orderCols, sort: 0, dir: -1, href: orderHref,
       text: function (o) { return o.id + ' ' + customerName(o.customerID) + ' ' + (o.shipCity || '') + ' ' + (o.shipCountry || ''); },
       filters: [
         { id: 'open', label: 'To ship', test: function (o) { return !o.shippedDate; } },
@@ -317,12 +319,12 @@
       '<div class="head no-print"><h1>Invoice</h1><button type="button" class="primary" data-action="print">Print or save as PDF</button></div>' +
       '<div class="invoice"><div class="top"><div><h1>Northwind Traders</h1><div class="muted">One Portals Way, Twin Points WA 98156, USA</div></div>' +
       '<div><h3>Invoice</h3><strong>No. ' + o.id + '</strong><br>' + date(o.orderDate) + '</div></div>' +
-      '<div class="parties"><div><h3>Bill to</h3><strong>' + esc(c ? c.companyName : o.shipName) + '</strong><br>' + (c ? address(c) : address(o, 'ship')) + '</div>' +
+      '<div class="parties"><div><h3>Bill to</h3><strong>' + (c ? link('#/customers/' + c.id, c.companyName) : esc(o.shipName)) + '</strong><br>' + (c ? address(c) : address(o, 'ship')) + '</div>' +
       '<div><h3>Ship to</h3><strong>' + esc(o.shipName) + '</strong><br>' + address(o, 'ship') + '</div>' +
       '<div><h3>Details</h3>' + [['Customer', o.customerID], ['Salesperson', M.staffName(staff)], ['Required', date(o.requiredDate)],
         ['Shipped', o.shippedDate ? date(o.shippedDate) : 'Not yet'], ['Carrier', carrier ? carrier.companyName : '']].filter(function (p) { return p[1]; })
-        .map(function (p) { return esc(p[0]) + ': ' + esc(p[1]); }).join('<br>') + '</div></div>' +
-      table(lineCols(), M.linesOf(o.id)) + totalsHtml(o) + '</div>');
+        .map(function (p) { return esc(p[0]) + ': ' + (p[0] === 'Customer' ? link('#/customers/' + o.customerID, p[1]) : p[0] === 'Salesperson' && staff ? link('#/staff/' + staff.id, p[1]) : esc(p[1])); }).join('<br>') + '</div></div>' +
+      table(lineCols(), M.linesOf(o.id), function (l) { return '#/products/' + l.productID; }) + totalsHtml(o) + '</div>');
     actions.print = function () { window.print(); };
   }
 
@@ -351,15 +353,6 @@
       { name: 'shipPostalCode', label: 'Postcode' },
       { name: 'shipCountry', label: 'Country' },
     ];
-    var categories = M.all('categories'), products = M.all('products').sort(function (a, b) { return a.productName.localeCompare(b.productName); });
-    function productOptions(selected) {
-      return '<option value="">Choose a product</option>' + categories.map(function (cat) {
-        var list = products.filter(function (p) { return p.categoryID === cat.id && (!p.discontinued || p.id === selected); });
-        return '<optgroup label="' + esc(cat.categoryName) + '">' + list.map(function (p) {
-          return '<option value="' + p.id + '"' + (p.id === selected ? ' selected' : '') + '>' + esc(p.productName) + '</option>';
-        }).join('') + '</optgroup>';
-      }).join('');
-    }
     var title = existing ? 'Edit order ' + existing.id : 'New order';
     var back = existing ? '#/orders/' + existing.id : '#/orders';
     show('orders', title, head(esc(title), '', link('#/orders', 'Orders')) +
@@ -374,13 +367,14 @@
     var form = $('#form'), body = $('#lines');
     function draw() {
       body.innerHTML = rows.map(function (l, i) {
-        return '<tr data-i="' + i + '"><td class="product"><select data-f="productID" required aria-label="Product">' + productOptions(l.productID) + '</select><div class="stock"></div></td>' +
+        return '<tr data-i="' + i + '"><td class="product"><div class="product-picker"><input type="search" data-picker required role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="choices-' + i + '" autocomplete="off" aria-label="Product" placeholder="Search name or category" value="' + esc(l.productID ? productName(l.productID) : '') + '"><div class="product-choices" role="listbox" id="choices-' + i + '" aria-label="Products" hidden></div></div><div class="stock"></div></td>' +
           '<td data-label="Quantity"><input type="number" data-f="quantity" min="1" step="1" required value="' + esc(l.quantity) + '" aria-label="Quantity"></td>' +
           '<td data-label="Unit price"><input type="number" data-f="unitPrice" min="0" step="0.01" required value="' + esc(l.unitPrice) + '" aria-label="Unit price"></td>' +
           '<td data-label="Discount %"><input type="number" data-f="discount" min="0" max="100" step="1" value="' + Math.round((l.discount || 0) * 100) + '" aria-label="Discount per cent"></td>' +
           '<td class="num amount" data-label="Amount"></td>' +
           '<td><button type="button" class="icon" data-action="remove" aria-label="Remove this item">×</button></td></tr>';
       }).join('');
+      $$('[data-picker]', body).forEach(function (input) { input.setCustomValidity(rows[+input.closest('tr').dataset.i].productID ? '' : 'Choose a product from the results.'); });
       sums();
     }
     function sums() {
@@ -399,15 +393,59 @@
       $('#t-freight').textContent = money(freight);
       $('#t-total').textContent = money(items + freight);
     }
+    function closePickers() {
+      $$('.product-choices', body).forEach(function (el) { el.hidden = true; });
+      $$('[data-picker]', body).forEach(function (el) { el.setAttribute('aria-expanded', 'false'); el.removeAttribute('aria-activedescendant'); });
+    }
+    function pickResults(input, query) {
+      closePickers();
+      var choices = input.nextElementSibling, index = input.closest('tr').dataset.i;
+      var list = M.productChoices(form.elements.customerID.value, query);
+      choices.innerHTML = list.length ? list.map(function (entry, i) {
+        var p = entry.product;
+        return '<button type="button" role="option" aria-selected="false" tabindex="-1" id="pick-' + index + '-' + i + '" data-action="pick" data-product="' + p.id + '">' +
+          esc(p.productName) + '<small>' + esc(categoryName(p)) + (entry.recent ? ' · Recent for this customer' : '') + (p.discontinued ? ' · Discontinued' : '') + '</small></button>';
+      }).join('') : '<div class="empty">No products match.</div>';
+      choices.hidden = false; input.setAttribute('aria-expanded', 'true');
+    }
+    body.addEventListener('focusin', function (e) { if (e.target.matches('[data-picker]')) pickResults(e.target, ''); });
+    body.addEventListener('focusout', function (e) {
+      if (e.target.closest('.product-picker') && (!e.relatedTarget || !e.target.closest('.product-picker').contains(e.relatedTarget))) closePickers();
+    });
+    body.addEventListener('input', function (e) {
+      if (!e.target.matches('[data-picker]')) return;
+      rows[+e.target.closest('tr').dataset.i].productID = '';
+      e.target.setCustomValidity('Choose a product from the results.');
+      pickResults(e.target, e.target.value); sums();
+    });
+    body.addEventListener('keydown', function (e) {
+      if (!e.target.matches('[data-picker]')) return;
+      var input = e.target, choices = input.nextElementSibling, items = $$('[data-product]', choices);
+      var at = items.indexOf($('.on', choices));
+      if (e.key === 'Escape') { closePickers(); e.preventDefault(); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (choices.hidden) { pickResults(input, input.value); items = $$('[data-product]', choices); at = -1; }
+        if (!items.length) return;
+        var next = at < 0 ? (e.key === 'ArrowDown' ? 0 : items.length - 1) : (at + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length;
+        items.forEach(function (el, i) { el.classList.toggle('on', i === next); el.setAttribute('aria-selected', i === next); });
+        input.setAttribute('aria-activedescendant', items[next].id); items[next].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && !choices.hidden) {
+        e.preventDefault(); if (items.length) actions.pick(items[Math.max(0, at)]);
+      }
+    });
+    actions.pick = function (el) {
+      var tr = el.closest('tr'), l = rows[+tr.dataset.i], p = M.get('products', +el.dataset.product), input = $('[data-picker]', tr);
+      l.productID = p.id; l.unitPrice = p.unitPrice;
+      input.value = p.productName; input.setCustomValidity('');
+      $('[data-f="unitPrice"]', tr).value = p.unitPrice;
+      input.focus(); closePickers(); sums();
+    };
     body.addEventListener('input', function (e) {
       var tr = e.target.closest('tr'), f = e.target.dataset.f;
       if (!tr || !f) return;
       var l = rows[+tr.dataset.i], v = e.target.value;
-      if (f === 'productID') {
-        l.productID = v === '' ? '' : +v;
-        var p = M.get('products', l.productID);
-        if (p) { l.unitPrice = p.unitPrice; $('[data-f="unitPrice"]', tr).value = p.unitPrice; }
-      } else if (f === 'discount') l.discount = Math.min(100, Math.max(0, +v || 0)) / 100;
+      if (f === 'discount') l.discount = Math.min(100, Math.max(0, +v || 0)) / 100;
       else l[f] = v;
       sums();
     });
@@ -548,7 +586,7 @@
       ]) + '</div>' +
       '<div class="panel"><h2>Latest orders</h2>' + table([
         { label: 'Order', cls: 'primary', value: function (r) { return r.order.id; } },
-        { label: 'Customer', nolabel: true, value: function (r) { return customerName(r.order.customerID); } },
+        { label: 'Customer', nolabel: true, value: function (r) { return customerName(r.order.customerID); }, html: function (r) { return link('#/customers/' + r.order.customerID, customerName(r.order.customerID)); } },
         { label: 'Ordered', value: function (r) { return r.order.orderDate; }, html: function (r) { return date(r.order.orderDate); } },
         { label: 'Quantity', num: true, cls: 'side', value: function (r) { return r.line.quantity; } },
         { label: 'Amount', num: true, value: function (r) { return M.lineTotal(r.line); }, html: function (r) { return money(M.lineTotal(r.line)); } },
@@ -665,11 +703,11 @@
         return { rows: M.reports.byCategory(y), bar: 'sales',
           cols: [{ label: 'Category', cls: 'primary', value: function (r) { var c = M.get('categories', r.key); return c ? c.categoryName : ''; } }, unitsCol, salesCol] };
       } },
-    { id: 'sales-by-quarter', title: 'Sales by quarter', was: 'the query “Summary of Sales by Quarter”',
-      about: 'Orders and sales in each quarter.',
+    { id: 'sales-by-period', title: 'Sales by period', was: 'the query “Summary of Sales by Quarter”',
+      about: 'Orders and sales by week, month, quarter or year. Weeks start on Monday.',
       build: function () {
-        return { rows: M.reports.quarterly(), bar: 'sales', keepOrder: true,
-          cols: [{ label: 'Quarter', cls: 'primary', value: function (r) { return r.key; } }, ordersCol, salesCol] };
+        return { rows: M.reports.period(reportPeriod), bar: 'sales', href: periodHref,
+          cols: [{ label: 'Period', cls: 'primary', value: periodLabel }, ordersCol, salesCol] };
       } },
     { id: 'sales-by-staff', title: 'Sales by staff member', was: 'the report “Employee Sales by Country”', yearly: true,
       about: 'Orders taken and sales made by each member of staff.',
@@ -713,7 +751,7 @@
       build: function () {
         return { rows: M.reports.toReorder(), href: function (p) { return '#/products/' + p.id; },
           cols: [{ label: 'Product', cls: 'primary', value: function (p) { return p.productName; } },
-            { label: 'Supplier', nolabel: true, value: function (p) { var s = M.get('suppliers', p.supplierID); return s ? s.companyName : ''; } },
+            { label: 'Supplier', nolabel: true, value: function (p) { var s = M.get('suppliers', p.supplierID); return s ? s.companyName : ''; }, html: function (p) { var s = M.get('suppliers', p.supplierID); return s ? link('#/suppliers/' + s.id, s.companyName) : ''; } },
             { label: 'In stock', num: true, cls: 'side', value: function (p) { return p.unitsInStock; } },
             { label: 'Reorder at', num: true, value: function (p) { return p.reorderLevel; } },
             { label: 'On order', num: true, value: function (p) { return p.unitsOnOrder; } }] };
@@ -724,14 +762,26 @@
       return '<a class="card" href="#/reports/' + r.id + '"><h2>' + esc(r.title) + '</h2><p>' + esc(r.about) + '</p></a>';
     }).join('') + '</div>');
   }
-  function hbars(rows, labelCol, key) {
+  function periodHref(r) { return '#/orders?from=' + r.from + '&to=' + r.to; }
+  function periodLabel(r) {
+    if (reportPeriod === 'week') return 'Week of ' + date(r.from);
+    if (reportPeriod === 'year') return r.from.slice(0, 4);
+    if (reportPeriod === 'quarter') return r.from.slice(0, 4) + ' Q' + Math.ceil(+r.from.slice(5, 7) / 3);
+    return monthName(r.from.slice(0, 7));
+  }
+  function hbars(rows, labelCol, key, href) {
     var top = rows.slice(0, 12), max = Math.max.apply(null, top.map(function (r) { return r[key]; }).concat([1]));
     return '<div class="hbars">' + top.map(function (r) {
-      return '<span class="name">' + esc(labelCol.value(r)) + '</span><span class="track"><i style="width:' + (100 * r[key] / max).toFixed(2) + '%"></i></span>' +
+      var label = labelCol.value(r), tip = esc(label + '|' + money(r[key]) + (r.orders != null ? ' from ' + num(r.orders) + ' orders' : ''));
+      return '<span class="name">' + (href ? link(href(r), label) : esc(label)) + '</span>' +
+        (href ? '<a class="track" href="' + href(r) + '" aria-label="' + esc(label + ', ' + money(r[key]) + ', see orders') + '"' : '<span class="track" tabindex="0"') +
+        ' data-tip="' + tip + '"><i style="width:' + (100 * r[key] / max).toFixed(2) + '%"></i>' + (href ? '</a>' : '</span>') +
         '<span class="num">' + money(r[key]) + '</span>';
     }).join('') + '</div>';
   }
-  function reportView(m) {
+  function reportView(m, query) {
+    if (m[1] === 'sales-by-quarter') { location.hash = '#/reports/sales-by-period?period=quarter'; return; }
+    reportPeriod = /^(week|month|quarter|year)$/.test(query.period) ? query.period : 'month';
     var def = REPORTS.filter(function (r) { return r.id === m[1]; })[0];
     if (!def) return missing('reports', 'Reports', 'That report');
     var years = M.years();
@@ -742,18 +792,22 @@
       head(esc(def.title), '<span class="no-print" style="display:contents"><button type="button" data-action="csv">Download as CSV</button>' +
         '<button type="button" data-action="print">Print</button></span>', link('#/reports', 'Reports')) +
       '<p class="sub">' + esc(def.about) + (def.was ? ' In Access this was ' + esc(def.was) + '.' : '') + (r.note ? ' ' + esc(r.note) : '') + '</p>' +
+      (def.id === 'sales-by-period' ? '<div class="toolbar no-print"><div class="chips" role="group" aria-label="Period">' + ['week', 'month', 'quarter', 'year'].map(function (p) {
+        return '<button type="button" data-action="period" data-period="' + p + '" aria-pressed="' + (p === reportPeriod) + '">' + p.charAt(0).toUpperCase() + p.slice(1) + '</button>';
+      }).join('') + '</div><span class="count">Total ' + money(total) + '</span></div><p class="print-only">' + esc(reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)) + '</p>' : '') +
       (def.yearly ? '<div class="toolbar no-print"><div class="chips" role="group" aria-label="Year">' + [null].concat(years).map(function (y) {
         return '<button type="button" data-action="year" data-year="' + (y || '') + '" aria-pressed="' + (y === year) + '">' + (y || 'All years') + '</button>';
       }).join('') + '</div><span class="count">' + (total != null ? 'Total ' + money(total) : '') + '</span></div>' : '') +
-      '<div class="stack">' + (r.bar && r.rows.length ? '<div class="panel">' + hbars(r.rows, r.cols[0], r.bar) + '</div>' : '') +
+      '<div class="stack">' + (r.bar && r.rows.length ? '<div class="panel">' + hbars(r.rows, r.cols[0], r.bar, def.id === 'sales-by-period' ? r.href : null) + '</div>' : '') +
       table(r.cols, r.rows, r.href, 'No orders in this period.') + '</div>');
+    actions.period = function (el) { location.hash = '#/reports/sales-by-period?period=' + el.dataset.period; };
     actions.year = function (el) { reportYear = el.dataset.year || null; route(); };
     actions.print = function () { window.print(); };
     actions.csv = function () {
       var out = [r.cols.map(function (c) { return c.label; })].concat(r.rows.map(function (row) {
         return r.cols.map(function (c) { return c.value(row); });
       }));
-      download(def.id + (year ? '-' + year : '') + '.csv', out);
+      download(def.id + (def.id === 'sales-by-period' ? '-' + reportPeriod : '') + (year ? '-' + year : '') + '.csv', out);
     };
   }
   function download(name, rows) {
@@ -772,7 +826,7 @@
     show('more', 'More', head('More') + '<div class="cards">' + [
       ['#/suppliers', 'Suppliers', 'The 29 firms that Northwind buys from.'],
       ['#/staff', 'Staff', 'The nine people who take the orders.'],
-      ['#/reports', 'Reports', 'Sales by category, quarter, customer and more.'],
+      ['#/reports', 'Reports', 'Sales by category, period, customer and more.'],
       ['#/about', 'About this rebuild', 'What moved across from Access, and who built it.'],
     ].map(function (c) { return '<a class="card" href="' + c[0] + '"><h2>' + c[1] + '</h2><p>' + c[2] + '</p></a>'; }).join('') + '</div>');
   }
@@ -832,6 +886,7 @@
     [/^suppliers$/, suppliersList], [/^suppliers\/(\d+)$/, supplierDetail],
     [/^staff$/, staffList], [/^staff\/(\d+)$/, staffDetail],
     [/^reports$/, reportsIndex], [/^reports\/([a-z-]+)$/, reportView],
+    [/^search$/, searchView],
     [/^more$/, more], [/^about$/, about],
   ];
   function route() {
@@ -856,18 +911,36 @@
     if (act && actions[act.dataset.action]) { actions[act.dataset.action](act, e); return; }
     if (e.target.closest('a, button, input, select, textarea, label')) return;
     var tr = e.target.closest('tr[data-href]');
-    if (tr) location.hash = tr.dataset.href;
+    if (tr && matchMedia('(max-width: 760px)').matches && !window.getSelection().toString()) location.hash = tr.dataset.href;
   });
 
+  var SEARCH_TYPES = ['Order', 'Customer', 'Product', 'Supplier', 'Staff'];
+  function searchGroups(q, fullType) {
+    var hits = M.search(q);
+    if (!hits.length) return '<div class="empty">Nothing matches “' + esc(q) + '”.</div>';
+    return SEARCH_TYPES.filter(function (type) { return !fullType || fullType === type; }).map(function (type) {
+      var group = hits.filter(function (h) { return h.type === type; });
+      if (!group.length) return '';
+      var all = '#/search?q=' + encodeURIComponent(q) + '&type=' + type;
+      return '<section class="search-group"><h2>' + (type === 'Staff' ? 'Staff' : type + 's') + ' (' + group.length + ')' +
+        (!fullType ? link(all, 'Show all') : '') + '</h2>' + group.slice(0, fullType ? group.length : 3).map(function (h) {
+          return '<a class="search-hit" href="' + h.href + '"><span>' + esc(h.label) + '</span><small>' + esc(h.sub) + '</small></a>';
+        }).join('') + '</section>';
+    }).join('');
+  }
+  function searchView(m, query) {
+    var type = SEARCH_TYPES.indexOf(query.type) >= 0 ? query.type : null;
+    show('', 'Search', head('Search results', '', link('#/', 'Home')) + '<p>Results for “' + esc(query.q || '') + '”</p>' +
+      '<div class="panel search-results">' + searchGroups(query.q || '', type) + '</div>');
+  }
   var find = $('#find'), found = $('#found');
   function closeFound() { found.hidden = true; found.innerHTML = ''; }
   find.addEventListener('input', function () {
     var q = find.value.trim();
     if (!q) return closeFound();
-    var hits = M.search(q, 10);
-    found.innerHTML = hits.length ? hits.map(function (h, i) {
-      return '<a href="' + h.href + '"' + (i === 0 ? ' class="on"' : '') + '><span class="kind">' + h.type + '</span><span>' + esc(h.label) + '</span><span class="sub">' + esc(h.sub) + '</span></a>';
-    }).join('') : '<div class="none">Nothing matches “' + esc(q) + '”.</div>';
+    found.innerHTML = searchGroups(q);
+    var first = $('.search-hit', found);
+    if (first) first.classList.add('on');
     found.hidden = false;
   });
   find.addEventListener('keydown', function (e) {
@@ -899,7 +972,10 @@
   ['mouseout', 'focusout'].forEach(function (type) {
     main.addEventListener(type, function (e) { if (e.target.closest('[data-tip]')) hideTip(); });
   });
-  main.addEventListener('scroll', hideTip);
+  main.addEventListener('scroll', function () {
+    var focused = document.activeElement;
+    if (main.contains(focused) && focused.matches('[data-tip]')) showTip(focused); else hideTip();
+  });
 
   var fs = $('#fullscreen'), root = document.documentElement;
   if (document.fullscreenEnabled || document.webkitFullscreenEnabled) {

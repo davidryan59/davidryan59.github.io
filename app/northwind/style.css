@@ -92,11 +92,8 @@ p { margin: 0 0 0.75rem; }
   box-shadow: 0 12px 32px var(--shadow); overflow: hidden;
   max-height: min(60vh, 420px); overflow-y: auto;
 }
-.found a { display: flex; gap: 10px; align-items: baseline; padding: 9px 12px; color: var(--text); }
-.found a:hover, .found a.on { background: var(--accent-soft); text-decoration: none; }
-.found .kind { flex: 0 0 68px; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.found .sub { color: var(--muted); font-size: 0.85rem; margin-left: auto; text-align: right; }
-.found .none { padding: 10px 12px; color: var(--muted); }
+.found a { color: var(--accent); }
+.found a:hover, .found a.on { background: var(--accent-soft); text-decoration: underline; }
 
 #main {
   grid-area: main;
@@ -187,9 +184,7 @@ th button { min-height: 0; padding: 0; border: 0; background: none; font: inheri
 th button:hover { background: none; color: var(--text); }
 th[aria-sort] button::after { content: " ▲"; font-size: 0.7em; }
 th[aria-sort="descending"] button::after { content: " ▼"; }
-tr[data-href] { cursor: pointer; }
-tr[data-href]:hover > td { background: var(--raised); }
-td.primary a { font-weight: 600; color: var(--strong); }
+td.primary a { font-weight: 600; }
 td small { display: block; color: var(--muted); }
 tfoot td { font-weight: 600; background: var(--raised); border-top: 1px solid var(--rule); }
 .more { margin: 12px auto 0; display: flex; }
@@ -228,7 +223,7 @@ form.edit .wide { grid-column: 1 / -1; }
   background: repeating-linear-gradient(to top, var(--rule) 0 1px, transparent 1px 25%);
   border-top: 1px solid var(--rule);
 }
-.chart .col { position: relative; flex: 1 1 0; height: 100%; display: flex; align-items: flex-end; min-width: 0; outline: none; }
+.chart .col { cursor: pointer; position: relative; flex: 1 1 0; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
 .chart .col i { display: block; width: 100%; max-width: 44px; margin: 0 auto; min-height: 1px; background: var(--accent); border-radius: 4px 4px 0 0; }
 .chart .col:hover i, .chart .col:focus i { filter: brightness(1.25); }
 .chart .col b { position: absolute; left: 50%; bottom: -19px; transform: translateX(-50%); font-size: 0.72rem; font-weight: 400; color: var(--muted); white-space: nowrap; }
@@ -265,7 +260,7 @@ a.card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
 .invoice th { background: none; }
 
 /* ---- upright: a phone, or any narrow window ---- */
-@media (max-width: 760px) {
+@media screen and (max-width: 760px) {
   #app { grid-template: "bar" auto "main" 1fr "nav" auto / 1fr; }
   #nav {
     flex-direction: row; gap: 0; padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
@@ -292,8 +287,14 @@ a.card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
   table.list td.rest { grid-column: 1 / -1; color: var(--muted); font-size: 0.87rem; }
   table.list td.rest[data-label]::before { content: attr(data-label) ": "; }
   table.list td.skip { display: none; }
-  table.list tr[data-href]:hover > td { background: none; }
+  table.list tr[data-href] { cursor: pointer; }
+  table.list tr[data-href]:hover { background: var(--raised); }
 
+  .hbars .name { max-width: 30vw; }
+}
+
+/* Order items need cards when the side menu leaves a narrow main panel. */
+@media screen and (max-width: 1100px) {
   .lines thead { display: none; }
   .lines, .lines tbody, .lines tfoot { display: block; }
   .lines tr { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px 8px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
@@ -301,11 +302,10 @@ a.card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
   .lines td.product { grid-column: 1 / -1; }
   .lines td.amount { grid-column: 1 / 4; text-align: left; }
   .lines td[data-label]::before { content: attr(data-label); display: block; font-size: 0.75rem; color: var(--muted); }
-  .hbars .name { max-width: 30vw; }
 }
 
 /* ---- short: a phone held sideways ---- */
-@media (max-height: 480px) and (min-width: 600px) {
+@media screen and (max-height: 480px) and (min-width: 600px) {
   #app { grid-template: "nav bar" auto "nav main" 1fr / auto 1fr; }
   #nav {
     flex-direction: column; gap: 0; width: calc(86px + env(safe-area-inset-left));
@@ -320,8 +320,24 @@ a.card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
   .chart { height: 150px; }
 }
 
+.search-group + .search-group { border-top: 1px solid var(--rule); }
+.search-group h2 { display: flex; align-items: baseline; gap: 12px; padding: 10px 12px 4px; font-size: 0.85rem; }
+.search-group h2 a { margin-left: auto; font-size: 0.8rem; font-weight: 400; white-space: nowrap; }
+.search-hit { display: block; padding: 8px 12px; overflow-wrap: anywhere; }
+.search-hit small { display: block; color: var(--muted); font-size: 0.8rem; }
+.search-results .search-group { margin-bottom: 12px; }
+.product-picker { min-width: 0; }
+.product-choices { max-height: 220px; overflow-y: auto; border: 1px solid var(--rule); border-radius: 8px; margin-top: 4px; background: var(--panel); }
+.product-choices button { display: block; width: 100%; text-align: left; white-space: normal; border: 0; border-radius: 0; font-weight: 400; padding: 8px 10px; }
+.product-choices button small { display: block; color: var(--muted); font-size: 0.75rem; }
+.product-choices button.on, .product-choices button:hover { background: var(--accent-soft); }
+.print-only { display: none; }
+
 /* ---- print: the invoice or a report, and nothing else ---- */
 @media print {
+  :root, :root[data-theme] { color-scheme: light; --text: #000; --strong: #000; --muted: #444; --panel: #fff; --raised: #fff; --bg: #fff; --rule: #ccc; }
+  body, a { color: #000; }
+  .print-only { display: block; }
   html, body { height: auto; overflow: visible; background: #fff; }
   #app { display: block; height: auto; }
   #nav, #bar, .no-print, .tip { display: none !important; }

@@ -27,6 +27,12 @@
   function round2(x) { return Math.round(x * 100 + (x < 0 ? -1e-7 : 1e-7)) / 100; }
   function copy(o) { var c = {}; for (var k in o) c[k] = o[k]; return c; }
 
+  function fold(text) { return String(text == null ? '' : text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+  function matches(text, query) {
+    var haystack = fold(text);
+    return fold(query).trim().split(/\s+/).every(function (word) { return haystack.indexOf(word) >= 0; });
+  }
+
   function create(seed, options) {
     options = options || {};
     var storage = options.storage || null;
@@ -202,24 +208,49 @@
       return Array.from(out.values());
     }
     function desc(a, b) { return b.sales - a.sales; }
+    function periodStart(s, period) {
+      var d = new Date(s + 'T00:00:00Z'), y = d.getUTCFullYear(), m = d.getUTCMonth();
+      if (period === 'week') return addDays(s, -((d.getUTCDay() + 6) % 7));
+      if (period === 'year') m = 0;
+      if (period === 'quarter') m = Math.floor(m / 3) * 3;
+      return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+    }
+    function periodEnd(s, period) {
+      if (period === 'week') return addDays(s, 7);
+      var d = new Date(s + 'T00:00:00Z');
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + (period === 'year' ? 12 : period === 'quarter' ? 3 : 1), 1)).toISOString().slice(0, 10);
+    }
+    function ordersInPeriod(from, to) {
+      return all('orders').filter(function (o) { return (!from || o.orderDate >= from) && (!to || o.orderDate < to); });
+    }
+    function salesByPeriod(period) {
+      period = /^(week|month|quarter|year)$/.test(period) ? period : 'month';
+      var got = new Map(byOrder(null, function (o) { return periodStart(o.orderDate, period); }).map(function (e) { return [e.key, e]; }));
+      var keys = Array.from(got.keys()).sort(), out = [];
+      if (!keys.length) return out;
+      for (var k = keys[0]; k <= keys[keys.length - 1]; k = periodEnd(k, period)) {
+        var e = got.get(k) || { key: k, sales: 0, orders: 0 };
+        e.from = k; e.to = periodEnd(k, period); out.push(e);
+      }
+      return out;
+    }
+    function productChoices(customer, query) {
+      var recent = new Map();
+      all('orders').filter(function (o) { return o.customerID === customer; }).sort(function (a, b) {
+        return b.orderDate.localeCompare(a.orderDate) || b.id - a.id;
+      }).forEach(function (o) { linesOf(o.id).forEach(function (l) { if (!recent.has(l.productID)) recent.set(l.productID, recent.size); }); });
+      return all('products').filter(function (p) {
+        var cat = get('categories', p.categoryID);
+        return matches(p.productName + ' ' + (cat ? cat.categoryName : ''), query);
+      }).sort(function (a, b) {
+        var x = recent.has(a.id) ? recent.get(a.id) : Infinity, y = recent.has(b.id) ? recent.get(b.id) : Infinity;
+        return (x === y ? 0 : x - y) || a.productName.localeCompare(b.productName);
+      }).map(function (p) { return { product: p, recent: recent.has(p.id) }; });
+    }
     var reports = {
-      monthly: function () {
-        var got = new Map(byOrder(null, function (o) { return o.orderDate.slice(0, 7); }).map(function (e) { return [e.key, e]; }));
-        var keys = Array.from(got.keys()).sort(), out = [];
-        if (!keys.length) return out;
-        var y = +keys[0].slice(0, 4), m = +keys[0].slice(5), last = keys[keys.length - 1];
-        for (;;) {
-          var k = y + '-' + (m < 10 ? '0' : '') + m;
-          out.push(got.get(k) || { key: k, sales: 0, orders: 0 });
-          if (k >= last) break;
-          if (++m > 12) { m = 1; y++; }
-        }
-        return out;
-      },
-      quarterly: function () {
-        return byOrder(null, function (o) { return o.orderDate.slice(0, 4) + ' Q' + Math.ceil(+o.orderDate.slice(5, 7) / 3); })
-          .sort(function (a, b) { return a.key < b.key ? -1 : 1; });
-      },
+      period: salesByPeriod,
+      monthly: function () { return salesByPeriod('month').map(function (e) { return Object.assign({}, e, { key: e.key.slice(0, 7) }); }); },
+      quarterly: function () { return salesByPeriod('quarter').map(function (e) { return Object.assign({}, e, { key: e.key.slice(0, 4) + ' Q' + Math.ceil(+e.key.slice(5, 7) / 3) }); }); },
       byCategory: function (year) {
         return byLine(year, function (l) { var p = db.products.get(l.productID); return p ? p.categoryID : null; }).sort(desc);
       },
@@ -252,30 +283,34 @@
     };
 
     /* ---- search across the tables ---- */
-    function search(text, limit) {
-      var q = text.trim().toLowerCase(), out = [];
+    function search(text) {
+      var q = fold(text).trim(), out = [];
       if (!q) return out;
-      function has(s) { return s != null && String(s).toLowerCase().indexOf(q) >= 0; }
-      if (/^\d+$/.test(q)) {
-        db.orders.forEach(function (o) {
-          if (String(o.id).indexOf(q) === 0) out.push({ type: 'Order', label: 'Order ' + o.id, sub: o.shipName, href: '#/orders/' + o.id });
-        });
+      function hit(type, label, sub, href, text) {
+        if (matches(text, q)) out.push({ type: type, label: label, sub: sub, href: href });
       }
+      db.orders.forEach(function (o) {
+        var c = get('customers', o.customerID);
+        hit('Order', 'Order ' + o.id, c ? c.companyName : o.shipName, '#/orders/' + o.id,
+          [o.id, o.customerID, c ? c.companyName : '', o.shipName, o.shipCity, o.shipCountry].join(' '));
+      });
       db.customers.forEach(function (c) {
-        if (has(c.companyName) || has(c.contactName) || has(c.city) || has(c.id)) {
-          out.push({ type: 'Customer', label: c.companyName, sub: [c.contactName, c.city].filter(Boolean).join(', '), href: '#/customers/' + c.id });
-        }
+        hit('Customer', c.companyName, [c.contactName, c.city].filter(Boolean).join(', '), '#/customers/' + c.id,
+          [c.companyName, c.contactName, c.city, c.country, c.id].join(' '));
       });
       db.products.forEach(function (p) {
-        if (has(p.productName)) out.push({ type: 'Product', label: p.productName, sub: p.quantityPerUnit, href: '#/products/' + p.id });
+        var cat = get('categories', p.categoryID);
+        hit('Product', p.productName, cat ? cat.categoryName : '', '#/products/' + p.id,
+          p.productName + ' ' + (cat ? cat.categoryName : ''));
       });
       db.suppliers.forEach(function (s) {
-        if (has(s.companyName) || has(s.contactName)) out.push({ type: 'Supplier', label: s.companyName, sub: [s.city, s.country].filter(Boolean).join(', '), href: '#/suppliers/' + s.id });
+        hit('Supplier', s.companyName, [s.city, s.country].filter(Boolean).join(', '), '#/suppliers/' + s.id,
+          [s.companyName, s.contactName, s.city, s.country].join(' '));
       });
       db.employees.forEach(function (e) {
-        if (has(staffName(e))) out.push({ type: 'Staff', label: staffName(e), sub: e.title, href: '#/staff/' + e.id });
+        hit('Staff', staffName(e), e.title, '#/staff/' + e.id, [staffName(e), e.title, e.city, e.country].join(' '));
       });
-      return out.slice(0, limit || 10);
+      return out;
     }
 
     return {
@@ -285,7 +320,7 @@
       saveOrder: saveOrder, shipOrder: shipOrder, deleteOrder: deleteOrder,
       saveCustomer: saveCustomer, saveProduct: saveProduct,
       changeCount: changeCount, reset: reset,
-      years: years, reports: reports, search: search,
+      years: years, reports: reports, search: search, matches: matches, ordersInPeriod: ordersInPeriod, productChoices: productChoices,
     };
   }
 

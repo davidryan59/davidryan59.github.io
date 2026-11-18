@@ -14,7 +14,7 @@ browser, so it needs no server and no account.
 
 - [x] The sample's licence checked: MIT, copyright Microsoft Corporation
 - [x] `tools/northwind/build_data.py` builds `data.js` from Microsoft's script
-- [x] Data model with tests: `node tools/northwind/test.js`, 8 tests
+- [x] Data model with tests: `node tools/northwind/test.js`, 15 tests
 - [x] Orders: list, detail, new, edit, delete, mark as shipped, invoice
 - [x] Customers and products: list, detail, new, edit
 - [x] Suppliers and staff: list and detail
@@ -22,7 +22,9 @@ browser, so it needs no server and no account.
 - [x] Home screen: four headline figures, sales by month, orders to ship, stock to reorder
 - [x] One search box across orders, customers, products, suppliers and staff
 - [x] Light and dark themes, from the site's `assets/theme.js`
-- [x] `tools/screen-fit/check.js` passes at all six sizes (2026-11-17)
+- [x] `tools/screen-fit/check.js` passes at all six sizes in both themes (2026-11-18)
+- [x] Round 1: consistent record links, grouped search, sales periods, chart filters and a searchable product picker (2026-11-18)
+- [x] Browser workflow checks at all six sizes in both themes; invoice printed to A4 PDF (2026-11-18)
 - [ ] Try it on a real phone and a real iPad
 - [ ] Share card in `social/`, and `og:image` in `index.html`
 - [ ] Entry in `docs/inventory.md` and on the builder page
@@ -63,7 +65,8 @@ both:
 | `app/northwind/app.js` | The screens, the routing and the clicks |
 | `app/northwind/NOTICE.txt` | Microsoft's copyright and licence notice |
 | `tools/northwind/build_data.py` | Reads `instnwnd.sql` and writes `data.js` |
-| `tools/northwind/test.js` | Tests the model against figures known from the sample |
+| `tools/northwind/test.js` | Tests sums, storage, search, sales periods and product choices |
+| `tools/northwind/check-ui.js` | Checks the new flows in both themes at six sizes; writes screenshots and an invoice PDF to `renders/` |
 
 No libraries and no build step, as with every app in this repo.
 
@@ -93,17 +96,51 @@ reorder when it is not discontinued and its stock is at or below its reorder
 level.
 
 **Lists.** `listView` draws every list: a search box, filter chips, sortable
-headings and 60 rows at a time. Each column names where its cell goes when a
+headings and 60 rows at a time. Searches ignore case and accents, trim spaces,
+and require every query word to match. The record's name or number opens it.
+Customer and supplier references open their own records. Record links use the
+same blue in both themes and underline on hover. Wide rows allow text selection.
+Cards at 760 px or narrower remain tappable. Each column names where its cell goes when a
 narrow screen turns the rows into cards: `primary`, `side`, `rest` or `skip`.
+
+**Global search.** The top search box returns one list grouped as orders,
+customers, products, suppliers and staff. Each matching group shows its count,
+three preview records and a Show all link. Show all opens every match in that
+group at a shareable address such as `#/search?q=no&type=Product`. Arrow keys
+move through the results; Enter opens the selected link and Escape closes them.
+Products match their name and category. Orders match their number, customer
+and delivery details. Other records match their name, contact and location.
+
+The old ten-result cutoff hid products behind matching customers for `no`.
+The model now returns every match before the page builds its grouped previews.
+`cote` finds Côte de Blaye; `cho` and `cho ` give the same results.
+
+**Order items.** New and edited orders use a product search by name and
+category. Focusing the box shows all products, with this customer's purchases
+first, ordered by the latest purchase date. Other products follow alphabetically.
+Discontinued products remain available and carry a label. Arrow keys select a
+result; Enter or a tap chooses it and fills its price. A typed value must match
+a chosen result before Save works. Changing the customer updates the ranking
+when the picker next opens. Each line keeps its own product and price.
 
 **Reports.** `REPORTS` in `app.js` holds the nine reports. Six replace a
 query or a report in the Access sample, and each says which. Three are new:
 sales by country, sales by product for any year, and products to reorder.
 
+**Sales by period.** Week, Month, Quarter and Year share one report. Month is
+the default, including the home sales figure's link. Weeks start on Monday.
+Other periods use calendar boundaries. Empty periods between the first and last
+order show zero. Sales exclude freight and sum the rounded line amounts.
+The selected period appears in the address, printed report and CSV filename.
+The old `sales-by-quarter` address opens the Quarter tab.
+
 **Charts.** Both charts are single-series bars in plain HTML and CSS: sales by
 month on the home screen, and the top twelve rows of a report. Each month's
-bar shows its figures on hover, on focus and on a tap. The table below a
-report carries every figure.
+bar shows its figures on hover and focus. Clicking or pressing Enter opens
+Orders for that month. Period report bars and period names also open their
+orders. The filter includes the start date and excludes the next period's start.
+Orders shows the date range and a Clear period link. The table below a report
+carries every figure. Printed invoices use black body text in either theme.
 
 ## Layouts
 
@@ -128,8 +165,17 @@ node tools/northwind/test.js
 
 ```sh
 python3 -m http.server 8000
-node tools/screen-fit/check.js http://localhost:8000/app/northwind/ '#app'
+node tools/northwind/test.js
+node tools/northwind/check-ui.js http://localhost:8000/app/northwind/
+node tools/screen-fit/check.js http://localhost:8000/app/northwind/ '#app' --out tools/screen-fit/renders/northwind/light
+node tools/screen-fit/check.js http://localhost:8000/app/northwind/ '#app' --start '.theme-toggle' --out tools/screen-fit/renders/northwind/dark
 ```
+
+Set `CHROMIUM` to a local Chrome binary if Playwright's Chromium is absent.
+The screen check starts in the browser's default light theme; the second command
+switches to dark. `check-ui.js` sets each theme explicitly and checks search,
+period tabs, chart filters, row behaviour, product choice and order saving.
+Its A4 PDF is `tools/northwind/renders/invoice-10248.pdf`.
 
 The page also opens straight from the file, with no server.
 
