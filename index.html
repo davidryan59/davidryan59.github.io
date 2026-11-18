@@ -12,6 +12,7 @@
      site's domain in full. Every page's share tags do the same. -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://drbuild.uk/">
+<link rel="canonical" href="https://drbuild.uk/">
 <meta property="og:title" content="David Ryan's Builder Page">
 <meta property="og:description" content="Software, Ethereum art, music, and academic work – everything David Ryan has built or published, in one place.">
 <meta property="og:image" content="https://drbuild.uk/social/builder.jpg">
@@ -71,20 +72,24 @@
     margin: 0 auto;
     padding: 4rem 1.25rem 6rem;
   }
-  /* Absolute, so it sits in the top padding without shifting the h1 or the
-     portrait. Hidden until the script runs: with no script it cannot work,
-     and the page follows the system setting anyway. */
+  /* Fixed, so it stays on screen while a reader scrolls, and level with the
+     right edge of the 720 px column. It starts in the top padding without
+     shifting the h1 or the portrait, and its background hides the text that
+     scrolls under it. It sits under the droste backdrop. Hidden until the
+     script runs: with no script it cannot work, and the page follows the
+     system setting anyway. */
   .theme-toggle {
-    position: absolute;
+    position: fixed;
     top: 1.25rem;
-    right: 1.25rem;
+    right: max(1.25rem, calc((100% - 720px) / 2 + 1.25rem));
+    z-index: 5;
     width: 2rem;
     height: 2rem;
     display: grid;
     place-items: center;
     padding: 0;
     color: var(--h3);
-    background: none;
+    background: var(--bg);
     border: 1px solid var(--ring);
     border-radius: 50%;
     cursor: pointer;
@@ -111,7 +116,24 @@
   h1 {
     font-size: 1.9rem;
     color: var(--h1);
-    margin: 0 0 var(--gap-para);
+    margin: 0 0 var(--gap-item);
+  }
+  /* Off screen until a keyboard user tabs to it, then it shows in the
+     top corner, opposite the theme toggle. */
+  .skip-link {
+    position: absolute;
+    top: -4rem;
+    left: 1.25rem;
+    z-index: 20;
+    padding: 0.35rem 0.9rem;
+    color: var(--link);
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    font-size: 0.95rem;
+  }
+  .skip-link:focus {
+    top: 1.25rem;
   }
   /* One head per droste level, appended by script into this stack rather
      than written N times in the HTML. shape-outside makes the surrounding
@@ -122,16 +144,19 @@
      line box, so the 6px margin drops the first head to where the h1's
      tallest glyph actually starts. Nothing later clears the float, so a
      tall enough stack runs on past the intro and into the Building section
-     below, displacing its text the same way. */
+     below, displacing its text the same way. The left margin keeps the
+     Open to Offers pill clear of the portrait. There is no bottom margin,
+     so on a wide screen the pill starts below the portrait and stays on
+     one line; shape-margin already keeps the text clear underneath. */
   .portrait-stack {
     float: right;
     display: flex;
     flex-direction: column;
     gap: var(--head-gap);
     width: var(--head);
-    margin: 6px 0 var(--gap-para) 0;
+    margin: 6px 0 0 1.5rem;
     shape-outside: inset(0 round calc(var(--head) / 2)) border-box;
-    shape-margin: 1.25rem;
+    shape-margin: 1.5rem;
   }
   .portrait {
     width: var(--head);
@@ -193,16 +218,24 @@
   }
   @media (max-width: 480px) {
     :root { --head: 88px; }
-    .portrait-stack { shape-margin: 0.85rem; }
+    .portrait-stack { margin-left: 1rem; shape-margin: 1rem; }
   }
   p.intro {
     margin: 0 0 var(--gap-para);
   }
-  /* Sits between the h1 and the intro, so it reads before anything else.
-     inline-block keeps the border tight around the words rather than
-     stretching across the column, and the portrait floats clear of it. */
+  /* The line under the name: the work David takes, before anything else. */
+  p.hire {
+    font-size: 1.15rem;
+    line-height: 1.45;
+    color: var(--h1);
+    margin: 0 0 var(--gap-para);
+  }
+  /* Sits between the hire line and the intro. display: table keeps the
+     border tight round the words and makes a block of its own, so the gaps
+     above and below are both --gap-para. A table never overlaps a float, so
+     it stops at the portrait's left margin. */
   p.open-to-offers {
-    display: inline-block;
+    display: table;
     margin: 0 0 var(--gap-para);
     padding: 0.35rem 0.9rem;
     color: var(--h1);
@@ -212,6 +245,10 @@
   }
   p.open-to-offers a {
     color: inherit;
+  }
+  nav.jump {
+    margin: 0;
+    font-size: 0.95rem;
   }
   h2 {
     font-size: 1.4rem;
@@ -379,22 +416,31 @@
     .droste-frame { animation: none; }
   }
 </style>
-<script>
-  // Runs before first paint, so the page never flashes the wrong theme.
-  (function () {
-    try {
-      var t = localStorage.getItem('theme');
-      if (t !== 'light' && t !== 'dark') {
-        t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      }
-      document.documentElement.dataset.theme = t;
-    } catch (e) {}
-  })();
-</script>
+<script src="assets/theme.js"></script>
+<script>Theme.initTheme();</script>
 <script data-goatcounter="https://drbuild.goatcounter.com/count"
-        async src="//gc.zgo.at/count.js"></script>
+        async src="assets/count.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "David Ryan",
+  "url": "https://drbuild.uk/",
+  "image": "https://drbuild.uk/assets/david-headshot.jpg",
+  "jobTitle": "Product builder and software developer",
+  "email": "mailto:david@drbuild.uk",
+  "sameAs": [
+    "https://github.com/davidryan59",
+    "https://www.linkedin.com/in/davidryan59/",
+    "https://orcid.org/0000-0002-4785-9766",
+    "https://x.com/davidryan59"
+  ]
+}
+</script>
 </head>
 <body>
+
+<a class="skip-link" href="#main">Skip to the content</a>
 
 <button class="theme-toggle" type="button" hidden>
   <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
@@ -405,6 +451,8 @@
     <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
   </svg>
 </button>
+
+<main id="main">
 
 <div class="portrait-stack" id="portrait-stack">
   <img class="portrait" src="assets/david-headshot.jpg" width="120" height="120" alt="David Ryan">
@@ -430,7 +478,8 @@
   })();
 </script>
 <h1>David Ryan's Builder Page</h1>
-<p class="open-to-offers"><strong>Open to Offers</strong> – freelance or salaried. Email <a href="mailto:david@drbuild.uk">david@drbuild.uk</a>. <a target="_blank" rel="noopener" href="https://www.linkedin.com/in/davidryan59/">LinkedIn</a>. <a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a>.</p>
+<p class="hire">Product builder and software developer. I turn old spreadsheets and databases into web apps, and I build new apps.</p>
+<p class="open-to-offers"><strong>Open to Offers.</strong> Email <a href="mailto:david@drbuild.uk">david@drbuild.uk</a>, alternatively <a target="_blank" rel="noopener" href="https://www.linkedin.com/in/davidryan59/">LinkedIn</a> or <a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a></p>
 <p class="intro">
   Hi, I'm David! I love building cool tech stuff. This page contains
   everything I've built or published, all in one place.
@@ -450,10 +499,17 @@
 <p class="intro">
   Hope you enjoy looking at some of the interesting stuff I've built!
 </p>
+<nav class="jump" aria-label="Sections">
+  <a href="#work">Work</a> ·
+  <a href="#explorers">Explorers</a> ·
+  <a href="#security-audits">Audits</a> ·
+  <a href="#academic">Academic</a> ·
+  <a href="#contact">Contact</a>
+</nav>
 
 <h2 id="building">Building</h2>
 
-<h3 id="apps-websites">Apps &amp; Websites</h3>
+<h3 id="work">Client and product work</h3>
 <ul>
   <li class="thumb-item">
     <a class="thumb-link square" target="_blank" rel="noopener" href="https://crossandwing.com" tabindex="-1" aria-hidden="true">
@@ -463,7 +519,114 @@
     – I built this website and book reader from scratch. The initial ideas came from me and C&amp;W founder Michael.
     I used Claude for the code, Codex for the pictures, the design choices were mine.
     I used many rounds of user testing and iteration to make C&amp;W a wonderful place to read books old and new.
+    <br>“He takes the time to explain technical decisions in plain English, listens to what I need, and turns ideas into working solutions, often within just a few days.”
+    – Michael Wagner, founder. <a href="testimonials/#cross-and-wing">Read his testimonial</a>.
   </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" target="_blank" rel="noopener" href="https://github.com/davidryan59/dice-to-seed" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/dice-to-seed.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a target="_blank" rel="noopener" href="https://github.com/davidryan59/dice-to-seed">dice-to-seed</a>
+    – turns physical dice rolls into a 24-word BIP-39 seed phrase. One file, Python
+    standard library only, runs offline. It measures the entropy, balance and
+    repetition in your rolls, and asks for more until every check passes.
+  </li>
+  <li>
+    <a class="thumb-link" target="_blank" rel="noopener" href="https://re-tuner.web.app/" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/retuner.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a target="_blank" rel="noopener" href="https://re-tuner.web.app/">ReTuner</a>
+    – a musical instrument with Just Intonation tuning, that retunes itself as you play.
+    Here is the <a target="_blank" rel="noopener" href="https://github.com/davidryan59/retuner">code on GitHub</a>.
+  </li>
+  <li>
+    <a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a>
+    – my public repositories, code for what I'm building
+  </li>
+  <li>
+    <a href="index.html" data-droste>David Ryan's Builder Page</a>
+    – have you checked it out yet?
+  </li>
+</ul>
+
+<h3 id="salesforce-certifications">Salesforce Certifications</h3>
+<ul>
+  <li>Platform Administrator – March 2018</li>
+  <li>Platform Developer – August 2018</li>
+  <li>Agentforce Service Consultant – August 2018</li>
+  <li>Agentforce Sales Consultant – October 2018</li>
+  <li>Platform App Builder – September 2019</li>
+  <li>Platform Administrator II – September 2019</li>
+</ul>
+<p class="section-note">
+  All verifiable at Salesforce's
+  <a target="_blank" rel="noopener" href="https://trailhead.salesforce.com/credentials/verification">credential verification page</a>.
+</p>
+
+<h3 id="security-audits">Security Audits</h3>
+<p class="section-note">
+  I've been using the latest AI models to audit smart contracts for common DeFi protocols.
+  This is both for my own curiosity, and to help the Ethereum community,
+  since there is great value in having multiple independent audits of high value protocols.
+  I hope you find it useful!
+</p>
+<ul>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/weth9/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/weth9.svg" data-theme-light="assets/thumbs/weth9.svg" data-theme-dark="assets/thumbs/weth9-dark.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/weth9/index.html">WETH</a>
+    – Wrapped ETH is central and critical in Ethereum DeFi.
+    This contract was deployed in Dec 2017 and contains around 2,000,000 ETH.
+    I did this independent audit using Claude Opus 5 in Aug 2026.
+    <br><b>Summary</b>: no exploitable vulnerability,
+    two medium integration hazards, and a checklist for anyone building on top of it.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/uniswap-v2/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/uniswap-v2.svg" data-theme-light="assets/thumbs/uniswap-v2.svg" data-theme-dark="assets/thumbs/uniswap-v2-dark.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/uniswap-v2/index.html">Uniswap V2</a>
+    – the pair, factory and router contracts deployed by Uniswap in 2020.
+    With over 700 forks they control over $2 billion of assets.
+    Governance switched on the protocol fee in Dec 2025, after 5.6 years of dormant code.
+    <br><b>Summary</b>: no exploitable vulnerability, the live fee arithmetic proven overflow-free,
+    and three medium findings, the largest a fee that charges staking yield as trading revenue.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/dai/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/dai.svg" data-theme-light="assets/thumbs/dai.svg" data-theme-dark="assets/thumbs/dai-dark.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/dai/index.html">DAI</a>
+    – the decentralised stablecoin deployed by MakerDAO (now Sky) in Nov 2019, with over $4 billion of DAI minted.
+    The main risk is the wrong person calling mint, so this audit traces it through 16.9 million blocks of chain history.
+    <br><b>Summary</b>: no exploitable vulnerability, the mint authority proven closed to a single address since 2019,
+    and two medium findings in a signed-approval function that predates EIP-2612.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/permit2/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb" src="assets/thumbs/permit2.svg" data-theme-light="assets/thumbs/permit2.svg" data-theme-dark="assets/thumbs/permit2-dark.svg" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/permit2/index.html">Permit2</a>
+    – the contract Uniswap deployed in Nov 2022 so that apps can take token allowances from a signature, with over 700,000 transactions on Ethereum mainnet.
+    Since 2025, EIP-7702 has let ordinary accounts carry code, which Permit2 was not designed for.
+    <br><b>Summary</b>: no exploitable vulnerability, deployed code identical to the verified source,
+    and four medium findings, one caused by EIP-7702, which moved about one in six signers onto the smart contract wallet signature check.
+  </li>
+  <li class="thumb-item">
+    <a class="thumb-link square" href="audits/cryptopunks/index.html" tabindex="-1" aria-hidden="true">
+      <img class="thumb punk-thumb" src="assets/cryptopunks-punk.png" width="120" height="120" alt="" loading="lazy">
+    </a>
+    <a href="audits/cryptopunks/index.html">CryptoPunksMarket</a>
+    – the immutable marketplace contract deployed in June 2017 for the 10,000 CryptoPunks.
+    At the review block it held 3,145 ETH for pending withdrawals and active bids.
+    <br><b>Summary</b>: no exploitable vulnerability, exact solvency to the wei,
+    one medium integration hazard, two low defects.
+  </li>
+</ul>
+
+<h3 id="explorers">Maths explorers</h3>
+<ul>
   <li class="thumb-item">
     <a class="thumb-link" href="app/roll-shapes/index.html" tabindex="-1" aria-hidden="true">
       <img class="thumb" src="assets/thumbs/roll-shapes.svg" data-theme-light="assets/thumbs/roll-shapes.svg" data-theme-dark="assets/thumbs/roll-shapes-dark.svg" width="120" height="120" alt="" loading="lazy">
@@ -559,31 +722,6 @@
     <a href="app/fractal/index.html">Fractal Explorer</a>
     – place turned, flipped, scaled and stretched copies inside a square or triangle.
     Link letters into one rule, then read its limit, dimension, convex hull and overlap.
-  </li>
-  <li class="thumb-item">
-    <a class="thumb-link square" target="_blank" rel="noopener" href="https://github.com/davidryan59/dice-to-seed" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/dice-to-seed.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a target="_blank" rel="noopener" href="https://github.com/davidryan59/dice-to-seed">dice-to-seed</a>
-    – turns physical dice rolls into a 24-word BIP-39 seed phrase. One file, Python
-    standard library only, runs offline. It measures the entropy, balance and
-    repetition in your rolls, and asks for more until every check passes.
-  </li>
-  <li>
-    <a class="thumb-link" target="_blank" rel="noopener" href="https://re-tuner.web.app/" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/retuner.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a target="_blank" rel="noopener" href="https://re-tuner.web.app/">ReTuner</a>
-    – a musical instrument with Just Intonation tuning, that retunes itself as you play.
-    Here is the <a target="_blank" rel="noopener" href="https://github.com/davidryan59/retuner">code on GitHub</a>.
-  </li>
-  <li>
-    <a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a>
-    – my public repositories, code for what I'm building
-  </li>
-  <li>
-    <a href="index.html" data-droste>David Ryan's Builder Page</a>
-    – have you checked it out yet?
   </li>
 </ul>
 
@@ -720,68 +858,6 @@
   <a target="_blank" rel="noopener" href="https://plugins.zkga.me/">Dark Forest plugin showcase</a>,
   merged into <a target="_blank" rel="noopener" href="https://github.com/darkforest-eth/plugins">darkforest-eth/plugins</a>
   between 2021 and 2022, along with fixes I made to two other community plugins.</p>
-
-<h3 id="security-audits">Security Audits</h3>
-<p class="section-note">
-  I've been using the latest AI models to audit smart contracts for common DeFi protocols.
-  This is both for my own curiosity, and to help the Ethereum community,
-  since there is great value in having multiple independent audits of high value protocols.
-  I hope you find it useful!
-</p>
-<ul>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/weth9/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/weth9.svg" data-theme-light="assets/thumbs/weth9.svg" data-theme-dark="assets/thumbs/weth9-dark.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/weth9/index.html">WETH</a>
-    – Wrapped ETH is central and critical in Ethereum DeFi.
-    This contract was deployed in Dec 2017 and contains around 2,000,000 ETH.
-    I did this independent audit using Claude Opus 5 in Aug 2026.
-    <br><b>Summary</b>: no exploitable vulnerability,
-    two medium integration hazards, and a checklist for anyone building on top of it.
-  </li>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/uniswap-v2/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/uniswap-v2.svg" data-theme-light="assets/thumbs/uniswap-v2.svg" data-theme-dark="assets/thumbs/uniswap-v2-dark.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/uniswap-v2/index.html">Uniswap V2</a>
-    – the pair, factory and router contracts deployed by Uniswap in 2020.
-    With over 700 forks they control over $2 billion of assets.
-    Governance switched on the protocol fee in Dec 2025, after 5.6 years of dormant code.
-    <br><b>Summary</b>: no exploitable vulnerability, the live fee arithmetic proven overflow-free,
-    and three medium findings, the largest a fee that charges staking yield as trading revenue.
-  </li>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/dai/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/dai.svg" data-theme-light="assets/thumbs/dai.svg" data-theme-dark="assets/thumbs/dai-dark.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/dai/index.html">DAI</a>
-    – the decentralised stablecoin deployed by MakerDAO (now Sky) in Nov 2019, with over $4 billion of DAI minted.
-    The main risk is the wrong person calling mint, so this audit traces it through 16.9 million blocks of chain history.
-    <br><b>Summary</b>: no exploitable vulnerability, the mint authority proven closed to a single address since 2019,
-    and two medium findings in a signed-approval function that predates EIP-2612.
-  </li>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/permit2/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb" src="assets/thumbs/permit2.svg" data-theme-light="assets/thumbs/permit2.svg" data-theme-dark="assets/thumbs/permit2-dark.svg" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/permit2/index.html">Permit2</a>
-    – the contract Uniswap deployed in Nov 2022 so that apps can take token allowances from a signature, with over 700,000 transactions on Ethereum mainnet.
-    Since 2025, EIP-7702 has let ordinary accounts carry code, which Permit2 was not designed for.
-    <br><b>Summary</b>: no exploitable vulnerability, deployed code identical to the verified source,
-    and four medium findings, one caused by EIP-7702, which moved about one in six signers onto the smart contract wallet signature check.
-  </li>
-  <li class="thumb-item">
-    <a class="thumb-link square" href="audits/cryptopunks/index.html" tabindex="-1" aria-hidden="true">
-      <img class="thumb punk-thumb" src="assets/cryptopunks-punk.png" width="120" height="120" alt="" loading="lazy">
-    </a>
-    <a href="audits/cryptopunks/index.html">CryptoPunksMarket</a>
-    – the immutable marketplace contract deployed in June 2017 for the 10,000 CryptoPunks.
-    At the review block it held 3,145 ETH for pending withdrawals and active bids.
-    <br><b>Summary</b>: no exploitable vulnerability, exact solvency to the wei,
-    one medium integration hazard, two low defects.
-  </li>
-</ul>
 
 <h3 id="npm-modules">npm modules</h3>
 <ul>
@@ -956,20 +1032,6 @@
   </li>
 </ul>
 
-<h3 id="salesforce-certifications">Salesforce Certifications</h3>
-<ul>
-  <li>Platform Administrator – March 2018</li>
-  <li>Platform Developer – August 2018</li>
-  <li>Agentforce Service Consultant – August 2018</li>
-  <li>Agentforce Sales Consultant – October 2018</li>
-  <li>Platform App Builder – September 2019</li>
-  <li>Platform Administrator II – September 2019</li>
-</ul>
-<p class="section-note">
-  All verifiable at Salesforce's
-  <a target="_blank" rel="noopener" href="https://trailhead.salesforce.com/credentials/verification">credential verification page</a>.
-</p>
-
 <h2 id="contact">Contact Me</h2>
 <ul>
   <li>Email: <a href="mailto:david@drbuild.uk">david@drbuild.uk</a></li>
@@ -978,30 +1040,12 @@
   <li><a target="_blank" rel="noopener" href="https://github.com/davidryan59">GitHub</a></li>
 </ul>
 
-<script>
-  (function () {
-    var root = document.documentElement;
-    var btn = document.querySelector('.theme-toggle');
-    btn.hidden = false;
-    function syncThumbnails() {
-      document.querySelectorAll('img[data-theme-light][data-theme-dark]').forEach(function (image) {
-        image.src = root.dataset.theme === 'dark' ? image.dataset.themeDark : image.dataset.themeLight;
-      });
-    }
-    function describe() {
-      btn.title = 'Switch to ' + (root.dataset.theme === 'dark' ? 'light' : 'dark') + ' mode';
-      btn.setAttribute('aria-label', btn.title);
-      syncThumbnails();
-    }
-    describe();
-    btn.addEventListener('click', function () {
-      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
-      try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
-      describe();
-    });
-  })();
+</main>
 
-  /* The Building list's third entry is this page, so clicking it opens this
+<script>
+  Theme.wireThemeToggle();
+
+  /* The work list's last entry is this page, so clicking it opens this
      page. Every copy runs this script, which is the whole trick: the copy can
      open a copy, and that one can too.
 

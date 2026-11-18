@@ -10,6 +10,7 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://drbuild.uk/merge-fractals/">
+<link rel="canonical" href="https://drbuild.uk/merge-fractals/">
 <meta property="og:title" content="Mint an Ethereum Merge Fractal">
 <meta property="og:description" content="A generative onchain artwork marking Ethereum's Merge, with proceeds going to core protocol developers.">
 <meta property="og:image" content="https://drbuild.uk/social/merge-fractals.jpg">
@@ -20,8 +21,9 @@
 <meta name="twitter:image:alt" content="Three Ethereum Merge Fractal artworks">
 <meta name="twitter:creator" content="@davidryan59">
 <link rel="stylesheet" href="../assets/mint.css">
+<script src="../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
 <script src="../assets/mint.js"></script>
-<script>Mint.initTheme();</script>
 </head>
 <body>
 
@@ -396,7 +398,7 @@
 
   $('show-more').addEventListener('click', showMore);
 
-  Mint.wireThemeToggle();
+  Theme.wireThemeToggle();
   loadStats();
 })();
 </script>

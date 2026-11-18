@@ -117,7 +117,7 @@ Drag either view to turn the solid that is in play: the hole's solid before **Cu
 
 ## Thumbnail and share card
 
-The builder page lists the explorer first under Apps & Websites. Its thumbnail is a canvas, `assets/nonrup-thumb.js`, that turns P11/20. [`tools/thumbnails/nonrup.js`](../tools/thumbnails/nonrup.js) writes that script with the solid's vertices and faces baked in, so the builder page never computes a hull. Rerun it if P11/20's vertices change. The thumbnail stops when it is off screen, and holds still for a visitor who prefers reduced motion.
+The builder page lists the explorer under Maths explorers. Its thumbnail is a canvas, `assets/nonrup-thumb.js`, that turns P11/20. [`tools/thumbnails/nonrup.js`](../tools/thumbnails/nonrup.js) writes that script with the solid's vertices and faces baked in, so the builder page never computes a hull. Rerun it if P11/20's vertices change. The thumbnail stops when it is off screen, and holds still for a visitor who prefers reduced motion.
 
 The share card, `social/nonrup.jpg`, comes from the real app. [`tools/non-rupert/card.js`](../tools/non-rupert/card.js) cuts P11/20's hole, pushes the copy until it jams, and captures the 3D view beside the title:
 

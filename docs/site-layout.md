@@ -15,7 +15,9 @@ index.html                       the builder page
 app/<name>/                      one folder for each app a visitor can run
     fractal/  e8/  leech/  noble/  nonrup/  tiles/  tiling-puzzle/  aperiodic-pairs/  smash/  sieve/  pentrys/  roll-shapes/  parfly/
 assets/                          files the pages share
-    site.css  theme.js           the document pages: audits, guides, gallery, Smash Screen, sieve, Pentrys, 404
+    site.css                     the document pages: audits, guides, gallery, Smash Screen, sieve, Pentrys, 404
+    theme.js                     the light and dark switch every page with a toggle shares
+    count.js                     GoatCounter's script, served from this site
     mint.css  mint.js            the two mint pages
     david-headshot.jpg  thumbs/  the builder page's pictures
 audits/  papers/                 published reports and papers
@@ -37,6 +39,11 @@ favicon.svg  favicon-32.png  apple-touch-icon.png   browsers look for these at t
   folder.
 - **A page reaches shared files by relative path.** From
   `app/tiles/hat/index.html` the theme script is `../../../assets/theme.js`.
+  The 404 page is the exception: it is served at any depth, so it uses paths
+  from the root, such as `/assets/count.js`.
+- **No page loads a script from another site.** GoatCounter's script is a
+  copy at `assets/count.js`, fetched on 2026-11-18. The two mint pages load
+  no analytics at all, because they ask a wallet to sign.
 - **A short or old address is one file in `redirects/`.** The app keeps one
   real address.
 - **An app's privacy policy is `app/<name>/privacy.html`,** served at
@@ -111,7 +118,10 @@ permalink page, because it sits in the folder it serves.
 ## Adding an app
 
 1. Make `app/<name>/index.html`. Reach `favicon.svg` and `assets/` by relative
-   path, and set `og:url` and `og:image` to the real address and a card.
+   path, and set `og:url` and `og:image` to the real address and a card. Add
+   `<link rel="canonical">` with the same address as `og:url`; GoatCounter
+   counts the visit under that path. Use `assets/theme.js` for the light and
+   dark switch, and `assets/count.js` for GoatCounter.
    Follow [screen-fit.md](screen-fit.md), and run `tools/screen-fit/check.js`
    until every size passes.
 2. Draw the card into `social/` and add the address to `docs/inventory.md`

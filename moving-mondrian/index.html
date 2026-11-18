@@ -10,6 +10,7 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://drbuild.uk/moving-mondrian/">
+<link rel="canonical" href="https://drbuild.uk/moving-mondrian/">
 <meta property="og:title" content="Mint a Moving Mondrian">
 <meta property="og:description" content="A fully onchain generative artwork on Optimism. Mint straight from the contract.">
 <meta property="og:image" content="https://drbuild.uk/social/moving-mondrian.jpg">
@@ -20,8 +21,9 @@
 <meta name="twitter:image:alt" content="Three Moving Mondrian artworks">
 <meta name="twitter:creator" content="@davidryan59">
 <link rel="stylesheet" href="../assets/mint.css">
+<script src="../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
 <script src="../assets/mint.js"></script>
-<script>Mint.initTheme();</script>
 </head>
 <body>
 
@@ -465,7 +467,7 @@
     }
   }
 
-  Mint.wireThemeToggle();
+  Theme.wireThemeToggle();
   loadStats();
   var wanted = requestedToken();
   if (wanted !== null) showToken(wanted);

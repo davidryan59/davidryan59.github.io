@@ -97,19 +97,22 @@ li:last-child { margin-bottom: 0; }
 .muted { color: var(--muted); }
 .nowrap { white-space: nowrap; }
 
-/* Theme toggle. Same absolute placement as index.html, so the button lands in
-   the top padding without shifting the h1. Hidden until the script runs. */
+/* Theme toggle. Fixed, so it stays on screen while a reader scrolls, and
+   level with the right edge of the 760 px column, as on index.html. It starts
+   in the top padding without shifting the h1, and its background hides the
+   text that scrolls under it. Hidden until the script runs. */
 .theme-toggle {
-  position: absolute;
+  position: fixed;
   top: 1.25rem;
-  right: 1.25rem;
+  right: max(1.25rem, calc((100% - 760px) / 2 + 1.25rem));
+  z-index: 5;
   width: 2rem;
   height: 2rem;
   display: grid;
   place-items: center;
   padding: 0;
   color: var(--h3);
-  background: none;
+  background: var(--bg);
   border: 1px solid var(--ring);
   border-radius: 50%;
   cursor: pointer;

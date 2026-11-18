@@ -2,6 +2,9 @@
    Undecanope. The script bakes in the solid's vertices and faces from
    app/nonrup/models.js, so the page never computes a convex hull.
 
+   Arguments: model key, default canvas ID, output file. A page with another
+   canvas ID names it in the script tag, as <script data-canvas="..." src="...">.
+
    Run from anywhere: node tools/thumbnails/nonrup.js */
 const fs = require('fs'), path = require('path');
 const { buildModel } = require('../../app/nonrup/models.js');
@@ -17,7 +20,10 @@ const script = `/* ${model.kind}, turning, for the builder page's thumbnail.
 (function () {
   'use strict';
 
-  var canvas = document.getElementById('${canvasId}');
+  // A page names its canvas in the script tag's data-canvas attribute, so one
+  // file serves the builder page and a paper page.
+  var script = document.currentScript;
+  var canvas = document.getElementById((script && script.dataset.canvas) || '${canvasId}');
   if (!canvas || !canvas.getContext) return;
 
   var context = canvas.getContext('2d');

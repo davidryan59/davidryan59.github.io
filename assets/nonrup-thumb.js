@@ -3,7 +3,10 @@
 (function () {
   'use strict';
 
-  var canvas = document.getElementById('nonrup-thumb');
+  // A page names its canvas in the script tag's data-canvas attribute, so one
+  // file serves the builder page and a paper page.
+  var script = document.currentScript;
+  var canvas = document.getElementById((script && script.dataset.canvas) || 'nonrup-thumb');
   if (!canvas || !canvas.getContext) return;
 
   var context = canvas.getContext('2d');

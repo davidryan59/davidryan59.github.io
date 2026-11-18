@@ -1,7 +1,8 @@
-/* Shared plumbing for the two mint pages: theme, RPC, ABI coding, wallet
-   discovery and the token gallery. Each page supplies its own contract
-   knowledge on top, because the two contracts differ enough that hiding the
-   difference behind one abstraction would obscure both.
+/* Shared plumbing for the two mint pages: RPC, ABI coding, wallet discovery
+   and the token gallery. The theme comes from assets/theme.js. Each page
+   supplies its own contract knowledge on top, because the two contracts
+   differ enough that hiding the difference behind one abstraction would
+   obscure both.
 
    No build step and no dependencies. Function selectors are hard-coded rather
    than derived, which keeps a keccak implementation out of the browser. Each
@@ -11,36 +12,6 @@
   'use strict';
 
   var Mint = {};
-
-  /* Theme ------------------------------------------------------------- */
-  /* Called from an inline script in <head>, before first paint, so the page
-     never flashes the wrong theme. */
-  Mint.initTheme = function () {
-    try {
-      var t = localStorage.getItem('theme');
-      if (t !== 'light' && t !== 'dark') {
-        t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      }
-      document.documentElement.dataset.theme = t;
-    } catch (e) {}
-  };
-
-  Mint.wireThemeToggle = function () {
-    var root = document.documentElement;
-    var btn = document.querySelector('.theme-toggle');
-    if (!btn) return;
-    btn.hidden = false;
-    function describe() {
-      btn.title = 'Switch to ' + (root.dataset.theme === 'dark' ? 'light' : 'dark') + ' mode';
-      btn.setAttribute('aria-label', btn.title);
-    }
-    describe();
-    btn.addEventListener('click', function () {
-      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
-      try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
-      describe();
-    });
-  };
 
   /* RPC ---------------------------------------------------------------- */
   /* Free endpoints go down, rate-limit and occasionally return nonsense, so
