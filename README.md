@@ -72,7 +72,11 @@ address, `davidryan59.github.io`, redirects there.
   source elsewhere and copied here.
 - `social/` – the 1200 × 630 share cards that each page's `og:image` names.
   `node tools/social-cards/render.js` redraws them from the live pages; its
-  header says what it needs.
+  header says what it needs. The builder page's mosaic follows
+  `tools/social-cards/builder-layout.json`. To change it, run
+  `node tools/social-cards/montage-candidates.js`, open
+  `tools/social-cards/montage-designer.html`, lay out the tiles, and paste
+  the copied layout into that file.
 - `redirects/` – one page for each short or old address, sending the visitor
   to the app's current address: `drbuild.uk/tiles`, and the first addresses of
   the apps.

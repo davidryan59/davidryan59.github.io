@@ -1,0 +1,44 @@
+/* The builder card's mosaic: its tiles and its name block. Shared by
+   cards.html, which renders the card, and montage-designer.html, which lays
+   it out, so the two always draw the same card. */
+.montage { position: relative; width: 1200px; height: 630px; overflow: hidden; }
+.montage .tile { position: absolute; overflow: hidden; }
+.montage .tile img.pic { position: absolute; display: block; max-width: none; user-select: none; }
+
+/* The name block. Sizes follow the block, through container units. */
+.montage .name { container-type: size; display: flex; flex-direction: column; justify-content: center; text-align: center; padding: 0 4%; box-sizing: border-box; }
+.montage .name .t { font-size: min(13cqw, 30cqh); line-height: 1.05; margin: 0; white-space: nowrap; font-weight: normal; }
+.montage .name .k { font-size: min(3.2cqw, 8cqh); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 3cqh; }
+.montage .name .g { font-size: min(5.4cqw, 12.5cqh); margin-top: 3cqh; line-height: 1.25; }
+.montage .name .s { font-size: min(4.6cqw, 11cqh); margin-top: 4cqh; letter-spacing: .02em; }
+.montage .name.serif { font-family: Georgia, "Times New Roman", serif; }
+.montage .name.sans { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.montage .name.sans .t { font-weight: 600; letter-spacing: -.01em; }
+.montage .name .backdrop { position: absolute; inset: -20px; width: calc(100% + 40px); height: calc(100% + 40px); object-fit: cover; filter: blur(10px) brightness(.45) saturate(1.2); }
+.montage .name .body { position: relative; display: flex; flex-direction: column; }
+
+.montage .st-cream { background: #fdfbf6; color: #1a1a1a; }
+.montage .st-cream .g { color: #55524a; }
+.montage .st-cream .s, .montage .st-cream .k { color: #1552a1; }
+.montage .st-ink { background: #121118; color: #f5f3ec; }
+.montage .st-ink .g { color: #bdb8ab; }
+.montage .st-ink .s { color: #7fc8ff; }
+.montage .st-ink .k { color: #d8b25a; }
+.montage .st-ink .t::after { content: ""; display: block; width: 18cqw; height: max(2px, .8cqh); background: #d8b25a; margin: 4cqh auto 0; }
+.montage .st-dusk { background: linear-gradient(135deg, #1d2b64 0%, #5b2a86 60%, #a23b72 100%); color: #fff; }
+.montage .st-dusk .g { color: #e6dcf5; }
+.montage .st-dusk .k { color: #ffd48a; }
+.montage .st-dusk .s { display: inline-block; align-self: center; background: #fff; color: #3a2470; padding: .35em 1em; border-radius: 99px; }
+.montage .st-glass { background: #101018; color: #fff; }
+.montage .st-glass .g { color: #e7e4ee; }
+.montage .st-glass .s { color: #9fd3ff; }
+.montage .st-glass .k { color: #ffd48a; }
+.montage .st-photo { background: #fdfbf6; color: #1a1a1a; flex-direction: row; align-items: center; text-align: left; }
+.montage .st-photo .face { flex: none; height: 62cqh; aspect-ratio: 1; margin-right: 5cqw; border-radius: 50%; object-fit: cover; object-position: 50% 30%; box-shadow: 0 0 0 1.2cqh #e9e2d2; }
+.montage .st-photo .t { font-size: min(8.5cqw, 26cqh); }
+.montage .st-photo .g { color: #55524a; font-size: min(3.7cqw, 10cqh); }
+.montage .st-photo .s, .montage .st-photo .k { color: #1552a1; }
+.montage .st-bar { background: #fff; color: #15141a; text-align: left; padding-left: 8%; border-left: 14px solid #1552a1; }
+.montage .st-bar .g { color: #4c4a55; }
+.montage .st-bar .s { color: #1552a1; }
+.montage .st-bar .k { color: #1f8a5b; }

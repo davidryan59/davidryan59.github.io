@@ -64,17 +64,7 @@
   .guide p { font-size: 23px; margin-top: 8px; }
   .guide .site { margin-top: 12px; }
 
-  /* Builder page: a mosaic of the work, with the name in the middle. */
-  .mosaic { background: #1b1a20; }
-  .grid { position: absolute; inset: 0; display: grid; gap: 6px; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); }
-  .tile { position: relative; overflow: hidden; background: #17161c; }
-  .tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .tile.art img { object-fit: contain; box-sizing: border-box; padding: 14px; }
-  .tile.cream { background: #f6f3ec; display: grid; place-items: center; }
-  .name { grid-column: 2 / 4; background: #fdfbf6; display: flex; flex-direction: column; justify-content: center; text-align: center; }
-  .name h1 { font-size: 54px; }
-  .name p { font-size: 24px; margin-top: 8px; }
-  .name .site { font-size: 21px; margin-top: 10px; }
+  /* Builder page: the mosaic in montage.css, laid out by builder-layout.json. */
 
   /* Parfly: the app's road and pin, drawn across a green ground. */
   .parfly { background: linear-gradient(180deg, #f3f8ef 0%, #cfe6c2 55%, #93c77f 100%); }
@@ -88,6 +78,8 @@
   .fractal { background: #11151b; }
   .fractal .panel { width: 570px; background: rgba(253, 251, 246, .96); }
 </style>
+<link rel="stylesheet" href="montage.css">
+<script src="montage.js"></script>
 </head>
 <body>
 <div id="out"></div>
@@ -250,16 +242,26 @@
       '<div class="panel">' + words('Fractal Explorer', 'Place turned, flipped and stretched copies. Read the limit.', 'drbuild.uk/fractal') + '</div></div>';
   }
 
+  // The builder page's mosaic, drawn by montage.js from builder-layout.json,
+  // which the montage designer writes. Stage 1 captures its pictures into
+  // /__cards/montage/, with a manifest naming each picture's file.
   function builder() {
-    function img(src, pos) { return '<div class="tile"><img src="' + src + '" style="object-position: ' + (pos || '50% 50%') + '" alt=""></div>'; }
-    function artTile(f) { return '<div class="tile art"><img src="' + f + '" alt=""></div>'; }
-    var curve = '<div class="tile cream">' + diagrams['uniswap-v2']().replace('width="520" height="220"', 'width="286" height="121"') + '</div>';
-    return '<div class="card mosaic"><div class="grid">' +
-      img(SRC + 'tile-nonrup.png') + img(SRC + 'hat.png', '40% 45%') + artTile('/moving-mondrian/moving-mondrian-951.svg') + img(SRC + 'dino-dash.png') +
-      img(SRC + 'retuner.png') + '<div class="name">' + words('David Ryan', 'Everything I’ve built, in one place') + '</div>' + curve +
-      img(SRC + 'tile-e8.png') + artTile(SRC + 'merge-fractal-2757.png') + img(SRC + 'tile-noble.png') + img('/social/smash.jpg', '62% 50%') +
-      '</div></div>';
+    var dir = SRC + 'montage/';
+    return Promise.all([
+      fetch('builder-layout.json').then(function (r) { return r.json(); }),
+      fetch(dir + 'manifest.js').then(function (r) { return r.text(); })
+    ]).then(function (got) {
+      var L = got[0], files = {};
+      JSON.parse(got[1].replace(/^[^[]*/, '').replace(/;\s*$/, '')).forEach(function (m) { files[m.id] = dir + m.file; });
+      L.tiles = L.tiles.map(Montage.norm);
+      var src = function (k) { return files[k] || null; };
+      return Montage.sizes(Object.keys(files).map(function (k) { return { id: k, url: files[k] }; })).then(function (nat) {
+        return '<div class="card montage" style="background:' + L.bg + '">' +
+          Montage.html(L, { src: src, nat: function (k) { return nat[k]; } }) + '</div>';
+      });
+    });
   }
+
 
   var CARDS = {
     builder: builder,

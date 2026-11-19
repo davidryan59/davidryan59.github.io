@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Montage Designer</title>
+<!-- Lays out the builder card's mosaic by hand. Run montage-candidates.js
+     first, then open this file in a browser. Copy the layout and hand it over
+     to be built into cards.html. -->
+<link rel="stylesheet" href="montage.css">
+<style>
+  :root {
+    --bg: #f4f2ec; --panel: #ffffff; --ink: #1d1c22; --muted: #6b6878; --line: #dcd8ce;
+    --accent: #1552a1; --sel: #ff9f1c; --client: #1f8a5b; --fun: #8a4fd8; --warn: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141318; --panel: #1e1d24; --ink: #ebe9f2; --muted: #9a97a8; --line: #33313c;
+      --accent: #7fb4ff; --sel: #ffb347; --client: #45c08a; --fun: #b58cff; --warn: #ff6b5b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141318; --panel: #1e1d24; --ink: #ebe9f2; --muted: #9a97a8; --line: #33313c;
+    --accent: #7fb4ff; --sel: #ffb347; --client: #45c08a; --fun: #b58cff; --warn: #ff6b5b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+         display: grid; grid-template-columns: minmax(0, 1fr) var(--side, 340px); grid-template-rows: auto 1fr; height: 100vh; overflow: hidden; }
+  header { grid-column: 1 / 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 14px;
+           border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  header label { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+  header input[type=number] { width: 48px; }
+  button, select, input, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--panel); border-color: var(--accent); }
+  .help { color: var(--muted); font-size: 12px; }
+  main { position: relative; overflow: auto; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .frame { position: relative; flex: none; }
+  .card { position: absolute; left: 0; top: 0; width: 1200px; height: 630px; transform-origin: 0 0; overflow: hidden;
+          box-shadow: 0 6px 30px rgba(0,0,0,.25); }
+  .mini-wrap { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  .mini-wrap figure { margin: 0; text-align: center; color: var(--muted); font-size: 12px; }
+  .cell-guide { position: absolute; outline: 1px dashed rgba(255,255,255,.18); pointer-events: none; }
+  .tile { position: absolute; overflow: hidden; background: #17161c; touch-action: none; }
+  .tile img.pic { pointer-events: none; }
+  /* Frames sit on top of the picture: some browsers paint a scaled picture over its tile's own outline. */
+  .tile.selected { z-index: 5; }
+  .frame-sel, .frame-clash { position: absolute; inset: 0; pointer-events: none; z-index: 7; }
+  .frame-sel { border: 3px solid var(--sel); }
+  .frame-clash { border: 4px dashed var(--warn); }
+  .tile.selected .frame-clash { inset: 3px; }
+  .handle { position: absolute; right: 0; bottom: 0; width: 22px; height: 22px; cursor: nwse-resize; z-index: 6;
+            background: linear-gradient(135deg, transparent 50%, var(--sel) 50%); display: none; }
+  .tile.selected .handle { display: block; }
+  .edit .tile { cursor: grab; }
+  .crop .tile.selected { cursor: move; }
+  .drop-hint { position: absolute; background: rgba(255,159,28,.35); outline: 2px solid var(--sel); pointer-events: none; z-index: 8; }
+
+  aside { position: relative; border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
+  /* Drag the panel's left edge to widen it; double-click resets it. */
+  .splitter { position: absolute; left: -5px; top: 0; bottom: 0; width: 10px; cursor: col-resize; z-index: 20; touch-action: none; }
+  .splitter::after { content: ""; position: absolute; left: 3px; top: 50%; width: 4px; height: 48px; margin-top: -24px; border-radius: 2px; background: var(--line); }
+  .splitter:hover::after, .splitter.on::after { background: var(--accent); }
+  aside section { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  aside h2 { font-size: 13px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .row { display: flex; gap: 6px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
+  .row label { color: var(--muted); min-width: 56px; }
+  .row input[type=text] { flex: 1; min-width: 0; }
+  .row input[type=range] { flex: 1; }
+  .tabs button.on { background: var(--accent); color: var(--panel); border-color: var(--accent); }
+  .palette { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-rows: max-content; gap: 8px; align-content: start; }
+  .pal { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; cursor: grab; background: #17161c; touch-action: none; }
+  .pal img { width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: contain; display: block; pointer-events: none; }
+  .pal span { display: block; font-size: 11px; padding: 3px 5px; background: var(--panel); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 3px solid var(--fun); }
+  .pal.client span { border-top-color: var(--client); }
+  .pal.used::after { content: "used"; position: absolute; top: 4px; right: 4px; background: var(--sel); color: #000; font-size: 10px; padding: 1px 5px; border-radius: 4px; }
+  .ghost { position: fixed; width: 120px; pointer-events: none; opacity: .85; z-index: 50; border: 2px solid var(--sel); border-radius: 4px; }
+  #out { width: 100%; height: 90px; font: 11px/1.3 ui-monospace, Menlo, monospace; }
+  .status { color: var(--muted); font-size: 12px; }
+  .status.bad { color: var(--warn); }
+  @media (max-width: 900px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto auto auto; height: auto; overflow: auto; }
+    header { grid-column: 1; }
+    aside { border-left: 0; }
+    .splitter { display: none; }
+    .palette { max-height: 60vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Montage Designer</h1>
+  <label>Columns <input id="cols" type="number" min="2" max="12"></label>
+  <label>Rows <input id="rows" type="number" min="2" max="8"></label>
+  <label>Gap <input id="gap" type="number" min="0" max="24"></label>
+  <label>Background <input id="bg" type="color"></label>
+  <label><input id="grid" type="checkbox" checked> Grid lines</label>
+  <span class="tabs"><button id="mode-edit" class="on">Move</button><button id="mode-crop">Crop</button></span>
+  <button id="reset">Start layout</button>
+  <button id="clear">Clear all</button>
+  <span class="help">Drag a picture onto the card. Drop on a tile to swap. Corner handle resizes. Crop mode, or Shift-drag, pans; the wheel zooms. Arrows move, Shift+arrows resize, Delete removes.</span>
+</header>
+<main>
+  <div class="frame" id="frame"><div class="card montage edit" id="card"></div></div>
+  <div class="mini-wrap">
+    <figure><div class="frame" id="mini1"></div><figcaption>As WhatsApp shows it (about 400 px)</figcaption></figure>
+    <figure><div class="frame" id="mini2"></div><figcaption>As an X timeline shows it (about 500 px)</figcaption></figure>
+  </div>
+</main>
+<aside>
+  <div class="splitter" id="splitter" title="Drag to resize. Double-click to reset."></div>
+  <section id="inspector">
+    <h2>Selected tile</h2>
+    <div id="insp-empty" class="help">Click a tile to edit it.</div>
+    <div id="insp-pic" hidden>
+      <div class="row"><strong id="insp-label"></strong></div>
+      <div class="row"><label>Fit</label><select id="fit"><option value="cover">Fill (crop)</option><option value="contain">Whole picture</option></select></div>
+      <div class="row"><label>Zoom</label><input id="zoom" type="range" min="1" max="4" step="0.05"></div>
+      <div class="row"><label>Pad</label><input id="pad" type="range" min="0" max="40" step="1"></div>
+      <div class="row"><label>Fill colour</label><input id="tbg" type="color"></div>
+      <div class="row"><button id="recentre">Recentre</button><button id="cardfill">Card colour</button><button id="remove">Remove</button></div>
+    </div>
+    <div id="insp-name" hidden>
+      <div class="row"><label>Style</label><select id="nstyle">
+        <option value="cream">Cream (current)</option><option value="ink">Ink and gold</option><option value="dusk">Dusk gradient</option>
+        <option value="glass">Glass over a picture</option><option value="photo">With headshot</option><option value="bar">White with colour bar</option></select></div>
+      <div class="row"><label>Font</label><select id="nfont"><option value="serif">Georgia</option><option value="sans">Helvetica</option></select></div>
+      <div class="row"><label>Kicker</label><input id="nkicker" type="text" placeholder="optional line above the name"></div>
+      <div class="row"><label>Name</label><input id="ntitle" type="text"></div>
+      <div class="row"><label>Tagline</label><input id="ntag" type="text"></div>
+      <div class="row"><label>Site</label><input id="nsite" type="text"></div>
+      <div class="help">For Glass, drop a picture on the name block to set what shows through.</div>
+    </div>
+  </section>
+  <section>
+    <h2>Layout to send</h2>
+    <textarea id="out" spellcheck="false"></textarea>
+    <div class="row"><button class="primary" id="copy">Copy layout</button><button id="load">Load from box</button><span id="status" class="status"></span></div>
+  </section>
+  <section class="tabs" style="padding-bottom:4px">
+    <h2>Pictures (<span id="count"></span>)</h2>
+    <button data-f="all" class="on">All</button><button data-f="client">Client work</button><button data-f="fun">Maths, art, games</button>
+  </section>
+  <div class="palette" id="palette"></div>
+</aside>
+<script src="renders/montage/manifest.js"></script>
+<script src="montage.js"></script>
+<script>
+(function () {
+  var DIR = 'renders/montage/';
+  var PICS = {};
+  (window.MONTAGE || []).forEach(function (m) { PICS[m.id] = m; });
+  var W = 1200, H = 630, KEY = 'montage-designer-v1';
+
+  // The start layout: client work large at the top corners, name in the
+  // middle, maths and art around it.
+  var START = {
+    cols: 6, rows: 4, gap: 6, bg: '#1b1a20',
+    name: { style: 'ink', font: 'serif', kicker: '', title: 'David Ryan', tag: 'Everything I’ve built, in one place', site: 'drbuild.uk', backdrop: 'hat' },
+    tiles: [
+      { id: 'cw-books', c: 0, r: 0, w: 2, h: 2, px: 0, py: 40 },
+      { id: 'nw-report', c: 4, r: 0, w: 2, h: 2, px: 0, py: 0 },
+      { id: 'hat', c: 2, r: 0, w: 1, h: 1 },
+      { id: 'nonrup', c: 3, r: 0, w: 1, h: 1 },
+      { id: '__name', c: 2, r: 1, w: 2, h: 2 },
+      { id: 'cw-home', c: 0, r: 2, w: 1, h: 1, px: 70, py: 30 },
+      { id: 'mondrian', c: 1, r: 2, w: 1, h: 1, fit: 'contain', pad: 10 },
+      { id: 'krinkle', c: 4, r: 2, w: 1, h: 1 },
+      { id: 'nw-phone', c: 5, r: 2, w: 1, h: 1, py: 0 },
+      { id: 'e8', c: 0, r: 3, w: 1, h: 1 },
+      { id: 'mf1904-12s', c: 1, r: 3, w: 1, h: 1, fit: 'contain', pad: 8 },
+      { id: 'retuner', c: 2, r: 3, w: 1, h: 1, py: 30 },
+      { id: 'dino-dash', c: 3, r: 3, w: 1, h: 1 },
+      { id: 'noble', c: 4, r: 3, w: 1, h: 1 },
+      { id: 'uniswap-curve', c: 5, r: 3, w: 1, h: 1, fit: 'contain', bg: '#f6f3ec', pad: 6 }
+    ]
+  };
+
+  var S, sel = null, mode = 'edit', filter = 'all', uid = 1;
+  function norm(t) { var n = Montage.norm(t); n.uid = uid++; return n; }
+  function load(obj) {
+    S = JSON.parse(JSON.stringify(obj));
+    S.name = Object.assign({}, START.name, S.name || {});
+    // A layout from before version 2 placed pictures as CSS object-position
+    // does; render() converts each tile once its picture's size is known.
+    var old = !S.v;
+    S.tiles = (S.tiles || []).map(function (t) { var n = norm(t); n.legacy = old; return n; });
+    S.v = 2;
+    sel = null;
+  }
+  try { var saved = localStorage.getItem(KEY); load(saved ? JSON.parse(saved) : START); } catch (e) { load(START); }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var card = $('card'), frame = $('frame');
+
+  // Geometry and drawing live in montage.js, shared with cards.html.
+  var NAT = {};
+  function geom() { return Montage.geom(S); }
+  function rect(t, g) { return Montage.rect(S, t, g); }
+  function place(t, b) { return Montage.place(t, b, NAT[t.id]); }
+  function src(id) { return PICS[id] ? DIR + PICS[id].file : null; }
+  function esc(s) { return Montage.esc(s); }
+  function migrate() {
+    S.tiles.forEach(function (t) {
+      if (!t.legacy) return;
+      if (t.id === '__name' || !PICS[t.id]) { t.legacy = false; return; }
+      if (!NAT[t.id]) return;
+      var q = place(Object.assign({}, t, { px: 50, py: 50 }), rect(t, geom()));
+      t.px = ((q.tw - q.W) * t.px / 100 + q.W / 2) / q.tw * 100;
+      t.py = ((q.th - q.H) * t.py / 100 + q.H / 2) / q.th * 100;
+      t.legacy = false;
+    });
+  }
+  // Which cells hold more than one tile, or fall off the card.
+  function clashes() {
+    var seen = {}, bad = {};
+    S.tiles.forEach(function (t) {
+      for (var c = t.c; c < t.c + t.w; c++) for (var r = t.r; r < t.r + t.h; r++) {
+        var k = c + ',' + r;
+        if (c >= S.cols || r >= S.rows) bad[t.uid] = 1;
+        if (seen[k]) { bad[t.uid] = 1; bad[seen[k]] = 1; } else seen[k] = t.uid;
+      }
+    });
+    var empty = S.cols * S.rows - Object.keys(seen).filter(function (k) { var p = k.split(','); return +p[0] < S.cols && +p[1] < S.rows; }).length;
+    return { bad: bad, empty: empty };
+  }
+
+  function draw(target, interactive) {
+    var g = geom(), cl = clashes(), before = '';
+    if (interactive && $('grid').checked) {
+      for (var c = 0; c < S.cols; c++) for (var r = 0; r < S.rows; r++)
+        before += '<div class="cell-guide" style="left:' + c * g.sx + 'px;top:' + r * g.sy + 'px;width:' + g.cw + 'px;height:' + g.ch + 'px"></div>';
+    }
+    target.innerHTML = Montage.html(S, {
+      src: src, nat: function (id) { return NAT[id]; }, before: before,
+      extra: function (t) {
+        var x = { attrs: ' data-uid="' + t.uid + '"', cls: '', inner: '' };
+        if (!interactive) return x;
+        if (sel === t.uid) x.cls += ' selected';
+        if (cl.bad[t.uid]) x.inner += '<div class="frame-clash"></div>';
+        if (sel === t.uid) x.inner += '<div class="frame-sel"></div>';
+        x.inner += '<div class="handle"></div>';
+        return x;
+      }
+    });
+    target.style.background = S.bg;
+  }
+
+  function fitFrame() {
+    var avail = Math.min(frame.parentNode.clientWidth - 32, 1200);
+    var k = Math.max(0.3, avail / W);
+    card.style.transform = 'scale(' + k + ')';
+    frame.style.width = W * k + 'px'; frame.style.height = H * k + 'px';
+    return k;
+  }
+  var scale = 1;
+  var minis = [[$('mini1'), 400], [$('mini2'), 500]].map(function (m) {
+    var c = document.createElement('div'); c.className = 'card montage'; m[0].appendChild(c);
+    var k = m[1] / W; c.style.transform = 'scale(' + k + ')'; m[0].style.width = m[1] + 'px'; m[0].style.height = H * k + 'px';
+    return c;
+  });
+
+  function out() {
+    return {
+      v: 2, cols: S.cols, rows: S.rows, gap: S.gap, bg: S.bg, name: S.name,
+      tiles: S.tiles.map(function (t) {
+        var o = { id: t.id, c: t.c, r: t.r, w: t.w, h: t.h };
+        if (t.id !== '__name') {
+          if (t.px !== 50) o.px = Math.round(t.px); if (t.py !== 50) o.py = Math.round(t.py);
+          if (t.z !== 1) o.z = +t.z.toFixed(2); if (t.fit !== 'cover') o.fit = t.fit;
+          if (t.pad) o.pad = t.pad; if (t.bg) o.bg = t.bg;
+        }
+        return o;
+      })
+    };
+  }
+
+  function render() {
+    migrate();
+    scale = fitFrame();
+    draw(card, true);
+    minis.forEach(function (m) { draw(m, false); });
+    var o = out(), txt = JSON.stringify(o);
+    $('out').value = txt;
+    try { localStorage.setItem(KEY, txt); } catch (e) {}
+    var cl = clashes(), n = Object.keys(cl.bad).length, st = $('status');
+    st.textContent = S.tiles.length + ' tiles, ' + cl.empty + ' empty cells' + (n ? ', ' + n + ' overlapping' : '');
+    st.className = 'status' + (n || cl.empty ? ' bad' : '');
+    Array.prototype.forEach.call(document.querySelectorAll('.pal'), function (el) {
+      el.classList.toggle('used', S.tiles.some(function (t) { return t.id === el.dataset.id; }));
+    });
+    inspector();
+  }
+
+  function selected() { return S.tiles.filter(function (t) { return t.uid === sel; })[0]; }
+
+  function inspector() {
+    var t = selected();
+    $('insp-empty').hidden = !!t;
+    $('insp-pic').hidden = !t || t.id === '__name';
+    $('insp-name').hidden = !t || t.id !== '__name';
+    if (!t) return;
+    if (t.id === '__name') {
+      var n = S.name;
+      $('nstyle').value = n.style; $('nfont').value = n.font;
+      [['nkicker', 'kicker'], ['ntitle', 'title'], ['ntag', 'tag'], ['nsite', 'site']].forEach(function (p) {
+        if (document.activeElement !== $(p[0])) $(p[0]).value = n[p[1]];
+      });
+    } else {
+      $('insp-label').textContent = (PICS[t.id] || {}).label || t.id;
+      $('fit').value = t.fit; $('zoom').value = t.z; $('pad').value = t.pad; $('tbg').value = t.bg || S.bg;
+    }
+  }
+
+  // Header controls.
+  function header() { $('cols').value = S.cols; $('rows').value = S.rows; $('gap').value = S.gap; $('bg').value = S.bg; }
+  header();
+  ['cols', 'rows', 'gap'].forEach(function (k) { $(k).addEventListener('input', function () { var v = parseInt(this.value, 10); if (!isNaN(v)) { S[k] = v; render(); } }); });
+  $('bg').addEventListener('input', function () { S.bg = this.value; render(); });
+  $('grid').addEventListener('change', render);
+  function setMode(m) { mode = m; $('mode-edit').classList.toggle('on', m === 'edit'); $('mode-crop').classList.toggle('on', m === 'crop'); card.className = 'card montage ' + m; }
+  $('mode-edit').onclick = function () { setMode('edit'); };
+  $('mode-crop').onclick = function () { setMode('crop'); };
+  $('reset').onclick = function () { if (confirm('Replace this layout with the start layout?')) { load(START); header(); render(); } };
+  $('clear').onclick = function () { if (confirm('Remove every tile except the name block?')) { S.tiles = S.tiles.filter(function (t) { return t.id === '__name'; }); sel = null; render(); } };
+
+  // Inspector controls.
+  function onT(id, f) { $(id).addEventListener('input', function () { var t = selected(); if (t) { f(t, this.value); render(); } }); }
+  onT('fit', function (t, v) { t.fit = v; });
+  onT('zoom', function (t, v) { t.z = +v; });
+  onT('pad', function (t, v) { t.pad = +v; });
+  onT('tbg', function (t, v) { t.bg = v; });
+  $('recentre').onclick = function () { var t = selected(); if (t) { t.px = 50; t.py = 50; t.z = 1; render(); } };
+  $('cardfill').onclick = function () { var t = selected(); if (t) { t.bg = ''; render(); } };
+  $('remove').onclick = function () { S.tiles = S.tiles.filter(function (t) { return t.uid !== sel; }); sel = null; render(); };
+  [['nstyle', 'style'], ['nfont', 'font'], ['nkicker', 'kicker'], ['ntitle', 'title'], ['ntag', 'tag'], ['nsite', 'site']].forEach(function (p) {
+    $(p[0]).addEventListener('input', function () { S.name[p[1]] = this.value; render(); });
+  });
+  $('copy').onclick = function () {
+    var txt = $('out').value;
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function () { $('status').textContent = 'Copied'; },
+      function () { $('out').select(); document.execCommand('copy'); $('status').textContent = 'Copied'; });
+  };
+  $('load').onclick = function () {
+    try { load(JSON.parse($('out').value)); header(); render(); } catch (e) { $('status').textContent = 'That is not a layout'; }
+  };
+
+  // Palette.
+  var pal = $('palette');
+  function palette() {
+    var list = (window.MONTAGE || []).filter(function (m) { return filter === 'all' || m.group === filter; });
+    $('count').textContent = list.length;
+    pal.innerHTML = list.map(function (m) {
+      return '<div class="pal ' + m.group + '" data-id="' + m.id + '" title="' + esc(m.label) + '"><img src="' + DIR + m.file + '" alt=""><span>' + esc(m.label) + '</span></div>';
+    }).join('');
+    if (!list.length) pal.innerHTML = '<div class="help">No pictures. Run node tools/social-cards/montage-candidates.js first.</div>';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-f]'), function (b) {
+    b.onclick = function () {
+      filter = b.dataset.f;
+      Array.prototype.forEach.call(document.querySelectorAll('[data-f]'), function (x) { x.classList.toggle('on', x === b); });
+      palette(); render();
+    };
+  });
+
+  // Pointer position as a card cell.
+  function cellAt(e) {
+    var b = card.getBoundingClientRect(), g = geom();
+    var x = (e.clientX - b.left) / scale, y = (e.clientY - b.top) / scale;
+    if (x < 0 || y < 0 || x > W || y > H) return null;
+    return { c: Math.min(S.cols - 1, Math.floor(x / g.sx)), r: Math.min(S.rows - 1, Math.floor(y / g.sy)) };
+  }
+  function tileAtCell(cell) {
+    return S.tiles.filter(function (t) { return cell.c >= t.c && cell.c < t.c + t.w && cell.r >= t.r && cell.r < t.r + t.h; }).pop();
+  }
+
+  // Drag from the palette onto the card.
+  pal.addEventListener('pointerdown', function (e) {
+    var el = e.target.closest('.pal'); if (!el) return;
+    unfocus();
+    e.preventDefault();
+    var id = el.dataset.id, ghost = document.createElement('img');
+    ghost.src = DIR + PICS[id].file; ghost.className = 'ghost'; document.body.appendChild(ghost);
+    var hint = document.createElement('div'); hint.className = 'drop-hint';
+    function move(ev) {
+      ghost.style.left = ev.clientX + 8 + 'px'; ghost.style.top = ev.clientY + 8 + 'px';
+      var cell = cellAt(ev);
+      if (!cell) { hint.remove(); return; }
+      var t = tileAtCell(cell), g = geom(), b = t ? rect(t, g) : rect({ c: cell.c, r: cell.r, w: 1, h: 1 }, g);
+      hint.style.cssText = 'left:' + b.x + 'px;top:' + b.y + 'px;width:' + b.w + 'px;height:' + b.h + 'px';
+      card.appendChild(hint);
+    }
+    function up(ev) {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+      ghost.remove(); hint.remove();
+      var cell = cellAt(ev); if (!cell) return;
+      var t = tileAtCell(cell);
+      if (t && t.id === '__name') { S.name.backdrop = id; sel = t.uid; }
+      else if (t) { t.id = id; t.px = 50; t.py = 50; t.z = 1; sel = t.uid; }
+      else { var n = norm({ id: id, c: cell.c, r: cell.r }); S.tiles.push(n); sel = n.uid; }
+      render();
+    }
+    move(e);
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  });
+
+  // Move, resize and crop tiles on the card.
+  // A click on the card or the palette takes focus from any control, so the
+  // delete and arrow keys reach the selected tile.
+  function unfocus() { var a = document.activeElement; if (a && a !== document.body && a.blur) a.blur(); }
+  card.addEventListener('pointerdown', function (e) {
+    unfocus();
+    var el = e.target.closest('.tile'); if (!el) { sel = null; render(); return; }
+    e.preventDefault();
+    var t = S.tiles.filter(function (x) { return x.uid === +el.dataset.uid; })[0];
+    sel = t.uid;
+    var g = geom(), start = { x: e.clientX, y: e.clientY, c: t.c, r: t.r, w: t.w, h: t.h, px: t.px, py: t.py };
+    var kind = e.target.classList.contains('handle') ? 'size' : ((mode === 'crop' || e.shiftKey) && t.id !== '__name' ? 'crop' : 'move');
+    var q0 = t.id !== '__name' && place(t, rect(t, g));
+    function move(ev) {
+      var dx = (ev.clientX - start.x) / scale, dy = (ev.clientY - start.y) / scale;
+      if (kind === 'move') {
+        t.c = Math.max(0, Math.min(S.cols - t.w, start.c + Math.round(dx / g.sx)));
+        t.r = Math.max(0, Math.min(S.rows - t.h, start.r + Math.round(dy / g.sy)));
+      } else if (kind === 'size') {
+        t.w = Math.max(1, Math.min(S.cols - t.c, start.w + Math.round(dx / g.sx)));
+        t.h = Math.max(1, Math.min(S.rows - t.r, start.h + Math.round(dy / g.sy)));
+      } else {
+        // The picture follows the pointer: its offset is (room) x (px / 100).
+        // The picture follows the pointer, and may go up to half a tile past
+        // any edge.
+        t.px = Math.max(-50, Math.min(150, start.px + dx / q0.tw * 100));
+        t.py = Math.max(-50, Math.min(150, start.py + dy / q0.th * 100));
+      }
+      render();
+    }
+    function up() { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    render();
+  });
+  card.addEventListener('wheel', function (e) {
+    var el = e.target.closest('.tile'); if (!el) return;
+    var t = S.tiles.filter(function (x) { return x.uid === +el.dataset.uid; })[0];
+    if (t.id === '__name') return;
+    e.preventDefault(); sel = t.uid;
+    t.z = Math.max(1, Math.min(4, t.z * (e.deltaY < 0 ? 1.06 : 1 / 1.06)));
+    render();
+  }, { passive: false });
+
+  document.addEventListener('keydown', function (e) {
+    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    var t = selected(); if (!t) return;
+    var d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (d) {
+      e.preventDefault();
+      if (e.shiftKey) { t.w = Math.max(1, Math.min(S.cols - t.c, t.w + d[0])); t.h = Math.max(1, Math.min(S.rows - t.r, t.h + d[1])); }
+      else { t.c = Math.max(0, Math.min(S.cols - t.w, t.c + d[0])); t.r = Math.max(0, Math.min(S.rows - t.h, t.r + d[1])); }
+      render();
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && t.id !== '__name') {
+      S.tiles = S.tiles.filter(function (x) { return x !== t; }); sel = null; render();
+    }
+  });
+  window.addEventListener('resize', render);
+
+  // The panel width: 260 px up to 65% of the window, kept between visits.
+  var SIDE = 'montage-designer-side';
+  function setSide(px) {
+    px = Math.round(Math.max(260, Math.min(window.innerWidth * 0.65, px)));
+    document.body.style.setProperty('--side', px + 'px');
+    try { localStorage.setItem(SIDE, px); } catch (e) {}
+    render();
+  }
+  try { var sw = +localStorage.getItem(SIDE); if (sw) document.body.style.setProperty('--side', sw + 'px'); } catch (e) {}
+  var split = $('splitter');
+  split.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); unfocus(); split.classList.add('on');
+    function move(ev) { setSide(window.innerWidth - ev.clientX); }
+    function up() { split.classList.remove('on'); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  });
+  split.addEventListener('dblclick', function () { setSide(340); });
+
+  palette();
+  // Learn each picture's size before the first draw.
+  Montage.sizes((window.MONTAGE || []).map(function (m) { return { id: m.id, url: DIR + m.file }; }))
+    .then(function (nat) { NAT = nat; render(); });
+})();
+</script>
+</body>
+</html>

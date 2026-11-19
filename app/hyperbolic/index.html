@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hyperbolic Models Explorer – one tiling, fourteen maps</title>
+<meta name="description" content="Drag a hyperbolic tiling through fourteen models of the hyperbolic plane: Poincaré disk, Klein disk, half-plane, band, hyperboloid and nine map projections.">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/app/hyperbolic/">
+<link rel="canonical" href="https://drbuild.uk/app/hyperbolic/">
+<meta property="og:title" content="Hyperbolic Models Explorer">
+<meta property="og:description" content="One hyperbolic tiling, fourteen ways to draw it. Drag the plane and switch models.">
+<meta property="og:image" content="https://drbuild.uk/social/hyperbolic.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A bright heptagon tiling of the hyperbolic plane in the Poincaré disk">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="A bright heptagon tiling of the hyperbolic plane in the Poincaré disk">
+<meta name="twitter:creator" content="@davidryan59">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
+<link rel="stylesheet" href="style.css">
+<script data-goatcounter="https://drbuild.goatcounter.com/count"
+        async src="../../assets/count.js"></script>
+</head>
+<body>
+
+<canvas id="view" tabindex="0" aria-label="A hyperbolic tiling. Drag to move the plane, scroll or pinch to zoom, arrow keys to move, plus and minus to zoom."></canvas>
+
+<div class="top">
+<div class="card title">
+  <div class="title-tools">
+    <button type="button" class="small" id="about-open">About</button>
+    <button class="theme-toggle" type="button" hidden>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.1"/><path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+      </svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+      </svg>
+    </button>
+    <button type="button" class="icon" id="fullscreen" title="Full screen (F)" aria-label="Full screen" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+    </button>
+  </div>
+  <a class="back" href="../../index.html">← David Ryan's builder page</a>
+  <h1>Hyperbolic Models Explorer</h1>
+  <p class="hint">One tiling, fourteen ways to draw it. Drag the plane.</p>
+  <div class="models featured" id="featured" role="group" aria-label="Main models"></div>
+  <div class="models more" id="more" role="group" aria-label="More models"></div>
+  <label class="model-select">Model <select id="model-select" aria-label="Model"></select></label>
+  <dl class="facts" id="facts"></dl>
+</div>
+
+<div class="card options" id="tiling-card">
+  <button type="button" class="fold" aria-expanded="false">Tiling</button>
+  <div class="body">
+    <div class="tile-row">
+      <canvas id="tile" width="112" height="112" aria-label="One tile of the tiling, drawn in the Poincaré disk"></canvas>
+      <div class="tile-text">
+        <strong id="tile-name">{7,3}</strong>
+        <span id="tile-desc"></span>
+        <span id="tile-sym"></span>
+      </div>
+    </div>
+    <div class="presets" id="presets" role="group" aria-label="Tiling presets"></div>
+    <div class="steppers">
+      <div class="stepper"><span title="Sides of each tile">Sides</span><button type="button" data-step="p,-1" aria-label="Fewer sides">−</button><output id="p-out">7</output><button type="button" data-step="p,1" aria-label="More sides">+</button></div>
+      <div class="stepper"><span title="Tiles at each corner">Tiles at a corner</span><button type="button" data-step="q,-1" aria-label="Fewer tiles at a corner">−</button><output id="q-out">3</output><button type="button" data-step="q,1" aria-label="More tiles at a corner">+</button></div>
+      <div class="stepper"><span title="Two makes regular tiles. Higher values give tiles with twice the sides and two kinds of corner">Second corner</span><button type="button" data-step="r,-1" aria-label="Lower second corner">−</button><output id="r-out">2</output><button type="button" data-step="r,1" aria-label="Higher second corner">+</button></div>
+    </div>
+    <div class="segmented" role="group" aria-label="Draw">
+      <button type="button" data-style="tiles" aria-pressed="true">Tiles</button>
+      <button type="button" data-style="triangles" aria-pressed="false">Triangles</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="card colours" id="colour-card">
+  <button type="button" class="fold" aria-expanded="false">Colours</button>
+  <div class="body">
+    <div class="segmented wrap" role="group" aria-label="Colours">
+      <button type="button" data-colour="many" aria-pressed="true">Many</button>
+      <button type="button" data-colour="few" aria-pressed="false">Few</button>
+      <button type="button" data-colour="mono" aria-pressed="false">Plain</button>
+    </div>
+    <p class="count" id="colour-count"></p>
+    <label class="slider">Shading <output id="shade-out">35%</output>
+      <input type="range" id="shade" min="0" max="100" step="1" value="35">
+    </label>
+    <label class="slider">Edge width <output id="edge-out">3</output>
+      <input type="range" id="edge" min="0" max="10" step="0.1" value="3">
+    </label>
+    <label class="check"><input type="checkbox" id="mirrors"> Mirror lines</label>
+  </div>
+</div>
+
+<div class="card motion" role="group" aria-label="Motion and zoom">
+  <div class="segmented" role="group" aria-label="What a drag moves">
+    <button type="button" data-drag="plane" aria-pressed="true" title="Drag moves the hyperbolic plane">Plane</button>
+    <button type="button" data-drag="pan" aria-pressed="false" title="Drag pans the view. Shift-drag or right-drag also pans">Pan</button>
+  </div>
+  <div class="segmented" role="group" aria-label="Motion">
+    <button type="button" data-motion="still" aria-pressed="true">Still</button>
+    <button type="button" data-motion="spin" aria-pressed="false">Spin</button>
+    <button type="button" data-motion="fly" aria-pressed="false">Fly</button>
+  </div>
+  <div class="zoom-row">
+    <button type="button" class="icon" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+    <button type="button" class="icon" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+    <button type="button" class="reset" id="home" title="Back to the middle (R)">Reset</button>
+  </div>
+</div>
+
+<div class="card about" id="about" role="dialog" aria-modal="false" aria-labelledby="about-title" hidden>
+  <button type="button" class="close" id="about-close" aria-label="Close">×</button>
+  <h2 id="about-title">About this explorer</h2>
+  <p>The hyperbolic plane is a surface where the angles of a triangle add up to less than 180°.
+    It has more room than a flat plane, so seven triangles, or eight, fit round one corner.
+    No flat map shows it without distortion, so mathematicians draw it in many ways.
+    Each way, a <em>model</em>, keeps some properties true and gives up others.</p>
+  <p>Every model here shows the same tiling. Drag the plane, and the tiles move as one rigid
+    motion of the hyperbolic plane. Switch the model, and the same tiles stay in the same place.</p>
+  <ul>
+    <li><strong>Poincaré disk, half-plane, band, Joukowsky, inverted disk:</strong> true angles, so every small tile keeps its shape.</li>
+    <li><strong>Klein disk:</strong> straight lines stay straight.</li>
+    <li><strong>Hyperboloid and Gans plane:</strong> the surface in 3D space that the other models come from, and its view from directly above.</li>
+    <li><strong>The six map projections:</strong> the hyperbolic versions of map projections of the Earth, which keep distances or areas true.</li>
+  </ul>
+  <p>The tilings come from triangles with angles 180°/p, 180°/q and 180°/r. Reflections in the sides of one triangle fill
+    the whole plane. The tiles group the triangles round each corner of angle 180°/p.</p>
+  <p>Further reading: <a target="_blank" rel="noopener" href="https://roguetemple.com/z/hyper/models.php">Models and projections of hyperbolic geometry</a>
+    from HyperRogue, which lists many more models, and the
+    <a target="_blank" rel="noopener" href="https://spacesheep.dev/@yaroslavvb/orbifold-showcase">Orbifold Showcase</a>.</p>
+</div>
+
+<div class="card fail" id="fail" hidden>
+  This explorer needs WebGL 2, which this browser has turned off or does not support.
+</div>
+
+<script src="hyperbolic.js"></script>
+<script>Theme.wireThemeToggle();</script>
+</body>
+</html>

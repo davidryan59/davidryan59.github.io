@@ -5,17 +5,20 @@
    Run from anywhere: node tools/social-cards/render.js [card ...]
    With no arguments it renders every card. It needs Playwright and its
    Chromium (npm install playwright, then npx playwright install chromium),
-   and a network connection: it screenshots Dino Dash and ReTuner live, drives the Nopert, E8 and Noble
-   explorers, and
-   reads the five audited contracts' bytecode from a public Ethereum RPC.
+   and a network connection: the builder card shows the live Cross and Wing
+   site, and the audit cards read the five audited contracts' bytecode from a
+   public Ethereum RPC.
 
    Stage 1 draws the pictures the cards are made from into a temporary
    folder: the tiling tabs with their panels hidden, two patches built in
-   the Tiling Puzzle, the Merge Fractals
-   part way through their animation, the two live sites, the bytecode. Stage 2 lays out each card in cards.html and saves a JPEG,
+   the Tiling Puzzle, the Merge Fractals part way through their animation,
+   the bytecode, and the builder card's pictures, which
+   montage-candidates.js captures for the tiles in builder-layout.json.
+   Stage 2 lays out each card in cards.html and saves a JPEG,
    at the best quality that stays under 300 KB, since WhatsApp shows no
    picture for anything larger. */
 const http = require('http'), fs = require('fs'), path = require('path'), os = require('os');
+const { capture } = require('./montage-candidates');
 let chromium;
 try { ({ chromium } = require('playwright')); }
 catch (e) { ({ chromium } = require('../tiling-video/node_modules/playwright-core')); }
@@ -47,45 +50,6 @@ const PUZZLES = { 'puzzle-hat': 'hat', 'puzzle-spectre': 'spectre' };
 // fractal shapes and back. Each is caught at a moment of seconds into its
 // animation where the shapes are clearest.
 const FRACTALS = { '1509': 17.5, '1904': 17.5, '2757': 11.5 };
-// Live sites for the builder page's mosaic, cropped to their liveliest part.
-const SITES = {
-  'dino-dash': { url: 'https://pacman-dino-dash.netlify.app', clip: { x: 305, y: 305, width: 590, height: 413 } },
-  retuner: { url: 'https://re-tuner.web.app/', clip: { x: 120, y: 100, width: 700, height: 490 } }
-};
-// The builder page's three 3D and 8D explorers, with their controls hidden and
-// each shot cropped (in a 1000 x 700 view) to its figure, at the tile's shape.
-const EXPLORERS = {
-  'tile-nonrup': {
-    url: '/app/nonrup/#c11', clip: { x: 135, y: 135, width: 700, height: 488 },
-    css: `.topbar, footer, .shapes, .steps, .fit-panel, .scene-copy, .scene-tip, .view-reset { display: none !important; }
-      body { display: block !important; }
-      .stage, .play, .scene-card { position: absolute !important; inset: 0 !important; display: block !important; }`,
-    prep: async page => {
-      await page.emulateMedia({ reducedMotion: 'no-preference' });
-      await page.click('#cut'); await page.waitForTimeout(700);
-      await page.click('#push'); await page.waitForTimeout(2600);
-    }
-  },
-  'tile-e8': {
-    url: '/app/e8/#v=coxeter&s=coxeter&pause=1', clip: { x: 150, y: 106, width: 700, height: 488 },
-    css: `.topbar, .control-panel, .details, .display-controls, .view-controls, .gesture-hint, .stage-status, .hover-card { display: none !important; }
-      .workspace { position: absolute !important; inset: 0 !important; display: block !important; height: 700px !important; }
-      .stage { position: absolute !important; inset: 0 !important; width: 1000px !important; height: 700px !important; }
-      #viewer { inset: 0 !important; width: 1000px !important; height: 700px !important; }`,
-    prep: page => page.waitForFunction(() => window.__e8Explorer)
-  },
-  'tile-noble': {
-    url: '/app/noble/#I-2', clip: { x: 142, y: 106, width: 700, height: 488 },
-    css: `.topbar, .catalogue, .details, .display-controls, .face-controls, .render-controls, .view-controls, .gesture-hint { display: none !important; }
-      .workspace { position: absolute !important; inset: 0 !important; display: block !important; height: 700px !important; }
-      .stage { position: absolute !important; inset: 0 !important; width: 1000px !important; height: 700px !important; }
-      #viewer { left: 0 !important; width: 1000px !important; }`,
-    prep: async page => {
-      await page.waitForFunction(() => document.getElementById('loading').hidden);
-      await page.click('[data-spin="false"]');
-    }
-  }
-};
 // The audited contracts. Uniswap V2's card uses the USDC/WETH pair.
 const CONTRACTS = {
   weth9: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
@@ -114,6 +78,16 @@ function serve() {
 }
 
 async function stageOne(browser, base, ids) {
+  // The builder card: the pictures its layout's tiles use, into montage/.
+  if (ids.includes('builder')) {
+    const layout = JSON.parse(fs.readFileSync(path.join(__dirname, 'builder-layout.json'), 'utf8'));
+    const want = layout.tiles.map(t => t.id).filter(id => id !== '__name');
+    if (layout.name.style === 'glass') want.push(layout.name.backdrop);
+    if (layout.name.style === 'photo') want.push('headshot');
+    const got = await capture(want, path.join(TMP, 'montage'), true);
+    const missing = want.filter(id => !got.some(m => m.id === id));
+    if (missing.length) throw new Error('builder-layout.json names unknown pictures: ' + missing.join(', '));
+  }
   const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 2 });
   for (const [name, view] of Object.entries(TILINGS)) {
     // WebGL sometimes loses its context on the first load and draws a blank
@@ -161,27 +135,6 @@ async function stageOne(browser, base, ids) {
     await page.close();
   }
   await art.close();
-  const web = await browser.newContext({ viewport: { width: 1200, height: 840 } });
-  for (const [name, site] of Object.entries(SITES)) {
-    const page = await web.newPage();
-    await page.goto(site.url, { waitUntil: 'networkidle', timeout: 60000 });
-    await page.waitForTimeout(2000);
-    await page.screenshot({ path: path.join(TMP, name + '.png'), clip: site.clip });
-    await page.close();
-  }
-  await web.close();
-  const lab = await browser.newContext({ viewport: { width: 1000, height: 700 }, deviceScaleFactor: 2 });
-  for (const [name, view] of Object.entries(EXPLORERS)) {
-    const page = await lab.newPage();
-    await page.addInitScript(() => localStorage.setItem('theme', 'dark'));
-    await page.goto(base + view.url, { waitUntil: 'networkidle' });
-    await view.prep(page);
-    await page.addStyleTag({ content: 'html, body { width: 1000px !important; height: 700px !important; overflow: hidden !important; }' + view.css });
-    await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(TMP, name + '.png'), clip: view.clip });
-    await page.close();
-  }
-  await lab.close();
   for (const [name, address] of Object.entries(CONTRACTS)) {
     const res = await fetch(RPC, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
