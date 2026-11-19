@@ -14,7 +14,8 @@ library and no build step.
 - [x] Fourteen models, each with an inverse map from the screen to the hyperboloid, in GLSL and in JavaScript
 - [x] Tilings from the triangle group (p, q, r), as tiles or as triangles, with eight presets and steppers
 - [x] Drag, glide after release, pan (Pan switch, Shift-drag, right-drag, two fingers), zoom about the pointer, arrow keys, Spin, Fly and Reset
-- [x] Symmetric colourings, Many, Few and Plain, with shading, edge width and mirror lines
+- [x] Symmetric colourings, Many, Few and Plain, with shading (default 70%), edge width (default 2) and mirror lines
+- [x] Design menu: None, 15 pictures from `app/hyperbolic/designs.js`, Letter R, Letter F and the viewer's own letter (`d=<id>`, `g=<char>`); default Compass. Upright (default) or One point (`o=point`); design opacity 0–100%, default 60% (`da=`). Other defaults: Many colours, shading 70%, edge width 2, mirror lines off (2026-11-19)
 - [x] The view snaps home every frame, so the picture stays crisp however far it travels (2026-11-19)
 - [x] Live builder-page thumbnail, `assets/hyperbolic-thumb.js`
 - [x] Tile preview above the tiling controls, drawn by the same shader
@@ -105,11 +106,52 @@ units further out, so the shader met coordinates near 10⁵ and drew speckle
 (reported 2026-11-19).
 
 Now every change to T passes through `setT`. It refuses a matrix that is not
-finite, which once froze the Joukowsky view. It then folds the view centre
+finite, which once froze the Joukowsky view. The update is all or nothing: if
+the snap below produces a non-finite matrix, T, the colour permutation and
+the F's boundary point all go back to their old values. A drag that starts
+on the Joukowsky slit once produced such a matrix and turned the view black
+(reported 2026-11-19). A drag point further out than z = 10⁵ is also refused.
+It then folds the view centre
 into the triangle in double precision and replaces T by T G⁻¹, where G is
 the symmetry of the tiling that did the fold. The picture is the same, the
 shader's points stay within a tile of home, and a 40-unit flight draws as
 crisply as the start.
+
+## Shading and the letter F
+
+Shading darkens each tile towards its corners and lifts its centre towards
+white. The slider value s is eased as g = s^1.6. The colour is multiplied by
+1 − 0.7 g t², then mixed towards white by 0.2 g (1 − t²), where t is the
+distance from the tile centre over the tile's radius. At 100% the corners
+fall to 30% brightness.
+
+A design gives each tile a frame, so the picture shows how a model bends
+and turns shapes. The pictures live in `designs.js`, each drawn on a clear
+128-pixel canvas; letters are drawn the same way. The canvas becomes a
+texture. Black in it draws in the edge colour, white draws white, and alpha
+sets the opacity.
+
+The frame is centred on the tile, which the fold puts at the origin. Two
+rules turn it:
+
+- **Upright** (default). The top follows "up" in the Poincaré disk of the
+  view where the designs were aimed, so every design stands upright there
+  and turns as the plane moves. JavaScript keeps Wref, the value of T at
+  aiming, moved by each snap as T is. The map A = Wref T⁻¹ from the current
+  view's disk to the aimed one is the Möbius map
+  z ↦ e^{iφ} (z − z₀)/(1 − z̄₀ z), passed as z₀ and φ. Up at z pulls back to
+  the angle π/2 − φ + 2 arg(1 − z̄₀ z). The shader builds the fold matrix M
+  as it folds, finds the tile centre M⁻¹O, takes that angle there and
+  carries the direction into the folded frame by M T⁻¹. The angle stays
+  accurate far from the aimed view, since it needs only the argument of a
+  sum that does not cancel on screen.
+- **One point.** The top faces a fixed boundary point ξ, which the shader
+  reflects alongside the pixel's point at every fold step.
+
+Choosing a design from None, the orientation buttons, Reset and a new tiling
+aim the designs from the current view. On an odd count of reflections,
+counting those in the snaps home (`par0`), the shader mirrors the frame, so
+every design keeps its hand.
 
 ## Colour
 

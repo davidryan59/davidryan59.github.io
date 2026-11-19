@@ -1,0 +1,107 @@
+/* The video's layout of the Hyperbolic Models Explorer. render.js adds this
+   to the real page, app/hyperbolic/, and films it whole at 1.125 times the
+   density. The body's class sets the shape and the theme:
+
+     video-square   960 × 960 CSS px, every card hidden, for 1080 × 1080
+     video-wide     1280 × 960 CSS px, the model card on the left, for 1440 × 1080
+     video-dark     the app's dark theme, and dark caption cards
+
+   The captions carry the story, so the other cards are hidden. Everything
+   that moves is the app's own. */
+
+.video-square .card,
+.video-wide .card.options, .video-wide .card.colours, .video-wide .card.motion,
+.video-wide .card.about, .video-wide .card.fail, .video-wide .title-tools {
+  display: none !important;
+}
+
+/* The video's own layer: captions, address and pointer. It never takes
+   the mouse. */
+.video-layer {
+  position: fixed;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.video-card {
+  border: 1px solid rgba(60, 55, 40, .14);
+  border-radius: 14px;
+  background: rgba(253, 251, 246, .94);
+  box-shadow: 0 2px 16px rgba(30, 25, 10, .28);
+}
+
+/* The address, clear of the badges X puts in the bottom corners. */
+.video-address {
+  right: 12px;
+  top: 11px;
+  height: 44px;
+  padding: 0 21px;
+  border-radius: 999px;
+  color: #1a1a1a;
+  font: 22px/42px Georgia, "Times New Roman", serif;
+  white-space: nowrap;
+}
+
+.video-caption {
+  top: 19px;
+  max-width: 640px;
+  padding: 13px 29px 16px;
+  text-align: left;
+  visibility: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+/* In 4:3 the captions sit below the address, over the model. */
+.video-wide .video-caption {
+  top: 66px;
+}
+
+.video-caption .main {
+  color: #1a1a1a;
+  font-size: 33px;
+  line-height: 1.24;
+  text-wrap: balance;
+}
+
+.video-caption .sub {
+  margin-top: 5px;
+  color: #55524a;
+  font-size: 22px;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+
+.video-caption.title .main {
+  font-size: 43px;
+}
+
+.video-dark .video-card {
+  border-color: rgba(255, 255, 255, .14);
+  background: rgba(30, 30, 35, .94);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, .6);
+}
+.video-dark .video-address, .video-dark .video-caption .main { color: #f5f3ec; }
+.video-dark .video-caption .sub { color: #c8c4b9; }
+
+.video-fade {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 45;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.video-still .video-layer {
+  visibility: hidden !important;
+}
+
+.video-pointer {
+  left: 0;
+  top: 0;
+  z-index: 60;
+  transform-origin: 4.6px 4.6px;
+  filter: drop-shadow(0 1.5px 2px rgba(0, 0, 0, .6));
+}

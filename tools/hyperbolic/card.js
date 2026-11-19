@@ -23,7 +23,7 @@ catch (e) { ({ chromium } = require('../tiling-video/node_modules/playwright-cor
 
 const ROOT = path.join(__dirname, '..', '..');
 const BASE = process.env.BASE || 'http://localhost:8765';
-const VIEW = '/app/hyperbolic/#m=poincare&t=7,3&s=tiles&c=many&e=3&sh=35';
+const VIEW = '/app/hyperbolic/#m=poincare&t=7,3&s=tiles&c=many&e=2&sh=70';
 const HIDE = '.card { display: none !important; }';
 const what = process.argv[2] || 'both';
 

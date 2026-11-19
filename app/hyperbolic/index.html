@@ -89,13 +89,23 @@
       <button type="button" data-colour="mono" aria-pressed="false">Plain</button>
     </div>
     <p class="count" id="colour-count"></p>
-    <label class="slider">Shading <output id="shade-out">35%</output>
-      <input type="range" id="shade" min="0" max="100" step="1" value="35">
+    <label class="slider">Shading <output id="shade-out">70%</output>
+      <input type="range" id="shade" min="0" max="100" step="1" value="70">
     </label>
-    <label class="slider">Edge width <output id="edge-out">3</output>
-      <input type="range" id="edge" min="0" max="10" step="0.1" value="3">
+    <label class="slider">Edge width <output id="edge-out">2</output>
+      <input type="range" id="edge" min="0" max="10" step="0.1" value="2">
     </label>
     <label class="check"><input type="checkbox" id="mirrors"> Mirror lines</label>
+    <div class="letter"><label for="design">Design</label>
+      <select id="design"></select>
+      <input type="text" id="glyph" value="R" maxlength="2" autocomplete="off" spellcheck="false" aria-label="The letter to draw" hidden></div>
+    <label class="slider" id="design-a-row" hidden>Design opacity <output id="design-a-out">60%</output>
+      <input type="range" id="design-a" min="0" max="100" step="1" value="60">
+    </label>
+    <div class="segmented" id="orient" role="group" aria-label="Which way the designs face" hidden>
+      <button type="button" data-orient="up" aria-pressed="true">Upright</button>
+      <button type="button" data-orient="point" aria-pressed="false">One point</button>
+    </div>
   </div>
 </div>
 
@@ -142,6 +152,7 @@
   This explorer needs WebGL 2, which this browser has turned off or does not support.
 </div>
 
+<script src="designs.js"></script>
 <script src="hyperbolic.js"></script>
 <script>Theme.wireThemeToggle();</script>
 </body>

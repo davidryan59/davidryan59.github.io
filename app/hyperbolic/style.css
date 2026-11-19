@@ -147,6 +147,11 @@ select { background: var(--panel); max-width: 100%; }
 .slider { display: grid; grid-template-columns: 1fr auto; font-size: 0.82rem; margin-top: 0.5rem; }
 .slider input { grid-column: 1 / -1; width: 100%; }
 .check { display: block; font-size: 0.82rem; margin-top: 0.2rem; }
+.letter { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; margin-top: 0.5rem; }
+.letter select { flex: 1; min-width: 0; font: inherit; padding: 0.1rem 0.2rem; border: 1px solid var(--rule); border-radius: 4px; background: var(--bg); color: inherit; }
+#orient { margin-top: 0.4rem; }
+[hidden] { display: none !important; }
+.letter input[type="text"] { width: 2.2em; text-align: center; font: inherit; font-weight: bold; padding: 0.05rem 0; border: 1px solid var(--rule); border-radius: 4px; background: transparent; color: inherit; }
 .count { margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--muted); }
 .reset { height: 1.9rem; padding: 0 0.6rem; }
 .motion .segmented + .segmented { padding-left: 0.5rem; border-left: 1px solid var(--rule); }

@@ -186,7 +186,14 @@
     'uniform vec3 uN1, uN2, uN3;',
     'uniform float uScaleLen, uEdgeW, uShade, uRadius;',
     'uniform int uStyle, uPlain, uNCol, uPar0;',
-    'uniform bool uMirrors, uSingle, uClear;',
+    'uniform bool uMirrors, uSingle, uClear, uMotif;',
+    'uniform vec3 uXi;',
+    'uniform bool uUpright;',
+    'uniform float uDesignA;',
+    'uniform mat3 uT;',
+    'uniform vec2 uZ0;',
+    'uniform float uPhi;',
+    'uniform sampler2D uGlyph;',
     'uniform vec3 uBg, uEdge, uMono, uRim;',
     'uniform vec3 uPal[32];',
     'uniform int uS[96];',
@@ -196,6 +203,9 @@
     'const float PI = 3.14159265359;',
     'float shade = 1.0;',
     'float mdot(vec3 a, vec3 b) { return a.x*b.x + a.y*b.y - a.z*b.z; }',
+    // M <- R M, where R reflects in the mirror with normal N.
+    'mat3 reflM(mat3 M, vec3 N) { vec3 n = vec3(N.xy, -N.z); vec3 r = vec3(dot(n, M[0]), dot(n, M[1]), dot(n, M[2]));',
+    '  M[0] -= 2.0 * r.x * N; M[1] -= 2.0 * r.y * N; M[2] -= 2.0 * r.z * N; return M; }',
     'vec2 cmul(vec2 a, vec2 b) { return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x); }',
     'vec2 cdiv(vec2 a, vec2 b) { return vec2(a.x*b.x + a.y*b.y, a.y*b.x - a.x*b.y) / dot(b, b); }',
     'vec2 cexp(vec2 z) { return exp(z.x) * vec2(cos(z.y), sin(z.y)); }',
@@ -247,12 +257,12 @@
     '  if (!ok) { outColor = uClear ? vec4(0.0) : vec4(uBg, 1.0); return; }',
     '  vec3 p = uTinv * v;',
     '  uint words[16]; for (int i = 0; i < 16; i++) words[i] = 0u;',
-    '  int k = 0, par3 = 0; bool done = false;',
+    '  int k = 0, par3 = 0; bool done = false; vec3 xi = uXi; mat3 M = mat3(1.0); bool trackM = uMotif && uUpright;',
     '  for (int i = 0; i < 120; i++) {',
     '    bool moved = false; float d;',
-    '    d = mdot(p, uN1); if (d > 0.0) { p -= 2.0*d*uN1; if (k < 256) words[k >> 4] |= 0u << uint(2 * (k & 15)); k++; moved = true; }',
-    '    d = mdot(p, uN2); if (d > 0.0) { p -= 2.0*d*uN2; if (k < 256) words[k >> 4] |= 1u << uint(2 * (k & 15)); k++; moved = true; }',
-    '    d = mdot(p, uN3); if (d > 0.0) { p -= 2.0*d*uN3; if (k < 256) words[k >> 4] |= 2u << uint(2 * (k & 15)); k++; par3++; moved = true; }',
+    '    d = mdot(p, uN1); if (d > 0.0) { p -= 2.0*d*uN1; xi -= 2.0*mdot(xi, uN1)*uN1; xi /= xi.z; if (trackM) M = reflM(M, uN1); if (k < 256) words[k >> 4] |= 0u << uint(2 * (k & 15)); k++; moved = true; }',
+    '    d = mdot(p, uN2); if (d > 0.0) { p -= 2.0*d*uN2; xi -= 2.0*mdot(xi, uN2)*uN2; xi /= xi.z; if (trackM) M = reflM(M, uN2); if (k < 256) words[k >> 4] |= 1u << uint(2 * (k & 15)); k++; moved = true; }',
+    '    d = mdot(p, uN3); if (d > 0.0) { p -= 2.0*d*uN3; xi -= 2.0*mdot(xi, uN3)*uN3; xi /= xi.z; if (trackM) M = reflM(M, uN3); if (k < 256) words[k >> 4] |= 2u << uint(2 * (k & 15)); k++; par3++; moved = true; }',
     '    if (!moved) { done = true; break; }',
     '  }',
     '  if (k > 256) done = false;',
@@ -264,11 +274,42 @@
     '  int c = uP0[x];',
     '  vec3 col = uPlain == 1 ? uMono : uPal[c % uNCol];',
     '  if (uStyle == 1) col = mix(col, ((k + uPar0) % 2 == 0) ? vec3(1.0) : uEdge, 0.16);',
-    // Gentle shading: lighter at the tile centre, deeper towards its corners.
-    '  float rel = clamp(acosh(max(p.z, 1.0)) / uRadius, 0.0, 1.0);',
-    '  col *= 1.0 + uShade * (0.12 - 0.42 * rel * rel);',
+    // Shading: lighter at the tile centre, deeper towards its corners. The
+    // slider is eased (power 1.6), so 35% stays gentle and 100% is strong:
+    // corners fall to 30% brightness and centres lift 20% towards white.
+    '  float rel = clamp(acosh(max(p.z, 1.0)) / uRadius, 0.0, 1.0), t2 = rel * rel;',
+    '  float g = pow(uShade, 1.6);',
+    '  col *= 1.0 - 0.7 * g * t2;',
+    '  col = mix(col, vec3(1.0), 0.2 * g * (1.0 - t2));',
     '  if (uSingle && par3 > 0) col = mix(uBg, col, 0.22);',
     '  col *= shade;',
+    // The design, one per tile, in the tile's own frame. One point: its top
+    // faces the boundary point xi. Upright: its top follows "up" in the
+    // Poincaré disk of the view where it was aimed; uZ0 and uPhi give the
+    // Möbius map z -> e^(i phi) (z - z0) / (1 - conj(z0) z) from the current
+    // disk to that one, and up at z pulls back to the angle
+    // pi/2 - phi + 2 arg(1 - conj(z0) z). The frame is mirrored back on an
+    // odd count of reflections, counting those in the snaps home (uPar0), so
+    // every design keeps its hand and moves with the plane.
+    '  if (uMotif && done) {',
+    '    float al = atan(xi.y, xi.x);',
+    '    if (uUpright) {',
+    '      vec3 cs = uT * vec3(-M[0].z, -M[1].z, M[2].z);',
+    '      vec2 z = cs.xy / (1.0 + cs.z);',
+    '      vec2 q = vec2(1.0, 0.0) - cmul(vec2(uZ0.x, -uZ0.y), z);',
+    '      float th = 0.5 * PI - uPhi + 2.0 * atan(q.y, q.x);',
+    '      vec2 dv = vec2(cos(th), sin(th)); float D = 1.0 - dot(z, z), ud = dot(z, dv);',
+    '      vec3 ef = M * (uTinv * vec3(2.0 * D * dv + 4.0 * ud * z, 4.0 * ud));',
+    '      al = atan(ef.y, ef.x);',
+    '    }',
+    '    float ca = cos(al), sa = sin(al);',
+    '    vec2 L = vec2(ca * p.x + sa * p.y, -sa * p.x + ca * p.y); if (((k + uPar0) & 1) == 1) L.y = -L.y;',
+    '    vec2 f = L / (1.0 + p.z) / (0.62 * tanh(0.5 * asinh(uN3.z)));',
+    '    vec2 g = vec2(-f.y, f.x) * 0.5 + 0.5;',
+    '    vec4 gt = all(greaterThan(g, vec2(0.0))) && all(lessThan(g, vec2(1.0))) ? texture(uGlyph, g) : vec4(0.0);',
+    // Black in the picture draws in the edge colour, white draws white.
+    '    col = mix(col, mix(uEdge, vec3(1.0), gt.r), uDesignA * gt.a);',
+    '  }',
     '  float d1 = asinh(abs(mdot(p, uN1))), d2 = asinh(abs(mdot(p, uN2))), d3 = asinh(abs(mdot(p, uN3)));',
     '  float w = uEdgeW, e = 0.0;',
     '  if (w > 0.0) {',
@@ -442,14 +483,26 @@
   /* ---------- State ---------- */
 
   var state = {
-    model: 'poincare', p: 7, q: 3, r: 2, style: 'tiles', colour: 'many', edge: 3, shade: 35, mirrors: false,
+    model: 'poincare', p: 7, q: 3, r: 2, style: 'tiles', colour: 'many', edge: 2, shade: 70, mirrors: false, motif: false, design: 'compass', glyph: 'R', orient: 'up', designA: 60,
     motion: 'still', zoom: 1, pan: [0, 0], drag: 'plane', T: ident(), clear: false
   };
   var N = mirrors(7, 3, 2);
   // P0 is the permutation of colours from the snaps back to home so far,
   // and par0 the parity of their reflections.
   var P0 = [], par0 = 0, colouring = null;
+  // xi: the boundary point every letter's top faces, in world coordinates.
+  // The snap home moves world coordinates by G, so it moves xi by G too.
+  var XI0 = [0, 1, 1], xi = XI0.slice();
+  // A picture in place of the letter, from the tools: a 128-pixel canvas.
+  var customGlyph = null;
+  // Wref: T at the moment the designs were aimed, moved by each snap like T.
+  var Wref = ident();
+  var DESIGN_BY_ID = {};
+  (window.HYPER_DESIGNS || []).forEach(function (d) { DESIGN_BY_ID[d.id] = d; });
+  // The menu: none, the pictures, two letters, and the viewer's own letter.
+  var DESIGN_IDS = ['none'].concat((window.HYPER_DESIGNS || []).map(function (d) { return d.id; }), ['letter-r', 'letter-f', 'letter']);
 
+  var hasDesign = false;
   function readHash() {
     var h = location.hash.replace(/^#/, '');
     h.split('&').forEach(function (part) {
@@ -468,12 +521,21 @@
       if (k === 'sh' && isFinite(+v)) state.shade = Math.max(0, Math.min(100, +v));
       if (k === 'mv' && ['still', 'spin', 'fly'].indexOf(v) >= 0) state.motion = v;
       if (k === 'bg' && v === 'none') state.clear = true;
+      if (k === 'd' && DESIGN_IDS.indexOf(v) >= 0) { state.design = v; hasDesign = true; }
+      if (k === 'f' && v === '1' && !hasDesign) { state.design = 'letter'; hasDesign = true; }
+      if (k === 'g' && v) state.glyph = Array.from(v)[0];
+      if (k === 'o' && (v === 'up' || v === 'point')) state.orient = v;
+      if (k === 'da' && isFinite(+v)) state.designA = Math.max(0, Math.min(100, +v));
     });
   }
   function writeHash() {
     var h = 'm=' + state.model + '&t=' + state.p + ',' + state.q + (state.r !== 2 ? ',' + state.r : '') +
       '&s=' + state.style + '&c=' + state.colour + '&e=' + state.edge + '&sh=' + state.shade;
     if (state.motion !== 'still') h += '&mv=' + state.motion;
+    h += '&d=' + state.design;
+    if (state.design === 'letter') h += '&g=' + encodeURIComponent(state.glyph);
+    if (state.orient !== 'up') h += '&o=' + state.orient;
+    if (state.designA !== 60) h += '&da=' + state.designA;
     if (state.clear) h += '&bg=none';
     try { history.replaceState(null, '', '#' + h); } catch (e) {}
   }
@@ -513,10 +575,17 @@
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     var U = {};
     ['uRes', 'uPan', 'uZoom', 'uModel', 'uTinv', 'uN1', 'uN2', 'uN3', 'uScaleLen', 'uEdgeW', 'uShade', 'uRadius',
-      'uStyle', 'uPlain', 'uNCol', 'uPar0', 'uMirrors', 'uSingle', 'uClear', 'uBg', 'uEdge', 'uMono', 'uRim',
+      'uStyle', 'uPlain', 'uNCol', 'uPar0', 'uMirrors', 'uMotif', 'uXi', 'uGlyph', 'uUpright', 'uDesignA', 'uT', 'uZ0', 'uPhi', 'uSingle', 'uClear', 'uBg', 'uEdge', 'uMono', 'uRim',
       'uPal', 'uS', 'uP0', 'uCamPos', 'uCamF', 'uCamR', 'uCamU', 'uFov', 'uK']
       .forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
-    return { gl: gl, U: U, canvas: canvas };
+    var tex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.uniform1i(U.uGlyph, 0);
+    return { gl: gl, U: U, canvas: canvas, tex: tex, glyph: null };
   }
 
   function hex(c) { return [parseInt(c.slice(1, 3), 16) / 255, parseInt(c.slice(3, 5), 16) / 255, parseInt(c.slice(5, 7), 16) / 255]; }
@@ -532,6 +601,38 @@
     if (plain) avg = mono;
     var rim = avg.map(function (x, i) { return x * 0.85 + edge[i] * 0.15; });
     return { bg: dark ? hex('#16161a') : hex('#f6f3ec'), pal: pal, mono: mono, edge: edge, rim: rim, plain: plain };
+  }
+
+  // The letter, black on clear, centred by its ink and scaled to fill most
+  // of a 128-pixel square, so any character the viewer types fits a tile.
+  function glyphCanvas(ch) {
+    var n = 128, c = document.createElement('canvas'); c.width = c.height = n;
+    var x = c.getContext('2d'), font = function (px) { return 'bold ' + px + 'px system-ui, -apple-system, "Segoe UI", Arial, sans-serif'; };
+    x.font = font(100);
+    var m = x.measureText(ch);
+    var w = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) || 60, h = (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) || 70;
+    var px = 100 * 0.86 * n / Math.max(w, h, 1);
+    x.font = font(px); m = x.measureText(ch);
+    x.fillStyle = '#000'; x.textBaseline = 'alphabetic';
+    x.fillText(ch, n / 2 - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2,
+      n / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
+    return c;
+  }
+
+  function designCanvas() {
+    var d = DESIGN_BY_ID[state.design];
+    if (d) return window.HYPER_DESIGNS.paint(d);
+    return glyphCanvas(state.design === 'letter' ? state.glyph : state.design.slice(-1).toUpperCase());
+  }
+  // Upright: the Möbius map from the current view's Poincaré disk to that of
+  // the view where the designs were aimed, A = W T⁻¹, as z0 and phi.
+  function uprightMap() {
+    var A = mul(Wref, linv(state.T));
+    function dk(P) { return [P[0] / (1 + P[2]), P[1] / (1 + P[2])]; }
+    var z0 = dk(apply(linv(A), [0, 0, 1])), p0 = dk(apply(A, [0, 0, 1])), phi;
+    if (Math.hypot(z0[0], z0[1]) < 1e-9) phi = Math.atan2(A[3], A[0]);
+    else { var r = cdiv(p0, z0); phi = Math.atan2(-r[1], -r[0]); }
+    return { z0: z0, phi: phi };
   }
 
   function draw(R, opt) {
@@ -562,6 +663,23 @@
     gl.uniform1iv(U.uP0, P);
     gl.uniform1i(U.uPar0, opt.identityColours ? 0 : par0);
     gl.uniform1i(U.uMirrors, state.mirrors ? 1 : 0);
+    gl.uniform1i(U.uMotif, state.motif ? 1 : 0);
+    var gkey = customGlyph ? customGlyph : state.design === 'letter' ? 'letter:' + state.glyph : state.design;
+    if (state.motif && R.glyph !== gkey) {
+      gl.bindTexture(gl.TEXTURE_2D, R.tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, customGlyph || designCanvas());
+      gl.generateMipmap(gl.TEXTURE_2D);
+      R.glyph = gkey;
+    }
+    gl.uniform3fv(U.uXi, opt.single ? XI0 : xi);
+    gl.uniform1i(U.uUpright, state.orient === 'up' ? 1 : 0);
+    gl.uniform1f(U.uDesignA, state.designA / 100);
+    var T = opt.T;
+    gl.uniformMatrix3fv(U.uT, false, new Float32Array([T[0], T[3], T[6], T[1], T[4], T[7], T[2], T[5], T[8]]));
+    var mob = opt.single ? { z0: [0, 0], phi: 0 } : uprightMap();
+    gl.uniform2f(U.uZ0, mob.z0[0], mob.z0[1]);
+    gl.uniform1f(U.uPhi, mob.phi);
     gl.uniform1i(U.uSingle, opt.single ? 1 : 0);
     gl.uniform1i(U.uClear, opt.clear ? 1 : 0);
     gl.uniform3fv(U.uBg, c.bg);
@@ -595,11 +713,13 @@
   if (!main) { document.getElementById('fail').hidden = false; return; }
 
   readHash();
+  state.motif = state.design !== 'none';
   N = mirrors(state.p, state.q, state.r);
   resetColours();
   if (state.clear) document.body.classList.add('clear');
 
   var dirty = true, tileDirty = true;
+  aimLetters();
   function invalidate() { dirty = true; tileDirty = true; }
 
   function resize() {
@@ -629,12 +749,15 @@
 
   // Every change of T goes through here: it refuses an overflow, pulls T
   // back to an exact Lorentz matrix and snaps the view centre home.
+  // All or nothing: if any step goes non-finite, the old view stays.
   function setT(T) {
     if (!finite(T)) return false;
     T = renorm(T);
     if (!finite(T)) return false;
+    var oldT = state.T, oldP0 = P0, oldPar0 = par0, oldXi = xi, oldW = Wref;
     state.T = T;
     snapHome();
+    if (!finite(state.T)) { state.T = oldT; P0 = oldP0; par0 = oldPar0; xi = oldXi; Wref = oldW; return false; }
     dirty = true;
     return true;
   }
@@ -656,10 +779,12 @@
       P0 = next;
     }
     par0 = (par0 + f.list.length) % 2;
+    var x2 = apply(f.G, xi); xi = [x2[0] / x2[2], x2[1] / x2[2], 1];
+    Wref = renorm(mul(Wref, linv(f.G)));
   }
 
   function moveFromTo(a, b) {
-    if (!a || !b || a[2] > 1e7 || b[2] > 1e7) return false;
+    if (!a || !b || !(a[2] <= 1e5) || !(b[2] <= 1e5) || !a.concat(b).every(isFinite)) return false;
     return setT(mul(mul(lift(b), linv(lift(a))), state.T));
   }
 
@@ -823,13 +948,32 @@
   function setTiling(p, q, r) {
     state.p = p; state.q = q; state.r = r; N = mirrors(p, q, r);
     state.T = ident(); vel = null;
-    resetColours();
+    resetColours(); aimLetters();
     invalidate(); syncUI(); writeHash();
+  }
+
+  // Aim the designs. Upright takes the current view as its reference. For
+  // One point, xi becomes the boundary point straight up the screen
+  // from the view centre, so the letters near the centre stand upright.
+  // Where the centre is off the model, the top of the Poincaré disk stands in.
+  function aimLetters() {
+    Wref = state.T.slice();
+    var n = modelNo(), s0 = state.pan, Ti = linv(state.T);
+    var a = toHyp(n, s0), b = toHyp(n, [s0[0], s0[1] + 0.01 / state.zoom]);
+    if (a && b && a.concat(b).every(isFinite) && a[2] < 1e5 && b[2] < 1e5) {
+      a = apply(Ti, a); b = apply(Ti, b);
+      var m = mdot(b, a), t = b.map(function (x, i) { return x + m * a[i]; }), k = Math.sqrt(Math.max(mdot(t, t), 0));
+      if (k > 1e-9) {
+        var e = a.map(function (x, i) { return x + t[i] / k; });
+        if (e[2] > 0) { xi = [e[0] / e[2], e[1] / e[2], 1]; dirty = true; return; }
+      }
+    }
+    var u = apply(Ti, XI0); xi = [u[0] / u[2], u[1] / u[2], 1]; dirty = true;
   }
 
   function resetView() {
     state.T = ident(); state.zoom = 1; state.pan = [0, 0]; vel = null;
-    resetColours();
+    resetColours(); aimLetters();
     invalidate(); syncUI(); writeHash();
   }
 
@@ -865,6 +1009,33 @@
   });
   shadeIn.addEventListener('change', writeHash);
   document.getElementById('mirrors').addEventListener('change', function (e) { state.mirrors = e.target.checked; invalidate(); });
+  var designSel = document.getElementById('design');
+  DESIGN_IDS.forEach(function (id) {
+    var o = document.createElement('option'); o.value = id;
+    o.textContent = id === 'none' ? 'None' : id === 'letter-r' ? 'Letter R' : id === 'letter-f' ? 'Letter F' : id === 'letter' ? 'Your own letter' : DESIGN_BY_ID[id].name;
+    designSel.appendChild(o);
+  });
+  designSel.addEventListener('change', function () {
+    var was = state.motif;
+    state.design = designSel.value; state.motif = state.design !== 'none'; customGlyph = null;
+    if (state.motif && !was) aimLetters();
+    invalidate(); syncUI(); writeHash();
+    if (state.design === 'letter') document.getElementById('glyph').focus();
+  });
+  document.getElementById('glyph').addEventListener('input', function (e) {
+    var ch = Array.from(e.target.value.trim()).pop();
+    if (!ch) return;
+    state.glyph = ch; e.target.value = ch;
+    invalidate(); writeHash();
+  });
+  var designAIn = document.getElementById('design-a');
+  designAIn.addEventListener('input', function () {
+    state.designA = +designAIn.value; document.getElementById('design-a-out').textContent = designAIn.value + '%'; invalidate();
+  });
+  designAIn.addEventListener('change', writeHash);
+  document.querySelectorAll('[data-orient]').forEach(function (b) {
+    b.addEventListener('click', function () { state.orient = b.dataset.orient; aimLetters(); invalidate(); syncUI(); writeHash(); });
+  });
   document.getElementById('zoom-in').addEventListener('click', function () { zoomCentre(1.25); });
   document.getElementById('zoom-out').addEventListener('click', function () { zoomCentre(1 / 1.25); });
   document.getElementById('home').addEventListener('click', function (e) { resetView(); e.currentTarget.blur(); });
@@ -946,6 +1117,13 @@
     document.querySelectorAll('[data-drag]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.drag === state.drag)); });
     edge.value = state.edge; document.getElementById('edge-out').textContent = (+state.edge).toFixed(1);
     shadeIn.value = state.shade; document.getElementById('shade-out').textContent = state.shade + '%';
+    designSel.value = state.design;
+    document.getElementById('glyph').value = state.glyph;
+    document.getElementById('glyph').hidden = state.design !== 'letter';
+    document.getElementById('orient').hidden = !state.motif;
+    document.getElementById('design-a-row').hidden = !state.motif;
+    designAIn.value = state.designA; document.getElementById('design-a-out').textContent = state.designA + '%';
+    document.querySelectorAll('[data-orient]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.orient === state.orient)); });
   }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
@@ -955,6 +1133,7 @@
   // For the screenshot, thumbnail and video tools.
   window.Hyper = {
     state: state, invalidate: invalidate, setModel: setModel, setTiling: setTiling, resetView: resetView, MODELS: MODELS,
-    setT: setT, step: step, rotZ: rotZ, mul: mul, ident: ident
+    setT: setT, step: step, rotZ: rotZ, mul: mul, ident: ident, aimLetters: aimLetters,
+    setPicture: function (c) { customGlyph = c; state.motif = true; aimLetters(); invalidate(); }
   };
 })();
