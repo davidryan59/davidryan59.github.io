@@ -1,7 +1,7 @@
 # Hyperbolic Models Explorer video
 
 Renders a 30-second looping video of the Hyperbolic Models Explorer,
-version 1: 1080 × 1080, 30 fps, light theme, silent, with captions. The
+version 4: 1080 × 1080, 30 fps, light theme, silent, with captions. The
 video is the real app page, `app/hyperbolic/`, driven by a real mouse on a
 scripted clock, so it always shows the app as it is. The last frame flows
 into the first. [storyboard.md](storyboard.md) says what happens when.
@@ -23,8 +23,9 @@ into the first. [storyboard.md](storyboard.md) says what happens when.
   and the pointer.
 - `render.js` – serves this repo locally, opens the app in headless
   Chromium, moves the real mouse frame by frame, and pipes the screenshots
-  to ffmpeg. Output: `renders/hyperbolic-v1.mp4`, silent. Stills, the
-  review page and the loop check go in `renders/v1/`.
+  to ffmpeg. Output: `renders/hyperbolic-v4.mp4`, silent. Stills, the
+  review page and the loop check go in `renders/v4/`. Earlier versions
+  stay beside it. Raise the version in `timeline.js` before a new render.
 
 A change of model crossfades: `render.js` takes a still of the frame before
 the change, and the stage fades it out over the new model. The last change
@@ -42,10 +43,20 @@ uses Chrome.
 | The video | `node tools/hyperbolic-video/render.js` | about 2 min |
 | Stills at chosen seconds | `node tools/hyperbolic-video/render.js --stills 7.6,14.6` | 15 s |
 | The review page | `node tools/hyperbolic-video/render.js --review` | 30 s |
+| The pointer pages | `node tools/hyperbolic-video/render.js --paths` | 15 s |
+| The video the motion page plays | `node tools/hyperbolic-video/render.js --preview` | 3 min |
+
+Check the motion before the final render. `live.html` is the main check:
+it runs the real explorer and drags it along each path in real time. Serve
+the repo root on port 8765 and open
+`http://localhost:8765/tools/hyperbolic-video/live.html`. The two pages
+below are older and slower to use. `paths.html` animates each
+drag's pointer over a still, with a speed graph. `animate.html` loops each
+drag's part of `preview.mp4`, so the plane can be seen moving.
 
 `SHAPE=wide` films 4:3 (1440 × 1080) with the model card showing, and
 `THEME=dark` uses the dark theme. The review page,
-`renders/v1/stills.html`, shows one moment in all four, then the script's
+`renders/<version>/stills.html`, shows one moment in all four, then the script's
 stills in the square light version.
 
 Every run that reaches the end checks the loop: the frame after the last

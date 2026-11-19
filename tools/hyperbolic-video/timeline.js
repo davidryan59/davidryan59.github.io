@@ -9,7 +9,7 @@
 (function () {
   'use strict';
 
-  var VERSION = 'v1';
+  var VERSION = 'v4';
   var SECONDS = 30, FPS = 30;
   var FRAMES = Math.round(SECONDS * FPS);
 
@@ -42,24 +42,48 @@
     [0.25, 3.0, -0.30, 0.12]
   ];
 
-  // The pointer: from t0 to t1 it travels to a point. A drag holds the
-  // button down on the tiling for the whole move; bend lifts the path into
-  // a gentle arc, in disk units.
-  var PATH = [
-    [2.5, 3.3, [0.33, 0.17]],
-    [3.4, 6.4, [-0.31, -0.02], { drag: true, bend: 0.08 }],      // Poincaré disk
-    [6.6, 7.4, [-0.31, 0.17]],
-    [7.6, 10.4, [0.33, -0.08], { drag: true, bend: 0.08 }],      // Klein disk
-    [10.6, 11.4, [0.05, -0.3]],
-    [11.6, 14.4, [-0.05, 0.42], { drag: true, bend: 0.04 }],     // half-plane: down towards the floor
-    [14.6, 15.4, [-0.37, 0.0]],
-    [15.6, 18.4, [0.37, 0.0], { drag: true, bend: 0.04 }],       // band: along it
-    [18.6, 19.4, [0.36, 0.36]],
-    [19.6, 22.4, [0.64, 0.64], { drag: true, bend: 0.0 }],       // inverted disk: outwards, outside the hole
-    [22.6, 23.4, [-0.42, 0.29]],
-    [23.6, 26.4, [0.42, 0.29], { drag: true, bend: 0.06 }],      // Joukowsky: along the slit
-    [26.6, 28.2, REST]
+  // The drags. Each runs from t0 to t1 along a curve given by a formula,
+  // path(u) for u from 0 to 1, so it has no corners anywhere. Time maps to
+  // u through glide() below, so the pointer starts from rest, speeds up
+  // and slows to rest, with smooth acceleration and smooth jerk. Paths stay
+  // small and well inside the rim, so the plane never races.
+  var TAU = 2 * Math.PI;
+  // A Bezier curve: one polynomial through the control points' pull, so it
+  // is smooth everywhere, with no corner at any control point.
+  function bezier(P) {
+    return function (u) {
+      var Q = P.map(function (p) { return p.slice(); });
+      for (var n = Q.length - 1; n > 0; n--) for (var k = 0; k < n; k++)
+        Q[k] = [Q[k][0] + (Q[k + 1][0] - Q[k][0]) * u, Q[k][1] + (Q[k + 1][1] - Q[k][1]) * u];
+      return Q[0];
+    };
+  }
+  // A bump from 0 up to 1 and back to 0 over u in [0, w], then 0: sin to
+  // the fourth, so its slope and curvature are smooth where it ends.
+  function bump(u, w) { return u >= w ? 0 : Math.pow(Math.sin(Math.PI * u / w), 4); }
+  var DRAGS = [
+    { t0: 3.3, t1: 6.9, name: 'Poincaré disk: one full circle, anticlockwise, reaching further out',
+      path: function (u) { var a = -TAU * u; return [0.1 + 0.22 * Math.cos(a), 0.08 + 0.22 * Math.sin(a)]; } },
+    { t0: 7.5, t1: 10.8, name: 'Klein disk: up and to the right, then turning down to end elsewhere',
+      path: bezier([[-0.3, 0.22], [0.02, -0.5], [0.42, -0.08], [0.16, 0.3]]) },
+    { t0: 11.5, t1: 14.8, name: 'Half-plane: a P, up from near the left edge, round the top and back in',
+      path: bezier([[-0.6, 0.45], [-0.63, -0.3], [-0.18, -0.46], [-0.04, -0.06], [-0.24, 0.1], [-0.48, 0.06]]) },
+    { t0: 15.5, t1: 18.8, name: 'Band: up from half way to the lower edge, an arc over to the middle, then down diagonally',
+      path: bezier([[-0.36, 0.45], [-0.4, -0.2], [0.02, -0.32], [0.1, 0.06], [0.34, 0.4]]) },
+    { t0: 19.5, t1: 22.8, name: 'Inverted disk: from far out, a shallow curve in towards the hole, then out again further round',
+      path: function (u) { var a = (0.24 - 0.32 * u) * Math.PI, r = 0.9 - 0.13 * bump(u, 1); return [r * Math.cos(a), r * Math.sin(a)]; } },
+    { t0: 23.5, t1: 26.8, name: 'Joukowsky: from near the slit’s right end, a loop away from it, then back along it leftwards',
+      path: bezier([[0.54, 0.26], [0.5, 0.62], [-0.42, 0.62], [-0.32, 0.16], [0.25, 0.24]]) }
   ];
+  // Moves between drags carry the pointer to the next drag's start, or
+  // home to REST after the last.
+  var MOVES = [[2.3, 3.25], [6.95, 7.45], [10.85, 11.45], [14.85, 15.45], [18.85, 19.45], [22.85, 23.45], [26.85, 28.3]];
+
+  // Septic smootherstep: zero speed, acceleration and jerk at both ends.
+  function glide(u) {
+    u = u <= 0 ? 0 : u >= 1 ? 1 : u;
+    return u * u * u * u * (35 - 84 * u + 70 * u * u - 20 * u * u * u);
+  }
 
   // Captions: from t0 to t1, fading in and out over FADE seconds. The title
   // starts before 0 s, so it is whole and still through the loop's join.
@@ -87,13 +111,13 @@
   }
   // Is the mouse button down at time t?
   function pressed(t) {
-    return PATH.some(function (s) { return s[3] && s[3].drag && t >= s[0] && t < s[1]; });
+    return DRAGS.some(function (d) { return t >= d.t0 && t < d.t1; });
   }
 
   var Timeline = {
     VERSION: VERSION, SECONDS: SECONDS, FPS: FPS, FRAMES: FRAMES, SHAPES: SHAPES, REST: REST,
     FADE_CHANGE: FADE_CHANGE, CHANGES: CHANGES, HOME_FROM: HOME_FROM, HOME_AT: HOME_AT,
-    GLIDES: GLIDES, PATH: PATH, FADE: FADE, CAPTIONS: CAPTIONS,
+    GLIDES: GLIDES, DRAGS: DRAGS, MOVES: MOVES, glide: glide, FADE: FADE, CAPTIONS: CAPTIONS,
     smooth: smooth, ease: ease, pressed: pressed
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Timeline;

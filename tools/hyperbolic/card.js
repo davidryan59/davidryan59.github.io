@@ -30,7 +30,7 @@ const what = process.argv[2] || 'both';
 // The words on the card. Change them here, then run with "card".
 const CARD = {
   title: 'Hyperbolic Models Explorer',
-  sub: 'One tiling, fourteen ways to draw it. Drag the plane through the Poincaré disk, the Klein disk, the half-plane and more.',
+  sub: 'The hyperbolic plane can be drawn in multiple ways. Using tessellations to illustrate the geometry, this interactive app allows you to explore and move about the hyperbolic plane for various models: the Poincaré disk, the Klein disk, the half-plane and the band.',
   site: 'Maths explorer · drbuild.uk/hyperbolic'
 };
 
@@ -46,9 +46,9 @@ async function card(browser) {
     * { margin: 0; box-sizing: border-box; }
     body { width: 1200px; height: 630px; overflow: hidden; background: #f6f3ec; font-family: Georgia, "Times New Roman", serif; }
     img { position: absolute; right: 0; top: 0; width: 660px; height: 630px; }
-    .panel { position: absolute; left: 64px; top: 0; bottom: 0; width: 520px; display: flex; flex-direction: column; justify-content: center; }
+    .panel { position: absolute; left: 64px; top: 0; bottom: 0; width: 470px; display: flex; flex-direction: column; justify-content: center; }
     h1 { font-size: 56px; font-weight: normal; line-height: 1.08; color: #1a1a1a; }
-    p { font-size: 27px; line-height: 1.3; color: #55524a; margin-top: 18px; }
+    p { font-size: 23px; line-height: 1.32; color: #55524a; margin-top: 18px; }
     .site { font-size: 21px; color: #1552a1; margin-top: 22px; letter-spacing: 0.02em; }
   </style></head><body>
     <img src="data:image/png;base64,${disk}" alt="">

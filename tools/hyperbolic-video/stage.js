@@ -42,17 +42,18 @@
   // Pointer ----------------------------------------------------------------
 
   var at = null;
-  var segments = T.PATH.map(function (s) {
-    return { t0: s[0], t1: s[1], to: s[2], drag: !!(s[3] && s[3].drag), bend: s[3] && s[3].bend || 0 };
-  });
+  // One list in time order: the moves, and the drags along their curves.
+  var segments = T.MOVES.map(function (m, i) {
+    var d = T.DRAGS[i];
+    return { t0: m[0], t1: m[1], to: d ? d.path(0) : T.REST };
+  }).concat(T.DRAGS.map(function (d) { return { t0: d.t0, t1: d.t1, path: d.path }; }))
+    .sort(function (a, b) { return a.t0 - b.t0; });
 
-  // A quadratic curve whose middle is lifted by bend, in disk units, up
-  // the screen. A move that is not a drag arcs by at most 12 px.
-  function control(p0, p1, bend) {
+  // A move arcs gently, by at most 12 px.
+  function control(p0, p1) {
     var dx = p1[0] - p0[0], dy = p1[1] - p0[1], len = Math.hypot(dx, dy) || 1;
-    var nx = -dy / len, ny = dx / len;
+    var nx = -dy / len, ny = dx / len, h = Math.min(0.12 * len, 12);
     if (ny > 0) { nx = -nx; ny = -ny; }
-    var h = bend ? bend * disk.r : Math.min(0.12 * len, 12);
     return [(p0[0] + p1[0]) / 2 + nx * h, (p0[1] + p1[1]) / 2 + ny * h];
   }
 
@@ -61,9 +62,13 @@
     segments.forEach(function (seg) { if (seg.t0 <= t) s = seg; });
     if (!s || s.done) return at;
     if (!s.start) s.start = at.slice();
-    var u = T.ease((t - s.t0) / (s.t1 - s.t0)), end = page(s.to), c = control(s.start, end, s.bend), a = 1 - u;
-    var p = [a * a * s.start[0] + 2 * a * u * c[0] + u * u * end[0],
-             a * a * s.start[1] + 2 * a * u * c[1] + u * u * end[1]];
+    var u = T.glide((t - s.t0) / (s.t1 - s.t0)), p;
+    if (s.path) p = page(s.path(u));
+    else {
+      var end = page(s.to), c = control(s.start, end), a = 1 - u;
+      p = [a * a * s.start[0] + 2 * a * u * c[0] + u * u * end[0],
+           a * a * s.start[1] + 2 * a * u * c[1] + u * u * end[1]];
+    }
     if (t >= s.t1) s.done = true;
     at = p;
     return p;

@@ -6,6 +6,8 @@
      node tools/hyperbolic-video/render.js out.mp4        the video, to another file
      node tools/hyperbolic-video/render.js --stills 5,12  stills at chosen seconds
      node tools/hyperbolic-video/render.js --review       the review page of numbered stills
+     node tools/hyperbolic-video/render.js --paths        the pointer preview pages: paths.html and animate.html
+     node tools/hyperbolic-video/render.js --preview      the video animate.html plays, renders/<version>/preview.mp4
 
    SHAPE=wide films 4:3 with the model card showing, and THEME=dark the
    dark theme; the defaults are square and light. The app's state on each
@@ -169,6 +171,166 @@ function picture(t) {
   return parts.join(', ');
 }
 
+// The pointer preview: one still per drag, taken as the drag starts with
+// the pointer hidden, and the pointer animated over it in the browser at
+// real speed from a copy of timeline.js.
+function pathsPage() {
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyperbolic video pointer ${T.VERSION}</title>
+<style>
+  :root { --bg:#f6f3ec; --text:#2a2722; --muted:#6d685c; --card:#fffdf8; --rule:#ddd8cc; --line:#2a2722; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --text:#ece8dd; --muted:#a29d91; --card:#202026; --rule:#3a3a3a; --line:#ece8dd; } }
+  body { margin:0; padding:20px 16px 48px; background:var(--bg); color:var(--text); font:15px/1.4 Georgia, serif; }
+  h1 { font-size:24px; margin:0 0 4px; } p { margin:0 0 12px; color:var(--muted); max-width:80ch; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; }
+  button { font:inherit; padding:6px 14px; border-radius:8px; border:1px solid var(--rule); background:var(--card); color:var(--text); cursor:pointer; }
+  button[aria-pressed="true"] { background:#dfe7f3; color:#1a1a1a; }
+  .grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; }
+  @media (max-width:900px) { .grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+  @media (max-width:560px) { .grid { grid-template-columns:minmax(0, 1fr); } }
+  figure { margin:0; background:var(--card); border:1px solid var(--rule); border-radius:8px; overflow:hidden; }
+  .pic { position:relative; aspect-ratio:1; }
+  .pic img, .pic canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  figcaption { padding:7px 10px 9px; font-size:13.5px; }
+  figcaption b { display:block; } figcaption span { color:var(--muted); }
+  .speed { width:100%; height:46px; display:block; margin-top:6px; }
+</style></head><body>
+<h1>Pointer paths – ${T.VERSION}</h1>
+<p>Each card plays one drag at real speed over its model, then pauses and repeats. The dashed line is the whole path. The graph under each shows the pointer's speed over the drag, with a dot for now. Each path is one formula, and the speed rises and falls with smooth acceleration and smooth jerk. The plane stays still here; in the video it moves with the pointer.</p>
+<div class="bar"><button id="play" aria-pressed="true">Pause</button><button id="half" aria-pressed="false">Half speed</button></div>
+<div class="grid" id="grid"></div>
+<script src="timeline.js"></script>
+<script>
+(function () {
+  var T = window.HyperTimeline, grid = document.getElementById('grid'), cards = [];
+  var playing = true, rate = 1, clock = 0, last = null;
+  var line = getComputedStyle(document.documentElement).getPropertyValue('--line').trim();
+  T.DRAGS.forEach(function (d, i) {
+    var dur = d.t1 - d.t0, N = 400, pts = [], speed = [], peak = 0;
+    for (var k = 0; k <= N; k++) pts.push(d.path(T.glide(k / N)));
+    for (k = 1; k <= N; k++) { var v = Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]) / (dur / N) * 480; speed.push(v); peak = Math.max(peak, v); }
+    var f = document.createElement('figure');
+    f.innerHTML = '<div class="pic"><img src="path-' + (i + 1) + '.png" alt=""><canvas></canvas></div>' +
+      '<figcaption><b>' + (i + 1) + ' · ' + d.t0.toFixed(1) + '–' + d.t1.toFixed(1) + ' s</b><span>' + d.name +
+      '. Peak ' + Math.round(peak) + ' px/s in the 960 px frame.</span><canvas class="speed"></canvas></figcaption>';
+    grid.appendChild(f);
+    cards.push({ d: d, dur: dur, speed: speed, peak: peak, cv: f.querySelector('.pic canvas'), sp: f.querySelector('.speed') });
+  });
+  function fit(c) { var r = c.getBoundingClientRect(), k = devicePixelRatio || 1; if (c.width !== Math.round(r.width * k)) { c.width = Math.round(r.width * k); c.height = Math.round(r.height * k); } return k; }
+  function arrow(x, cx, cy, k) {
+    x.save(); x.translate(cx, cy); x.scale(1.15 * k, 1.15 * k); x.translate(-3, -3);
+    x.beginPath(); x.moveTo(3, 3); x.lineTo(3, 26.5); x.lineTo(9.2, 20.6); x.lineTo(13.4, 30.4); x.lineTo(17.6, 28.6); x.lineTo(13.5, 19); x.lineTo(21.8, 19); x.closePath();
+    x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = 3; x.shadowOffsetY = 1.5;
+    x.fillStyle = '#fbfaf6'; x.fill(); x.shadowColor = 'transparent'; x.lineWidth = 1.7; x.strokeStyle = '#0e0e10'; x.lineJoin = 'round'; x.stroke(); x.restore();
+  }
+  function draw() {
+    cards.forEach(function (c) {
+      var cycle = c.dur + 1.2, t = clock % cycle - 0.4, u = Math.max(0, Math.min(1, t / c.dur));
+      var k = fit(c.cv), x = c.cv.getContext('2d'), W = c.cv.width;
+      function px(p) { return [(0.5 + p[0] / 2) * W, (0.5 + p[1] / 2) * W]; }
+      x.clearRect(0, 0, W, W);
+      x.beginPath();
+      for (var i = 0; i <= 200; i++) { var q = px(c.d.path(i / 200)); if (i) x.lineTo(q[0], q[1]); else x.moveTo(q[0], q[1]); }
+      x.setLineDash([6 * k, 5 * k]); x.lineWidth = 2 * k; x.strokeStyle = 'rgba(20,20,24,.7)'; x.stroke(); x.setLineDash([]);
+      var s0 = px(c.d.path(0)); x.beginPath(); x.arc(s0[0], s0[1], 4 * k, 0, 2 * Math.PI); x.fillStyle = 'rgba(20,20,24,.8)'; x.fill();
+      var p = px(c.d.path(T.glide(u)));
+      if (t >= 0 && t <= c.dur) { x.beginPath(); x.arc(p[0], p[1], 9 * k, 0, 2 * Math.PI); x.strokeStyle = 'rgba(20,20,24,.55)'; x.lineWidth = 2 * k; x.stroke(); }
+      arrow(x, p[0], p[1], k);
+      var ks = fit(c.sp), y = c.sp.getContext('2d'), w = c.sp.width, h = c.sp.height, top = 500;
+      y.clearRect(0, 0, w, h); y.beginPath();
+      c.speed.forEach(function (v, j) { var X = j / (c.speed.length - 1) * w, Y = h - 3 * ks - v / top * (h - 6 * ks); if (j) y.lineTo(X, Y); else y.moveTo(X, Y); });
+      y.lineWidth = 1.6 * ks; y.strokeStyle = line; y.stroke();
+      var j = Math.min(c.speed.length - 1, Math.floor(u * c.speed.length)), X = u * w, Y = h - 3 * ks - c.speed[j] / top * (h - 6 * ks);
+      y.beginPath(); y.arc(X, Y, 3.5 * ks, 0, 2 * Math.PI); y.fillStyle = '#d4483b'; y.fill();
+    });
+  }
+  function tick(now) {
+    if (last !== null && playing) clock += (now - last) / 1000 * rate;
+    last = now; draw(); requestAnimationFrame(tick);
+  }
+  document.getElementById('play').onclick = function () { playing = !playing; this.textContent = playing ? 'Pause' : 'Play'; this.setAttribute('aria-pressed', String(playing)); };
+  document.getElementById('half').onclick = function () { rate = rate === 1 ? 0.5 : 1; this.setAttribute('aria-pressed', String(rate === 0.5)); };
+  requestAnimationFrame(tick);
+})();
+</script>
+</body></html>
+`;
+}
+
+// The motion page: the preview video with a button per drag, which loops
+// that drag's part of the video, so the plane can be judged moving.
+function animatePage() {
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hyperbolic video motion ${T.VERSION}</title>
+<style>
+  :root { --bg:#f6f3ec; --text:#2a2722; --muted:#6d685c; --card:#fffdf8; --rule:#ddd8cc; --on:#dfe7f3; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --text:#ece8dd; --muted:#a29d91; --card:#202026; --rule:#3a3a3a; --on:#2c3340; } }
+  body { margin:0; padding:20px 16px 40px; background:var(--bg); color:var(--text); font:15px/1.4 Georgia, serif; }
+  h1 { font-size:24px; margin:0 0 4px; } p { margin:0 0 12px; color:var(--muted); max-width:80ch; }
+  .wrap { display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap; }
+  .stage { position:relative; width:min(100%, calc(100vh - 170px), 760px); aspect-ratio:1; flex:none; }
+  .stage video, .stage canvas { position:absolute; inset:0; width:100%; height:100%; display:block; border-radius:8px; }
+  .stage canvas { pointer-events:none; }
+  .side { flex:1; min-width:240px; max-width:420px; display:flex; flex-direction:column; gap:8px; }
+  button { font:inherit; text-align:left; padding:8px 12px; border-radius:8px; border:1px solid var(--rule); background:var(--card); color:var(--text); cursor:pointer; }
+  button[aria-pressed="true"] { background:var(--on); border-color:#8aa3c8; }
+  button b { display:block; } button span { color:var(--muted); font-size:13.5px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .row button { text-align:center; }
+</style></head><body>
+<h1>Pointer motion in the video – ${T.VERSION}</h1>
+<p>Pick a model to loop its part of the real render: the pointer's move in, its drag, and a moment after. Tell me any path to change by its number.</p>
+<div class="wrap">
+  <div class="stage"><video id="v" src="preview.mp4" muted playsinline preload="auto"></video><canvas id="c"></canvas></div>
+  <div class="side">
+    <div id="list" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="row"><button id="all">Whole video</button><button id="half" aria-pressed="false">Half speed</button><button id="path" aria-pressed="false">Show path</button><button id="play">Pause</button></div>
+  </div>
+</div>
+<script src="timeline.js"></script>
+<script>
+(function () {
+  var T = window.HyperTimeline, v = document.getElementById('v'), c = document.getElementById('c');
+  var list = document.getElementById('list'), range = null, showPath = false, current = -1, buttons = [];
+  T.DRAGS.forEach(function (d, i) {
+    var b = document.createElement('button');
+    b.innerHTML = '<b>' + (i + 1) + ' · ' + d.name.split(':')[0] + '</b><span>' + d.name.split(': ')[1] + ', ' + d.t0.toFixed(1) + '–' + d.t1.toFixed(1) + ' s</span>';
+    b.onclick = function () { pick(i); };
+    list.appendChild(b); buttons.push(b);
+  });
+  function mark() { buttons.forEach(function (b, j) { b.setAttribute('aria-pressed', String(j === current)); }); document.getElementById('all').setAttribute('aria-pressed', String(current === -1)); }
+  function pick(i) {
+    current = i; var d = T.DRAGS[i];
+    range = [Math.max(0, d.t0 - 0.7), Math.min(T.SECONDS, d.t1 + 0.6)];
+    v.currentTime = range[0]; v.play(); mark(); draw();
+  }
+  document.getElementById('all').onclick = function () { current = -1; range = null; v.currentTime = 0; v.loop = true; v.play(); mark(); draw(); };
+  document.getElementById('half').onclick = function () { v.playbackRate = v.playbackRate === 1 ? 0.5 : 1; this.setAttribute('aria-pressed', String(v.playbackRate === 0.5)); };
+  document.getElementById('path').onclick = function () { showPath = !showPath; this.setAttribute('aria-pressed', String(showPath)); draw(); };
+  document.getElementById('play').onclick = function () { if (v.paused) { v.play(); this.textContent = 'Pause'; } else { v.pause(); this.textContent = 'Play'; } };
+  v.loop = true;
+  function watch() {
+    if (range && (v.currentTime >= range[1] || v.currentTime < range[0] - 0.05)) v.currentTime = range[0];
+    requestAnimationFrame(watch);
+  }
+  function draw() {
+    var r = c.getBoundingClientRect(), k = devicePixelRatio || 1, W = Math.round(r.width * k);
+    c.width = c.height = W; var x = c.getContext('2d'); x.clearRect(0, 0, W, W);
+    if (!showPath || current < 0) return;
+    var d = T.DRAGS[current]; x.beginPath();
+    for (var i = 0; i <= 200; i++) { var p = d.path(i / 200), X = (0.5 + p[0] / 2) * W, Y = (0.5 + p[1] / 2) * W; if (i) x.lineTo(X, Y); else x.moveTo(X, Y); }
+    x.setLineDash([7 * k, 6 * k]); x.lineWidth = 2.2 * k; x.strokeStyle = 'rgba(20,20,24,.75)'; x.stroke();
+  }
+  window.addEventListener('resize', draw);
+  pick(0); requestAnimationFrame(watch);
+})();
+</script>
+</body></html>
+`;
+}
+
 function reviewPage() {
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const cell = (src, head, lines) => '<figure><img src="' + src + '" alt=""><figcaption><b>' + esc(head) + '</b>' +
@@ -195,7 +357,7 @@ function reviewPage() {
   figcaption span { color:var(--muted); }
 </style></head><body>
 <h1>Hyperbolic Models Explorer video – stills ${T.VERSION}</h1>
-<p>30 s silent loop. {7,3}, Many colours, shading 70%, edge width 2, Compass design Upright at 60%: the app’s defaults. Draft 2 of the stills, 2026-11-19.</p>
+<p>30 s silent loop. {7,3}, Many colours, shading 70%, edge width 2, Compass design Upright at 60%: the app’s defaults. Version ${T.VERSION}.</p>
 <h2>Shape and theme, at ${OPTION_AT.toFixed(1)} s</h2>
 <div class="grid">
 ${options}
@@ -229,13 +391,22 @@ ${script}
       }
       fs.writeFileSync(path.join(RENDERS, 'stills.html'), reviewPage());
       console.log('renders/' + T.VERSION + '/stills.html');
+    } else if (args[0] === '--paths') {
+      const f = await film(browser, port, 'square', 'light', errors);
+      await f.page.evaluate(() => document.body.classList.add('video-nopointer'));
+      await stills(f, T.DRAGS.map(d => d.t0), (t, i) => 'path-' + (i + 1) + '.png', false, errors);
+      await f.close();
+      fs.copyFileSync(path.join(__dirname, 'timeline.js'), path.join(RENDERS, 'timeline.js'));
+      fs.writeFileSync(path.join(RENDERS, 'paths.html'), pathsPage());
+      fs.writeFileSync(path.join(RENDERS, 'animate.html'), animatePage());
+      console.log('renders/' + T.VERSION + '/paths.html and animate.html, which plays preview.mp4 from --preview');
     } else if (args[0] === '--stills') {
       const f = await film(browser, port, shape, theme, errors);
       await stills(f, args[1].split(',').map(Number), t => shape + '-' + theme + '-t' + t.toFixed(2) + '.png', false, errors);
       await f.close();
     } else {
       const f = await film(browser, port, shape, theme, errors);
-      const output = path.resolve(args[0] || path.join(RENDERS, '..', 'hyperbolic-' + T.VERSION + '.mp4'));
+      const output = path.resolve(args[0] === '--preview' ? path.join(RENDERS, 'preview.mp4') : args[0] || path.join(RENDERS, '..', 'hyperbolic-' + T.VERSION + '.mp4'));
       let first = null;
       await run('ffmpeg', ['-loglevel','error','-y','-f','image2pipe','-c:v','png','-framerate',String(T.FPS),'-i','-',
         '-vf','scale=out_color_matrix=bt709:out_range=tv','-c:v','libx264','-preset','slow','-crf','17','-pix_fmt','yuv420p',
