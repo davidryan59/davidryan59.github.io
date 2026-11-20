@@ -26,8 +26,8 @@ library and no build step.
 - [x] Light and dark themes; full-screen button
 - [x] `tools/screen-fit/check.js` passes at all six sizes with Goldberg GP(2,1), Tile type and Letter F (2026-11-20)
 - [x] Share card and thumbnail from `tools/hyperbolic/card.js`
-- [ ] A quick check on a real phone and iPad
-- [ ] Run `tools/check-addresses/check.js` after the push
+- [x] A quick check on a real phone (2026-11-20)
+- [x] Run `tools/check-addresses/check.js` after the push (2026-11-20)
 
 ## How a pixel is drawn
 
