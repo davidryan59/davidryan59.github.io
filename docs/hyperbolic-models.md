@@ -3,8 +3,8 @@
 ## Summary
 
 The hyperbolic plane has no flat map that keeps both angles and sizes true,
-so mathematicians draw it in many models. This app shows one tiling in
-fourteen of them, and lets a visitor drag the plane through each one. It
+so mathematicians draw it in many models. This app shows several tiling
+patterns in fourteen models. Drag the plane through any of them. It
 lives at `app/hyperbolic/`, served at `drbuild.uk/app/hyperbolic/`, with the
 short address `drbuild.uk/hyperbolic`. Plain JavaScript and WebGL 2, with no
 library and no build step.
@@ -13,15 +13,17 @@ library and no build step.
 
 - [x] Fourteen models, each with an inverse map from the screen to the hyperboloid, in GLSL and in JavaScript
 - [x] Tilings from the triangle group (p, q, r), as tiles or as triangles, with eight presets and steppers
+- [x] Seven patterns in the top-left Pattern menu, including Snub with both handedness settings (2026-11-20)
 - [x] Drag, glide after release, pan (Pan switch, Shift-drag, right-drag, two fingers), zoom about the pointer, arrow keys, Spin, Fly and Reset
-- [x] Symmetric colourings, Many, Few and Plain, with shading (default 70%), edge width (default 2) and mirror lines
+- [x] Many, Few, By tile type and Plain, with shading (default 70%), edge width (default 2) and mirror lines
 - [x] Design menu: None, 15 pictures from `app/hyperbolic/designs.js`, Letter R, Letter F and the viewer's own letter (`d=<id>`, `g=<char>`); default Compass. Upright (default) or One point (`o=point`); design opacity 0–100%, default 60% (`da=`). Other defaults: Many colours, shading 70%, edge width 2, mirror lines off (2026-11-19)
+- [x] Designs fit each tile. All tiles is the default. Largest tiles selects the tiles with the largest circumradius (`on=largest`).
 - [x] The view snaps home every frame, so the picture stays crisp however far it travels (2026-11-19)
 - [x] Live builder-page thumbnail, `assets/hyperbolic-thumb.js`
 - [x] Tile preview above the tiling controls, drawn by the same shader
 - [x] Settings in the address after the `#`
 - [x] Light and dark themes; full-screen button
-- [x] `tools/screen-fit/check.js` passes at all six sizes (2026-11-19)
+- [x] `tools/screen-fit/check.js` passes at all six sizes with Snub, By tile type and Letter F selected (2026-11-20)
 - [x] Share card and thumbnail from `tools/hyperbolic/card.js`
 - [ ] A quick check on a real phone and iPad
 - [ ] Run `tools/check-addresses/check.js` after the push
@@ -37,12 +39,13 @@ library and no build step.
 3. Reflections in the three mirrors of the triangle with angles π/p, π/q and
    π/r fold the point into that triangle. The shader records each mirror it
    uses, two bits each, up to 256.
-4. The recorded mirrors, applied last first to point 0 of the colouring,
-   give the tile's colour (see Colour below). A gentle radial shade, lighter
-   at the tile's centre, follows from the folded point's distance to the
-   centre.
-5. The distance to each mirror, asinh |⟨p, n⟩|, draws the edges with
-   anti-aliasing from `fwidth`.
+4. The folded point gives the tile. Snub also uses the parity of the fold
+   and the snaps home to select one of two triangles. The tile gives its
+   type, centre, scale and colour action. For Many and Few, the recorded
+   mirrors act on the tile's point in that action, last first.
+5. The shader uses distance to the tile edges, with anti-aliasing from
+   `fwidth`. Regular uses the third mirror. The Wythoff patterns use
+   segments in the triangle. Snub uses the edges of the selected polygon.
 6. Where one pixel covers more than about a third of a tile, the colour fades
    to the palette's average, so the rim of a disk does not shimmer.
 
@@ -56,9 +59,67 @@ With the corner of angle π/p at the origin:
   and c = √(a² + b² − 1).
 
 A point is inside when ⟨p, nᵢ⟩ ≤ 0 for all three, under the Minkowski product
-⟨u, v⟩ = uₓvₓ + u_y v_y − u_z v_z. The tiles are the groups of 2p triangles
-round each corner of angle π/p. With r = 2 they are the regular {p, q} tiles.
-The tile edges lie on n₃.
+⟨u, v⟩ = uₓvₓ + u_y v_y − u_z v_z. The Regular pattern groups 2p triangles
+round each corner of angle π/p. With r = 2 these are the regular {p, q}
+tiles. Their edges lie on n₃.
+
+## Uniform patterns
+
+Pattern is in the top-left card. The steppers and presets choose the group.
+Tiles shows the selected pattern. Triangles shows the reflection triangles
+and keeps the pattern selected. Shared addresses save the choice as
+`pattern=<id>`. A missing or unknown value opens Regular.
+
+| Pattern | Hash value | Active mirrors | Vertex figure on {7,3} |
+| --- | --- | --- | --- |
+| Regular | `regular` | n₂ | 7.7.7 |
+| Rectified | `rectified` | n₁ | 3.7.3.7 |
+| Truncated | `truncated` | n₁, n₂ | 3.14.14 |
+| Expanded | `expanded` | n₂, n₃ | 3.4.7.4 |
+| Omnitruncated | `omnitruncated` | n₁, n₂, n₃ | 4.6.14 |
+| Truncated dual | `truncated-dual` | n₁, n₃ | 6.6.7 |
+| Snub | `snub` | rotations | 3.3.3.3.7 |
+
+For the Wythoff patterns, JavaScript solves ⟨W, nᵢ⟩ = −1 on the active mirrors and zero on the
+others. It scales W onto the hyperboloid, so the active mirrors all lie
+at the same distance from W. Each segment joins W to its perpendicular
+foot on an active mirror. Reflection in that mirror continues the segment
+to the next corner. Every tiling corner belongs to the reflection orbit
+of W, so every corner has the same vertex figure.
+
+Each chamber corner P, Q or R can be the centre of a tile. If its angle is
+π/k, one active incident mirror makes a k-gon and two make a 2k-gon. At a
+right angle, one active mirror gives an edge midpoint. The shader's
+`tileAt` uses the sides of the cuts through W to find the tile's centre orbit.
+Congruent polygons can belong to different orbits.
+
+The preview shows the tiles around one vertex in the Poincaré disk.
+
+Regular keeps the original mirror-edge rendering and its single-tile
+preview. For r > 2, its polygons have 2p sides and alternating corners at Q
+and R. That view uses both corner orbits instead of a single Wythoff point.
+
+## Snub
+
+The vertex W lies inside the triangle of mirrors. A rotation by twice the
+angle at P, Q or R takes W along an edge. JavaScript chooses W so these
+three edges have the same length. The orbit of W under even products of
+reflections gives every vertex. Each odd triangle contributes one
+equilateral triangle formed by the seeds from its three neighbouring even
+triangles. A corner with angle π/2 gives an edge between two of those
+triangles. On {7,3}, four triangles and a heptagon meet at every vertex.
+
+The two-triangle domain stores both halves in folded coordinates. Each half
+lists the convex faces that meet its interior. A face stores its centre,
+circumradius, design scale, colour orbit, tile type and all its edge planes.
+The fragment shader reads these rows from a texture. Complete faces let the
+shader draw an edge or a design across a mirror with the same geometry on
+both sides. The domain can also hold the precomputed cells of a Goldberg tiling.
+
+Handedness appears when Snub is selected. Right is the default. Left swaps
+the domain halves, reflects the colour actions and saves `hand=left`.
+At Reset, reflection in the horizontal mirror n₁ takes either hand to
+the other. Designs follow their selected orientation in each hand.
 
 ## The models
 
@@ -111,11 +172,11 @@ the snap below produces a non-finite matrix, T, the colour permutation and
 the F's boundary point all go back to their old values. A drag that starts
 on the Joukowsky slit once produced such a matrix and turned the view black
 (reported 2026-11-19). A drag point further out than z = 10⁵ is also refused.
-It then folds the view centre
-into the triangle in double precision and replaces T by T G⁻¹, where G is
-the symmetry of the tiling that did the fold. The picture is the same, the
-shader's points stay within a tile of home, and a 40-unit flight draws as
-crisply as the start.
+It then folds the view centre into the triangle in double precision and
+replaces T by T G⁻¹, where G is the product of the reflections in the fold.
+The shader counts the parity of G when selecting the Snub half. The picture
+stays the same, the shader's points stay near home, and a 40-unit flight
+draws as crisply as the start.
 
 ## Shading and the letter F
 
@@ -131,8 +192,10 @@ and turns shapes. The pictures live in `designs.js`, each drawn on a clear
 texture. Black in it draws in the edge colour, white draws white, and alpha
 sets the opacity.
 
-The frame is centred on the tile, which the fold puts at the origin. Two
-rules turn it:
+The shader translates each tile centre to the origin. The design scale
+comes from the radius of the largest circle centred on the tile that fits
+inside its edges. **Designs on** chooses every tile or only the tiles with
+the largest circumradius, including ties. Two rules turn each frame.
 
 - **Upright** (default). The top follows "up" in the Poincaré disk of the
   view where the designs were aimed, so every design stands upright there
@@ -141,12 +204,13 @@ rules turn it:
   view's disk to the aimed one is the Möbius map
   z ↦ e^{iφ} (z − z₀)/(1 − z̄₀ z), passed as z₀ and φ. Up at z pulls back to
   the angle π/2 − φ + 2 arg(1 − z̄₀ z). The shader builds the fold matrix M
-  as it folds, finds the tile centre M⁻¹O, takes that angle there and
-  carries the direction into the folded frame by M T⁻¹. The angle stays
+  as it folds, finds the tile centre M⁻¹C, takes that angle there and
+  carries the direction into the tile frame. The angle stays
   accurate far from the aimed view, since it needs only the argument of a
   sum that does not cancel on screen.
 - **One point.** The top faces a fixed boundary point ξ, which the shader
-  reflects alongside the pixel's point at every fold step.
+  reflects alongside the pixel at every fold step. It then translates the
+  boundary point into the tile frame.
 
 Choosing a design from None, the orientation buttons, Reset and a new tiling
 aim the designs from the current view. On an odd count of reflections,
@@ -155,22 +219,26 @@ every design keeps its hand.
 
 ## Colour
 
-A colouring of the tiling comes from a permutation action of the triangle
-group on n points: involutions s₁, s₂, s₃ with (s₁s₂)ᵖ = (s₁s₃)^q = (s₂s₃)ʳ = 1,
-where s₁ and s₂ fix point 0 and s₃ moves it. A tile reached by the group
-element g takes colour g·0. Since s₃ moves 0, two tiles that share an edge
-never share a colour, and every symmetry of the tiling permutes the colours.
-The snap home multiplies a stored permutation P₀ by the same reflections, so
-it never changes a colour.
+**By tile type** (`c=type`) gives each polygon shape one colour. The uniform
+patterns have equal edge lengths, so regular polygons of the same side
+count share a colour. The two triangle orbits in the {7,3} snub share a
+colour. **Plain** (`c=mono`) uses one neutral fill.
 
-`findAction` searches for such actions in the manner of a coset table, with
-points numbered in order of first use, for n from 2 to 32 and a budget of
-200,000 steps each. It takes a few milliseconds. **Many** takes the n nearest
-7 between 5 and 12, or else the smallest n of 3 or more. **Few** takes the
-smallest n. Examples: {7,3} has 8 and nothing smaller; {3,7} needs 22; {5,4}
-has 2, 6, 11 and 12; {6,4} has every even n. Twelve fixed bright colours
-cover n up to 12, and further hues follow round the colour wheel.
+**Many** (`c=many`, the default) and **Few** (`c=few`) give each tile orbit
+its own permutation action and palette range. The action uses involutions
+s₁, s₂, s₃ with (s₁s₂)ᵖ = (s₁s₃)^q = (s₂s₃)ʳ = 1. The two mirrors through
+the centre P, Q or R fix point 0. The opposite mirror moves it. A tile
+reached by the group element g takes colour g·0. The extra Snub triangles
+use the P action with point 0 anchored to the whole chamber. Snaps home
+update the stored permutations so the colours follow the plane.
 
+`findAction` searches in the manner of a coset table. It numbers points in
+order of first use and searches from 2 to 32 points, with a budget of 200,000
+steps per size. **Many** chooses the size nearest seven between five and
+12, or the smallest size of at least three if that range yields none.
+**Few** chooses the smallest size found. An orbit with no action found
+gets one colour. On Regular {7,3}, both choices find eight colours. On
+Expanded {7,3}, the P, Q and R actions use 8, 22 and 9 colours respectively.
 
 ## Models left out
 

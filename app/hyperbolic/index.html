@@ -52,6 +52,11 @@
   <div class="models featured" id="featured" role="group" aria-label="Main models"></div>
   <div class="models more" id="more" role="group" aria-label="More models"></div>
   <label class="model-select">Model <select id="model-select" aria-label="Model"></select></label>
+  <label class="pattern-select">Pattern <select id="pattern"></select></label>
+  <label class="pattern-select" id="hand-row" hidden>Handedness <select id="hand">
+    <option value="left">Left</option>
+    <option value="right">Right</option>
+  </select></label>
   <dl class="facts" id="facts"></dl>
 </div>
 
@@ -83,9 +88,10 @@
 <div class="card colours" id="colour-card">
   <button type="button" class="fold" aria-expanded="false">Colours</button>
   <div class="body">
-    <div class="segmented wrap" role="group" aria-label="Colours">
+    <div class="segmented colour-schemes" role="group" aria-label="Colours">
       <button type="button" data-colour="many" aria-pressed="true">Many</button>
       <button type="button" data-colour="few" aria-pressed="false">Few</button>
+      <button type="button" data-colour="type" aria-pressed="false">By tile type</button>
       <button type="button" data-colour="mono" aria-pressed="false">Plain</button>
     </div>
     <p class="count" id="colour-count"></p>
@@ -99,6 +105,12 @@
     <div class="letter"><label for="design">Design</label>
       <select id="design"></select>
       <input type="text" id="glyph" value="R" maxlength="2" autocomplete="off" spellcheck="false" aria-label="The letter to draw" hidden></div>
+    <label class="letter" id="designs-on-row" hidden>Designs on
+      <select id="designs-on">
+        <option value="all">All tiles</option>
+        <option value="largest">Largest tiles</option>
+      </select>
+    </label>
     <label class="slider" id="design-a-row" hidden>Design opacity <output id="design-a-out">60%</output>
       <input type="range" id="design-a" min="0" max="100" step="1" value="60">
     </label>
@@ -141,8 +153,8 @@
     <li><strong>Hyperboloid and Gans plane:</strong> the surface in 3D space that the other models come from, and its view from directly above.</li>
     <li><strong>The six map projections:</strong> the hyperbolic versions of map projections of the Earth, which keep distances or areas true.</li>
   </ul>
-  <p>The tilings come from triangles with angles 180°/p, 180°/q and 180°/r. Reflections in the sides of one triangle fill
-    the whole plane. The tiles group the triangles round each corner of angle 180°/p.</p>
+  <p>The tilings come from triangles with angles 180°/p, 180°/q and 180°/r.
+    Reflections in the sides of one triangle fill the plane. Each pattern places a tile corner at a different point of the triangle.</p>
   <p>Further reading: <a target="_blank" rel="noopener" href="https://roguetemple.com/z/hyper/models.php">Models and projections of hyperbolic geometry</a>
     from HyperRogue, which lists many more models, and the
     <a target="_blank" rel="noopener" href="https://spacesheep.dev/@yaroslavvb/orbifold-showcase">Orbifold Showcase</a>.</p>

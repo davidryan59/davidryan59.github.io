@@ -17,8 +17,8 @@
    Colour. Each tiling's colours come from a permutation action of its
    triangle group on n points, found by a small search at start. A tile's
    colour is the point that its group element sends point 0 to. Two tiles
-   that share an edge always differ, and every symmetry of the tiling
-   permutes the colours, so the snap back to home never changes them.
+   that share an edge in Regular differ when an action is found. The
+   snap back to home carries the colour permutations along with the view.
 
    The same model maps run in JavaScript, so a drag can find the point
    under the pointer. Plain JavaScript and WebGL 2, no library. */
@@ -79,6 +79,16 @@
   var PRESETS = [[7, 3, 2], [3, 7, 2], [5, 4, 2], [4, 5, 2], [8, 3, 2], [6, 4, 2], [4, 6, 2], [7, 3, 3]];
   var POLYGON = { 3: 'triangles', 4: 'squares', 5: 'pentagons', 6: 'hexagons', 7: 'heptagons', 8: 'octagons',
     9: 'nonagons', 10: 'decagons', 11: 'hendecagons', 12: 'dodecagons' };
+  var PATTERNS = [
+    { id: 'regular', name: 'Regular', mask: 2 },
+    { id: 'rectified', name: 'Rectified', mask: 1 },
+    { id: 'truncated', name: 'Truncated', mask: 3 },
+    { id: 'expanded', name: 'Expanded', mask: 6 },
+    { id: 'omnitruncated', name: 'Omnitruncated', mask: 7 },
+    { id: 'truncated-dual', name: 'Truncated dual', mask: 5 },
+    { id: 'snub', name: 'Snub' }
+  ];
+  var PATTERN_BY_ID = new Map(PATTERNS.map(function (p) { return [p.id, p]; }));
 
   // Twelve bright colours, ordered so that the first few differ most. Over
   // twelve colours, more hues follow round the colour wheel.
@@ -93,8 +103,8 @@
   // moves it. Points are numbered in order of first use, as in a coset
   // table, so each action is met once. Returns the table, false if none
   // exists, or null if the search ran out of budget.
-  function findAction(p, q, r, n, budget) {
-    var rel = [[0, 1, p], [0, 2, q], [1, 2, r]];
+  function findAction(orders, n, budget) {
+    var rel = [[0, 1, orders[0]], [0, 2, orders[1]], [1, 2, orders[2]]];
     var t = new Int16Array(n * 3).fill(-1), count = 1, nodes = 0;
     t[0] = 0; t[1] = 0;
     function ok() {
@@ -133,26 +143,28 @@
   var colourCache = {};
   // Two colourings per tiling: "many", nearest to seven colours from 5 to
   // 12 if one exists, and "few", the fewest colours possible.
-  function colourings(p, q, r) {
-    var key = p + ',' + q + ',' + r;
+  function colourings(p, q, r, corner) {
+    var key = [p, q, r, corner].join(',');
     if (colourCache[key]) return colourCache[key];
-    var found = {};
+    // Put the two generators of the corner stabiliser first in the search.
+    var order = INCIDENT[corner].concat(OPPOSITE[corner]);
+    var relations = [p, q, r];
+    var orders = [corner, OPPOSITE.indexOf(order[1]), OPPOSITE.indexOf(order[0])]
+      .map(function (i) { return relations[i]; });
+    var few, many, fallback;
     for (var n = 2; n <= MAXN; n++) {
-      var t = findAction(p, q, r, n, 200000);
-      if (t) found[n] = t;
+      var t = findAction(orders, n, 200000);
+      if (t) {
+        var action = { n: n, table: t.map(function (_, i) {
+          return t[i - i % 3 + order.indexOf(i % 3)];
+        }) };
+        if (!few) few = action;
+        if (!fallback && n >= 3) fallback = action;
+        if (n >= 5 && n <= 12 && (!many || Math.abs(n - 7) < Math.abs(many.n - 7))) many = action;
+      }
+      if ((many && many.n === 7) || (n >= 12 && fallback)) break;
     }
-    var ns = Object.keys(found).map(Number).sort(function (a, b) { return a - b; });
-    var few = ns[0], many = null;
-    ns.forEach(function (n) {
-      if (n >= 5 && n <= 12 && (many === null || Math.abs(n - 7) < Math.abs(many - 7))) many = n;
-    });
-    if (many === null) many = ns.filter(function (n) { return n >= 3; })[0] || few;
-    var res = {
-      many: many ? { n: many, table: found[many] } : null,
-      few: few ? { n: few, table: found[few] } : null
-    };
-    colourCache[key] = res;
-    return res;
+    return colourCache[key] = { many: many || fallback || few, few: few };
   }
 
   function paletteFor(n) {
@@ -184,8 +196,23 @@
     'uniform int uModel;',
     'uniform mat3 uTinv;',
     'uniform vec3 uN1, uN2, uN3;',
+    '#ifdef WYTHOFF',
+    'uniform int uEdgeMask;',
+    'uniform vec3 uCorner, uEdgeEnd[3], uEdgeNormal[3];',
+    'uniform ivec3 uTileMasks, uTileSides;',
+    'uniform vec3 uTileCentre[3], uTileRadii, uDesignScales;',
+    '#endif',
+    '#ifdef DOMAIN',
+    'uniform highp sampler2D uDomain;',
+    'uniform ivec2 uFaceCounts;',
+    'uniform int uHand;',
+    '#endif',
+    '#if defined(WYTHOFF) || defined(DOMAIN)',
+    'uniform float uLargestRadius;',
+    'uniform bool uLargestOnly;',
+    '#endif',
     'uniform float uScaleLen, uEdgeW, uShade, uRadius;',
-    'uniform int uStyle, uPlain, uNCol, uPar0;',
+    'uniform int uStyle, uColourMode, uPar0;',
     'uniform bool uMirrors, uSingle, uClear, uMotif;',
     'uniform vec3 uXi;',
     'uniform bool uUpright;',
@@ -195,14 +222,29 @@
     'uniform float uPhi;',
     'uniform sampler2D uGlyph;',
     'uniform vec3 uBg, uEdge, uMono, uRim;',
-    'uniform vec3 uPal[32];',
-    'uniform int uS[96];',
-    'uniform int uP0[32];',
+    '#ifdef DOMAIN',
+    'uniform uvec4 uPal[32];',
+    'uniform ivec4 uAction[128];',
+    '#elif defined(WYTHOFF)',
+    'uniform uvec4 uPal[24];',
+    'uniform ivec4 uAction[96];',
+    '#else',
+    'uniform uvec4 uPal[8];',
+    'uniform ivec4 uAction[32];',
+    '#endif',
+    'uniform ivec4 uTypeColour;',
     'uniform vec3 uCamPos, uCamF, uCamR, uCamU;',
     'uniform float uFov, uK;',
     'const float PI = 3.14159265359;',
     'float shade = 1.0;',
+    'vec3 palette(int i) {',
+    '  uint rgb = uPal[i >> 2][i & 3];',
+    '  return vec3((rgb >> 16) & 255u, (rgb >> 8) & 255u, rgb & 255u) / 255.0;',
+    '}',
     'float mdot(vec3 a, vec3 b) { return a.x*b.x + a.y*b.y - a.z*b.z; }',
+    'vec3 toCentre(vec3 p, vec3 c) {',
+    '  return vec3(p.xy + c.xy * (dot(c.xy, p.xy) / (1.0 + c.z) - p.z), -mdot(p, c));',
+    '}',
     // M <- R M, where R reflects in the mirror with normal N.
     'mat3 reflM(mat3 M, vec3 N) { vec3 n = vec3(N.xy, -N.z); vec3 r = vec3(dot(n, M[0]), dot(n, M[1]), dot(n, M[2]));',
     '  M[0] -= 2.0 * r.x * N; M[1] -= 2.0 * r.y * N; M[2] -= 2.0 * r.z * N; return M; }',
@@ -249,6 +291,56 @@
     '    P = h; return true; }',
     '  return false;',
     '}',
+    '#ifdef WYTHOFF',
+    // Match the sides of the cuts that bound each face to its centre orbit.
+    'int tileAt(vec3 p) {',
+    '  int sides = 0;',
+    '  for (int i = 0; i < 3; i++) sides |= (mdot(p, uEdgeNormal[i]) < 0.0 ? 1 : 8) << i;',
+    '  for (int j = 0; j < 3; j++) {',
+    '    if (uTileSides[j] > 0 && (sides & uTileMasks[j]) == uTileMasks[j]) return j;',
+    '  }',
+    '  return -1;',
+    '}',
+    'float pointDistance(vec3 p, vec3 q) {',
+    '  vec3 d = p - q; return 2.0 * asinh(0.5 * sqrt(max(0.0, mdot(d, d))));',
+    '}',
+    // Clamp the perpendicular projection to the segment using the planes
+    // through its endpoints. The end on the mirror has tangent N.
+    'float edgeDistance(vec3 p) {',
+    '  vec3 N[3] = vec3[3](uN1, uN2, uN3);',
+    '  float d = 1e6;',
+    '  for (int i = 0; i < 3; i++) {',
+    '    if ((uEdgeMask & (1 << i)) == 0) continue;',
+    '    vec3 tangent = N[i] + mdot(uCorner, N[i]) * uCorner;',
+    '    float di = mdot(p, tangent) < 0.0 ? pointDistance(p, uCorner) :',
+    '      (mdot(p, N[i]) > 0.0 ? pointDistance(p, uEdgeEnd[i]) : asinh(abs(mdot(p, uEdgeNormal[i]))));',
+    '    d = min(d, di);',
+    '  }',
+    '  return d;',
+    '}',
+    '#endif',
+    '#ifdef DOMAIN',
+    // One row per face. Each face stores its whole polygon so distances
+    // and design frames stay continuous over the reflection mirrors.
+    'float domainFace(vec3 p, int halfIndex, out vec4 frame, out ivec3 tile, out float scale) {',
+    '  int start = halfIndex == 0 ? 0 : uFaceCounts.x;',
+    '  float best = 1e6;',
+    '  for (int i = start; i < start + uFaceCounts[halfIndex]; i++) {',
+    '    vec4 info = texelFetch(uDomain, ivec2(1, i), 0);',
+    '    float d = -1e6;',
+    '    for (int j = 0; j < int(info.x); j++) {',
+    '      d = max(d, mdot(p, texelFetch(uDomain, ivec2(2 + j, i), 0).xyz));',
+    '      if (d >= best) break;',
+    '    }',
+    '    if (d < best) {',
+    '      best = d; frame = texelFetch(uDomain, ivec2(0, i), 0); tile = ivec3(info.yzw);',
+    '      scale = texelFetch(uDomain, ivec2(2, i), 0).w;',
+    '      if (d <= 0.0) break;',
+    '    }',
+    '  }',
+    '  return asinh(abs(best));',
+    '}',
+    '#endif',
     'void main() {',
     '  vec2 s = (gl_FragCoord.xy - 0.5 * uRes) / (0.5 * min(uRes.x, uRes.y)) / uZoom + uPan;',
     '  vec3 v; bool ok = toHyp(s, v);',
@@ -265,23 +357,59 @@
     '    d = mdot(p, uN3); if (d > 0.0) { p -= 2.0*d*uN3; xi -= 2.0*mdot(xi, uN3)*uN3; xi /= xi.z; if (trackM) M = reflM(M, uN3); if (k < 256) words[k >> 4] |= 2u << uint(2 * (k & 15)); k++; par3++; moved = true; }',
     '    if (!moved) { done = true; break; }',
     '  }',
-    '  if (k > 256) done = false;',
-    '  float fade = done ? smoothstep(0.1, 0.45, pix / uScaleLen) : 1.0;',
-    // The tile's colour: apply the recorded reflections to point 0, last first.
-    '  int x = 0;',
-    '  for (int j = 0; j < 256; j++) { int i = k - 1 - j; if (i < 0) break;',
-    '    int g = int((words[i >> 4] >> uint(2 * (i & 15))) & 3u); x = uS[x * 3 + g]; }',
-    '  int c = uP0[x];',
-    '  vec3 col = uPlain == 1 ? uMono : uPal[c % uNCol];',
-    '  if (uStyle == 1) col = mix(col, ((k + uPar0) % 2 == 0) ? vec3(1.0) : uEdge, 0.16);',
+    '  if (!done || k > 256) { outColor = uClear ? vec4(0.0) : vec4(uRim * shade, 1.0); return; }',
+    '  int parity = (k + uPar0) & 1;',
+    '  int orbit = 0, type = 0, colourWord = 0;',
+    '#ifdef DOMAIN',
+    '  vec4 frame; ivec3 tileInfo; float designScale;',
+    '  float domainEdge = domainFace(p, parity ^ uHand, frame, tileInfo, designScale);',
+    '  orbit = tileInfo.x; type = tileInfo.y; colourWord = tileInfo.z;',
+    '  vec3 C = frame.xyz;',
+    '  float radius = frame.w;',
+    '#elif defined(WYTHOFF)',
+    '  orbit = tileAt(p);',
+    '  int tile = max(orbit, 0); type = tile;',
+    '  vec3 C = uTileCentre[tile];',
+    '  float radius = uTileRadii[tile];',
+    '  float designScale = uDesignScales[tile];',
+    '#else',
+    '  vec3 C = vec3(0.0, 0.0, 1.0);',
+    '  float radius = uRadius;',
+    '  float designScale = 0.62 * tanh(0.5 * asinh(uN3.z));',
+    '#endif',
+    '#if defined(WYTHOFF) || defined(DOMAIN)',
+    '  bool designHere = orbit >= 0 && (!uLargestOnly || radius >= uLargestRadius - 1e-5);',
+    '#else',
+    '  bool designHere = true;',
+    '#endif',
+    '  float fade = smoothstep(0.1, 0.45, pix / uScaleLen);',
+    // Apply the fold in reverse to point 0 of this tile's action.
+    '  vec3 col = uMono;',
+    '  if (orbit >= 0 && uColourMode == 0) {',
+    '    int base = orbit * 32, x = 0;',
+    '    for (; colourWord != 0; colourWord >>= 2) x = uAction[base + x][(colourWord & 3) - 1];',
+    '    for (int i = k - 1; i >= 0; i--) {',
+    '      int g = int((words[i >> 4] >> uint(2 * (i & 15))) & 3u); x = uAction[base + x][g];',
+    '    }',
+    '    col = palette(uAction[base + x].w);',
+    '  } else if (orbit >= 0 && uColourMode == 2) {',
+    '#ifdef DOMAIN',
+    '    col = palette(type);',
+    '#else',
+    '    col = palette(uTypeColour[type]);',
+    '#endif',
+    '  }',
+    '  if (uStyle == 1) col = mix(col, parity == 0 ? vec3(1.0) : uEdge, 0.16);',
     // Shading: lighter at the tile centre, deeper towards its corners. The
     // slider is eased (power 1.6), so 35% stays gentle and 100% is strong:
     // corners fall to 30% brightness and centres lift 20% towards white.
-    '  float rel = clamp(acosh(max(p.z, 1.0)) / uRadius, 0.0, 1.0), t2 = rel * rel;',
-    '  float g = pow(uShade, 1.6);',
+    '  float rel = clamp(acosh(max(-mdot(p, C), 1.0)) / max(radius, 1e-6), 0.0, 1.0);',
+    '  float t2 = rel * rel, g = pow(uShade, 1.6);',
     '  col *= 1.0 - 0.7 * g * t2;',
     '  col = mix(col, vec3(1.0), 0.2 * g * (1.0 - t2));',
+    '#if !defined(WYTHOFF) && !defined(DOMAIN)',
     '  if (uSingle && par3 > 0) col = mix(uBg, col, 0.22);',
+    '#endif',
     '  col *= shade;',
     // The design, one per tile, in the tile's own frame. One point: its top
     // faces the boundary point xi. Upright: its top follows "up" in the
@@ -291,20 +419,23 @@
     // pi/2 - phi + 2 arg(1 - conj(z0) z). The frame is mirrored back on an
     // odd count of reflections, counting those in the snaps home (uPar0), so
     // every design keeps its hand and moves with the plane.
-    '  if (uMotif && done) {',
-    '    float al = atan(xi.y, xi.x);',
+    '  if (uMotif && designHere) {',
+    '    vec3 local = toCentre(p, C);',
+    '    vec3 direction = toCentre(xi, C);',
     '    if (uUpright) {',
-    '      vec3 cs = uT * vec3(-M[0].z, -M[1].z, M[2].z);',
+    '      vec3 J = vec3(1.0, 1.0, -1.0);',
+    '      vec3 cs = uT * (J * (transpose(M) * (J * C)));',
     '      vec2 z = cs.xy / (1.0 + cs.z);',
     '      vec2 q = vec2(1.0, 0.0) - cmul(vec2(uZ0.x, -uZ0.y), z);',
     '      float th = 0.5 * PI - uPhi + 2.0 * atan(q.y, q.x);',
     '      vec2 dv = vec2(cos(th), sin(th)); float D = 1.0 - dot(z, z), ud = dot(z, dv);',
     '      vec3 ef = M * (uTinv * vec3(2.0 * D * dv + 4.0 * ud * z, 4.0 * ud));',
-    '      al = atan(ef.y, ef.x);',
+    '      direction = toCentre(ef, C);',
     '    }',
-    '    float ca = cos(al), sa = sin(al);',
-    '    vec2 L = vec2(ca * p.x + sa * p.y, -sa * p.x + ca * p.y); if (((k + uPar0) & 1) == 1) L.y = -L.y;',
-    '    vec2 f = L / (1.0 + p.z) / (0.62 * tanh(0.5 * asinh(uN3.z)));',
+    '    vec2 up = normalize(direction.xy);',
+    '    vec2 L = vec2(dot(up, local.xy), dot(vec2(-up.y, up.x), local.xy));',
+    '    if (parity == 1) L.y = -L.y;',
+    '    vec2 f = L / (1.0 + local.z) / designScale;',
     '    vec2 g = vec2(-f.y, f.x) * 0.5 + 0.5;',
     '    vec4 gt = all(greaterThan(g, vec2(0.0))) && all(lessThan(g, vec2(1.0))) ? texture(uGlyph, g) : vec4(0.0);',
     // Black in the picture draws in the edge colour, white draws white.
@@ -313,12 +444,25 @@
     '  float d1 = asinh(abs(mdot(p, uN1))), d2 = asinh(abs(mdot(p, uN2))), d3 = asinh(abs(mdot(p, uN3)));',
     '  float w = uEdgeW, e = 0.0;',
     '  if (w > 0.0) {',
+    '#if defined(WYTHOFF) || defined(DOMAIN)',
+    '#ifdef DOMAIN',
+    '    float d = domainEdge;',
+    '#else',
+    '    float d = edgeDistance(p);',
+    '#endif',
+    '    float a = fwidth(d) + 1e-6; e = 1.0 - smoothstep(w - a, w + a, d);',
+    '#else',
     '    float a3 = fwidth(d3) + 1e-6; e = 1.0 - smoothstep(w - a3, w + a3, d3);',
+    '#endif',
     '    if (uStyle == 1 || uMirrors) {',
     '      float wm = uStyle == 1 ? 0.6 * w : 0.35 * w; float km = uStyle == 1 ? 1.0 : 0.55;',
     '      float a1 = fwidth(d1) + 1e-6, a2 = fwidth(d2) + 1e-6;',
     '      e = max(e, km * (1.0 - smoothstep(wm - a1, wm + a1, d1)));',
     '      e = max(e, km * (1.0 - smoothstep(wm - a2, wm + a2, d2)));',
+    '#if defined(WYTHOFF) || defined(DOMAIN)',
+    '      float a3 = fwidth(d3) + 1e-6;',
+    '      e = max(e, km * (1.0 - smoothstep(wm - a3, wm + a3, d3)));',
+    '#endif',
     '    }',
     '  }',
     '  col = mix(col, uEdge * shade, e);',
@@ -458,6 +602,181 @@
     function side(x, y, z) { return Math.acosh((Math.cos(x) + Math.cos(y) * Math.cos(z)) / (Math.sin(y) * Math.sin(z))); }
     return { a: side(A, B, C), b: side(B, A, C), c: side(C, A, B) };
   }
+
+  /* ---------- Wythoff patterns in one triangle ---------- */
+
+  // P, Q and R each sit at the intersection of two mirrors, with the
+  // third mirror opposite them. All indices use the order in mirrors().
+  var INCIDENT = [[0, 1], [0, 2], [1, 2]];
+  var OPPOSITE = [2, 1, 0];
+
+  function unitPoint(v) {
+    var norm = Math.sqrt(-mdot(v, v));
+    return v.map(function (x) { return x / norm; });
+  }
+
+  // Solve <W, N[i]> = -a[i], before normalising onto the hyperboloid.
+  function pointFromMirrors(a, N) {
+    var y = a[0], x = (N[1][1] * y + a[1]) / -N[1][0];
+    var z = (N[2][0] * x + N[2][1] * y + a[2]) / N[2][2];
+    return [x, y, z];
+  }
+
+  function wythoff(p, q, r, mask, N) {
+    var active = N.map(function (_, i) { return (mask >> i) & 1; });
+    // The common distance to the active mirrors makes every edge equal.
+    var w = pointFromMirrors(active, N), delta = 1 / Math.sqrt(-mdot(w, w));
+    var W = w.map(function (x) { return x * delta; });
+    var cosh = Math.hypot(1, delta), ends = [], normals = [];
+    N.forEach(function (n, i) {
+      ends.push(active[i] ? W.map(function (v, j) { return (v + delta * n[j]) / cosh; }) : W);
+      // Lorentz normal to the line through W and its reflection in n.
+      var e = [W[1] * n[2] - W[2] * n[1], W[2] * n[0] - W[0] * n[2], W[1] * n[0] - W[0] * n[1]];
+      normals.push(e.map(function (v) { return active[i] ? v / cosh : 0; }));
+    });
+    var centres = chamberCentres(p, q, r, N), angles = [p, q, r];
+    var faceSides = INCIDENT.map(function (pair, i) {
+      var n = angles[i] * (active[pair[0]] + active[pair[1]]);
+      // A right-angle corner with one active mirror is an edge midpoint.
+      return n > 2 ? n : 0;
+    });
+    var faceMasks = [0, 0, 0];
+    normals.forEach(function (n, i) {
+      if (!active[i]) return;
+      var adjacent = OPPOSITE.map(function (opp, j) { return opp !== i && faceSides[j] ? j : -1; })
+        .filter(function (j) { return j >= 0; });
+      if (adjacent.length < 2) return; // This segment lies on a mirror.
+      adjacent.forEach(function (j) {
+        faceMasks[j] |= (mdot(centres[j], n) < 0 ? 1 : 8) << i;
+      });
+    });
+    var radii = centres.map(function (c, i) {
+      return faceSides[i] ? Math.acosh(Math.max(1, -mdot(W, c))) : 0;
+    });
+    var inradii = centres.map(function (c, i) {
+      if (!faceSides[i]) return 0;
+      return Math.min.apply(null, INCIDENT[i].filter(function (j) { return active[j]; })
+        .map(function (j) { return Math.asinh(Math.abs(mdot(c, normals[j]))); }));
+    });
+    return {
+      corner: W, ends: new Float32Array(ends.flat()), normals: new Float32Array(normals.flat()),
+      faceMasks: faceMasks, faceSides: faceSides, edgeLength: 2 * Math.asinh(delta),
+      centres: centres, radii: radii, previewRadius: Math.max.apply(null, radii), inradii: inradii
+    };
+  }
+
+  function chamberCentres(p, q, r, N) {
+    var sd = sides(p, q, r);
+    return [[0, 0, 1], [Math.sinh(sd.c), 0, Math.cosh(sd.c)],
+      [Math.sinh(sd.b) * N[1][1], -Math.sinh(sd.b) * N[1][0], Math.cosh(sd.b)]];
+  }
+
+  /* ---------- Tilings with a two-triangle domain ---------- */
+
+  function polygon(vertices, centre, orbit, type, colourWord) {
+    var normals = vertices.map(function (a, i) {
+      var b = vertices[(i + 1) % vertices.length];
+      var n = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[1] * b[0] - a[0] * b[1]];
+      var norm = Math.sqrt(mdot(n, n)) * (mdot(centre, n) > 0 ? -1 : 1);
+      return n.map(function (x) { return x / norm; });
+    });
+    return {
+      centre: centre, orbit: orbit, type: type, colourWord: colourWord, normals: normals,
+      radius: Math.acosh(Math.max.apply(null, vertices.map(function (v) { return -mdot(v, centre); }))),
+      inradius: Math.asinh(Math.min.apply(null, normals.map(function (n) { return -mdot(n, centre); })))
+    };
+  }
+
+  // Both halves use the same folded triangle coordinates. Each lists all
+  // faces that touch the triangle's interior, with complete polygon edges.
+  // colourWord stores the mirrors from a face's home to this chamber, in
+  // order of application, with digits 1–3 in successive two-bit fields.
+  function twoTriangleDomain(halves, faceSides, corner, edgeLength) {
+    var faces = halves[0].concat(halves[1]);
+    var width = 2 + Math.max.apply(null, faces.map(function (f) { return f.normals.length; }));
+    var data = new Float32Array(width * faces.length * 4);
+    faces.forEach(function (face, i) {
+      var row = 4 * width * i;
+      data.set(face.centre.concat(face.radius), row);
+      data.set([face.normals.length, face.orbit, face.type, face.colourWord], row + 4);
+      face.normals.forEach(function (n, j) { data.set(n, row + 8 + 4 * j); });
+      data[row + 11] = designScale(face.inradius);
+    });
+    return {
+      halves: halves, width: width, data: data, typeCount: new Set(faces.map(function (f) { return f.type; })).size, faceSides: faceSides, corner: corner, edgeLength: edgeLength,
+      previewRadius: Math.max.apply(null, faces.map(function (f) { return f.radius; }))
+    };
+  }
+
+  function snub(p, q, r, N) {
+    var orders = [p, q, r], angles = orders.map(function (n) { return Math.PI / n; });
+    // If a and b are signed mirror distances measured by sinh, a rotation
+    // about their corner makes an edge of length 2 asinh(sqrt(D)), where
+    // D = a² + b² + 2ab cos(angle). Solve for D = 1 at all three corners,
+    // then normalise the point. In that solve b decreases as a increases.
+    function other(a, angle) {
+      return Math.sqrt(1 - Math.pow(a * Math.sin(angle), 2)) - a * Math.cos(angle);
+    }
+    var lo = 0, hi = 1, a, b, c;
+    for (var i = 0; i < 52; i++) {
+      a = (lo + hi) / 2; b = other(a, angles[0]); c = other(a, angles[1]);
+      if (b * b + c * c + 2 * b * c * Math.cos(angles[2]) > 1) lo = a;
+      else hi = a;
+    }
+    var w = pointFromMirrors([a, b, c], N), W = unitPoint(w);
+    var reflections = N.map(reflection), centres = chamberCentres(p, q, r, N), halves = [[], []];
+    var faceSides = orders.map(function (n) { return n > 2 ? n : 0; }).concat(3);
+    var types = tileTypes(faceSides);
+    INCIDENT.forEach(function (pair, j) {
+      if (!faceSides[j]) return; // A half turn gives an edge, shared by two triangles.
+      var T = lift(centres[j]), local = apply(linv(T), W), vertices = [W];
+      for (var i = 1; i < orders[j]; i++) vertices.push(apply(T, apply(rotZ(2 * angles[j] * i), local)));
+      halves[0].push(polygon(vertices, centres[j], j, types.indexOf(faceSides[j]), 0));
+      var reflected = vertices.map(function (v) { return apply(reflections[pair[0]], v); });
+      halves[1].push(polygon(reflected, centres[j], j, types.indexOf(faceSides[j]), 0));
+    });
+    // Around an odd chamber, the three nearest even seed points form an
+    // equilateral triangle. Each of its tips reaches a neighbouring even chamber.
+    var triangle = reflections.map(function (R) { return apply(R, W); });
+    var centre = unitPoint(triangle.reduce(function (sum, v) {
+      return sum.map(function (x, i) { return x + v[i]; });
+    }, [0, 0, 0]));
+    halves[1].push(polygon(triangle, centre, 3, types.indexOf(3), 0));
+    reflections.forEach(function (R, i) {
+      halves[0].push(polygon(triangle.map(function (v) { return apply(R, v); }), apply(R, centre), 3, types.indexOf(3), i + 1));
+    });
+    return twoTriangleDomain(halves, faceSides, W, 2 * Math.asinh(1 / Math.sqrt(-mdot(w, w))));
+  }
+
+  function vertexFigure(pattern, faceSides, r) {
+    if (pattern.id === 'snub') {
+      return formatVertexFigure([3, faceSides[0], 3, faceSides[1], 3, faceSides[2]].filter(Boolean));
+    }
+    if (pattern.mask === 1) {
+      var pair = faceSides.slice(0, 2).sort(function (a, b) { return a - b; }).join('.');
+      return r === 2 ? pair + '.' + pair : '(' + pair + ') × ' + r;
+    }
+    var opposite = OPPOSITE.indexOf([0, 1, 2].find(function (i) { return !(pattern.mask & (1 << i)); }));
+    var order = [0, 1, 2];
+    if (opposite >= 0) {
+      var rest = order.filter(function (i) { return i !== opposite; });
+      order = [rest[0], opposite, rest[1], opposite];
+    }
+    return formatVertexFigure(order.map(function (i) { return faceSides[i]; }).filter(Boolean));
+  }
+
+  function formatVertexFigure(seq) {
+    var cycles = seq.flatMap(function (_, i) {
+      var cycle = seq.slice(i).concat(seq.slice(0, i));
+      return [cycle, cycle.slice().reverse()];
+    });
+    cycles.sort(function (a, b) {
+      for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i];
+      return 0;
+    });
+    return cycles[0].join('.');
+  }
+
   function reflection(n) {
     var jn = [n[0], n[1], -n[2]], R = ident();
     for (var i = 0; i < 3; i++) for (var j = 0; j < 3; j++) R[3 * i + j] -= 2 * n[i] * jn[j];
@@ -483,13 +802,19 @@
   /* ---------- State ---------- */
 
   var state = {
-    model: 'poincare', p: 7, q: 3, r: 2, style: 'tiles', colour: 'many', edge: 2, shade: 70, mirrors: false, motif: false, design: 'compass', glyph: 'R', orient: 'up', designA: 60,
+    model: 'poincare', p: 7, q: 3, r: 2, pattern: 'regular', hand: 'right', style: 'tiles', colour: 'many', edge: 2, shade: 70, mirrors: false, motif: false, design: 'compass', glyph: 'R', orient: 'up', designA: 60, designsOn: 'all',
     motion: 'still', zoom: 1, pan: [0, 0], drag: 'plane', T: ident(), clear: false
   };
   var N = mirrors(7, 3, 2);
+  var geometry;
+  function updateGeometry() {
+    if (state.pattern === 'regular') geometry = null;
+    else if (state.pattern === 'snub') geometry = snub(state.p, state.q, state.r, N);
+    else geometry = wythoff(state.p, state.q, state.r, PATTERN_BY_ID.get(state.pattern).mask, N);
+  }
   // P0 is the permutation of colours from the snaps back to home so far,
   // and par0 the parity of their reflections.
-  var P0 = [], par0 = 0, colouring = null;
+  var P0 = [], par0 = 0, actions = [];
   // xi: the boundary point every letter's top faces, in world coordinates.
   // The snap home moves world coordinates by G, so it moves xi by G too.
   var XI0 = [0, 1, 1], xi = XI0.slice();
@@ -516,7 +841,9 @@
         }
       }
       if (k === 's' && (v === 'tiles' || v === 'triangles')) state.style = v;
-      if (k === 'c') state.colour = { many: 'many', few: 'few', mono: 'mono', bright: 'many', two: 'few', rings: 'many' }[v] || state.colour;
+      if (k === 'hand' && (v === 'right' || v === 'left')) state.hand = v;
+      if (k === 'pattern' && PATTERN_BY_ID.has(v)) state.pattern = v;
+      if (k === 'c') state.colour = { many: 'many', few: 'few', mono: 'mono', type: 'type', bright: 'many', two: 'few', rings: 'many' }[v] || state.colour;
       if (k === 'e' && isFinite(+v)) state.edge = Math.max(0, Math.min(10, +v));
       if (k === 'sh' && isFinite(+v)) state.shade = Math.max(0, Math.min(100, +v));
       if (k === 'mv' && ['still', 'spin', 'fly'].indexOf(v) >= 0) state.motion = v;
@@ -525,29 +852,51 @@
       if (k === 'f' && v === '1' && !hasDesign) { state.design = 'letter'; hasDesign = true; }
       if (k === 'g' && v) state.glyph = Array.from(v)[0];
       if (k === 'o' && (v === 'up' || v === 'point')) state.orient = v;
+      if (k === 'on' && (v === 'all' || v === 'largest')) state.designsOn = v;
       if (k === 'da' && isFinite(+v)) state.designA = Math.max(0, Math.min(100, +v));
     });
   }
   function writeHash() {
     var h = 'm=' + state.model + '&t=' + state.p + ',' + state.q + (state.r !== 2 ? ',' + state.r : '') +
       '&s=' + state.style + '&c=' + state.colour + '&e=' + state.edge + '&sh=' + state.shade;
+    if (state.pattern !== 'regular') h += '&pattern=' + state.pattern;
+    if (state.hand !== 'right') h += '&hand=' + state.hand;
     if (state.motion !== 'still') h += '&mv=' + state.motion;
     h += '&d=' + state.design;
     if (state.design === 'letter') h += '&g=' + encodeURIComponent(state.glyph);
     if (state.orient !== 'up') h += '&o=' + state.orient;
+    if (state.designsOn !== 'all') h += '&on=' + state.designsOn;
     if (state.designA !== 60) h += '&da=' + state.designA;
     if (state.clear) h += '&bg=none';
     try { history.replaceState(null, '', '#' + h); } catch (e) {}
   }
 
-  function currentColouring() {
-    var c = colourings(state.p, state.q, state.r);
-    return state.colour === 'few' ? (c.few || c.many) : (c.many || c.few);
+  function activeFaces() {
+    return state.style === 'tiles' && state.pattern !== 'regular' ? geometry.faceSides : [state.p];
   }
+
+  function updateColours(reset) {
+    var faces = activeFaces();
+    if (state.colour === 'mono' || state.colour === 'type') {
+      if (reset) { actions = []; P0 = []; }
+      return;
+    }
+    var next = faces.map(function (n, corner) {
+      if (!n) return null;
+      // The extra snub triangles are anchored to a chamber, with no
+      // stabiliser to enforce. Reuse P's action for that orbit.
+      return colourings(state.p, state.q, state.r, corner % 3)[state.colour] || null;
+    });
+    P0 = next.map(function (action, i) {
+      if (!action) return [0];
+      if (!reset && action === actions[i]) return P0[i];
+      return Array.from({ length: action.n }, function (_, j) { return j; });
+    });
+    actions = next;
+  }
+
   function resetColours() {
-    colouring = currentColouring();
-    var n = colouring ? colouring.n : 1;
-    P0 = []; for (var i = 0; i < n; i++) P0.push(i);
+    updateColours(true);
     par0 = 0;
   }
 
@@ -561,44 +910,64 @@
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
       return s;
     }
-    var prog = gl.createProgram();
-    gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-    gl.useProgram(prog);
+    var vertex = sh(gl.VERTEX_SHADER, VERT);
+    function link(fragment) {
+      var prog = gl.createProgram();
+      var pixel = sh(gl.FRAGMENT_SHADER, fragment);
+      gl.attachShader(prog, vertex);
+      gl.attachShader(prog, pixel);
+      gl.bindAttribLocation(prog, 0, 'a');
+      gl.linkProgram(prog);
+      gl.deleteShader(pixel);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+      var U = {};
+      ['uRes', 'uPan', 'uZoom', 'uModel', 'uTinv', 'uN1', 'uN2', 'uN3', 'uScaleLen', 'uEdgeW', 'uShade', 'uRadius',
+        'uStyle', 'uColourMode', 'uPar0', 'uMirrors', 'uMotif', 'uXi', 'uUpright', 'uDesignA', 'uT', 'uZ0', 'uPhi', 'uSingle', 'uClear', 'uBg', 'uEdge', 'uMono', 'uRim',
+        'uPal', 'uAction', 'uTypeColour', 'uCamPos', 'uCamF', 'uCamR', 'uCamU', 'uFov', 'uK',
+        'uEdgeMask', 'uCorner', 'uEdgeEnd', 'uEdgeNormal', 'uTileMasks', 'uTileSides', 'uTileCentre', 'uTileRadii', 'uDesignScales', 'uLargestRadius', 'uLargestOnly', 'uDomain', 'uFaceCounts', 'uHand']
+        .forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+      return { prog: prog, U: U };
+    }
+    var programs = { regular: link(FRAG) };
+    function use(variant) {
+      if (!programs[variant]) {
+        programs[variant] = link(FRAG.replace('#version 300 es', '#version 300 es\n#define ' + variant));
+      }
+      var program = programs[variant];
+      gl.useProgram(program.prog);
+      return program.U;
+    }
     var buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    var loc = gl.getAttribLocation(prog, 'a');
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    var U = {};
-    ['uRes', 'uPan', 'uZoom', 'uModel', 'uTinv', 'uN1', 'uN2', 'uN3', 'uScaleLen', 'uEdgeW', 'uShade', 'uRadius',
-      'uStyle', 'uPlain', 'uNCol', 'uPar0', 'uMirrors', 'uMotif', 'uXi', 'uGlyph', 'uUpright', 'uDesignA', 'uT', 'uZ0', 'uPhi', 'uSingle', 'uClear', 'uBg', 'uEdge', 'uMono', 'uRim',
-      'uPal', 'uS', 'uP0', 'uCamPos', 'uCamF', 'uCamR', 'uCamU', 'uFov', 'uK']
-      .forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     var tex = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.uniform1i(U.uGlyph, 0);
-    return { gl: gl, U: U, canvas: canvas, tex: tex, glyph: null };
+    return { gl: gl, use: use, canvas: canvas, tex: tex, glyph: null, domainTexture: null, domain: null };
   }
 
   function hex(c) { return [parseInt(c.slice(1, 3), 16) / 255, parseInt(c.slice(3, 5), 16) / 255, parseInt(c.slice(5, 7), 16) / 255]; }
 
-  function themeColours() {
+  function tileTypes(faces) {
+    return Array.from(new Set(faces.filter(Boolean))).sort(function (a, b) { return a - b; });
+  }
+
+  function themeColours(faces, typeCount) {
     var dark = document.documentElement.dataset.theme === 'dark';
-    var n = colouring ? colouring.n : 1;
-    var pal = paletteFor(Math.max(n, 1)).map(hex);
+    var count = faces.reduce(function (n, sides, i) { return n + (sides ? (actions[i] ? actions[i].n : 1) : 0); }, 0);
+    var byType = state.colour === 'type';
+    var pal = paletteFor(byType ? typeCount : count);
     var mono = dark ? hex('#30343e') : hex('#fbf8f1');
-    var plain = state.colour === 'mono' || !colouring;
+    var plain = state.colour === 'mono' || (!byType && count === 1);
     var edge = plain ? (dark ? hex('#ddd7c9') : hex('#2a2722')) : hex('#1c1a17');
-    var avg = [0, 1, 2].map(function (i) { return pal.reduce(function (s, c) { return s + c[i]; }, 0) / pal.length; });
-    if (plain) avg = mono;
+    var avg = plain ? mono : pal.map(hex).reduce(function (sum, c) {
+      return sum.map(function (x, i) { return x + c[i] / pal.length; });
+    }, [0, 0, 0]);
     var rim = avg.map(function (x, i) { return x * 0.85 + edge[i] * 0.15; });
     return { bg: dark ? hex('#16161a') : hex('#f6f3ec'), pal: pal, mono: mono, edge: edge, rim: rim, plain: plain };
   }
@@ -635,9 +1004,34 @@
     return { z0: z0, phi: phi };
   }
 
+  function uploadDomain(R, U, geometry) {
+    var gl = R.gl;
+    if (R.domain !== geometry) {
+      if (!R.domainTexture) R.domainTexture = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, R.domainTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      var height = geometry.halves[0].length + geometry.halves[1].length;
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, geometry.width, height, 0, gl.RGBA, gl.FLOAT, geometry.data);
+      gl.activeTexture(gl.TEXTURE0);
+      R.domain = geometry;
+    }
+    gl.uniform1i(U.uDomain, 1);
+    gl.uniform2i(U.uFaceCounts, geometry.halves[0].length, geometry.halves[1].length);
+  }
+
+  function designScale(inradius) { return 0.62 * Math.tanh(0.5 * inradius); }
+
   function draw(R, opt) {
-    var gl = R.gl, U = R.U, c = themeColours(), sd = sides(state.p, state.q, state.r);
-    var scaleLen = state.style === 'triangles' ? Math.min(sd.a, sd.b, sd.c) : Math.max(sd.c, sd.b);
+    var gl = R.gl, sd = sides(state.p, state.q, state.r);
+    var faces = activeFaces(), types = tileTypes(faces);
+    var triangles = state.style === 'triangles';
+    var uniform = !triangles && state.pattern !== 'regular' ? geometry : null;
+    var domain = uniform && uniform.halves;
+    var c = themeColours(faces, domain ? uniform.typeCount : types.length);
+    var U = R.use(domain ? 'DOMAIN' : uniform ? 'WYTHOFF' : 'regular');
+    var scaleLen = triangles ? Math.min(sd.a, sd.b, sd.c) : Math.max(sd.c, sd.b);
     gl.viewport(0, 0, R.canvas.width, R.canvas.height);
     gl.uniform2f(U.uRes, R.canvas.width, R.canvas.height);
     gl.uniform2f(U.uPan, opt.pan[0], opt.pan[1]);
@@ -647,20 +1041,50 @@
     // uniformMatrix3fv wants columns: pass the transpose of the row-major array.
     gl.uniformMatrix3fv(U.uTinv, false, new Float32Array([Ti[0], Ti[3], Ti[6], Ti[1], Ti[4], Ti[7], Ti[2], Ti[5], Ti[8]]));
     gl.uniform3fv(U.uN1, N[0]); gl.uniform3fv(U.uN2, N[1]); gl.uniform3fv(U.uN3, N[2]);
-    gl.uniform1f(U.uScaleLen, scaleLen);
+    if (domain) {
+      uploadDomain(R, U, uniform);
+      gl.uniform1i(U.uHand, state.hand === 'left' ? 1 : 0);
+    } else if (uniform) {
+      gl.uniform1i(U.uEdgeMask, PATTERN_BY_ID.get(state.pattern).mask);
+      gl.uniform3fv(U.uCorner, uniform.corner);
+      gl.uniform3fv(U.uEdgeEnd, uniform.ends);
+      gl.uniform3fv(U.uEdgeNormal, uniform.normals);
+      gl.uniform3iv(U.uTileMasks, uniform.faceMasks);
+      gl.uniform3iv(U.uTileSides, uniform.faceSides);
+      gl.uniform3fv(U.uTileCentre, uniform.centres.flat());
+      gl.uniform3fv(U.uTileRadii, uniform.radii);
+      gl.uniform3fv(U.uDesignScales, uniform.inradii.map(designScale));
+    }
+    if (uniform) {
+      gl.uniform1f(U.uLargestRadius, uniform.previewRadius);
+      gl.uniform1i(U.uLargestOnly, state.designsOn === 'largest' ? 1 : 0);
+    }
+    gl.uniform1f(U.uScaleLen, uniform ? uniform.edgeLength : scaleLen);
     gl.uniform1f(U.uRadius, Math.max(sd.c, sd.b));
-    gl.uniform1f(U.uEdgeW, state.edge / 100 * Math.min(sd.c, 1.2) * (state.style === 'triangles' ? 0.8 : 1));
+    var edgeScale = Math.min(uniform ? uniform.edgeLength : sd.c, 1.2);
+    gl.uniform1f(U.uEdgeW, state.edge / 100 * edgeScale * (triangles ? 0.8 : 1));
     gl.uniform1f(U.uShade, state.shade / 100);
-    gl.uniform1i(U.uStyle, state.style === 'triangles' ? 1 : 0);
-    gl.uniform1i(U.uPlain, c.plain ? 1 : 0);
-    var n = colouring ? colouring.n : 1;
-    gl.uniform1i(U.uNCol, n);
-    var S = new Int32Array(96), P = new Int32Array(32);
-    if (colouring) S.set(colouring.table);
-    var p0 = opt.identityColours ? null : P0;
-    for (var i = 0; i < 32; i++) P[i] = p0 && i < p0.length ? p0[i] : i;
-    gl.uniform1iv(U.uS, S);
-    gl.uniform1iv(U.uP0, P);
+    gl.uniform1i(U.uStyle, triangles ? 1 : 0);
+    gl.uniform1i(U.uColourMode, c.plain ? 1 : state.colour === 'type' ? 2 : 0);
+    var slots = faces.length * MAXN;
+    var mirrorColours = domain && state.hand === 'left';
+    var actionData = new Int32Array(slots * 4), offset = 0;
+    if (!c.plain && state.colour !== 'type') faces.forEach(function (sides, i) {
+      if (!sides) return;
+      var action = actions[i], n = action ? action.n : 1;
+      for (var j = 0; j < n; j++) {
+        var at = (i * MAXN + j) * 4;
+        if (action) actionData.set(action.table.slice(j * 3, j * 3 + 3), at);
+        var colour = opt.identityColours ? j : P0[i][j];
+        // Left reflects the whole colour action in the horizontal mirror.
+        actionData[at + 3] = offset + (mirrorColours && action ? action.table[3 * colour] : colour);
+      }
+      offset += n;
+    });
+    gl.uniform4iv(U.uAction, actionData);
+    var typeColours = new Int32Array(4);
+    faces.forEach(function (n, i) { typeColours[i] = types.indexOf(n); });
+    gl.uniform4iv(U.uTypeColour, typeColours);
     gl.uniform1i(U.uPar0, opt.identityColours ? 0 : par0);
     gl.uniform1i(U.uMirrors, state.mirrors ? 1 : 0);
     gl.uniform1i(U.uMotif, state.motif ? 1 : 0);
@@ -686,9 +1110,9 @@
     gl.uniform3fv(U.uEdge, c.edge);
     gl.uniform3fv(U.uMono, c.mono);
     gl.uniform3fv(U.uRim, c.rim);
-    var flat = new Float32Array(96);
-    for (var j = 0; j < 32; j++) flat.set(c.pal[j % c.pal.length], 3 * j);
-    gl.uniform3fv(U.uPal, flat);
+    var palette = new Uint32Array(slots);
+    c.pal.forEach(function (colour, i) { palette[i] = parseInt(colour.slice(1), 16); });
+    gl.uniform4uiv(U.uPal, palette);
     var cam = camera();
     gl.uniform3fv(U.uCamPos, cam.pos); gl.uniform3fv(U.uCamF, cam.f);
     gl.uniform3fv(U.uCamR, cam.r); gl.uniform3fv(U.uCamU, cam.u);
@@ -715,6 +1139,7 @@
   readHash();
   state.motif = state.design !== 'none';
   N = mirrors(state.p, state.q, state.r);
+  updateGeometry();
   resetColours();
   if (state.clear) document.body.classList.add('clear');
 
@@ -761,23 +1186,22 @@
     dirty = true;
     return true;
   }
-  // Fold the view centre's world point into the triangle by a symmetry G of
-  // the tiling. T becomes T G⁻¹, which draws the same picture, and the
-  // colour permutation takes in the same reflections, so colours hold.
+  // Fold the view centre's world point into the triangle by a reflection
+  // group element G. T becomes T G⁻¹ and the same reflections update
+  // the colour permutations and the parity that selects a domain half.
   function snapHome() {
     var w0 = apply(linv(state.T), [0, 0, 1]);
     var f = fold(w0, N);
     if (!f.list.length) return;
     state.T = renorm(mul(state.T, linv(f.G)));
-    if (colouring) {
-      var S = colouring.table, next = [];
-      for (var x = 0; x < P0.length; x++) {
-        var y = x;
-        for (var i = f.list.length - 1; i >= 0; i--) y = S[y * 3 + f.list[i]];
-        next.push(P0[y]);
-      }
-      P0 = next;
-    }
+    P0 = P0.map(function (permutation, j) {
+      if (!actions[j]) return permutation;
+      var S = actions[j].table;
+      return permutation.map(function (_, x) {
+        for (var i = f.list.length - 1; i >= 0; i--) x = S[x * 3 + f.list[i]];
+        return permutation[x];
+      });
+    });
     par0 = (par0 + f.list.length) % 2;
     var x2 = apply(f.G, xi); xi = [x2[0] / x2[2], x2[1] / x2[2], 1];
     Wref = renorm(mul(Wref, linv(f.G)));
@@ -905,9 +1329,15 @@
   }
 
   function drawTile() {
+    if (state.style === 'tiles' && state.pattern !== 'regular') {
+      var zoom = 0.86 / (0.95 * Math.tanh(geometry.previewRadius));
+      var corner = state.pattern === 'snub' && state.hand === 'left' ? apply(reflection(N[0]), geometry.corner) : geometry.corner;
+      draw(preview, { model: 0, T: linv(lift(corner)), zoom: zoom, pan: [0, 0], single: true, identityColours: true });
+      return;
+    }
     var sd = sides(state.p, state.q, state.r), R = Math.max(sd.c, sd.b);
-    var zoom = 0.86 / (0.95 * Math.tanh(R / 2));
-    draw(preview, { model: 0, T: ident(), zoom: zoom, pan: [0, 0], single: true, identityColours: true });
+    var tileZoom = 0.86 / (0.95 * Math.tanh(R / 2));
+    draw(preview, { model: 0, T: ident(), zoom: tileZoom, pan: [0, 0], single: true, identityColours: true });
   }
 
   /* ---------- Controls ---------- */
@@ -926,6 +1356,19 @@
   function setModel(id) {
     state.model = id; vel = null; state.pan = [0, 0]; state.zoom = 1; dirty = true; syncUI(); writeHash();
   }
+
+  var patternSelect = document.getElementById('pattern');
+  PATTERNS.forEach(function (pattern) {
+    var o = document.createElement('option'); o.value = pattern.id; o.textContent = pattern.name;
+    patternSelect.appendChild(o);
+  });
+  patternSelect.addEventListener('change', function () {
+    state.pattern = patternSelect.value;
+    updateGeometry(); updateColours(); invalidate(); syncUI(); writeHash();
+  });
+
+  var hand = document.getElementById('hand');
+  hand.addEventListener('change', function () { state.hand = hand.value; invalidate(); writeHash(); });
 
   var presets = document.getElementById('presets');
   PRESETS.forEach(function (t) {
@@ -947,6 +1390,7 @@
 
   function setTiling(p, q, r) {
     state.p = p; state.q = q; state.r = r; N = mirrors(p, q, r);
+    updateGeometry();
     state.T = ident(); vel = null;
     resetColours(); aimLetters();
     invalidate(); syncUI(); writeHash();
@@ -978,17 +1422,12 @@
   }
 
   document.querySelectorAll('[data-style]').forEach(function (b) {
-    b.addEventListener('click', function () { state.style = b.dataset.style; invalidate(); syncUI(); writeHash(); });
+    b.addEventListener('click', function () { state.style = b.dataset.style; updateColours(); invalidate(); syncUI(); writeHash(); });
   });
   document.querySelectorAll('[data-colour]').forEach(function (b) {
     b.addEventListener('click', function () {
       state.colour = b.dataset.colour;
-      // A new colouring has its own permutation, so start its colours at home.
-      if (state.colour !== 'mono') {
-        var before = colouring;
-        colouring = currentColouring();
-        if (before !== colouring) { var n = colouring ? colouring.n : 1; P0 = []; for (var i = 0; i < n; i++) P0.push(i); }
-      }
+      updateColours();
       invalidate(); syncUI(); writeHash();
     });
   });
@@ -1028,6 +1467,8 @@
     state.glyph = ch; e.target.value = ch;
     invalidate(); writeHash();
   });
+  var designsOn = document.getElementById('designs-on');
+  designsOn.addEventListener('change', function () { state.designsOn = designsOn.value; invalidate(); writeHash(); });
   var designAIn = document.getElementById('design-a');
   designAIn.addEventListener('input', function () {
     state.designA = +designAIn.value; document.getElementById('design-a-out').textContent = designAIn.value + '%'; invalidate();
@@ -1047,7 +1488,7 @@
 
   // On a phone the tiling and colour cards fold behind their headings.
   var foldCards = [document.getElementById('tiling-card'), document.getElementById('colour-card')];
-  var small = window.matchMedia('(max-width: 640px), (max-height: 520px)');
+  var small = window.matchMedia('(max-width: 640px), (max-height: 740px)');
   function setFolds() { foldCards.forEach(function (c) { c.classList.toggle('folded', small.matches); syncFold(c); }); }
   function syncFold(c) { c.querySelector('.fold').setAttribute('aria-expanded', String(!c.classList.contains('folded'))); }
   foldCards.forEach(function (c) {
@@ -1079,6 +1520,9 @@
     var m = MODEL_BY_ID[state.model];
     document.querySelectorAll('[data-model]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.model === state.model)); });
     select.value = state.model;
+    patternSelect.value = state.pattern;
+    document.getElementById('hand-row').hidden = state.pattern !== 'snub';
+    hand.value = state.hand;
     document.getElementById('facts').innerHTML =
       '<dt>Straight lines</dt><dd>' + m.lines + '</dd><dt>Angles</dt><dd>' + m.angles + '</dd>' +
       '<dt>Sizes</dt><dd>' + m.sizes + '</dd><dd class="made">' + m.made + '</dd>';
@@ -1094,9 +1538,15 @@
     });
     var deg = function (n) { return +(180 / n).toFixed(1) + '°'; };
     var name = document.getElementById('tile-name'), desc = document.getElementById('tile-desc');
+    var uniform = state.style === 'tiles' && state.pattern !== 'regular';
+    tileCanvas.setAttribute('aria-label', uniform ? 'Tiles around a corner in the Poincaré disk' : 'One tile of the tiling, drawn in the Poincaré disk');
     if (state.style === 'triangles') {
       name.textContent = 'Triangles';
       desc.textContent = 'Angles ' + deg(state.p) + ', ' + deg(state.q) + ', ' + deg(state.r);
+    } else if (uniform) {
+      var pattern = PATTERN_BY_ID.get(state.pattern);
+      name.textContent = pattern.name;
+      desc.textContent = vertexFigure(pattern, geometry.faceSides, state.r) + ' at each corner';
     } else if (state.r === 2) {
       name.textContent = '{' + state.p + ',' + state.q + '}';
       desc.textContent = cap(POLYGON[state.p] || state.p + '-gons') + ', ' + state.q + ' at each corner';
@@ -1104,15 +1554,18 @@
       name.textContent = 2 * state.p + '-sided tiles';
       desc.textContent = 'Corners of ' + deg(state.q / 2) + ' and ' + deg(state.r / 2);
     }
-    document.getElementById('tile-sym').textContent = 'Symmetry *' + [state.p, state.q, state.r].sort(function (a, b) { return a - b; }).join('');
+    var chiral = state.pattern === 'snub' && state.style === 'tiles';
+    document.getElementById('tile-sym').textContent = (chiral ? 'Symmetry ' : 'Symmetry *') + [state.p, state.q, state.r].sort(function (a, b) { return a - b; }).join('');
     document.querySelectorAll('[data-style]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.style === state.style)); });
     document.querySelectorAll('[data-colour]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.colour === state.colour)); });
-    var cs = colourings(state.p, state.q, state.r), count = document.getElementById('colour-count');
+    var faces = activeFaces(), count = document.getElementById('colour-count');
+    var colours = faces.reduce(function (n, sides, i) { return n + (sides && P0[i] ? P0[i].length : 0); }, 0);
     if (state.colour === 'mono') count.textContent = 'One colour';
-    else if (colouring) count.textContent = colouring.n + ' colours, never two alike across an edge';
-    else count.textContent = 'One colour: no colouring found';
-    document.querySelector('[data-colour="many"]').textContent = 'Many' + (cs.many ? ' · ' + cs.many.n : '');
-    document.querySelector('[data-colour="few"]').textContent = 'Few' + (cs.few ? ' · ' + cs.few.n : '');
+    else if (state.colour === 'type') {
+      var types = state.style === 'tiles' && geometry && geometry.halves ? geometry.typeCount : tileTypes(faces).length;
+      count.textContent = types === 1 ? 'One tile type' : types + ' tile types';
+    } else if (colours === 1) count.textContent = 'One colour';
+    else count.textContent = colours + ' colours';
     document.querySelectorAll('[data-motion]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.motion === state.motion)); });
     document.querySelectorAll('[data-drag]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.drag === state.drag)); });
     edge.value = state.edge; document.getElementById('edge-out').textContent = (+state.edge).toFixed(1);
@@ -1121,6 +1574,8 @@
     document.getElementById('glyph').value = state.glyph;
     document.getElementById('glyph').hidden = state.design !== 'letter';
     document.getElementById('orient').hidden = !state.motif;
+    document.getElementById('designs-on-row').hidden = !state.motif;
+    designsOn.value = state.designsOn;
     document.getElementById('design-a-row').hidden = !state.motif;
     designAIn.value = state.designA; document.getElementById('design-a-out').textContent = state.designA + '%';
     document.querySelectorAll('[data-orient]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.orient === state.orient)); });
