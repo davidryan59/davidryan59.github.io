@@ -111,9 +111,22 @@ select { background: var(--panel); max-width: 100%; }
 .models.featured button { padding: 0.35rem 0.4rem; font-size: 0.86rem; line-height: 1.2; }
 .models.more { grid-template-columns: repeat(4, 1fr); margin-top: 0.3rem; }
 .models.more button { padding: 0.2rem 0.15rem; font-size: 0.75rem; line-height: 1.25; white-space: nowrap; }
-/* Patterns: two full rows of four buttons of one size. */
-.patterns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3rem; }
-.patterns button { padding: 0.25rem 0.1rem; font-size: 0.8rem; line-height: 1.25; white-space: nowrap; }
+/* Two rows of four patterns, with Goldberg across the third row. Each
+   column fits its longest label, and the spare width is shared equally. */
+.patterns { display: grid; grid-template-columns: repeat(4, auto); gap: 0.3rem; }
+.patterns button { padding: 0.25rem 0.3rem; font-size: 0.8rem; line-height: 1.25; white-space: nowrap; }
+/* Goldberg: one tall button, then its m and n steppers and its hand. */
+.goldberg-row { display: grid; grid-template-columns: 8.4rem 1fr; gap: 0.3rem; margin-top: 0.3rem; }
+.gp-main { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 0.1rem;
+  padding: 0.25rem 0.6rem; font-size: 0.95rem; line-height: 1.2; }
+.gp-main span { font-size: 0.78rem; opacity: 0.75; }
+.gp-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 0.6rem; }
+.gp-controls .stepper { grid-template-columns: 1fr 1.3rem 1fr; gap: 0.2rem; }
+.gp-controls .stepper output { text-align: center; }
+.gp-hands { grid-column: 1 / -1; }
+.gp-relax { margin: -0.15rem 0 0.55rem; }
+.gp-relax:has(input:disabled) { opacity: 0.35; }
+.gp-hands button { flex: 1; padding: 0.1rem 0.25rem; font-size: 0.82rem; }
 .model-select, .pattern-select { display: none; font-size: 0.85rem; }
 .colour-schemes .n { opacity: 0.6; }
 .colours .section { margin-top: 0; }
@@ -131,8 +144,9 @@ select { background: var(--panel); max-width: 100%; }
 .tile-text { display: flex; flex-direction: column; font-size: 0.8rem; gap: 0.1rem; }
 .tile-text strong { color: var(--h1); font-size: 1.05rem; font-weight: normal; }
 .tile-text span:last-child { color: var(--muted); }
-.presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3rem; margin: 0.55rem 0; }
-.presets button { padding: 0.2rem 0.2rem; font-size: 0.82rem; }
+.presets { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 0.3rem; margin: 0.55rem 0; }
+.presets button { grid-column: span 3; padding: 0.2rem; font-size: 0.82rem; }
+.presets [data-preset] { grid-column: span 4; white-space: nowrap; }
 .steppers { display: grid; gap: 0.25rem; margin-bottom: 0.55rem; }
 .stepper { display: grid; grid-template-columns: 1fr 1.8rem 2rem 1.8rem; align-items: center; font-size: 0.82rem; gap: 0.25rem; }
 .stepper button { padding: 0; height: 1.6rem; }
@@ -202,6 +216,13 @@ html:has(body.clear), body.clear { background: transparent; }
 /* Leave room for the full Colours card below the models on a short tablet. */
 @media (min-height: 741px) and (max-height: 900px) {
   .title { max-height: calc(100dvh - 405px); }
+  .facts { display: none; }
+}
+@media (min-height: 741px) and (max-height: 840px) {
+  .title { padding-bottom: 0.55rem; }
+  .title .section { margin-block: 0.3rem 0.2rem; }
+  .models.featured button { padding-block: 0.3rem; }
+  .model-select select { padding-block: 0.15rem; }
 }
 
 /* Phones and short windows: the title card keeps one menu, and the tiling
@@ -210,6 +231,8 @@ html:has(body.clear), body.clear { background: transparent; }
   .title { width: auto; flex: 1 1 auto; padding: 0.45rem 0.65rem 0.5rem; }
   .facts, .models, .patterns, .title .section, .colours .section { display: none; }
   .pattern-select { display: block; margin-top: 0.3rem; }
+  .goldberg-row { display: block; }
+  .goldberg-row:not(.active), .gp-main { display: none; }
   .title h1 { font-size: 1rem; margin: 0.15rem 0 0.25rem; padding-right: 0; }
   .title .back { font-size: 0.78rem; }
   .model-select { display: block; margin-top: 0; }
@@ -242,6 +265,6 @@ html:has(body.clear), body.clear { background: transparent; }
   .motion .segmented + .segmented { padding-left: 0; border-left: 0; }
 }
 @media (max-width: 400px) {
-  .title-tools #fullscreen { display: none; }
+  .title .back { display: inline-block; max-width: calc(100% - 4rem); }
   .zoom-row #zoom-in, .zoom-row #zoom-out { display: none; }
 }

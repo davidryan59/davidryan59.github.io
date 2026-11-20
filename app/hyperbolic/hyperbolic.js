@@ -86,9 +86,22 @@
     { id: 'snub', name: 'Snub' },
     { id: 'expanded', name: 'Expanded', mask: 6 },
     { id: 'omnitruncated', name: 'Omnitruncated', mask: 7 },
-    { id: 'truncated-dual', name: 'Truncated dual', mask: 5 }
+    { id: 'truncated-dual', name: 'Truncated dual', mask: 5 },
+    { id: 'goldberg', name: 'Goldberg' }
   ];
   var PATTERN_BY_ID = new Map(PATTERNS.map(function (p) { return [p.id, p]; }));
+  // Goldberg GP(m,n) runs over 1 ≤ m ≤ GOLDBERG_MAX and 0 ≤ n ≤ m. GP(n,m)
+  // is the mirror image of GP(m,n), which the Left and Right buttons give.
+  const GOLDBERG_MAX = 6;
+  var DEFAULT_PATTERN = 'expanded', DEFAULT_GP = '1,1';
+  function gpValid(m, n) { return m >= 1 && m <= GOLDBERG_MAX && n >= 0 && n <= m; }
+
+  function gpName(size) { return 'GP(' + size + ')'; }
+  function twisted() {
+    var size = state.gp.split(',').map(Number);
+    return size[1] > 0 && size[0] !== size[1];
+  }
+  function goldbergGroup(p, q, r) { return p >= 7 && q === 3 && r === 2; }
 
   // Twelve bright colours, ordered so that the first few differ most. Over
   // twelve colours, more hues follow round the colour wheel.
@@ -748,6 +761,184 @@
     return twoTriangleDomain(halves, faceSides, W, 2 * Math.asinh(1 / Math.sqrt(-mdot(w, w))));
   }
 
+  function klein(v) { return [v[0] / v[2], v[1] / v[2], 1]; }
+
+  // Hyperbolic bisectors are straight in Klein coordinates. Keep the part
+  // of the polygon on the inside of the bisector.
+  function cutCell(vertices, normal) {
+    var result = [];
+    var distances = vertices.map(function (v) {
+      var d = mdot(v, normal);
+      return Math.abs(d) < 1e-11 ? 0 : d;
+    });
+    vertices.forEach(function (b, i) {
+      var j = (i + vertices.length - 1) % vertices.length;
+      var a = vertices[j], da = distances[j], db = distances[i];
+      if (da * db < 0) {
+        var t = da / (da - db);
+        result.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), 1]);
+      }
+      if (db <= 0) result.push(b);
+    });
+    return result;
+  }
+
+  function voronoiCell(vertices, site, sites) {
+    for (var i = 0; i < sites.length && vertices.length >= 3; i++) {
+      var other = sites[i];
+      if (other === site) continue;
+      var bisector = [other[0] - site[0], other[1] - site[1], other[2] - site[2]];
+      vertices = cutCell(vertices, bisector);
+    }
+    return vertices;
+  }
+
+  // Relaxation treats each pair of neighbouring hexagon centres as a
+  // spring with one common rest length: the mean spacing. The centres of
+  // the large tiles stay fixed, and their springs are left out, so each
+  // large tile takes the size that its ring of hexagons gives it. Symmetric
+  // images of the points move with them, so the tiling keeps its symmetry.
+  // The result is cached for each p, m and n, and relax blends towards it.
+  var relaxCache = new Map();
+  function relaxedLattice(key, lattice, stars, fixed) {
+    if (relaxCache.has(key)) return relaxCache.get(key);
+    var square = [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]];
+    var all = stars.map(function (s) { return apply(s.G, lattice[s.j]); });
+    var neighbours = lattice.map(function (site, j) {
+      if (fixed[j]) return [];
+      var cell = voronoiCell(square, site, all), list = [];
+      all.forEach(function (other, i) {
+        if (fixed[stars[i].j] || Math.abs(mdot(other, site) + 1) < 1e-9) return;
+        var normal = [other[0] - site[0], other[1] - site[1], other[2] - site[2]];
+        var size = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+        var on = cell.filter(function (v) { return Math.abs(mdot(v, normal)) < 1e-9 * size; });
+        if (on.length >= 2) list.push(stars[i]);
+      });
+      return list;
+    });
+    var points = lattice.slice();
+    for (var round = 0; round < 5000; round++) {
+      var total = 0, count = 0;
+      var pulls = points.map(function (x, j) {
+        return neighbours[j].map(function (s) {
+          var y = apply(s.G, points[s.j]), c = -mdot(x, y), d = Math.acosh(Math.max(1, c));
+          total += d; count++;
+          return { y: y, c: c, d: d };
+        });
+      });
+      if (!count) break;
+      var rest = total / count, moved = 0;
+      points = points.map(function (x, j) {
+        var f = [0, 0, 0];
+        pulls[j].forEach(function (q) {
+          // Unit tangent at x towards y, scaled by the spring's stretch.
+          var u = [q.y[0] - q.c * x[0], q.y[1] - q.c * x[1], q.y[2] - q.c * x[2]];
+          var len = Math.sqrt(Math.max(mdot(u, u), 1e-30)), k = 0.2 * (q.d - rest) / len;
+          f[0] += k * u[0]; f[1] += k * u[1]; f[2] += k * u[2];
+        });
+        var t = Math.sqrt(Math.max(mdot(f, f), 0));
+        if (t < 1e-15) return x;
+        moved = Math.max(moved, t);
+        var ch = Math.cosh(t), sh = Math.sinh(t) / t;
+        return unitPoint([ch * x[0] + sh * f[0], ch * x[1] + sh * f[1], ch * x[2] + sh * f[2]]);
+      });
+      if (moved < 1e-11) break;
+    }
+    relaxCache.set(key, points);
+    return points;
+  }
+
+  function goldberg(p, m, n, N, relax) {
+    var reflections = N.map(reflection);
+    var chamber = chamberCentres(p, 3, 2, N);
+    var turnQ = mul(reflections[2], reflections[0]);
+    var cycle = [ident(), turnQ, mul(turnQ, turnQ)];
+    var parent = cycle.map(function (T) { return apply(T, chamber[0]); });
+    var turnP = mul(reflections[1], reflections[0]);
+    var lattice = [], count = m * m + m * n + n * n;
+    // The parent corners in triangular lattice coordinates are (0,0),
+    // (m,n), and (-n,m+n). Invert that basis with integer arithmetic to
+    // keep the sites on the edges when building the neighbouring stars.
+    for (var i = -n; i <= m; i++) for (var j = 0; j <= m + n; j++) {
+      var b = (m + n) * i + n * j, c = m * j - n * i;
+      var a = count - b - c;
+      if (a < 0 || b < 0 || c < 0) continue;
+      lattice.push(unitPoint(parent[0].map(function (x, k) {
+        return a * x + b * parent[1][k] + c * parent[2][k];
+      })));
+    }
+    // A full star of parent triangles at each of the three vertices gives
+    // the neighbouring sites needed to close the dual cells on all seams.
+    var starsByPoint = new Map();
+    cycle.forEach(function (T) {
+      var rotation = ident();
+      for (var i = 0; i < p; i++) {
+        var G = mul(T, rotation);
+        lattice.forEach(function (v, j) {
+          var key = klein(apply(G, v)).slice(0, 2).map(function (x) { return Math.round(x * 1e8); }).join(',');
+          if (!starsByPoint.has(key)) starsByPoint.set(key, { G: G, j: j });
+        });
+        rotation = mul(turnP, rotation);
+      }
+    });
+    var stars = Array.from(starsByPoint.values());
+    if (relax > 0) {
+      var fixed = lattice.map(function (v) {
+        return parent.some(function (c) { return Math.abs(mdot(v, c) + 1) < 1e-9; });
+      });
+      var relaxed = relaxedLattice(p + ',' + m + ',' + n, lattice, stars, fixed);
+      lattice = lattice.map(function (v, j) {
+        var w = relaxed[j];
+        return unitPoint([v[0] + relax * (w[0] - v[0]), v[1] + relax * (w[1] - v[1]), v[2] + relax * (w[2] - v[2])]);
+      });
+    }
+    var sites = stars.map(function (s) { return apply(s.G, lattice[s.j]); });
+    var middle = unitPoint(chamber[0].map(function (_, k) {
+      return chamber[0][k] + chamber[1][k] + chamber[2][k];
+    }));
+    sites.sort(function (a, b) { return mdot(b, middle) - mdot(a, middle); });
+
+    var mirror = reflections[0], shapes = [], faceSides = [0, 0, 0, 0];
+    var halves = [chamber.map(klein), chamber.map(function (v) { return klein(apply(mirror, v)); })];
+    var square = [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]];
+    var faces = [[], []];
+    sites.forEach(function (site) {
+      var touched = halves.map(function (half) {
+        var v = voronoiCell(half, site, sites);
+        var area = v.reduce(function (sum, a, i) {
+          var b = v[(i + 1) % v.length];
+          return sum + a[0] * b[1] - b[0] * a[1];
+        }, 0);
+        return Math.abs(area) > 1e-12;
+      });
+      if (!touched.some(Boolean)) return;
+      var vertices = voronoiCell(square, site, sites).map(unitPoint);
+      touched.forEach(function (yes, i) {
+        if (!yes) return;
+        var centre = i ? apply(mirror, site) : site;
+        var folded = fold(centre, N), home = apply(folded.G, centre);
+        var fixed = N.map(function (n, j) { return Math.abs(mdot(home, n)) < 1e-9 ? j : -1; })
+          .filter(function (j) { return j >= 0; });
+        var orbit = fixed.length ? INCIDENT.findIndex(function (pair) {
+          return fixed.every(function (j) { return pair.includes(j); });
+        }) : 3;
+        var word = folded.list.reduce(function (word, j) { return (word << 2) | (j + 1); }, 0);
+        var face = polygon(i ? vertices.map(function (v) { return apply(mirror, v); }) : vertices, centre, orbit, 0, word);
+        var sides = face.normals.length;
+        var area = (sides - 2) * Math.PI - face.normals.reduce(function (sum, a, j) {
+          var b = face.normals[(j + 1) % sides];
+          return sum + Math.acos(Math.max(-1, Math.min(1, -mdot(a, b))));
+        }, 0);
+        face.type = shapes.findIndex(function (shape) { return shape.sides === sides && Math.abs(shape.area - area) < 1e-8; });
+        if (face.type < 0) { face.type = shapes.length; shapes.push({ sides: sides, area: area }); }
+        faceSides[orbit] = sides;
+        faces[i].push(face);
+      });
+    });
+    var scale = sides(p, 3, 2).b * 2 / Math.sqrt(3 * count);
+    return twoTriangleDomain(faces, faceSides, chamber[0], scale);
+  }
+
   function vertexFigure(pattern, faceSides, r) {
     if (pattern.id === 'snub') {
       return formatVertexFigure([3, faceSides[0], 3, faceSides[1], 3, faceSides[2]].filter(Boolean));
@@ -802,15 +993,18 @@
   /* ---------- State ---------- */
 
   var state = {
-    model: 'poincare', p: 7, q: 3, r: 2, pattern: 'regular', hand: 'right', style: 'tiles', colour: 'many', edge: 2, shade: 70, mirrors: false, motif: false, design: 'compass', glyph: 'R', orient: 'up', designA: 60, designsOn: 'all',
-    motion: 'still', zoom: 1, pan: [0, 0], drag: 'plane', T: ident(), clear: false
+    model: 'poincare', p: 7, q: 3, r: 2, pattern: DEFAULT_PATTERN, hand: 'right', style: 'tiles', colour: 'type', edge: 2, shade: 70, mirrors: false, motif: false, design: 'compass', glyph: 'R', orient: 'up', designA: 60, designsOn: 'all',
+    gp: DEFAULT_GP, relax: 0, motion: 'still', zoom: 1, pan: [0, 0], drag: 'plane', T: ident(), clear: false
   };
   var N = mirrors(7, 3, 2);
   var geometry;
   function updateGeometry() {
     if (state.pattern === 'regular') geometry = null;
     else if (state.pattern === 'snub') geometry = snub(state.p, state.q, state.r, N);
-    else geometry = wythoff(state.p, state.q, state.r, PATTERN_BY_ID.get(state.pattern).mask, N);
+    else if (state.pattern === 'goldberg') {
+      var size = state.gp.split(',').map(Number);
+      geometry = goldberg(state.p, size[0], size[1], N, state.relax / 100);
+    } else geometry = wythoff(state.p, state.q, state.r, PATTERN_BY_ID.get(state.pattern).mask, N);
   }
   // P0 is the permutation of colours from the snaps back to home so far,
   // and par0 the parity of their reflections.
@@ -832,6 +1026,9 @@
   var hasDesign = false;
   function readHash() {
     var h = location.hash.replace(/^#/, '');
+    // Links from before Expanded became the default carry a tiling with
+    // no pattern, which meant Regular.
+    if (/(^|&)t=/.test(h) && !/(^|&)pattern=/.test(h)) state.pattern = 'regular';
     h.split('&').forEach(function (part) {
       var kv = part.split('='), k = kv[0], v = decodeURIComponent(kv[1] || '');
       if (k === 'm' && MODEL_BY_ID[v]) state.model = v;
@@ -845,7 +1042,9 @@
       if (k === 's' && (v === 'tiles' || v === 'triangles')) state.style = v;
       if (k === 'hand' && (v === 'right' || v === 'left')) state.hand = v;
       if (k === 'pattern' && PATTERN_BY_ID.has(v)) state.pattern = v;
+      if (k === 'gp' && /^\d+,\d+$/.test(v) && gpValid.apply(null, v.split(',').map(Number))) state.gp = v;
       if (k === 'c') state.colour = { many: 'many', few: 'few', mono: 'mono', type: 'type', bright: 'many', two: 'few', rings: 'many' }[v] || state.colour;
+      if (k === 'rx' && isFinite(+v)) state.relax = Math.max(0, Math.min(100, Math.round(+v)));
       if (k === 'e' && isFinite(+v)) state.edge = Math.max(0, Math.min(10, +v));
       if (k === 'sh' && isFinite(+v)) state.shade = Math.max(0, Math.min(100, +v));
       if (k === 'mv' && ['still', 'spin', 'fly'].indexOf(v) >= 0) state.motion = v;
@@ -857,12 +1056,17 @@
       if (k === 'on' && (v === 'all' || v === 'largest')) state.designsOn = v;
       if (k === 'da' && isFinite(+v)) state.designA = Math.max(0, Math.min(100, +v));
     });
+    if (state.pattern === 'goldberg' && !goldbergGroup(state.p, state.q, state.r)) {
+      state.p = Math.max(state.p, 7); state.q = 3; state.r = 2;
+    }
   }
   function writeHash() {
     var h = 'm=' + state.model + '&t=' + state.p + ',' + state.q + (state.r !== 2 ? ',' + state.r : '') +
       '&s=' + state.style + '&c=' + state.colour + '&e=' + state.edge + '&sh=' + state.shade;
-    if (state.pattern !== 'regular') h += '&pattern=' + state.pattern;
+    h += '&pattern=' + state.pattern;
+    if (state.pattern === 'goldberg' || state.gp !== DEFAULT_GP) h += '&gp=' + state.gp;
     if (state.hand !== 'right') h += '&hand=' + state.hand;
+    if (state.relax) h += '&rx=' + state.relax;
     if (state.motion !== 'still') h += '&mv=' + state.motion;
     h += '&d=' + state.design;
     if (state.design === 'letter') h += '&g=' + encodeURIComponent(state.glyph);
@@ -885,8 +1089,7 @@
     }
     var next = faces.map(function (n, corner) {
       if (!n) return null;
-      // The extra snub triangles are anchored to a chamber, with no
-      // stabiliser to enforce. Reuse P's action for that orbit.
+      // Faces with no stabiliser can reuse P's action in their own range.
       return colourings(state.p, state.q, state.r, corner % 3)[state.colour] || null;
     });
     P0 = next.map(function (action, i) {
@@ -1044,9 +1247,10 @@
     // uniformMatrix3fv wants columns: pass the transpose of the row-major array.
     gl.uniformMatrix3fv(U.uTinv, false, new Float32Array([Ti[0], Ti[3], Ti[6], Ti[1], Ti[4], Ti[7], Ti[2], Ti[5], Ti[8]]));
     gl.uniform3fv(U.uN1, N[0]); gl.uniform3fv(U.uN2, N[1]); gl.uniform3fv(U.uN3, N[2]);
+    var leftHand = domain && state.hand === 'left' && (state.pattern === 'snub' || twisted());
     if (domain) {
       uploadDomain(R, U, uniform);
-      gl.uniform1i(U.uHand, state.hand === 'left' ? 1 : 0);
+      gl.uniform1i(U.uHand, leftHand ? 1 : 0);
     } else if (uniform) {
       gl.uniform1i(U.uEdgeMask, PATTERN_BY_ID.get(state.pattern).mask);
       gl.uniform3fv(U.uCorner, uniform.corner);
@@ -1070,7 +1274,6 @@
     gl.uniform1i(U.uStyle, triangles ? 1 : 0);
     gl.uniform1i(U.uColourMode, c.plain ? 1 : state.colour === 'type' ? 2 : 0);
     var slots = faces.length * MAXN;
-    var mirrorColours = domain && state.hand === 'left';
     var actionData = new Int32Array(slots * 4), offset = 0;
     if (!c.plain && state.colour !== 'type') faces.forEach(function (sides, i) {
       if (!sides) return;
@@ -1080,7 +1283,7 @@
         if (action) actionData.set(action.table.slice(j * 3, j * 3 + 3), at);
         var colour = opt.identityColours ? j : P0[i][j];
         // Left reflects the whole colour action in the horizontal mirror.
-        actionData[at + 3] = offset + (mirrorColours && action ? action.table[3 * colour] : colour);
+        actionData[at + 3] = offset + (leftHand && action ? action.table[3 * colour] : colour);
       }
       offset += n;
     });
@@ -1367,19 +1570,31 @@
   // Each choice is a pattern and, for Snub, a hand. The order pairs
   // labels of similar length in the two rows of four.
   var PATTERN_CHOICES = [
-    ['regular', 'Regular'], ['omnitruncated', 'Omnitruncated'], ['truncated', 'Truncated'], ['snub', 'Snub left', 'left'],
-    ['expanded', 'Expanded'], ['rectified', 'Rectified'], ['truncated-dual', 'Truncated dual'], ['snub', 'Snub right', 'right']
+    ['regular', 'Regular'], ['truncated', 'Truncated'], ['omnitruncated', 'Omnitruncated'], ['snub', 'Snub left', 'left'],
+    ['expanded', 'Expanded'], ['rectified', 'Rectified'], ['truncated-dual', 'Truncated dual'], ['snub', 'Snub right', 'right'],
+    ['goldberg', 'Goldberg']
   ];
   var patternSelect = document.getElementById('pattern'), patternButtons = document.getElementById('patterns');
+  var gpRow = document.getElementById('goldberg-row'), gpHands = document.getElementById('goldberg-hands');
   function choiceKey(c) { return c[2] ? c[0] + '-' + c[2] : c[0]; }
   function setPattern(c) {
+    var changed = state.pattern !== c[0];
     state.pattern = c[0];
     if (c[2]) state.hand = c[2];
-    updateGeometry(); updateColours(); invalidate(); syncUI(); writeHash();
+    if (state.pattern === 'goldberg' && !goldbergGroup(state.p, state.q, state.r)) {
+      setTiling(Math.max(state.p, 7), 3, 2);
+      return;
+    }
+    if (changed) { updateGeometry(); updateColours(); }
+    invalidate(); syncUI(); writeHash();
   }
   PATTERN_CHOICES.forEach(function (c) {
     var o = document.createElement('option'); o.value = choiceKey(c); o.textContent = c[1];
     patternSelect.appendChild(o);
+    if (c[0] === 'goldberg') {
+      gpRow.querySelector('.gp-main').addEventListener('click', function () { setPattern(c); });
+      return;
+    }
     var b = document.createElement('button');
     b.type = 'button'; b.textContent = c[1]; b.dataset.pattern = choiceKey(c);
     b.addEventListener('click', function () { setPattern(c); });
@@ -1389,13 +1604,62 @@
     setPattern(PATTERN_CHOICES.find(function (c) { return choiceKey(c) === patternSelect.value; }));
   });
 
+  // The m and n steppers work only in Goldberg. Lowering m below n
+  // lowers n with it.
+  var gpSteps = gpRow.querySelectorAll('[data-gp]'), gpHandButtons = gpHands.querySelectorAll('button');
+  function gpStepTo(b) {
+    var a = b.dataset.gp.split(','), size = state.gp.split(',').map(Number);
+    size[a[0] === 'm' ? 0 : 1] += Number(a[1]);
+    if (a[0] === 'm') size[1] = Math.min(size[1], size[0]);
+    return gpValid(size[0], size[1]) ? size.join(',') : null;
+  }
+  gpSteps.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var next = gpStepTo(b);
+      if (!next || state.pattern !== 'goldberg') return;
+      state.gp = next;
+      updateGeometry(); updateColours(); invalidate(); syncUI(); writeHash();
+    });
+  });
+  var relaxIn = document.getElementById('relax');
+  relaxIn.addEventListener('input', function () {
+    state.relax = +relaxIn.value;
+    document.getElementById('relax-out').textContent = state.relax + '%';
+    if (state.pattern !== 'goldberg') return;
+    updateGeometry(); updateColours(); invalidate();
+  });
+  relaxIn.addEventListener('change', function () { syncUI(); writeHash(); });
+  gpHandButtons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.hand = b.dataset.hand;
+      invalidate(); syncUI(); writeHash();
+    });
+  });
+
   var presets = document.getElementById('presets');
   PRESETS.forEach(function (t) {
     var b = document.createElement('button');
     b.type = 'button'; b.dataset.t = t.join(',');
     b.textContent = t[2] === 2 ? '{' + t[0] + ',' + t[1] + '}' : '*' + t.slice().sort(function (a, b) { return a - b; }).join('');
     b.title = t[2] === 2 ? POLYGON[t[0]] + ', ' + t[1] + ' at each corner' : 'Triangle group with angles 180°/' + t.join(', 180°/');
-    b.addEventListener('click', function () { setTiling(t[0], t[1], t[2]); });
+    b.addEventListener('click', function () {
+      setTiling(t[0], t[1], t[2]);
+    });
+    presets.appendChild(b);
+  });
+  [
+    ['truncated-dual', '6.6.7', 'Truncated dual'],
+    ['expanded', '3.4.7.4', 'Expanded'],
+    ['goldberg', gpName('3,0'), 'Goldberg', '3,0']
+  ].forEach(function (preset) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = preset[1]; b.dataset.preset = preset[0]; b.title = preset[2];
+    b.addEventListener('click', function () {
+      state.pattern = preset[0];
+      if (preset[3]) state.gp = preset[3];
+      state.style = 'tiles';
+      setTiling(7, 3, 2);
+    });
     presets.appendChild(b);
   });
   document.querySelectorAll('[data-step]').forEach(function (b) {
@@ -1408,6 +1672,7 @@
   function valid(p, q, r) { return p >= 3 && q >= 3 && r >= 2 && p <= 16 && q <= 16 && r <= 12 && isHyperbolic(p, q, r); }
 
   function setTiling(p, q, r) {
+    if (state.pattern === 'goldberg' && !goldbergGroup(p, q, r)) state.pattern = DEFAULT_PATTERN;
     state.p = p; state.q = q; state.r = r; N = mirrors(p, q, r);
     updateGeometry();
     state.T = ident(); vel = null;
@@ -1542,26 +1807,45 @@
     var key = state.pattern === 'snub' ? 'snub-' + state.hand : state.pattern;
     patternSelect.value = key;
     document.querySelectorAll('[data-pattern]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.pattern === key)); });
+    var gp = state.pattern === 'goldberg', chiral = state.pattern === 'snub' || (gp && twisted());
+    var size = state.gp.split(',');
+    gpRow.classList.toggle('active', gp);
+    document.getElementById('gp-out').textContent = gpName(state.gp);
+    document.getElementById('gp-m').textContent = size[0];
+    document.getElementById('gp-n').textContent = size[1];
+    gpSteps.forEach(function (b) { b.disabled = !gp || !gpStepTo(b); });
+    gpHandButtons.forEach(function (b) { b.disabled = !gp || !twisted(); });
+    relaxIn.disabled = !gp; relaxIn.value = state.relax;
+    document.getElementById('relax-out').textContent = state.relax + '%';
+    gpHandButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.hand === state.hand)); });
     document.getElementById('facts').innerHTML =
       '<dt>Straight lines</dt><dd>' + m.lines + '</dd><dt>Angles</dt><dd>' + m.angles + '</dd>' +
       '<dt>Sizes</dt><dd>' + m.sizes + '</dd><dd class="made">' + m.made + '</dd>';
     var t = state.p + ',' + state.q + ',' + state.r;
     presets.querySelectorAll('button').forEach(function (b) {
-      b.setAttribute('aria-pressed', String(b.dataset.t === t));
+      var selected = b.dataset.t === t && !gp;
+      if (b.dataset.preset) selected = t === '7,3,2' && b.dataset.preset === state.pattern &&
+        state.style === 'tiles' && (!gp || state.gp === '3,0');
+      else if (t === '7,3,2' && (state.pattern === 'truncated-dual' || state.pattern === 'expanded')) selected = false;
+      b.setAttribute('aria-pressed', String(selected));
     });
     ['p', 'q', 'r'].forEach(function (k) { document.getElementById(k + '-out').textContent = state[k]; });
     document.querySelectorAll('[data-step]').forEach(function (b) {
       var a = b.dataset.step.split(','), tt = { p: state.p, q: state.q, r: state.r };
       tt[a[0]] += +a[1];
-      b.disabled = !valid(tt.p, tt.q, tt.r);
+      b.disabled = !valid(tt.p, tt.q, tt.r) || (gp && !goldbergGroup(tt.p, tt.q, tt.r));
     });
     var deg = function (n) { return +(180 / n).toFixed(1) + '°'; };
     var name = document.getElementById('tile-name'), desc = document.getElementById('tile-desc');
     var uniform = state.style === 'tiles' && state.pattern !== 'regular';
-    tileCanvas.setAttribute('aria-label', uniform ? 'Tiles around a corner in the Poincaré disk' : 'One tile of the tiling, drawn in the Poincaré disk');
+    tileCanvas.setAttribute('aria-label', gp && uniform ? 'Goldberg tiles in the Poincaré disk' :
+      uniform ? 'Tiles around a corner in the Poincaré disk' : 'One tile of the tiling, drawn in the Poincaré disk');
     if (state.style === 'triangles') {
       name.textContent = 'Triangles';
       desc.textContent = 'Angles ' + deg(state.p) + ', ' + deg(state.q) + ', ' + deg(state.r);
+    } else if (gp) {
+      name.textContent = gpName(state.gp);
+      desc.textContent = 'Hexagons and ' + (POLYGON[state.p] || state.p + '-gons');
     } else if (uniform) {
       var pattern = PATTERN_BY_ID.get(state.pattern);
       name.textContent = pattern.name;
@@ -1573,20 +1857,18 @@
       name.textContent = 2 * state.p + '-sided tiles';
       desc.textContent = 'Corners of ' + deg(state.q / 2) + ' and ' + deg(state.r / 2);
     }
-    var chiral = state.pattern === 'snub' && state.style === 'tiles';
-    document.getElementById('tile-sym').textContent = (chiral ? 'Symmetry ' : 'Symmetry *') + [state.p, state.q, state.r].sort(function (a, b) { return a - b; }).join('');
+    document.getElementById('tile-sym').textContent = (chiral && uniform ? 'Symmetry ' : 'Symmetry *') + [state.p, state.q, state.r].sort(function (a, b) { return a - b; }).join('');
     document.querySelectorAll('[data-style]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.style === state.style)); });
     document.querySelectorAll('[data-colour]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.colour === state.colour)); });
     // Each colour button shows how many colours it would use.
     var faces = activeFaces();
     ['many', 'few'].forEach(function (scheme) {
-      var found = false, n = faces.reduce(function (sum, sides, corner) {
+      var n = faces.reduce(function (sum, sides, corner) {
         if (!sides) return sum;
         var action = colourings(state.p, state.q, state.r, corner % 3)[scheme];
-        if (action) found = true;
         return sum + (action ? action.n : 1);
       }, 0);
-      document.getElementById('n-' + scheme).textContent = found ? ' (' + n + ')' : '';
+      document.getElementById('n-' + scheme).textContent = ' (' + n + ')';
     });
     var types = state.style === 'tiles' && geometry && geometry.halves ? geometry.typeCount : tileTypes(faces).length;
     document.getElementById('n-type').textContent = ' (' + types + ')';

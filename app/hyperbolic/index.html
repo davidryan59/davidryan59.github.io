@@ -55,6 +55,17 @@
   <h2 class="section">Pattern</h2>
   <div class="patterns" id="patterns" role="group" aria-label="Pattern"></div>
   <label class="pattern-select">Pattern <select id="pattern"></select></label>
+  <div class="goldberg-row" id="goldberg-row">
+    <button type="button" class="gp-main" data-pattern="goldberg" aria-pressed="false">Goldberg<span id="gp-out"></span></button>
+    <div class="gp-controls" role="group" aria-label="Goldberg size">
+      <div class="stepper" title="Grid steps from one large tile to the next"><button type="button" data-gp="m,-1" aria-label="Lower m">−</button><output id="gp-m">1</output><button type="button" data-gp="m,1" aria-label="Higher m">+</button></div>
+      <div class="stepper" title="Grid steps in the second direction. Twisted when above 0 and below the first number"><button type="button" data-gp="n,-1" aria-label="Lower n">−</button><output id="gp-n">1</output><button type="button" data-gp="n,1" aria-label="Higher n">+</button></div>
+      <div class="segmented gp-hands" id="goldberg-hands" role="group" aria-label="Goldberg handedness">
+        <button type="button" data-hand="left" aria-pressed="false">Left</button>
+        <button type="button" data-hand="right" aria-pressed="true">Right</button>
+      </div>
+    </div>
+  </div>
   <dl class="facts" id="facts"></dl>
 </div>
 
@@ -75,6 +86,9 @@
       <div class="stepper"><span title="Tiles at each corner">Tiles at a corner</span><button type="button" data-step="q,-1" aria-label="Fewer tiles at a corner">−</button><output id="q-out">3</output><button type="button" data-step="q,1" aria-label="More tiles at a corner">+</button></div>
       <div class="stepper"><span title="Two makes regular tiles. Higher values give tiles with twice the sides and two kinds of corner">Second corner</span><button type="button" data-step="r,-1" aria-label="Lower second corner">−</button><output id="r-out">2</output><button type="button" data-step="r,1" aria-label="Higher second corner">+</button></div>
     </div>
+    <label class="slider gp-relax" title="Evens out the spacing of the grid. 0% is the straight blend across each large triangle">Goldberg relax <output id="relax-out">0%</output>
+      <input type="range" id="relax" min="0" max="100" step="5" value="0">
+    </label>
     <div class="segmented" role="group" aria-label="Draw">
       <button type="button" data-style="tiles" aria-pressed="true">Tiles</button>
       <button type="button" data-style="triangles" aria-pressed="false">Triangles</button>
@@ -88,10 +102,10 @@
   <div class="body">
     <h2 class="section">Colours</h2>
     <div class="segmented colour-schemes" role="group" aria-label="Colours">
-      <button type="button" data-colour="many" aria-pressed="true">Many<span class="n" id="n-many"></span></button>
+      <button type="button" data-colour="type" aria-pressed="true">Tile type<span class="n" id="n-type"></span></button>
       <button type="button" data-colour="few" aria-pressed="false">Few<span class="n" id="n-few"></span></button>
-      <button type="button" data-colour="type" aria-pressed="false">Tile type<span class="n" id="n-type"></span></button>
       <button type="button" data-colour="mono" aria-pressed="false">Plain<span class="n"> (1)</span></button>
+      <button type="button" data-colour="many" aria-pressed="false">Many<span class="n" id="n-many"></span></button>
     </div>
     <label class="slider">Shading <output id="shade-out">70%</output>
       <input type="range" id="shade" min="0" max="100" step="1" value="70">
@@ -147,7 +161,8 @@
     <li><strong>The six map projections:</strong> the hyperbolic versions of map projections of the Earth, which keep distances or areas true.</li>
   </ul>
   <p>The tilings come from triangles with angles 180°/p, 180°/q and 180°/r.
-    Reflections in the sides of one triangle fill the plane. Each pattern places a tile corner at a different point of the triangle.</p>
+    Reflections in the sides of one triangle fill the plane. Goldberg places a triangular grid over
+    the tiling to make smaller cells, with hexagons between the original tile centres.</p>
   <p>Further reading: <a target="_blank" rel="noopener" href="https://roguetemple.com/z/hyper/models.php">Models and projections of hyperbolic geometry</a>
     from HyperRogue, which lists many more models, and the
     <a target="_blank" rel="noopener" href="https://spacesheep.dev/@yaroslavvb/orbifold-showcase">Orbifold Showcase</a>.</p>

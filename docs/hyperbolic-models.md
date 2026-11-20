@@ -12,18 +12,19 @@ library and no build step.
 ## Implementation Checklist
 
 - [x] Fourteen models, each with an inverse map from the screen to the hyperboloid, in GLSL and in JavaScript
-- [x] Tilings from the triangle group (p, q, r), as tiles or as triangles, with eight presets and steppers
-- [x] Eight pattern buttons of one size in two full rows of four: Regular, Omnitruncated, Truncated, Snub left, then Expanded, Rectified, Truncated dual, Snub right. A phone shows the same eight choices as a menu (2026-11-20)
+- [x] Tilings from the triangle group (p, q, r), as tiles or as triangles, with eleven presets and steppers
+- [x] Two full rows of four pattern buttons, each column as wide as its longest label. Below them, a tall Goldberg button with its m and n steppers and its hand. A phone uses a pattern menu. Expanded is the default pattern (2026-11-20)
+- [x] Straight and twisted Goldberg tilings with a size stepper, shared handedness, tile-type colours and designs (2026-11-20)
 - [x] Drag, glide after release, pan (Pan switch, Shift-drag, right-drag, two fingers), zoom about the pointer, arrow keys, Spin, Fly and Reset
-- [x] Many, Few, Tile type and Plain, each showing its colour count in brackets, with shading (default 70%), edge width (default 2) and mirror lines
-- [x] Design menu: None, then Compass, then the other 14 pictures from `app/hyperbolic/designs.js`, Letter R, Letter F and the viewer's own letter (`d=<id>`, `g=<char>`); default Compass. Upright (default) or One point (`o=point`); design opacity 0–100%, default 60% (`da=`). Other defaults: Many colours, shading 70%, edge width 2, mirror lines off (2026-11-19)
+- [x] Tile type (default), Few, Plain and Many, each showing its colour count in brackets, with shading (default 70%), edge width (default 2) and mirror lines
+- [x] Design menu: None, then Compass, then the other 14 pictures from `app/hyperbolic/designs.js`, Letter R, Letter F and the viewer's own letter (`d=<id>`, `g=<char>`); default Compass. Upright (default) or One point (`o=point`); design opacity 0–100%, default 60% (`da=`). Other defaults: Tile type colours, shading 70%, edge width 2, mirror lines off (2026-11-19)
 - [x] Designs fit each tile. All tiles is the default. Largest tiles selects the tiles with the largest circumradius (`on=largest`).
 - [x] The view snaps home every frame, so the picture stays crisp however far it travels (2026-11-19)
 - [x] Live builder-page thumbnail, `assets/hyperbolic-thumb.js`
 - [x] Tile preview above the tiling controls, drawn by the same shader
 - [x] Settings in the address after the `#`
 - [x] Light and dark themes; full-screen button
-- [x] `tools/screen-fit/check.js` passes at all six sizes with Snub, By tile type and Letter F selected (2026-11-20)
+- [x] `tools/screen-fit/check.js` passes at all six sizes with Goldberg GP(2,1), Tile type and Letter F (2026-11-20)
 - [x] Share card and thumbnail from `tools/hyperbolic/card.js`
 - [ ] A quick check on a real phone and iPad
 - [ ] Run `tools/check-addresses/check.js` after the push
@@ -39,13 +40,13 @@ library and no build step.
 3. Reflections in the three mirrors of the triangle with angles π/p, π/q and
    π/r fold the point into that triangle. The shader records each mirror it
    uses, two bits each, up to 256.
-4. The folded point gives the tile. Snub also uses the parity of the fold
+4. The folded point gives the tile. Snub and Goldberg also use the parity of the fold
    and the snaps home to select one of two triangles. The tile gives its
    type, centre, scale and colour action. For Many and Few, the recorded
    mirrors act on the tile's point in that action, last first.
 5. The shader uses distance to the tile edges, with anti-aliasing from
    `fwidth`. Regular uses the third mirror. The Wythoff patterns use
-   segments in the triangle. Snub uses the edges of the selected polygon.
+   segments in the triangle. Snub and Goldberg use the edges of the selected polygon.
 6. Where one pixel covers more than about a third of a tile, the colour fades
    to the palette's average, so the rim of a disk does not shimmer.
 
@@ -65,10 +66,10 @@ tiles. Their edges lie on n₃.
 
 ## Uniform patterns
 
-The top-left card has two headed groups. **Model** shows six large buttons in two rows of three: Poincaré disk, Klein disk, Half-plane, Band, Hyperboloid and Joukowsky. The other eight models follow in two rows of four. **Pattern** shows eight buttons of one size in two rows of four. Snub left and Snub right choose the snub and its hand. A phone shows both as menus. The steppers and presets choose the group.
+The top-left card has two headed groups. **Model** shows six large buttons in two rows of three: Poincaré disk, Klein disk, Half-plane, Band, Hyperboloid and Joukowsky. The other eight models follow in two rows of four. **Pattern** shows eight buttons in two rows of four. Each column takes the width of its longest label, and the columns share the spare width equally. Below them, a Goldberg button two rows tall shows the size, such as GP(2,1). To its right sit the m and n steppers and the Left and Right buttons. Snub left and Snub right choose the snub and its hand. A phone shows both groups as menus. The steppers and presets choose the group. The 6.6.7, 3.4.7.4 and GP(3,0) presets also set the pattern on {7,3}.
 Tiles shows the selected pattern. Triangles shows the reflection triangles
 and keeps the pattern selected. Shared addresses save the choice as
-`pattern=<id>`. A missing or unknown value opens Regular.
+`pattern=<id>`. Expanded is the default. The hash always saves the pattern, so a link with `t=` and no `pattern=` comes from before that default and opens Regular.
 
 | Pattern | Hash value | Active mirrors | Vertex figure on {7,3} |
 | --- | --- | --- | --- |
@@ -79,6 +80,7 @@ and keeps the pattern selected. Shared addresses save the choice as
 | Omnitruncated | `omnitruncated` | n₁, n₂, n₃ | 4.6.14 |
 | Truncated dual | `truncated-dual` | n₁, n₃ | 6.6.7 |
 | Snub | `snub` | rotations | 3.3.3.3.7 |
+| Goldberg | `goldberg` | reflections or rotations, by size | 6.6.7 and 6.6.6 |
 
 For the Wythoff patterns, JavaScript solves ⟨W, nᵢ⟩ = −1 on the active mirrors and zero on the
 others. It scales W onto the hyperboloid, so the active mirrors all lie
@@ -120,6 +122,57 @@ The Snub left and Snub right buttons set the hand. Right is the default. Left sw
 the domain halves, reflects the colour actions and saves `hand=left`.
 At Reset, reflection in the horizontal mirror n₁ takes either hand to
 the other. Designs follow their selected orientation in each hand.
+
+## Goldberg
+
+Goldberg starts with the equilateral triangles dual to a regular {p,3}
+tiling. It divides their lattice into smaller triangles and takes the dual.
+Each original vertex gives one p-gon and the new sites give hexagons. On
+{7,3}, the shortest path between neighbouring heptagons is m + n tile
+steps, with directions along the two lattice axes.
+
+JavaScript places the parent triangle corners at (0,0), (m,n) and
+(−n,m+n) in a triangular lattice. It maps each integer site in the
+triangle to the hyperboloid by its barycentric weights. Rotations fill
+the parent triangles around its three corners. JavaScript cuts the sites'
+Voronoi cells with hyperbolic bisectors, which are straight in the Klein disk.
+Each domain half keeps the complete cells that meet its interior. The
+shader reads them from the same texture format as Snub. Face uploads use
+`UNPACK_FLIP_Y_WEBGL = false`. Design uploads turn it on for the picture
+and reset it to false afterwards.
+
+Two unlabelled steppers set m and n, within 1 ≤ m ≤ 6 and 0 ≤ n ≤ m.
+The `GOLDBERG_MAX` constant holds the top value of m. Lowering m below n
+lowers n with it. GP(1,0) is the plain {p,3}. GP(n,m) is the mirror image
+of GP(m,n), so Left and Right cover n > m. They are enabled only for
+twisted sizes, 0 < n < m. The steppers and the hand buttons are disabled
+until Goldberg is selected. They share the hand with
+Snub. The hash saves `pattern=goldberg&gp=2,1&hand=left`
+for a left-handed GP(2,1). Right is the default.
+
+**Goldberg relax** (`rx=`, 0–100%, default 0) is a slider in the Tiling
+card, disabled outside Goldberg. At 0%, each grid point is a straight
+blend of its large triangle's corners. At 100%, the points sit where
+springs between neighbouring hexagon centres settle, all with one common
+rest length, the mean spacing. The large-tile centres stay fixed and
+have no springs, so each large tile takes the size its ring gives it.
+Every symmetric copy of a point moves with it, so the symmetry holds.
+The springs settle in 56 rounds for GP(3,1) on {8,3} and 464 for GP(6,5)
+on {12,3}. The settled points are cached per p, m and n, and the slider
+blends between the two sets. Settling narrows the spread of neighbour
+spacings from 0.84–1.46 times the mean to 0.86–1.35 on {12,3} GP(6,5).
+The rest of the unevenness comes from the hyperbolic plane itself.
+
+The Sides stepper changes p. Goldberg uses q = 3 and r = 2, which give
+the equilateral parent triangles. Selecting Goldberg from a different
+group keeps p, with 7 at least, and sets q = 3 and r = 2. So {8,4,3}
+becomes {8,3}.
+
+On 2026-11-20, Chrome on an Apple M1 Max held 60 fps for GP(4,0) and
+GP(3,2) during Fly in the Poincaré disk with Many colours and Compass.
+The viewport was 1728 × 990 CSS pixels and the canvas was 2954 × 1693.
+With the frame cap disabled and a GPU wait after each draw, the same
+run averaged about 533 draws per second at GP(4,0) and 517 at GP(3,2).
 
 ## The models
 
@@ -174,7 +227,7 @@ on the Joukowsky slit once produced such a matrix and turned the view black
 (reported 2026-11-19). A drag point further out than z = 10⁵ is also refused.
 It then folds the view centre into the triangle in double precision and
 replaces T by T G⁻¹, where G is the product of the reflections in the fold.
-The shader counts the parity of G when selecting the Snub half. The picture
+The shader counts the parity of G when selecting a Snub or Goldberg domain half. The picture
 stays the same, the shader's points stay near home, and a 40-unit flight
 draws as crisply as the start.
 
@@ -222,18 +275,22 @@ every design keeps its hand.
 The Colours card opens with a heading. Each button shows its colour count in
 brackets at 60% opacity, such as Many (11).
 
-**Tile type** (`c=type`) gives each polygon shape one colour. The uniform
+**Tile type** (`c=type`, the default) gives each polygon shape one colour. The uniform
 patterns have equal edge lengths, so regular polygons of the same side
 count share a colour. The two triangle orbits in the {7,3} snub share a
-colour. **Plain** (`c=mono`) uses one neutral fill.
+colour. Goldberg groups cells by side count and hyperbolic area. For
+example, GP(3,0) on {7,3} has three colours: one for the heptagons and two
+for the hexagons. **Plain** (`c=mono`) uses one neutral fill.
 
-**Many** (`c=many`, the default) and **Few** (`c=few`) give each tile orbit
+**Many** (`c=many`) and **Few** (`c=few`) give each tile orbit
 its own permutation action and palette range. The action uses involutions
 s₁, s₂, s₃ with (s₁s₂)ᵖ = (s₁s₃)^q = (s₂s₃)ʳ = 1. The two mirrors through
 the centre P, Q or R fix point 0. The opposite mirror moves it. A tile
 reached by the group element g takes colour g·0. The extra Snub triangles
 use the P action with point 0 anchored to the whole chamber. Snaps home
-update the stored permutations so the colours follow the plane.
+update the stored permutations so the colours follow the plane. For
+Goldberg, each centre uses an action fixed by the mirrors it lies on.
+Centres inside a chamber use a separate palette range with the P action.
 
 `findAction` searches in the manner of a coset table. It numbers points in
 order of first use and searches from 2 to 32 points, with a budget of 200,000
