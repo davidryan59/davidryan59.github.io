@@ -793,62 +793,7 @@
     return vertices;
   }
 
-  // Relaxation treats each pair of neighbouring hexagon centres as a
-  // spring with one common rest length: the mean spacing. The centres of
-  // the large tiles stay fixed, and their springs are left out, so each
-  // large tile takes the size that its ring of hexagons gives it. Symmetric
-  // images of the points move with them, so the tiling keeps its symmetry.
-  // The result is cached for each p, m and n, and relax blends towards it.
-  var relaxCache = new Map();
-  function relaxedLattice(key, lattice, stars, fixed) {
-    if (relaxCache.has(key)) return relaxCache.get(key);
-    var square = [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]];
-    var all = stars.map(function (s) { return apply(s.G, lattice[s.j]); });
-    var neighbours = lattice.map(function (site, j) {
-      if (fixed[j]) return [];
-      var cell = voronoiCell(square, site, all), list = [];
-      all.forEach(function (other, i) {
-        if (fixed[stars[i].j] || Math.abs(mdot(other, site) + 1) < 1e-9) return;
-        var normal = [other[0] - site[0], other[1] - site[1], other[2] - site[2]];
-        var size = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-        var on = cell.filter(function (v) { return Math.abs(mdot(v, normal)) < 1e-9 * size; });
-        if (on.length >= 2) list.push(stars[i]);
-      });
-      return list;
-    });
-    var points = lattice.slice();
-    for (var round = 0; round < 5000; round++) {
-      var total = 0, count = 0;
-      var pulls = points.map(function (x, j) {
-        return neighbours[j].map(function (s) {
-          var y = apply(s.G, points[s.j]), c = -mdot(x, y), d = Math.acosh(Math.max(1, c));
-          total += d; count++;
-          return { y: y, c: c, d: d };
-        });
-      });
-      if (!count) break;
-      var rest = total / count, moved = 0;
-      points = points.map(function (x, j) {
-        var f = [0, 0, 0];
-        pulls[j].forEach(function (q) {
-          // Unit tangent at x towards y, scaled by the spring's stretch.
-          var u = [q.y[0] - q.c * x[0], q.y[1] - q.c * x[1], q.y[2] - q.c * x[2]];
-          var len = Math.sqrt(Math.max(mdot(u, u), 1e-30)), k = 0.2 * (q.d - rest) / len;
-          f[0] += k * u[0]; f[1] += k * u[1]; f[2] += k * u[2];
-        });
-        var t = Math.sqrt(Math.max(mdot(f, f), 0));
-        if (t < 1e-15) return x;
-        moved = Math.max(moved, t);
-        var ch = Math.cosh(t), sh = Math.sinh(t) / t;
-        return unitPoint([ch * x[0] + sh * f[0], ch * x[1] + sh * f[1], ch * x[2] + sh * f[2]]);
-      });
-      if (moved < 1e-11) break;
-    }
-    relaxCache.set(key, points);
-    return points;
-  }
-
-  function goldberg(p, m, n, N, relax) {
+  function goldberg(p, m, n, N) {
     var reflections = N.map(reflection);
     var chamber = chamberCentres(p, 3, 2, N);
     var turnQ = mul(reflections[2], reflections[0]);
@@ -869,30 +814,20 @@
     }
     // A full star of parent triangles at each of the three vertices gives
     // the neighbouring sites needed to close the dual cells on all seams.
-    var starsByPoint = new Map();
+    var sitesByPoint = new Map();
     cycle.forEach(function (T) {
       var rotation = ident();
       for (var i = 0; i < p; i++) {
         var G = mul(T, rotation);
-        lattice.forEach(function (v, j) {
-          var key = klein(apply(G, v)).slice(0, 2).map(function (x) { return Math.round(x * 1e8); }).join(',');
-          if (!starsByPoint.has(key)) starsByPoint.set(key, { G: G, j: j });
+        lattice.forEach(function (v) {
+          var site = apply(G, v);
+          var key = klein(site).slice(0, 2).map(function (x) { return Math.round(x * 1e8); }).join(',');
+          if (!sitesByPoint.has(key)) sitesByPoint.set(key, site);
         });
         rotation = mul(turnP, rotation);
       }
     });
-    var stars = Array.from(starsByPoint.values());
-    if (relax > 0) {
-      var fixed = lattice.map(function (v) {
-        return parent.some(function (c) { return Math.abs(mdot(v, c) + 1) < 1e-9; });
-      });
-      var relaxed = relaxedLattice(p + ',' + m + ',' + n, lattice, stars, fixed);
-      lattice = lattice.map(function (v, j) {
-        var w = relaxed[j];
-        return unitPoint([v[0] + relax * (w[0] - v[0]), v[1] + relax * (w[1] - v[1]), v[2] + relax * (w[2] - v[2])]);
-      });
-    }
-    var sites = stars.map(function (s) { return apply(s.G, lattice[s.j]); });
+    var sites = Array.from(sitesByPoint.values());
     var middle = unitPoint(chamber[0].map(function (_, k) {
       return chamber[0][k] + chamber[1][k] + chamber[2][k];
     }));
@@ -994,7 +929,7 @@
 
   var state = {
     model: 'poincare', p: 7, q: 3, r: 2, pattern: DEFAULT_PATTERN, hand: 'right', style: 'tiles', colour: 'type', edge: 2, shade: 70, mirrors: false, motif: false, design: 'compass', glyph: 'R', orient: 'up', designA: 60, designsOn: 'all',
-    gp: DEFAULT_GP, relax: 0, motion: 'still', zoom: 1, pan: [0, 0], drag: 'plane', T: ident(), clear: false
+    gp: DEFAULT_GP, motion: 'still', zoom: 1, pan: [0, 0], drag: 'plane', T: ident(), clear: false
   };
   var N = mirrors(7, 3, 2);
   var geometry;
@@ -1003,7 +938,7 @@
     else if (state.pattern === 'snub') geometry = snub(state.p, state.q, state.r, N);
     else if (state.pattern === 'goldberg') {
       var size = state.gp.split(',').map(Number);
-      geometry = goldberg(state.p, size[0], size[1], N, state.relax / 100);
+      geometry = goldberg(state.p, size[0], size[1], N);
     } else geometry = wythoff(state.p, state.q, state.r, PATTERN_BY_ID.get(state.pattern).mask, N);
   }
   // P0 is the permutation of colours from the snaps back to home so far,
@@ -1044,7 +979,6 @@
       if (k === 'pattern' && PATTERN_BY_ID.has(v)) state.pattern = v;
       if (k === 'gp' && /^\d+,\d+$/.test(v) && gpValid.apply(null, v.split(',').map(Number))) state.gp = v;
       if (k === 'c') state.colour = { many: 'many', few: 'few', mono: 'mono', type: 'type', bright: 'many', two: 'few', rings: 'many' }[v] || state.colour;
-      if (k === 'rx' && isFinite(+v)) state.relax = Math.max(0, Math.min(100, Math.round(+v)));
       if (k === 'e' && isFinite(+v)) state.edge = Math.max(0, Math.min(10, +v));
       if (k === 'sh' && isFinite(+v)) state.shade = Math.max(0, Math.min(100, +v));
       if (k === 'mv' && ['still', 'spin', 'fly'].indexOf(v) >= 0) state.motion = v;
@@ -1066,7 +1000,6 @@
     h += '&pattern=' + state.pattern;
     if (state.pattern === 'goldberg' || state.gp !== DEFAULT_GP) h += '&gp=' + state.gp;
     if (state.hand !== 'right') h += '&hand=' + state.hand;
-    if (state.relax) h += '&rx=' + state.relax;
     if (state.motion !== 'still') h += '&mv=' + state.motion;
     h += '&d=' + state.design;
     if (state.design === 'letter') h += '&g=' + encodeURIComponent(state.glyph);
@@ -1575,7 +1508,7 @@
     ['goldberg', 'Goldberg']
   ];
   var patternSelect = document.getElementById('pattern'), patternButtons = document.getElementById('patterns');
-  var gpRow = document.getElementById('goldberg-row'), gpHands = document.getElementById('goldberg-hands');
+  var gpRow = document.getElementById('goldberg-row');
   function choiceKey(c) { return c[2] ? c[0] + '-' + c[2] : c[0]; }
   function setPattern(c) {
     var changed = state.pattern !== c[0];
@@ -1606,7 +1539,7 @@
 
   // The m and n steppers work only in Goldberg. Lowering m below n
   // lowers n with it.
-  var gpSteps = gpRow.querySelectorAll('[data-gp]'), gpHandButtons = gpHands.querySelectorAll('button');
+  var gpSteps = gpRow.querySelectorAll('[data-gp]'), gpHand = document.getElementById('gp-hand');
   function gpStepTo(b) {
     var a = b.dataset.gp.split(','), size = state.gp.split(',').map(Number);
     size[a[0] === 'm' ? 0 : 1] += Number(a[1]);
@@ -1621,19 +1554,9 @@
       updateGeometry(); updateColours(); invalidate(); syncUI(); writeHash();
     });
   });
-  var relaxIn = document.getElementById('relax');
-  relaxIn.addEventListener('input', function () {
-    state.relax = +relaxIn.value;
-    document.getElementById('relax-out').textContent = state.relax + '%';
-    if (state.pattern !== 'goldberg') return;
-    updateGeometry(); updateColours(); invalidate();
-  });
-  relaxIn.addEventListener('change', function () { syncUI(); writeHash(); });
-  gpHandButtons.forEach(function (b) {
-    b.addEventListener('click', function () {
-      state.hand = b.dataset.hand;
-      invalidate(); syncUI(); writeHash();
-    });
+  gpHand.addEventListener('click', function () {
+    state.hand = state.hand === 'left' ? 'right' : 'left';
+    invalidate(); syncUI(); writeHash();
   });
 
   var presets = document.getElementById('presets');
@@ -1814,10 +1737,10 @@
     document.getElementById('gp-m').textContent = size[0];
     document.getElementById('gp-n').textContent = size[1];
     gpSteps.forEach(function (b) { b.disabled = !gp || !gpStepTo(b); });
-    gpHandButtons.forEach(function (b) { b.disabled = !gp || !twisted(); });
-    relaxIn.disabled = !gp; relaxIn.value = state.relax;
-    document.getElementById('relax-out').textContent = state.relax + '%';
-    gpHandButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.hand === state.hand)); });
+    // One toggle for the hand. Straight and symmetric sizes have none.
+    gpHand.disabled = !gp || !twisted();
+    gpHand.textContent = twisted() ? (state.hand === 'left' ? 'Left' : 'Right') : 'Sym';
+    gpHand.setAttribute('aria-label', twisted() ? 'Hand: ' + state.hand + '. Press to switch' : 'Symmetric size, no hand');
     document.getElementById('facts').innerHTML =
       '<dt>Straight lines</dt><dd>' + m.lines + '</dd><dt>Angles</dt><dd>' + m.angles + '</dd>' +
       '<dt>Sizes</dt><dd>' + m.sizes + '</dd><dd class="made">' + m.made + '</dd>';

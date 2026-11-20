@@ -60,10 +60,7 @@
     <div class="gp-controls" role="group" aria-label="Goldberg size">
       <div class="stepper" title="Grid steps from one large tile to the next"><button type="button" data-gp="m,-1" aria-label="Lower m">−</button><output id="gp-m">1</output><button type="button" data-gp="m,1" aria-label="Higher m">+</button></div>
       <div class="stepper" title="Grid steps in the second direction. Twisted when above 0 and below the first number"><button type="button" data-gp="n,-1" aria-label="Lower n">−</button><output id="gp-n">1</output><button type="button" data-gp="n,1" aria-label="Higher n">+</button></div>
-      <div class="segmented gp-hands" id="goldberg-hands" role="group" aria-label="Goldberg handedness">
-        <button type="button" data-hand="left" aria-pressed="false">Left</button>
-        <button type="button" data-hand="right" aria-pressed="true">Right</button>
-      </div>
+      <button type="button" class="gp-hand" id="gp-hand" title="Switch between the left and right hand">Right</button>
     </div>
   </div>
   <dl class="facts" id="facts"></dl>
@@ -86,9 +83,6 @@
       <div class="stepper"><span title="Tiles at each corner">Tiles at a corner</span><button type="button" data-step="q,-1" aria-label="Fewer tiles at a corner">−</button><output id="q-out">3</output><button type="button" data-step="q,1" aria-label="More tiles at a corner">+</button></div>
       <div class="stepper"><span title="Two makes regular tiles. Higher values give tiles with twice the sides and two kinds of corner">Second corner</span><button type="button" data-step="r,-1" aria-label="Lower second corner">−</button><output id="r-out">2</output><button type="button" data-step="r,1" aria-label="Higher second corner">+</button></div>
     </div>
-    <label class="slider gp-relax" title="Evens out the spacing of the grid. 0% is the straight blend across each large triangle">Goldberg relax <output id="relax-out">0%</output>
-      <input type="range" id="relax" min="0" max="100" step="5" value="0">
-    </label>
     <div class="segmented" role="group" aria-label="Draw">
       <button type="button" data-style="tiles" aria-pressed="true">Tiles</button>
       <button type="button" data-style="triangles" aria-pressed="false">Triangles</button>

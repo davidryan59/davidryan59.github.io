@@ -115,18 +115,17 @@ select { background: var(--panel); max-width: 100%; }
    column fits its longest label, and the spare width is shared equally. */
 .patterns { display: grid; grid-template-columns: repeat(4, auto); gap: 0.3rem; }
 .patterns button { padding: 0.25rem 0.3rem; font-size: 0.8rem; line-height: 1.25; white-space: nowrap; }
-/* Goldberg: one tall button, then its m and n steppers and its hand. */
-.goldberg-row { display: grid; grid-template-columns: 8.4rem 1fr; gap: 0.3rem; margin-top: 0.3rem; }
-.gp-main { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 0.1rem;
-  padding: 0.25rem 0.6rem; font-size: 0.95rem; line-height: 1.2; }
-.gp-main span { font-size: 0.78rem; opacity: 0.75; }
-.gp-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0.3rem 0.6rem; }
-.gp-controls .stepper { grid-template-columns: 1fr 1.3rem 1fr; gap: 0.2rem; }
+/* Goldberg: one row of the button, the m and n steppers and a small
+   hand toggle, a little taller than the pattern buttons. */
+.goldberg-row { display: grid; grid-template-columns: 6.6rem 1fr; gap: 0.3rem; margin-top: 0.3rem; }
+.gp-main { display: flex; flex-direction: column; justify-content: center; align-items: center;
+  padding: 0.2rem 0.4rem; font-size: 0.9rem; line-height: 1.15; min-height: 2.5rem; }
+.gp-main span { font-size: 0.74rem; opacity: 0.75; }
+.gp-controls { display: grid; grid-template-columns: 1fr 1fr 3.1rem; gap: 0.3rem; align-items: stretch; }
+.gp-controls .stepper { grid-template-columns: 1fr 1.1rem 1fr; gap: 0.15rem; }
+.gp-controls .stepper button { height: auto; min-height: 1.9rem; }
 .gp-controls .stepper output { text-align: center; }
-.gp-hands { grid-column: 1 / -1; }
-.gp-relax { margin: -0.15rem 0 0.55rem; }
-.gp-relax:has(input:disabled) { opacity: 0.35; }
-.gp-hands button { flex: 1; padding: 0.1rem 0.25rem; font-size: 0.82rem; }
+.gp-hand { padding: 0 0.2rem; font-size: 0.78rem; }
 .model-select, .pattern-select { display: none; font-size: 0.85rem; }
 .colour-schemes .n { opacity: 0.6; }
 .colours .section { margin-top: 0; }

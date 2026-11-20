@@ -66,7 +66,7 @@ tiles. Their edges lie on n₃.
 
 ## Uniform patterns
 
-The top-left card has two headed groups. **Model** shows six large buttons in two rows of three: Poincaré disk, Klein disk, Half-plane, Band, Hyperboloid and Joukowsky. The other eight models follow in two rows of four. **Pattern** shows eight buttons in two rows of four. Each column takes the width of its longest label, and the columns share the spare width equally. Below them, a Goldberg button two rows tall shows the size, such as GP(2,1). To its right sit the m and n steppers and the Left and Right buttons. Snub left and Snub right choose the snub and its hand. A phone shows both groups as menus. The steppers and presets choose the group. The 6.6.7, 3.4.7.4 and GP(3,0) presets also set the pattern on {7,3}.
+The top-left card has two headed groups. **Model** shows six large buttons in two rows of three: Poincaré disk, Klein disk, Half-plane, Band, Hyperboloid and Joukowsky. The other eight models follow in two rows of four. **Pattern** shows eight buttons in two rows of four. Each column takes the width of its longest label, and the columns share the spare width equally. Below them, one row holds the Goldberg button, which shows the size, such as GP(2,1). The m and n steppers and the hand toggle sit on the same row, which is a little taller than the pattern buttons. Snub left and Snub right choose the snub and its hand. A phone shows both groups as menus. The steppers and presets choose the group. The 6.6.7, 3.4.7.4 and GP(3,0) presets also set the pattern on {7,3}.
 Tiles shows the selected pattern. Triangles shows the reflection triangles
 and keeps the pattern selected. Shared addresses save the choice as
 `pattern=<id>`. Expanded is the default. The hash always saves the pattern, so a link with `t=` and no `pattern=` comes from before that default and opens Regular.
@@ -145,23 +145,11 @@ Two unlabelled steppers set m and n, within 1 ≤ m ≤ 6 and 0 ≤ n ≤ m.
 The `GOLDBERG_MAX` constant holds the top value of m. Lowering m below n
 lowers n with it. GP(1,0) is the plain {p,3}. GP(n,m) is the mirror image
 of GP(m,n), so Left and Right cover n > m. They are enabled only for
-twisted sizes, 0 < n < m. The steppers and the hand buttons are disabled
-until Goldberg is selected. They share the hand with
+twisted sizes, 0 < n < m. One small toggle shows the hand, Left or Right,
+and switches it. For a symmetric size it shows "Sym" and is disabled. The
+steppers and the toggle are disabled until Goldberg is selected. They share the hand with
 Snub. The hash saves `pattern=goldberg&gp=2,1&hand=left`
 for a left-handed GP(2,1). Right is the default.
-
-**Goldberg relax** (`rx=`, 0–100%, default 0) is a slider in the Tiling
-card, disabled outside Goldberg. At 0%, each grid point is a straight
-blend of its large triangle's corners. At 100%, the points sit where
-springs between neighbouring hexagon centres settle, all with one common
-rest length, the mean spacing. The large-tile centres stay fixed and
-have no springs, so each large tile takes the size its ring gives it.
-Every symmetric copy of a point moves with it, so the symmetry holds.
-The springs settle in 56 rounds for GP(3,1) on {8,3} and 464 for GP(6,5)
-on {12,3}. The settled points are cached per p, m and n, and the slider
-blends between the two sets. Settling narrows the spread of neighbour
-spacings from 0.84–1.46 times the mean to 0.86–1.35 on {12,3} GP(6,5).
-The rest of the unevenness comes from the hyperbolic plane itself.
 
 The Sides stepper changes p. Goldberg uses q = 3 and r = 2, which give
 the equilateral parent triangles. Selecting Goldberg from a different
@@ -174,6 +162,39 @@ The viewport was 1728 × 990 CSS pixels and the canvas was 2954 × 1693.
 With the frame cap disabled and a GPU wait after each draw, the same
 run averaged about 533 draws per second at GP(4,0) and 517 at GP(3,2).
 
+
+### Relaxation: tried and dropped (2026-11-20)
+
+Goldberg cells are uneven, most of all on many-sided tilings. On {16,3}
+GP(4,1), hexagon areas run from 0.67 to 1.52 times the mean, and the ring
+round each 16-gon is much larger than the rest. Three ways to even the
+cells out were built behind a 0–100% slider and then removed. In each
+case, the unrelaxed tiling looked better.
+
+1. **Equal spacing.** Springs between neighbouring hexagon centres, all
+   with one rest length, with the large-tile centres fixed. Neighbour
+   spacings on {12,3} GP(6,5) narrowed only from 0.84–1.46 times the mean
+   to 0.86–1.35. Averaging each centre's neighbours did even less.
+2. **Equal area.** Each centre moved towards neighbours with larger cells,
+   passing area across the shared edge. Areas came within 0.01%, but on
+   {16,3} the hexagons next to the 16-gons became long, skewed wedges.
+3. **Equal area and equal sides.** Gradient descent on one score per
+   hexagon: squared area error plus mean squared side error, both
+   relative to the mean. On {16,3} GP(4,1), areas narrowed to 0.79–1.30
+   and the longest side from 2.19 to 1.30 times the mean. The shortest
+   side fell from 0.80 to 0.43, and many cells looked lopsided. The first
+   settle took 3.8 s at GP(6,6) on {16,3}.
+
+Lessons for any later attempt:
+
+- A hyperbolic hexagon cannot have equal area, equal sides and 120°
+  corners at once, so any target trades one shape fault for another.
+- The grid points include symmetric copies of each other. Copies that
+  are moved one by one drift apart, and cells collapse. Tie each copy to
+  one master point, and pull points on a symmetry axis back onto it.
+- Rebuild each cell's neighbour list as the points move.
+- Take tile types from the unrelaxed tiling, or the Tile type colours
+  change as the points move.
 ## The models
 
 Each model's scale `k` sits in the `MODELS` table in `hyperbolic.js`, which
