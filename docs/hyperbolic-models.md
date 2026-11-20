@@ -13,10 +13,10 @@ library and no build step.
 
 - [x] Fourteen models, each with an inverse map from the screen to the hyperboloid, in GLSL and in JavaScript
 - [x] Tilings from the triangle group (p, q, r), as tiles or as triangles, with eight presets and steppers
-- [x] Seven patterns in the top-left Pattern menu, including Snub with both handedness settings (2026-11-20)
+- [x] Eight pattern buttons of one size in two full rows of four: Regular, Omnitruncated, Truncated, Snub left, then Expanded, Rectified, Truncated dual, Snub right. A phone shows the same eight choices as a menu (2026-11-20)
 - [x] Drag, glide after release, pan (Pan switch, Shift-drag, right-drag, two fingers), zoom about the pointer, arrow keys, Spin, Fly and Reset
-- [x] Many, Few, By tile type and Plain, with shading (default 70%), edge width (default 2) and mirror lines
-- [x] Design menu: None, 15 pictures from `app/hyperbolic/designs.js`, Letter R, Letter F and the viewer's own letter (`d=<id>`, `g=<char>`); default Compass. Upright (default) or One point (`o=point`); design opacity 0–100%, default 60% (`da=`). Other defaults: Many colours, shading 70%, edge width 2, mirror lines off (2026-11-19)
+- [x] Many, Few, Tile type and Plain, each showing its colour count in brackets, with shading (default 70%), edge width (default 2) and mirror lines
+- [x] Design menu: None, then Compass, then the other 14 pictures from `app/hyperbolic/designs.js`, Letter R, Letter F and the viewer's own letter (`d=<id>`, `g=<char>`); default Compass. Upright (default) or One point (`o=point`); design opacity 0–100%, default 60% (`da=`). Other defaults: Many colours, shading 70%, edge width 2, mirror lines off (2026-11-19)
 - [x] Designs fit each tile. All tiles is the default. Largest tiles selects the tiles with the largest circumradius (`on=largest`).
 - [x] The view snaps home every frame, so the picture stays crisp however far it travels (2026-11-19)
 - [x] Live builder-page thumbnail, `assets/hyperbolic-thumb.js`
@@ -65,7 +65,7 @@ tiles. Their edges lie on n₃.
 
 ## Uniform patterns
 
-Pattern is in the top-left card. The steppers and presets choose the group.
+The top-left card has two headed groups. **Model** shows six large buttons in two rows of three: Poincaré disk, Klein disk, Half-plane, Band, Hyperboloid and Joukowsky. The other eight models follow in two rows of four. **Pattern** shows eight buttons of one size in two rows of four. Snub left and Snub right choose the snub and its hand. A phone shows both as menus. The steppers and presets choose the group.
 Tiles shows the selected pattern. Triangles shows the reflection triangles
 and keeps the pattern selected. Shared addresses save the choice as
 `pattern=<id>`. A missing or unknown value opens Regular.
@@ -116,7 +116,7 @@ The fragment shader reads these rows from a texture. Complete faces let the
 shader draw an edge or a design across a mirror with the same geometry on
 both sides. The domain can also hold the precomputed cells of a Goldberg tiling.
 
-Handedness appears when Snub is selected. Right is the default. Left swaps
+The Snub left and Snub right buttons set the hand. Right is the default. Left swaps
 the domain halves, reflects the colour actions and saves `hand=left`.
 At Reset, reflection in the horizontal mirror n₁ takes either hand to
 the other. Designs follow their selected orientation in each hand.
@@ -194,8 +194,8 @@ sets the opacity.
 
 The shader translates each tile centre to the origin. The design scale
 comes from the radius of the largest circle centred on the tile that fits
-inside its edges. **Designs on** chooses every tile or only the tiles with
-the largest circumradius, including ties. Two rules turn each frame.
+inside its edges. The **Largest tiles only** checkbox (`on=largest`) limits designs to
+the tiles with the largest circumradius, including ties. Two rules turn each frame.
 
 - **Upright** (default). The top follows "up" in the Poincaré disk of the
   view where the designs were aimed, so every design stands upright there
@@ -219,7 +219,10 @@ every design keeps its hand.
 
 ## Colour
 
-**By tile type** (`c=type`) gives each polygon shape one colour. The uniform
+The Colours card opens with a heading. Each button shows its colour count in
+brackets at 60% opacity, such as Many (11).
+
+**Tile type** (`c=type`) gives each polygon shape one colour. The uniform
 patterns have equal edge lengths, so regular polygons of the same side
 count share a colour. The two triangle orbits in the {7,3} snub share a
 colour. **Plain** (`c=mono`) uses one neutral fill.

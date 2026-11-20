@@ -28,7 +28,7 @@
   /* ---------- Models ---------- */
 
   // Each model: id, its number in the shader, its scale k, a name, whether
-  // it is one of the five large buttons, the axis to fly along, and facts.
+  // it is one of the six large buttons, the axis to fly along, and facts.
   var MODELS = [
     { id: 'poincare', n: 0, name: 'Poincaré disk', featured: true, fly: 'y',
       lines: 'Circle arcs, square to the rim', angles: 'True', sizes: 'Shrink towards the rim',
@@ -45,15 +45,15 @@
     { id: 'hyperboloid', n: 13, name: 'Hyperboloid', featured: true, fly: 'y',
       lines: 'Cuts by planes through the origin', angles: 'Distorted in this view', sizes: 'True in Minkowski space',
       made: 'The surface x² + y² − z² = −1 that the other models project.' },
+    { id: 'joukowsky', n: 6, k: 2.2, name: 'Joukowsky', featured: true, fly: 'x',
+      lines: 'Curves', angles: 'True', sizes: 'Shrink towards the slit',
+      made: 'The disk under z ↦ (z + 1/z) / 2, which opens it round a slit.' },
     { id: 'gans', n: 2, k: 5, name: 'Gans plane', fly: 'y',
       lines: 'Hyperbolas', angles: 'Distorted', sizes: 'Shrink outwards, slowly',
       made: 'The hyperboloid seen from directly above.' },
     { id: 'inverted', n: 3, name: 'Inverted disk', fly: 'y',
       lines: 'Circle arcs', angles: 'True', sizes: 'Grow without limit outwards',
       made: 'Perspective view from (0, 0, 1). The view centre is at infinity.' },
-    { id: 'joukowsky', n: 6, k: 2.2, name: 'Joukowsky', fly: 'x',
-      lines: 'Curves', angles: 'True', sizes: 'Shrink towards the slit',
-      made: 'The disk under z ↦ (z + 1/z) / 2, which opens it round a slit.' },
     { id: 'azeq', n: 7, k: 3.2, name: 'Equidistant', fly: 'y',
       lines: 'Only those through the centre', angles: 'Distorted', sizes: 'True distance from the centre',
       made: 'Azimuthal equidistant map: distance from the centre to scale.' },
@@ -83,10 +83,10 @@
     { id: 'regular', name: 'Regular', mask: 2 },
     { id: 'rectified', name: 'Rectified', mask: 1 },
     { id: 'truncated', name: 'Truncated', mask: 3 },
+    { id: 'snub', name: 'Snub' },
     { id: 'expanded', name: 'Expanded', mask: 6 },
     { id: 'omnitruncated', name: 'Omnitruncated', mask: 7 },
-    { id: 'truncated-dual', name: 'Truncated dual', mask: 5 },
-    { id: 'snub', name: 'Snub' }
+    { id: 'truncated-dual', name: 'Truncated dual', mask: 5 }
   ];
   var PATTERN_BY_ID = new Map(PATTERNS.map(function (p) { return [p.id, p]; }));
 
@@ -825,7 +825,9 @@
   var DESIGN_BY_ID = {};
   (window.HYPER_DESIGNS || []).forEach(function (d) { DESIGN_BY_ID[d.id] = d; });
   // The menu: none, the pictures, two letters, and the viewer's own letter.
-  var DESIGN_IDS = ['none'].concat((window.HYPER_DESIGNS || []).map(function (d) { return d.id; }), ['letter-r', 'letter-f', 'letter']);
+  // Compass, the default, comes straight after None.
+  var DESIGN_IDS = ['none'].concat((window.HYPER_DESIGNS || []).map(function (d) { return d.id; })
+    .sort(function (a, b) { return (b === 'compass') - (a === 'compass'); }), ['letter-r', 'letter-f', 'letter']);
 
   var hasDesign = false;
   function readHash() {
@@ -1013,6 +1015,7 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       var height = geometry.halves[0].length + geometry.halves[1].length;
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, geometry.width, height, 0, gl.RGBA, gl.FLOAT, geometry.data);
       gl.activeTexture(gl.TEXTURE0);
       R.domain = geometry;
@@ -1094,6 +1097,9 @@
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, customGlyph || designCanvas());
       gl.generateMipmap(gl.TEXTURE_2D);
+      // Flip only the picture. Left on, it would reverse the face rows of
+      // the next domain upload and mix the two halves.
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       R.glyph = gkey;
     }
     gl.uniform3fv(U.uXi, opt.single ? XI0 : xi);
@@ -1357,18 +1363,31 @@
     state.model = id; vel = null; state.pan = [0, 0]; state.zoom = 1; dirty = true; syncUI(); writeHash();
   }
 
-  var patternSelect = document.getElementById('pattern');
-  PATTERNS.forEach(function (pattern) {
-    var o = document.createElement('option'); o.value = pattern.id; o.textContent = pattern.name;
+  // Buttons on a wide screen, and the same choices as a menu on a phone.
+  // Each choice is a pattern and, for Snub, a hand. The order pairs
+  // labels of similar length in the two rows of four.
+  var PATTERN_CHOICES = [
+    ['regular', 'Regular'], ['omnitruncated', 'Omnitruncated'], ['truncated', 'Truncated'], ['snub', 'Snub left', 'left'],
+    ['expanded', 'Expanded'], ['rectified', 'Rectified'], ['truncated-dual', 'Truncated dual'], ['snub', 'Snub right', 'right']
+  ];
+  var patternSelect = document.getElementById('pattern'), patternButtons = document.getElementById('patterns');
+  function choiceKey(c) { return c[2] ? c[0] + '-' + c[2] : c[0]; }
+  function setPattern(c) {
+    state.pattern = c[0];
+    if (c[2]) state.hand = c[2];
+    updateGeometry(); updateColours(); invalidate(); syncUI(); writeHash();
+  }
+  PATTERN_CHOICES.forEach(function (c) {
+    var o = document.createElement('option'); o.value = choiceKey(c); o.textContent = c[1];
     patternSelect.appendChild(o);
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = c[1]; b.dataset.pattern = choiceKey(c);
+    b.addEventListener('click', function () { setPattern(c); });
+    patternButtons.appendChild(b);
   });
   patternSelect.addEventListener('change', function () {
-    state.pattern = patternSelect.value;
-    updateGeometry(); updateColours(); invalidate(); syncUI(); writeHash();
+    setPattern(PATTERN_CHOICES.find(function (c) { return choiceKey(c) === patternSelect.value; }));
   });
-
-  var hand = document.getElementById('hand');
-  hand.addEventListener('change', function () { state.hand = hand.value; invalidate(); writeHash(); });
 
   var presets = document.getElementById('presets');
   PRESETS.forEach(function (t) {
@@ -1467,8 +1486,8 @@
     state.glyph = ch; e.target.value = ch;
     invalidate(); writeHash();
   });
-  var designsOn = document.getElementById('designs-on');
-  designsOn.addEventListener('change', function () { state.designsOn = designsOn.value; invalidate(); writeHash(); });
+  var largestOnly = document.getElementById('largest-only');
+  largestOnly.addEventListener('change', function () { state.designsOn = largestOnly.checked ? 'largest' : 'all'; invalidate(); writeHash(); });
   var designAIn = document.getElementById('design-a');
   designAIn.addEventListener('input', function () {
     state.designA = +designAIn.value; document.getElementById('design-a-out').textContent = designAIn.value + '%'; invalidate();
@@ -1520,9 +1539,9 @@
     var m = MODEL_BY_ID[state.model];
     document.querySelectorAll('[data-model]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.model === state.model)); });
     select.value = state.model;
-    patternSelect.value = state.pattern;
-    document.getElementById('hand-row').hidden = state.pattern !== 'snub';
-    hand.value = state.hand;
+    var key = state.pattern === 'snub' ? 'snub-' + state.hand : state.pattern;
+    patternSelect.value = key;
+    document.querySelectorAll('[data-pattern]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.pattern === key)); });
     document.getElementById('facts').innerHTML =
       '<dt>Straight lines</dt><dd>' + m.lines + '</dd><dt>Angles</dt><dd>' + m.angles + '</dd>' +
       '<dt>Sizes</dt><dd>' + m.sizes + '</dd><dd class="made">' + m.made + '</dd>';
@@ -1558,14 +1577,19 @@
     document.getElementById('tile-sym').textContent = (chiral ? 'Symmetry ' : 'Symmetry *') + [state.p, state.q, state.r].sort(function (a, b) { return a - b; }).join('');
     document.querySelectorAll('[data-style]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.style === state.style)); });
     document.querySelectorAll('[data-colour]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.colour === state.colour)); });
-    var faces = activeFaces(), count = document.getElementById('colour-count');
-    var colours = faces.reduce(function (n, sides, i) { return n + (sides && P0[i] ? P0[i].length : 0); }, 0);
-    if (state.colour === 'mono') count.textContent = 'One colour';
-    else if (state.colour === 'type') {
-      var types = state.style === 'tiles' && geometry && geometry.halves ? geometry.typeCount : tileTypes(faces).length;
-      count.textContent = types === 1 ? 'One tile type' : types + ' tile types';
-    } else if (colours === 1) count.textContent = 'One colour';
-    else count.textContent = colours + ' colours';
+    // Each colour button shows how many colours it would use.
+    var faces = activeFaces();
+    ['many', 'few'].forEach(function (scheme) {
+      var found = false, n = faces.reduce(function (sum, sides, corner) {
+        if (!sides) return sum;
+        var action = colourings(state.p, state.q, state.r, corner % 3)[scheme];
+        if (action) found = true;
+        return sum + (action ? action.n : 1);
+      }, 0);
+      document.getElementById('n-' + scheme).textContent = found ? ' (' + n + ')' : '';
+    });
+    var types = state.style === 'tiles' && geometry && geometry.halves ? geometry.typeCount : tileTypes(faces).length;
+    document.getElementById('n-type').textContent = ' (' + types + ')';
     document.querySelectorAll('[data-motion]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.motion === state.motion)); });
     document.querySelectorAll('[data-drag]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.drag === state.drag)); });
     edge.value = state.edge; document.getElementById('edge-out').textContent = (+state.edge).toFixed(1);
@@ -1575,7 +1599,7 @@
     document.getElementById('glyph').hidden = state.design !== 'letter';
     document.getElementById('orient').hidden = !state.motif;
     document.getElementById('designs-on-row').hidden = !state.motif;
-    designsOn.value = state.designsOn;
+    largestOnly.checked = state.designsOn === 'largest';
     document.getElementById('design-a-row').hidden = !state.motif;
     designAIn.value = state.designA; document.getElementById('design-a-out').textContent = state.designA + '%';
     document.querySelectorAll('[data-orient]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.orient === state.orient)); });

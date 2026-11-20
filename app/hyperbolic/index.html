@@ -48,15 +48,13 @@
   </div>
   <a class="back" href="../../index.html">← David Ryan's builder page</a>
   <h1>Hyperbolic Models Explorer</h1>
-  <p class="hint">One tiling, fourteen ways to draw it. Drag the plane.</p>
+  <h2 class="section">Model</h2>
   <div class="models featured" id="featured" role="group" aria-label="Main models"></div>
   <div class="models more" id="more" role="group" aria-label="More models"></div>
   <label class="model-select">Model <select id="model-select" aria-label="Model"></select></label>
+  <h2 class="section">Pattern</h2>
+  <div class="patterns" id="patterns" role="group" aria-label="Pattern"></div>
   <label class="pattern-select">Pattern <select id="pattern"></select></label>
-  <label class="pattern-select" id="hand-row" hidden>Handedness <select id="hand">
-    <option value="left">Left</option>
-    <option value="right">Right</option>
-  </select></label>
   <dl class="facts" id="facts"></dl>
 </div>
 
@@ -88,13 +86,13 @@
 <div class="card colours" id="colour-card">
   <button type="button" class="fold" aria-expanded="false">Colours</button>
   <div class="body">
+    <h2 class="section">Colours</h2>
     <div class="segmented colour-schemes" role="group" aria-label="Colours">
-      <button type="button" data-colour="many" aria-pressed="true">Many</button>
-      <button type="button" data-colour="few" aria-pressed="false">Few</button>
-      <button type="button" data-colour="type" aria-pressed="false">By tile type</button>
-      <button type="button" data-colour="mono" aria-pressed="false">Plain</button>
+      <button type="button" data-colour="many" aria-pressed="true">Many<span class="n" id="n-many"></span></button>
+      <button type="button" data-colour="few" aria-pressed="false">Few<span class="n" id="n-few"></span></button>
+      <button type="button" data-colour="type" aria-pressed="false">Tile type<span class="n" id="n-type"></span></button>
+      <button type="button" data-colour="mono" aria-pressed="false">Plain<span class="n"> (1)</span></button>
     </div>
-    <p class="count" id="colour-count"></p>
     <label class="slider">Shading <output id="shade-out">70%</output>
       <input type="range" id="shade" min="0" max="100" step="1" value="70">
     </label>
@@ -105,12 +103,7 @@
     <div class="letter"><label for="design">Design</label>
       <select id="design"></select>
       <input type="text" id="glyph" value="R" maxlength="2" autocomplete="off" spellcheck="false" aria-label="The letter to draw" hidden></div>
-    <label class="letter" id="designs-on-row" hidden>Designs on
-      <select id="designs-on">
-        <option value="all">All tiles</option>
-        <option value="largest">Largest tiles</option>
-      </select>
-    </label>
+    <label class="check" id="designs-on-row" hidden><input type="checkbox" id="largest-only"> Largest tiles only</label>
     <label class="slider" id="design-a-row" hidden>Design opacity <output id="design-a-out">60%</output>
       <input type="range" id="design-a" min="0" max="100" step="1" value="60">
     </label>
