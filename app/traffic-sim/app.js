@@ -701,4 +701,5 @@ window.addEventListener('resize', () => {
 });
 requestAnimationFrame(frame);
 // For checks in a headless browser: the ring and the view.
-window.trafficSim = { get ring() { return ring; }, view, settings };
+// For the card and thumbnail tools: goal is where the camera eases to.
+window.trafficSim = { get ring() { return ring; }, view, settings, goal };

@@ -29,20 +29,41 @@ async function main() {
       while (ring.time < 900) ring.step();
     });
     await page.addStyleTag({ content: `
-      .numbers, .map-tools, .gesture-hint { display: none !important; }
-      .controls { width: 382px; opacity: 0; }
+      .controls, .numbers, .map-tools, .gesture-hint { display: none !important; }
       .share-shade { position: fixed; inset: 0; pointer-events: none;
-        background: linear-gradient(90deg, #17231f 0%, #17231f 25%, #17231fd9 32%, #17231f32 45%, transparent 55%); }
-      .share-copy { position: fixed; left: 64px; top: 154px; width: 310px; color: #fffdf4;
+        background: linear-gradient(90deg, #17231fee 0%, #17231fdd 30%, #17231f99 42%, #17231f33 54%, transparent 64%); }
+      .share-copy { position: fixed; left: 64px; top: 92px; width: 440px; color: #fffdf4;
         font-family: Georgia, "Times New Roman", serif; }
-      .share-copy h1 { margin: 0; font-size: 72px; font-weight: 400; line-height: 0.98; letter-spacing: -0.035em; }
-      .share-copy p { margin: 24px 0 0; color: #e0ecce; font-size: 25px; line-height: 1.2; }
-      .share-copy .site { margin-top: 34px; color: #a6c887; font: 16px system-ui, sans-serif; }
+      .share-copy h1 { margin: 0; font-size: 68px; font-weight: 400; line-height: 0.98; letter-spacing: -0.035em; }
+      .share-copy .ask { margin: 30px 0 0; color: #fffdf4; font-size: 31px; line-height: 1.15; }
+      .share-copy .how { margin: 12px 0 0; color: #e0ecce; font-size: 23px; line-height: 1.28; }
+      .share-copy .site { margin-top: 30px; color: #a6c887; font: 16px system-ui, sans-serif; }
     ` });
     await page.evaluate(() => {
       document.body.insertAdjacentHTML('beforeend', '<div class="share-shade"></div><div class="share-copy">' +
-        '<h1>Traffic<br>Simulator</h1><p>Watch a jam form,<br>then fix it</p><p class="site">drbuild.uk/app/traffic-sim/</p></div>');
+        '<h1>Traffic<br>Simulator</h1><p class="ask">Selfish or Coordinated?</p>' +
+        '<p class="how">How road traffic flow is affected by<br>whether AI drivers serve their owners<br>or the community.</p>' +
+        '<p class="site">drbuild.uk/traffic-sim</p></div>');
       window.dispatchEvent(new Event('resize'));
+    });
+    // Close in on the queue before the lane drop: the top straight and the
+    // left bend. A half turn puts that straight along the bottom, under the
+    // text, with traffic coming down the bend at the right, which curves up
+    // and off the top. Traffic still keeps left.
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      const { view, goal } = window.trafficSim, o = view.oval;
+      const H = 630, k = 0.6 / 1.3 * 1.1;                     // metres per pixel
+      const dist = k * H / (2 * Math.tan(20 * Math.PI / 180));
+      // Half turned, screen right is world -x and screen down is world -z.
+      // The straight's centre line, z = -R, goes 221 px below the card's
+      // centre, at y = 536, midway between the address and the bottom edge.
+      // The bend's outer verge, R + half + 12 from its centre, reaches 90%
+      // of the way across, x = 1080.
+      const bend = 1080 - (o.R + o.half + 12) / k;
+      const aim = { x: (bend - 600) * k - o.S / 2, z: 221 * k - o.R, yaw: Math.PI, dist, pitch: Math.PI / 2 };
+      Object.assign(goal, aim);
+      Object.assign(view.cam, aim, { follow: null });
     });
     await page.waitForTimeout(450);
     for (let quality = 92; quality >= 40; quality -= 4) {
