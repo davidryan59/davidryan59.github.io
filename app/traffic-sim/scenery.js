@@ -136,12 +136,12 @@ function fieldAt(px, pz) {
    along some hedges. Each hedge, the line between two fields, gets its own
    density: none, a few, or a full line. Trees stay off the road and its
    verges, and only those nearest the road are kept, up to a cap. */
-const MAX_TREES = 14000;
+const MAX_TREES = 40000;
 export function trees(oval) {
   const sites = [];
-  const reach = Math.max(260, oval.R * 0.55);
+  const reach = Math.max(500, oval.R * 0.9);
   const extra = oval.extraEnd ? 3.65 : 0;
-  const outer = oval.half + 14, inner = oval.half + 26 + extra;
+  const outer = oval.half + 14 + extra, inner = oval.half + 26;
   const offRoad = (x, z) => {
     const d = Math.hypot(Math.max(Math.abs(x) - oval.S / 2, 0), z) - oval.R;
     return (d <= -inner || d >= outer) && Math.abs(d) < reach ? Math.abs(d) : -1;

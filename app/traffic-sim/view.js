@@ -13,14 +13,18 @@ const FOV = 40 * Math.PI / 180;
 
 /* ---------------------------------------------------------------- road */
 
-/* Clockwise oval, starting at the left end of the top straight.
-   The engine uses one distance coordinate across all lanes. */
+/* Clockwise oval, starting at the left end of the top straight. The
+   engine uses one distance coordinate across all lanes. With an extra lane,
+   the engine's start moves back to halfway round the left bend, so its
+   extra section, half a bend and the top straight, never drops on a bend.
+   The extra lane is on the left, the nearside, and widens the road outward. */
 export function makeOval(length, lanes, extraEnd = 0, extraGain = 0, extraDrop = 0) {
   const R = length / (2 * Math.PI + 4), S = 2 * R, curve = Math.PI * R;
   const half = lanes * LANE_WIDTH / 2;
-  const outside = half + 12, inside = half + 22 + (extraEnd ? LANE_WIDTH : 0);
+  const outside = half + 12 + (extraEnd ? LANE_WIDTH : 0), inside = half + 22;
+  const shift = extraEnd ? curve / 2 : 0;
   function point(along, d) {
-    const u = along - Math.floor(along / length) * length;
+    const u0 = along - shift, u = u0 - Math.floor(u0 / length) * length;
     const r = R + d;
     if (u < S) return [-S / 2 + u, -r, 0];
     if (u < S + curve) {
@@ -36,12 +40,12 @@ export function makeOval(length, lanes, extraEnd = 0, extraGain = 0, extraDrop =
     return Math.max(0, Math.min(1, along / extraGain, (extraEnd - along) / extraDrop)) * LANE_WIDTH;
   }
   return {
-    length, lanes, R, S, half, extraEnd, extraGain, extraDrop,
+    length, lanes, R, S, half, extraEnd, extraGain, extraDrop, shift,
     width: S + 2 * (R + outside),
     height: 2 * (R + outside),
     laneOffset(lane, along) {
-      return lane < lanes ? half - (lane + 0.5) * LANE_WIDTH
-        : LANE_WIDTH / 2 - half - extension(along);
+      if (!extraEnd) return half - (lane + 0.5) * LANE_WIDTH;
+      return lane === 0 ? half - LANE_WIDTH / 2 + extension(along) : half - (lane - 0.5) * LANE_WIDTH;
     },
     at: (t, d) => point(t * length, d),
     mesh() {
@@ -51,11 +55,12 @@ export function makeOval(length, lanes, extraEnd = 0, extraGain = 0, extraDrop =
       const samples = [];
       for (let k = 0; k < steps.length; k++) {
         for (let q = 0; q < steps[k]; q++) {
-          samples.push(breaks[k] + (breaks[k + 1] - breaks[k]) * q / steps[k]);
+          const u = breaks[k] + (breaks[k + 1] - breaks[k]) * q / steps[k] + shift;
+          samples.push(u >= length ? u - length : u);
         }
       }
       if (extraEnd) samples.push(extraGain, extraEnd - extraDrop, extraEnd);
-      samples.push(length);
+      samples.push(0, length);
       samples.sort((a, b) => a - b);
 
       const vertex = (u, d, h, material) => {
@@ -65,8 +70,8 @@ export function makeOval(length, lanes, extraEnd = 0, extraGain = 0, extraDrop =
       for (let k = 1; k < samples.length; k++) {
         const a = samples[k - 1], b = samples[k];
         const strip = (d0, h0, d1, h1, material, median = false) => {
-          const da = median ? -half - extension(a) : 0;
-          const db = median ? -half - extension(b) : 0;
+          const da = median ? -half : 0;
+          const db = da;
           vertex(a, d0 + da, h0, material); vertex(a, d1 + da, h1, material); vertex(b, d0 + db, h0, material);
           vertex(b, d0 + db, h0, material); vertex(a, d1 + da, h1, material); vertex(b, d1 + db, h1, material);
         };
@@ -163,7 +168,7 @@ precision highp float;
 in float v_lat, v_along, v_dist;
 flat in int v_material;
 uniform vec3 u_road, u_kerb, u_line, u_fog, u_ground;
-uniform float u_half, u_lanes, u_extraEnd, u_extraGain, u_extraDrop, u_radius, u_fogDensity, u_fogStart;
+uniform float u_half, u_lanes, u_extraEnd, u_extraGain, u_extraDrop, u_shift, u_radius, u_fogDensity, u_fogStart;
 out vec4 o;
 float stripe(float x, float w) {
   float aa = max(fwidth(x) * 0.5, 0.001);
@@ -178,9 +183,10 @@ float dashes(float lateral, float width, float phase) {
 }
 float laneDistance(float offset) {
   float straight = 2.0 * u_radius, bend = 3.14159265 * u_radius;
-  float onBends = clamp(v_along - straight, 0.0, bend)
-    + clamp(v_along - 2.0 * straight - bend, 0.0, bend);
-  return v_along + offset * onBends / u_radius;
+  float u = mod(v_along - u_shift, 2.0 * (straight + bend));
+  float onBends = clamp(u - straight, 0.0, bend)
+    + clamp(u - 2.0 * straight - bend, 0.0, bend);
+  return u + offset * onBends / u_radius;
 }
 void main() {
   vec3 c;
@@ -195,7 +201,7 @@ void main() {
     float extension = u_extraEnd > 0.0
       ? clamp(min(v_along / u_extraGain, (u_extraEnd - v_along) / u_extraDrop), 0.0, 1.0) * ${LANE_WIDTH}
       : 0.0;
-    float near = u_half, median = -u_half - extension;
+    float near = u_half + extension, median = -u_half;
     float far = median - 2.6;
     float farEdge = far - u_lanes * ${LANE_WIDTH};
     float outside = max(v_lat - near, farEdge - v_lat);
@@ -208,12 +214,12 @@ void main() {
       c = shoulder ? u_road * 1.15 : u_road;
       float line = max(max(stripe(v_lat - near, 0.105), stripe(v_lat - median, 0.105)),
         max(stripe(v_lat - farEdge, 0.105), stripe(v_lat - far, 0.105)));
-      for (int k = 1; k <= 2; k++) {
-        float mark = near - float(k) * ${LANE_WIDTH};
-        if (float(k) < u_lanes || (float(k) == u_lanes && extension > 3.6)) {
+      for (int k = 0; k <= 2; k++) {
+        float mark = u_half - float(k) * ${LANE_WIDTH};
+        if (k == 0 ? extension > 3.6 : float(k) < u_lanes) {
           line = max(line, dashes(v_lat - mark, 0.08, laneDistance(mark)));
         }
-        if (float(k) < u_lanes) {
+        if (k > 0 && float(k) < u_lanes) {
           float farMark = far - float(k) * ${LANE_WIDTH};
           line = max(line, dashes(v_lat - farMark, 0.08, laneDistance(farMark)));
         }
@@ -581,6 +587,7 @@ export class View {
     gl.uniform1f(R.u_extraEnd, this.oval.extraEnd);
     gl.uniform1f(R.u_extraGain, this.oval.extraGain);
     gl.uniform1f(R.u_extraDrop, this.oval.extraDrop);
+    gl.uniform1f(R.u_shift, this.oval.shift);
     gl.bindVertexArray(this.roadVao);
     gl.drawArrays(gl.TRIANGLES, 0, this.roadCount);
 

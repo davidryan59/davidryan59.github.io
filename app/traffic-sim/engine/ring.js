@@ -24,6 +24,9 @@ import { makeRng, hashSeed } from './rng.js';
 
 const HARD = -2;          // a deceleration that counts as hard braking (m/s²)
 const SAMPLE_EVERY = 10;  // steps between speed samples, so once a second
+// The extra section: half a bend and one straight of the oval, whose bends
+// are 2πR of the length 2πR + 4R.
+const EXTRA_SHARE = (Math.PI / 2 + 2) / (2 * Math.PI + 4);
 const GAIN_TAPER = 80;     // the longest taper where the extra lane opens (m)
 const DROP_TAPER = 150;    // the longest taper where it closes (m)
 const MERGE_DISTANCE = 120; // metres before the last usable part of the extra lane
@@ -45,15 +48,20 @@ export class Ring {
      seed: for the start positions and the noise. driverSeed: for each
      human's traits and estimation errors, the seed by default. absorb: the
      absorber switch on Coordinated Mode. keepLeft: the keep-left switch.
-     extraLane: opens an overtaking lane over the first third of the road.
+     extraLane: adds a lane on the left, the nearside, from position 0 to
+     extraEnd. It is lane 0, and the through lanes become 1 and up. Drivers
+     keep left into it, then merge right before it ends. In the 3D view the
+     section starts halfway round a bend and ends with the straight after
+     it, so the lane never drops on a bend.
      params: values to replace in DEFAULTS. capacity: room for cars that
      addCar() adds later. */
   constructor({ length, lanes = 1, types, seed = 1, driverSeed = seed, absorb = false, keepLeft = true, params, capacity = 0, extraLane = false }) {
     const n = types.length, cap = Math.max(capacity, n);
     this.L = length;
     this.baseLanes = lanes;
-    this.extraLane = extraLane ? lanes : -1;
-    this.extraEnd = extraLane ? length / 3 : 0;
+    this.extraLane = extraLane ? 0 : -1;
+    this.first = extraLane ? 1 : 0;         // the leftmost through lane
+    this.extraEnd = extraLane ? length * EXTRA_SHARE : 0;
     // The lane widens over the gain taper and narrows over the drop taper.
     // A car can use it until the drop taper is 45% done, about 2 m wide.
     this.extraGain = Math.min(GAIN_TAPER, this.extraEnd * 0.2);
@@ -177,9 +185,10 @@ export class Ring {
         this.s[i] = x - Math.floor(x / L) * L;
         this.v[i] = v0;
         this.U[i] = v0;
-        this.lane[i] = this.fromLane[i] = lane;
+        const at = lane + this.first;
+        this.lane[i] = this.fromLane[i] = at;
         this.laneAge[i] = PARKED;
-        this.order[lane][this.count[lane]++] = i;
+        this.order[at][this.count[at]++] = i;
       }
     }
     this.sortLanes();
@@ -201,7 +210,7 @@ export class Ring {
     for (let i = 0; i < n; i++) U[i] += (v[i] - U[i]) * dt / c.aAverageTime;
     if (this.lanes > 1) this.changeLanes();
     this.findLeaders();
-    if (this.extraLane > 0) this.findYields();
+    if (this.extraLane >= 0) this.findYields();
 
     const u = this.uNext, keepLeft = this.keepLeft && this.lanes > 1;
     for (let i = 0; i < n; i++) {
@@ -411,7 +420,6 @@ export class Ring {
      Returns the acceleration a, capped by the rule. */
   keepLeftCap(i, lane, a) {
     if (lane + 1 >= this.lanes) return a;
-    if (lane + 1 === this.extraLane && this.s[i] >= this.extraLimit) return a;
     const c = this.c, j = this.ahead(lane + 1, this.s[i]);
     if (j < 0) return a;
     const vi = this.v[i], vj = this.v[j];
@@ -509,7 +517,7 @@ export class Ring {
             (this.s[i] - this.len[i] < 0.5 * this.extraGain ||
              this.extraLimit - this.s[i] < MERGE_DISTANCE + ENTRY_TIME * this.v[i] ||
              this.slowestAhead(to, this.s[i]) < this.slowestAhead(from, this.s[i]))) continue;
-        const margin = this.laneGain(i, from, to) + (to < from ? urge * MERGE_BIAS : 0);
+        const margin = this.laneGain(i, from, to) + (from === this.extraLane ? urge * MERGE_BIAS : 0);
         if (margin > bestMargin) {
           best = to;
           bestMargin = margin;
@@ -641,7 +649,7 @@ export class Ring {
      just let a car in does not let in the next, so the lanes zip together.
      A driver with no politeness, such as a selfish car, never makes room. */
   findYields() {
-    const E = this.extraLane, T = E - 1, o = this.order[E], m = this.count[E];
+    const E = this.extraLane, T = E + 1, o = this.order[E], m = this.count[E];
     const c = this.c, y = this.yieldTo;
     y.fill(-1, 0, this.n);
     this.helped.fill(0, 0, this.n);
@@ -703,7 +711,7 @@ export class Ring {
     const { s, v, L } = this;
     const newLength = this.len[this.n];
     let bestLane = -1, bestK = -1, room = 0;
-    for (let lane = 0; lane < this.baseLanes; lane++) {
+    for (let lane = this.first; lane < this.lanes; lane++) {
       const o = this.order[lane], m = this.count[lane];
       if (m === 0) {
         if (L - newLength > room) { room = L - newLength; bestLane = lane; bestK = -1; }
