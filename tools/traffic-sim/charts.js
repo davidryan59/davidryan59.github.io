@@ -2,7 +2,8 @@
    two lanes, adoption of Coordinated Mode, Selfish Mode at full adoption,
    and every mix of the three driver types in steps of 10%.
 
-   Run from anywhere: node tools/traffic-sim/charts.js
+   Run from anywhere: node tools/traffic-sim/charts.js [--render]
+   With --render, it rebuilds only the HTML page from the saved runs.json.
    The runs use every core, the app's UK motorway drivers and a 2 km ring
    with the extra lane off. The script checks steady flow at the heaviest
    densities before running the rest of the grid. It writes every run,
@@ -261,10 +262,12 @@ function lineChart(chart, summaries, yStep, yMax) {
   </svg>`;
 }
 
-const COLOURS = ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'];
+// Flow colours run from red (lowest) through blue to green (highest).
+const COLOURS = ['#c0392b', '#2563c9', '#1e9e4a'];
 
 function mixColour(fraction) {
-  const position = fraction * (COLOURS.length - 1);
+  const t = Math.max(0, Math.min(1, fraction));
+  const position = t * (COLOURS.length - 1);
   const index = Math.min(Math.floor(position), COLOURS.length - 2);
   const from = COLOURS[index].slice(1).match(/../g);
   const to = COLOURS[index + 1].slice(1).match(/../g);
@@ -275,54 +278,135 @@ function mixColour(fraction) {
   return `rgb(${channels.join(', ')})`;
 }
 
+const BAND = 100, LABEL_EVERY = 200;
+
+// Keeps the part of a polygon of [x, y, flow] vertices where sign * (flow - level) >= 0.
+function clip(polygon, level, sign) {
+  const out = [];
+  for (let i = 0; i < polygon.length; i++) {
+    const a = polygon[i], b = polygon[(i + 1) % polygon.length];
+    const da = sign * (a[2] - level), db = sign * (b[2] - level);
+    if (da >= 0) out.push(a);
+    if ((da >= 0) !== (db >= 0)) {
+      const t = da / (da - db);
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, level]);
+    }
+  }
+  return out;
+}
+
 function triangleChart(ids, cases, summaries) {
   const point = (coordinated, selfish) => [82 + coordinated * 1.3 + selfish * 2.6, 274 - coordinated * 2.25];
   const segment = (a, b) => `<path class="grid" d="M ${a.join(' ')} L ${b.join(' ')}"/>`;
   const tick = ([x, y], value, anchor) =>
     `<text x="${x}" y="${y}" text-anchor="${anchor}" dy=".35em">${value}%</text>`;
-  const grid = [];
-  for (let share = 10; share < 100; share += 10) {
-    grid.push(segment(point(share, 0), point(share, 100 - share)));
-    grid.push(segment(point(0, share), point(100 - share, share)));
-    grid.push(segment(point(0, 100 - share), point(100 - share, 0)));
-    if (share % 20 === 0) {
-      const [cx, cy] = point(share, 0);
-      const [sx, sy] = point(100 - share, share);
-      const [hx, hy] = point(0, 100 - share);
-      grid.push(tick([cx - 10, cy - 3], share, 'end'));
-      grid.push(tick([sx + 10, sy - 3], share, 'start'));
-      grid.push(tick([hx, hy + 17], share, 'middle'));
+  const fmt = v => v.toFixed(2);
+
+  const lattice = new Map();
+  for (const id of ids) {
+    const { coordinated, selfish } = cases.get(id);
+    lattice.set(`${coordinated / 10},${selfish / 10}`, { id, xy: point(coordinated, selfish), flow: summaries[id].flow });
+  }
+  const vertex = (i, j) => { const v = lattice.get(`${i},${j}`); return [...v.xy, v.flow]; };
+  const cells = [];
+  for (let i = 0; i < 10; i++) {
+    for (let j = 0; i + j < 10; j++) {
+      cells.push([vertex(i, j), vertex(i + 1, j), vertex(i, j + 1)]);
+      if (i + j < 9) cells.push([vertex(i + 1, j), vertex(i + 1, j + 1), vertex(i, j + 1)]);
     }
   }
+
   const flows = ids.map(id => summaries[id].flow);
-  const step = tickStep(Math.max(...flows) - Math.min(...flows));
-  const min = Math.floor(Math.min(...flows) / step) * step;
-  const max = Math.ceil(Math.max(...flows) / step) * step;
-  const dots = ids.map(id => {
+  const min = Math.floor(Math.min(...flows) / BAND) * BAND;
+  const max = Math.ceil(Math.max(...flows) / BAND) * BAND;
+  const colourAt = flow => mixColour((flow - min) / (max - min));
+
+  const bands = [];
+  for (let lo = min; lo < max; lo += BAND) {
+    const colour = colourAt(lo + BAND / 2);
+    for (const cell of cells) {
+      const piece = clip(clip(cell, lo, 1), lo + BAND, -1);
+      if (piece.length < 3) continue;
+      const d = 'M ' + piece.map(([x, y]) => `${fmt(x)} ${fmt(y)}`).join(' L ') + ' Z';
+      bands.push(`<path d="${d}" fill="${colour}" stroke="${colour}" stroke-width=".6"/>`);
+    }
+  }
+
+  const lines = [], labels = [];
+  for (let level = min + BAND; level < max; level += BAND) {
+    const segments = [];
+    for (const cell of cells) {
+      const hits = [];
+      for (let k = 0; k < 3; k++) {
+        const a = cell[k], b = cell[(k + 1) % 3];
+        const fa = a[2] - level - 1e-9, fb = b[2] - level - 1e-9;
+        if ((fa >= 0) !== (fb >= 0)) {
+          const t = fa / (fa - fb);
+          hits.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+        }
+      }
+      if (hits.length === 2) segments.push(hits);
+    }
+    if (!segments.length) continue;
+    const major = level % LABEL_EVERY === 0;
+    lines.push(`<path class="contour${major ? ' major' : ''}" d="${segments.map(([a, b]) =>
+      `M ${fmt(a[0])} ${fmt(a[1])} L ${fmt(b[0])} ${fmt(b[1])}`).join(' ')}"/>`);
+    if (!major) continue;
+    // Label the segment nearest the middle of the line, turned to lie along it.
+    const mids = segments.map(([a, b]) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]);
+    const cx = mean(mids.map(m => m[0])), cy = mean(mids.map(m => m[1]));
+    let best = 0;
+    mids.forEach((m, k) => { if (Math.hypot(m[0] - cx, m[1] - cy) < Math.hypot(mids[best][0] - cx, mids[best][1] - cy)) best = k; });
+    const [[ax, ay], [bx, by]] = segments[best];
+    let angle = Math.atan2(by - ay, bx - ax) * 180 / Math.PI;
+    if (angle > 90) angle -= 180;
+    if (angle < -90) angle += 180;
+    const [mx, my] = mids[best];
+    labels.push(`<text class="contour-label" x="${fmt(mx)}" y="${fmt(my)}" dy=".35em" text-anchor="middle"
+      transform="rotate(${angle.toFixed(1)} ${fmt(mx)} ${fmt(my)})">${number(level)}</text>`);
+  }
+
+  const grid = [];
+  for (let share = 20; share < 100; share += 20) {
+    const [cx, cy] = point(share, 0);
+    const [sx, sy] = point(100 - share, share);
+    const [hx, hy] = point(0, 100 - share);
+    grid.push(tick([cx - 10, cy - 3], share, 'end'));
+    grid.push(tick([sx + 10, sy - 3], share, 'start'));
+    grid.push(tick([hx, hy + 17], share, 'middle'));
+  }
+
+  const targets = ids.map(id => {
     const { human, coordinated, selfish } = cases.get(id);
     const { flow, min: low, max: high } = summaries[id];
     const [x, y] = point(coordinated, selfish);
-    return `<circle class="mix-point" cx="${x}" cy="${y}" r="6.75" fill="${mixColour((flow - min) / (max - min))}">
-      <title>Human ${human}%, Coordinated ${coordinated}%, Selfish ${selfish}%. Flow ${number(flow)} (seed range ${number(low)} – ${number(high)})</title>
-    </circle>`;
+    return `<g class="mix-target"><circle cx="${x}" cy="${y}" r="9" fill="transparent"/><circle class="mix-dot" cx="${x}" cy="${y}" r="1.6"/>
+      <title>Human ${human}%, Coordinated ${coordinated}%, Selfish ${selfish}%. Flow ${number(flow)} (seed range ${number(low)} – ${number(high)})</title></g>`;
   });
-  const labels = [];
-  for (let flow = min; flow <= max; flow += step) {
-    labels.push(`<text x="${56 + 312 * (flow - min) / (max - min)}" y="386" text-anchor="middle">${number(flow)}</text>`);
+
+  const scale = [];
+  const span = max - min, x0 = 56, width = 312;
+  for (let lo = min; lo < max; lo += BAND) {
+    scale.push(`<rect x="${fmt(x0 + width * (lo - min) / span)}" y="352" width="${fmt(width * BAND / span + .3)}" height="16" fill="${colourAt(lo + BAND / 2)}"/>`);
   }
-  return `<svg viewBox="0 0 425 395" role="img" aria-label="Ternary plot of mean flow by human, Coordinated and Selfish shares">
-    <defs><linearGradient id="flow-scale">
-      ${COLOURS.map((colour, i) => `<stop offset="${i / (COLOURS.length - 1)}" stop-color="${colour}"/>`).join('\n')}
-    </linearGradient></defs>
+  const scaleLabels = [];
+  for (let flow = Math.ceil(min / LABEL_EVERY) * LABEL_EVERY; flow <= max; flow += LABEL_EVERY) {
+    scaleLabels.push(`<text x="${fmt(x0 + width * (flow - min) / span)}" y="386" text-anchor="middle">${number(flow)}</text>`);
+  }
+
+  return `<svg viewBox="0 0 425 395" role="img" aria-label="Contour plot of mean flow by human, Coordinated and Selfish shares">
+    ${bands.join('\n')}
+    ${lines.join('\n')}
     <path class="axis" d="M 82 274 L 212 49 L 342 274 Z"/>
+    ${labels.join('\n')}
+    ${targets.join('\n')}
     ${grid.join('\n')}
-    ${dots.join('\n')}
     <text class="axis-label" x="212" y="31" text-anchor="middle">Coordinated (%)</text>
     <text class="axis-label" x="82" y="318" text-anchor="middle">Human (%)</text>
     <text class="axis-label" x="342" y="318" text-anchor="middle">Selfish (%)</text>
     <text class="axis-label" x="212" y="344" text-anchor="middle">${FLOW_LABEL}</text>
-    <rect x="56" y="352" width="312" height="16" rx="2" fill="url(#flow-scale)"/>
-    ${labels.join('\n')}
+    ${scale.join('\n')}
+    ${scaleLabels.join('\n')}
   </svg>`;
 }
 
@@ -387,7 +471,12 @@ function page({ lines, triangle, cases }, { protocols, summaries }) {
   .band { fill: var(--series); opacity: .19; }
   .line { stroke: var(--series); stroke-width: 2.5; stroke-linejoin: round; }
   .s1.line { stroke-dasharray: 6 4; }
-  .mix-point { stroke: var(--point-outline); stroke-width: .85; }
+  .contour { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: .8; }
+  .contour.major { stroke: rgba(255, 255, 255, .9); stroke-width: 1.6; }
+  svg .contour-label { fill: #fff; font-size: 12px; font-weight: 700; paint-order: stroke;
+    stroke: rgba(0, 0, 0, .55); stroke-width: 2.5px; stroke-linejoin: round; }
+  .mix-dot { fill: rgba(255, 255, 255, .7); }
+  .mix-target:hover .mix-dot { fill: #fff; r: 3.5; }
   .legend { display: flex; flex-wrap: wrap; gap: .35rem 1.1rem; margin: .5rem 0 0; padding: 0; list-style: none; }
   .legend li { display: flex; align-items: center; gap: .45rem; font-size: .875rem; }
   .legend li::before { content: ""; width: 1.45rem; border-top: 3px solid var(--series); }
@@ -405,7 +494,7 @@ function page({ lines, triangle, cases }, { protocols, summaries }) {
     ${cards.join('\n')}
     <section>
       <h2>Flow by driver mix</h2>
-      <p class="detail">1 lane, 100 cars per km per lane. Each corner is 100% of its driver type. The grid marks 10 percentage points.</p>
+      <p class="detail">1 lane, 100 cars per km per lane. Each corner is 100% of its driver type. Bands are 100 vehicles per hour per lane wide, with labelled lines every 200. Dots mark the 66 measured mixes.</p>
       ${triangleChart(triangle, cases, summaries)}
     </section>
   </div>
@@ -416,6 +505,12 @@ function page({ lines, triangle, cases }, { protocols, summaries }) {
 
 async function main() {
   const started = performance.now();
+  if (process.argv.includes('--render')) {
+    const saved = JSON.parse(readFileSync(new URL('runs.json', OUTPUT), 'utf8'));
+    write('index.html', page(chartCases(), saved));
+    console.log(`Rebuilt index.html from runs.json in ${((performance.now() - started) / 1000).toFixed(1)} s`);
+    return;
+  }
   const settingsText = readFileSync(new URL(SETTINGS, import.meta.url), 'utf8');
   const charts = chartCases();
   const results = await measure(charts.cases, settingsText);
