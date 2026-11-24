@@ -117,7 +117,7 @@ export class Ring {
   }
 
   /* Spreads the cars evenly, lane by lane, at the speed that suits the
-     spacing, with up to half a metre of jitter. With one lane this is the
+     spacing, with up to half a metre of jitter, less when packed. With one lane this is the
      reference model's start. */
   place() {
     const { n, lanes, L, c } = this;
@@ -128,7 +128,9 @@ export class Ring {
       const spacing = L / inLane;
       const v0 = Math.min(Math.max((spacing - c.len - 2) / 1.4, 0), c.vMax);
       for (let i = lane, k = 0; i < n; i += lanes, k++) {
-        const x = (k + lane / lanes) * spacing + this.rng.uniform() - 0.5;
+        // The jitter shrinks only when cars are packed too close for it, so
+        // that they never start overlapping.
+        const x = (k + lane / lanes) * spacing + (this.rng.uniform() - 0.5) * Math.min(1, spacing - c.len);
         this.s[i] = x - Math.floor(x / L) * L;
         this.v[i] = v0;
         this.U[i] = v0;

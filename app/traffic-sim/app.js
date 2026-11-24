@@ -27,10 +27,21 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const population = readSettings(await (await fetch('settings/uk-motorway.json')).text());
 
 const settings = {
-  lanes: 1, density: 45, av: 0, selfish: 50, absorb: false, keep: true,
+  lanes: 1, density: 44, av: 0, selfish: 50, absorb: false, keep: true,
   speed: 5, colour: 'type', camera: 'top', seed: Math.floor(Math.random() * 1e6)
 };
-const LIMITS = { lanes: [1, 2], density: [10, 80], av: [0, 100], selfish: [0, 100], seed: [0, 1e9] };
+const LIMITS = { lanes: [1, 2], density: [1, 200], av: [0, 100], selfish: [0, 100], seed: [0, 1e9] };
+// The traffic slider's 52 stops, in cars per km of lane: sparse at the
+// bottom, then every 4 from 20 to 200. At 200 the 5 m cars touch.
+const STOPS = [1, 2, 4, 8, 12, 16, ...Array.from({ length: 46 }, (_, k) => 20 + 4 * k)];
+// Above this, cars sit closer than the 2 m gap a stopped driver keeps, so
+// nothing can move. The slider shows it as a red zone.
+const PACKED = 144;
+const stopIndex = d => STOPS.reduce((best, v, i) => Math.abs(v - d) < Math.abs(STOPS[best] - d) ? i : best, 0);
+function showDensity(d) {
+  $('density-out').textContent = d;
+  $('density-out').classList.toggle('packed', d >= PACKED);
+}
 
 function readHash() {
   for (const part of location.hash.replace(/^#/, '').split('&')) {
@@ -45,6 +56,7 @@ function readHash() {
     else if (Number.isFinite(+value)) {
       const [lo, hi] = LIMITS[key];
       settings[key] = Math.min(hi, Math.max(lo, Math.round(+value)));
+      if (key === 'density') settings.density = STOPS[stopIndex(settings.density)];
     }
   }
 }
@@ -297,8 +309,8 @@ function renderControls() {
   pressed('speed', settings.speed);
   pressed('colour', settings.colour);
   pressed('camera', settings.camera);
-  $('density').value = settings.density;
-  $('density-out').textContent = settings.density;
+  $('density').value = stopIndex(settings.density);
+  showDensity(settings.density);
   $('av').value = settings.av;
   $('av-out').textContent = settings.av + '%';
   $('selfish').value = settings.selfish;
@@ -352,9 +364,9 @@ for (const b of document.querySelectorAll('[data-lanes]')) {
 $('keep').addEventListener('change', e => { settings.keep = e.target.checked; ring.keepLeft = settings.keep; changed(); });
 // The traffic slider rebuilds the ring, so it applies on release; only its
 // number follows the drag.
-$('density').addEventListener('input', e => { $('density-out').textContent = e.target.value; });
+$('density').addEventListener('input', e => showDensity(STOPS[+e.target.value]));
 $('density').addEventListener('change', e => {
-  settings.density = +e.target.value;
+  settings.density = STOPS[+e.target.value];
   build();
   changed();
 });
