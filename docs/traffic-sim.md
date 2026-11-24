@@ -49,7 +49,7 @@ traffic-simulation.de, which is GPL v3.
       six sizes
 - [ ] v0.1, the rest: the space-time strip, find-the-limit in a Web Worker,
       and the energy figure
-- [x] Pre-grant demo: four lengths, the extra lane, varied car sizes,
+- [x] Demo update: four lengths, the extra lane, varied car sizes,
       countryside motorway, an About panel, a builder page thumbnail and a
       share card
 - [ ] Ship v0.1: version marker, both addresses and a try on a real phone
