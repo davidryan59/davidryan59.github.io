@@ -27,7 +27,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const population = readSettings(await (await fetch('settings/uk-motorway.json')).text());
 
 const defaults = {
-  length: 1000, lanes: 1, extra: false, density: 44, av: 0, selfish: 50, absorb: false, keep: true,
+  length: 2000, lanes: 2, extra: true, density: 60, av: 10, selfish: 20, absorb: false, keep: true,
   speed: 5, colour: 'type', camera: 'top', seed: Math.floor(Math.random() * 1e6)
 };
 const settings = { ...defaults };
@@ -113,7 +113,7 @@ const css = c => `rgb(${c.map(x => Math.round(x * 255)).join(',')})`;
 
 /* ---------------------------------------------------------------- ring */
 
-let ring, oval, n = 0, order, rank, prevS, inst, links;
+let ring, oval, n = 0, order, rank, prevS, odo, inst, links;
 let clock = 0, running = true, selected = -1;
 const live = { flow: 0, speed: 0, spread: 0, hard: 0, stopped: 0, primed: false };
 
@@ -137,6 +137,7 @@ function build() {
   oval = makeOval(settings.length, settings.lanes, ring.extraEnd, ring.extraGain, ring.extraDrop);
   if (!view.oval || view.oval.length !== oval.length || view.oval.lanes !== oval.lanes || view.oval.extraEnd !== oval.extraEnd) view.setRoad(oval);
   prevS = new Float64Array(ring.s.subarray(0, n));
+  odo = new Float64Array(n);   // distance each car has driven up to prevS, for lane wander
   inst = new Float32Array(n * 10);
   links = new Float32Array(n * 6);
   clock = 0;
@@ -154,6 +155,11 @@ function retype() {
 }
 
 function step() {
+  const L = settings.length;
+  for (let i = 0; i < n; i++) {
+    const d = ring.s[i] - prevS[i];
+    odo[i] += d < -L / 2 ? d + L : d;
+  }
   prevS.set(ring.s.subarray(0, n));
   ring.step();
   // The live numbers: averages over the last AVERAGE seconds or so.
@@ -179,21 +185,55 @@ function step() {
 /* --------------------------------------------------------- drawing data */
 
 const pose = [0, 0, 0];
+const LOOK = 0.25;          // seconds ahead used to point each car along its path
+const MAX_YAW = 0.35;       // the most a car turns from the road's direction (rad)
+
+/* Lane wander, drawing only: the physics keeps each car on its lane's
+   centre line. A human drifts across the lane as two slow waves along the
+   road, 0.15 to 0.45 m either way, with wavelengths of 150 to 400 m and
+   60 to 120 m, set per car. Wander follows distance driven, so a stopped
+   car holds still. A self-driving car holds within 3 cm of the centre. No
+   car's wheels cross the lane line. */
+function wanderAt(i, x) {
+  const h = k => {
+    const x = Math.sin((i + 1) * 12.9898 + k * 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  const human = ring.type[i] === HUMAN;
+  const room = Math.max(0, (3.65 - ring.width[i]) / 2);
+  const amp = Math.min(human ? 0.15 + 0.3 * h(1) : 0.03, room);
+  const slow = 2 * Math.PI / (150 + 250 * h(2)), fast = 2 * Math.PI / (60 + 60 * h(3));
+  return amp * (0.75 * Math.sin(slow * x + 6.3 * h(4)) + 0.25 * Math.sin(fast * x + 6.3 * h(5)));
+}
+
+// The car's distance from the ring's centre line at position s, after
+// driving x metres, with the lane-change slide eased over LANE_SLIDE seconds.
+function offsetAt(i, s, x, age) {
+  let d = oval.laneOffset(ring.lane[i], s);
+  if (age < LANE_SLIDE) {
+    const f = Math.max(0, age) / LANE_SLIDE, ease = f * f * (3 - 2 * f);
+    const from = oval.laneOffset(ring.fromLane[i], s);
+    d = from + (d - from) * ease;
+  }
+  return d + wanderAt(i, x);
+}
+
 // Where car i is drawn, alpha of the way from its last step to this one,
-// at distance back from its front: [x, z, heading].
+// at distance back from its front: [x, z, heading]. The heading points
+// along the car's own path, so a car turns as it changes lane or wanders.
 function carPose(i, alpha, back) {
-  const L = settings.length;
+  const L = settings.length, dt = ring.c.dt;
   let s0 = prevS[i], s1 = ring.s[i];
   if (s1 < s0 - L / 2) s1 += L;
   const s = s0 + (s1 - s0) * alpha - back;
-  let d = oval.laneOffset(ring.lane[i], s);
-  const age = ring.laneAge[i];
-  if (age < LANE_SLIDE) {
-    const f = age / LANE_SLIDE, ease = f * f * (3 - 2 * f);
-    d = oval.laneOffset(ring.fromLane[i], s) + (d - oval.laneOffset(ring.fromLane[i], s)) * ease;
-  }
-  const p = oval.at(s / L, d);
-  pose[0] = p[0]; pose[1] = p[1]; pose[2] = p[2];
+  const x = odo[i] + (s1 - s0) * alpha - back, age = ring.laneAge[i] - (1 - alpha) * dt;
+  const p = oval.at(s / L, offsetAt(i, s, x, age));
+  const ahead = Math.max(ring.v[i] * LOOK, 0.05);
+  const q = oval.at((s + ahead) / L, offsetAt(i, s + ahead, x + ahead, age + LOOK));
+  let turn = Math.atan2(q[1] - p[1], q[0] - p[0]) - p[2];
+  turn -= Math.round(turn / (2 * Math.PI)) * 2 * Math.PI;
+  pose[0] = p[0]; pose[1] = p[1];
+  pose[2] = p[2] + Math.max(-MAX_YAW, Math.min(MAX_YAW, turn));
   return pose;
 }
 

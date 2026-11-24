@@ -100,7 +100,8 @@ ring.stats().flow;      // vehicles per hour per lane since the last resetStats(
 - `length`: the ring's length in metres. Every lane has this length.
 - `lanes`: the number of full lanes. The app uses 1 and 2. Lane 0 is
   the left lane.
-- `extraLane`: adds a partial overtaking lane on the right. Off by default.
+- `extraLane`: adds a partial lane on the left, the nearside, as lane 0;
+  the through lanes become 1 and up. Off by default.
 - `types`: one driver type per car. The number of cars is the length of
   this list.
 - `seed`: the seed for the start positions and the noise.
@@ -678,20 +679,39 @@ measure gaps. The view scales each car mesh to its length and width.
 The engine uses the same distance coordinate on every full lane.
 Rendered spacing on curves varies slightly with the lane radius.
 
-**The road.** Full lanes measure 1, 2, 5 or 10 km, with 1 km as the
+**The road.** Full lanes measure 1, 2, 5 or 10 km, with 2 km as the
 default. Multiply density by the lane length in km and by the lane count
 to get the number of cars. The oval's straights are twice its bend
 radius. The ground and camera fit scale with the ring. A lane change
-slides the car across over 3 s.
+slides the car across over 3 s, and each car is drawn pointing along its
+own path, so it turns as it changes lane. Humans wander in their lane,
+0.15 to 0.45 m either way over 60 to 400 m of road; self-driving cars hold
+within 3 cm. Wander is drawing only, and no car's wheels cross a lane line.
 
-**Extra lane.** The lane starts at the top straight and covers the first
-third of the oval. On this oval, the section ends on the first bend. The
-road tapers over 30 m at each end. Traffic starts in the full lanes.
-Cars can enter past the first taper and at least 90 m before the last
-taper. A stopped obstacle marks the start of the last taper. The
-merge incentive grows over the 90 m before it, within MOBIL's safety
-limits. Cars wait for a safe gap. Density and flow use the full lane
-lengths.
+**Extra lane.** A lane on the left, the nearside, from engine position 0
+to just over a third of the ring. The view puts position 0 halfway round
+the left bend, so the lane opens on that bend and has closed by the end of
+the top straight: it never drops on a bend. It opens over up to 80 m and
+closes over up to 150 m, and cars can use it until the closing taper is
+45% done. Keep left draws no one into it: a move into it costs the
+keep-left bias, as a move right does. A driver joins it only when the
+slowest car within 150 m ahead in it is no slower than in their own lane,
+and when enough of it is left. Near the end, cars merge right:
+
+- The front car of the extra lane takes turns with the lane it joins,
+  from 150 m before the end. The last car past the end decides whose
+  turn is next. On the extra lane's turn, the next through car makes room
+  and the front car matches speed with the gap. On the through lane's
+  turn, the front car eases back.
+- In the last 40 m, only the front car may merge.
+- A merging car accepts a tighter gap as the end nears, and the longer it
+  waits at the front.
+- Drivers pass a queueing lane, below 60 km/h, at most 20 to 30 km/h
+  faster. Selfish cars ignore this.
+
+This is a stopgap. The order at the merge is still close to random, not a
+true zip; a proper merge model, with converging lanes, is planned work.
+Density and flow use the full lane lengths.
 
 **The clock.** Each frame runs as many 0.1 s steps as the speed and the
 real time since the last frame need, up to 400. A slow device then drops
@@ -703,7 +723,7 @@ The controls sit in the card at the top left.
 
 1. **Road:** length and lane count rebuild the ring. Keep left takes
    effect where there are two or more lanes and starts on. Extra lane
-   rebuilds the ring and starts off.
+   rebuilds the ring and starts on.
 2. **Traffic:** cars per km of lane from 1 to 200, in 52 stops. The track and
    number turn red from 160 cars/km. The mean length of 4.35 m and
    stopped gap of 2 m give a threshold of 157.5 cars/km. The ring

@@ -19,7 +19,8 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, colorScheme: 'dark' });
     const url = new URL(APP_URL);
-    url.hash = 'length=1000&lanes=1&density=56&speed=1&colour=speed&camera=top&seed=11';
+    // The app's defaults, with a fixed seed.
+    url.hash = 'length=2000&lanes=2&extra=1&keep=1&density=60&av=10&selfish=20&speed=1&colour=type&camera=top&seed=11';
     await page.goto(url.href);
     await page.waitForFunction(() => window.trafficSim);
     await page.click('#run');

@@ -1,109 +1,131 @@
-/* Bakes a clockwise ring and a backwards-moving jam into two 120 px SVGs.
-   Run from anywhere with node tools/thumbnails/traffic-sim.js. */
+/* The builder page's traffic-sim thumbnails, light and dark: the app's own
+   countryside, road and trees as a still, with the cars on top as dots that
+   change colour with speed, from red when stopped to pale when free.
+
+   The road and traffic are the app's defaults: 2 km, two lanes and the
+   extra lane, 60 cars per km of lane, 10% self-driving and 20% of those
+   selfish, with the UK human population. The engine runs here in Node. The
+   still comes from the real app in a browser, so serve the repository
+   root first:
+     python3 -m http.server 8123
+     node tools/thumbnails/traffic-sim.js
+   APP_URL and CHROMIUM override the local URL and browser executable. */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { Ring } from '../../app/traffic-sim/engine/ring.js';
 import { readSettings } from '../../app/traffic-sim/engine/settings.js';
+import { SELFISH, COORDINATED } from '../../app/traffic-sim/engine/drivers.js';
+import { assignTypes } from '../../app/traffic-sim/engine/mix.js';
+import { makeRng } from '../../app/traffic-sim/engine/rng.js';
 import { makeOval } from '../../app/traffic-sim/view.js';
-import { speedField, waveSpeed } from '../traffic-sim/waves.js';
 
-const settingsFile = new URL('../../app/traffic-sim/settings/reference.json', import.meta.url);
-const { params } = readSettings(readFileSync(settingsFile, 'utf8'));
-const length = 1000, count = 48;
-const ring = new Ring({ length, types: new Uint8Array(count), seed: 11,
-  params: { ...params, human: { ...params.human, noise: 0 } } });
-const oval = makeOval(length, 1);
-for (let k = 0; k < 30000; k++) ring.step();
+const require = createRequire(import.meta.url);
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch { ({ chromium } = require('../tiling-video/node_modules/playwright-core')); }
 
-// A full wave circuit takes about three minutes. Search that neighbourhood
-// for a cut where the traffic pattern comes back to its starting positions.
-// Cars are interchangeable at the cut. They keep their identities within it.
-const frames = [], fields = [];
-for (let frame = 0; frame <= 510; frame++) {
-  frames.push({ s: ring.s.slice(), v: ring.v.slice() });
-  if (frame % 2 === 0) fields.push(speedField(ring, 100));
-  for (let step = 0; step < 5; step++) ring.step();
+const APP_URL = process.env.APP_URL || 'http://localhost:8123/app/traffic-sim/';
+const length = 2000, lanes = 2, density = 60, av = 0.10, selfish = 0.20;
+const PLAY = 30;        // seconds the loop takes on screen
+const FRAME = 0.5;      // seconds of traffic between frames
+const SIZE = 120, STILL = 240;
+
+// The traffic, from the engine.
+const uk = readSettings(readFileSync(new URL('../../app/traffic-sim/settings/uk-motorway.json', import.meta.url), 'utf8'));
+const count = density * lanes * length / 1000;
+const types = assignTypes(count, av, [[SELFISH, selfish], [COORDINATED, 1 - selfish]], makeRng(5));
+const ring = new Ring({ length, lanes, extraLane: true, types, seed: 5, params: uk.params });
+const oval = makeOval(length, lanes, ring.extraEnd, ring.extraGain, ring.extraDrop);
+for (let k = 0; k < 6000; k++) ring.step();
+const frames = [];
+for (let f = 0; f <= 480; f++) {
+  frames.push({ s: ring.s.slice(0, count), v: ring.v.slice(0, count), lane: ring.lane.slice(0, count) });
+  for (let k = 0; k < FRAME / ring.c.dt; k++) ring.step();
 }
+
+// A cut where the pattern of cars comes back to its start. Cars are
+// interchangeable at the cut, so the search matches them by order round
+// the ring, then eases each car onto its match over the last few frames.
 const first = frames[0];
-const routeOrder = [...first.s.keys()].sort((a, b) => first.s[a] - first.s[b]);
-const near = (a, b) => {
-  const delta = a - b;
-  return delta - Math.round(delta / length) * length;
-};
+const near = (a, b) => { const d = a - b; return d - Math.round(d / length) * length; };
+const byPosition = frame => [...frame.s.keys()].sort((a, b) => frame.s[a] - frame.s[b]);
+const startOrder = byPosition(first);
 let best = { error: Infinity };
-for (let frame = 330; frame < frames.length; frame++) {
-  const end = frames[frame];
-  const sorted = [...end.s.keys()].sort((a, b) => end.s[a] - end.s[b]);
-  for (let shift = 0; shift < count; shift++) {
+for (let f = 240; f < frames.length; f++) {
+  const end = frames[f], sorted = byPosition(end);
+  for (let shift = -3; shift <= 3; shift++) {
     let error = 0;
     for (let k = 0; k < count; k++) {
-      const a = routeOrder[k], b = sorted[(k + shift) % count];
+      const a = startOrder[k], b = sorted[(k + shift + count) % count];
       error += near(first.s[a], end.s[b]) ** 2 + 3 * (first.v[a] - end.v[b]) ** 2;
     }
-    if (error < best.error) best = { error, frame, shift, sorted };
+    if (error < best.error) best = { error, f, shift, sorted };
   }
 }
 
-const wave = waveSpeed(fields.slice(0, Math.floor(best.frame / 2)), length);
-if (!(wave < 0)) throw new Error('Expected a jam travelling against the traffic');
+// The still, and the camera that drew it, from the real app.
+async function still(dark) {
+  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined, args: ['--force-color-profile=srgb'] });
+  try {
+    const page = await browser.newPage({ viewport: { width: STILL, height: STILL }, colorScheme: dark ? 'dark' : 'light' });
+    const url = new URL(APP_URL);
+    // One car per km of lane, too small to see at this size.
+    url.hash = `length=${length}&lanes=${lanes}&extra=1&density=1&speed=1&camera=top&seed=5`;
+    await page.goto(url.href);
+    await page.waitForFunction(() => window.trafficSim);
+    await page.evaluate(() => document.getElementById('run').click());
+    await page.addStyleTag({ content: '.card, .map-tools, .gesture-hint { display: none !important; }' });
+    // With the controls hidden, the app frames the road in the whole still.
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+    await page.waitForTimeout(2500);
+    const viewProj = await page.evaluate(() => Array.from(window.trafficSim.view.camera().viewProj));
+    const image = await page.screenshot({ type: 'jpeg', quality: 80 });
+    return { image, viewProj };
+  } finally {
+    await browser.close();
+  }
+}
 
-const scale = 0.247;
-const xy = (s, d = 0) => {
-  const [x, z] = oval.at(s / length, d);
-  return [+(x * scale + 60).toFixed(2), +(z * scale + 60).toFixed(2)];
-};
-const radius = +(oval.R * scale).toFixed(2), xLeft = 60 - radius, xRight = 60 + radius;
-const track = (offset = 0) => {
-  const r = radius + offset;
-  return `M${xLeft},${60 - r}H${xRight}a${r},${r} 0 0 1 0,${2 * r}H${xLeft}a${r},${r} 0 0 1 0,${-2 * r}Z`;
-};
-
-function makeThumbnail(palette) {
-  const { ground, field, hedge, shoulder, road, fast, slow } = palette;
-  const colour = speed => {
-    const t = Math.min(1, Math.max(0, (speed - 2) / 19));
-    return '#' + slow.map((v, i) => Math.round(v + (fast[i] - v) * t).toString(16).padStart(2, '0')).join('');
+function makeThumbnail({ image, viewProj: m }, palette) {
+  const project = (x, z) => {
+    const cx = m[0] * x + m[8] * z + m[12], cy = m[1] * x + m[9] * z + m[13], w = m[3] * x + m[11] * z + m[15];
+    return [((cx / w + 1) / 2 * SIZE).toFixed(1), ((1 - cy / w) / 2 * SIZE).toFixed(1)];
   };
-  const cars = [];
-  const sampleCount = Math.ceil(best.frame / 3);
+  const colour = speed => {
+    const t = Math.min(1, Math.max(0, (speed - 2) / 22));
+    return '#' + palette.slow.map((v, i) => Math.round(v + (palette.fast[i] - v) * t).toString(16).padStart(2, '0')).join('');
+  };
+  const samples = 48, cars = [];
   for (let k = 0; k < count; k++) {
-    const finish = best.sorted[(k + best.shift) % count];
+    const car = best.sorted[(k + best.shift + count) % count], start = startOrder[k];
     const positions = [], colours = [];
-    for (let f = 0; f <= sampleCount; f++) {
-      const progress = f / sampleCount, frame = frames[Math.round(progress * best.frame)];
-      // Ease the last few samples onto the first frame's nearest cyclic match.
-      const join = Math.max(0, (progress - 0.95) / 0.05) ** 2;
-      const s = frame.s[finish] + join * near(first.s[routeOrder[k]], frames[best.frame].s[finish]);
-      const v = frame.v[finish] + join * (first.v[routeOrder[k]] - frames[best.frame].v[finish]);
-      positions.push(xy(s).join(' '));
+    for (let q = 0; q <= samples; q++) {
+      const progress = q / samples, frame = frames[Math.round(progress * best.f)];
+      const join = Math.max(0, (progress - 0.92) / 0.08) ** 2;
+      const s = frame.s[car] + join * near(first.s[start], frames[best.f].s[car]);
+      const d0 = oval.laneOffset(frame.lane[car], frame.s[car]);
+      const d = d0 + join * (oval.laneOffset(first.lane[start], first.s[start]) - d0);
+      const v = frame.v[car] + join * (first.v[start] - frames[best.f].v[car]);
+      const [x, z] = oval.at(s / length, d);
+      positions.push(project(x, z).join(' '));
       colours.push(colour(v));
     }
-    cars.push(`<circle r="1.22" fill="${colours[0]}" transform="translate(${positions[0]})"><animateTransform attributeName="transform" type="translate" values="${positions.join(';')}" dur="10s" repeatCount="indefinite"/><animate attributeName="fill" values="${colours.join(';')}" dur="10s" repeatCount="indefinite"/></circle>`);
+    cars.push(`<circle r="0.95" fill="${colours[0]}" transform="translate(${positions[0]})"><animateTransform attributeName="transform" type="translate" values="${positions.join(';')}" dur="${PLAY}s" repeatCount="indefinite"/><animate attributeName="fill" values="${colours.join(';')}" dur="${PLAY}s" repeatCount="indefinite"/></circle>`);
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
-<title>A jam travelling backwards around a ring road</title>
-<path fill="${ground}" d="M0 0h120v120H0z"/>
-<g fill="${field}" stroke="${hedge}" stroke-width="1">
-<path d="M-3 17 29 8 52 16 57 38 22 47-3 38zM56-3 83 0 89 21 71 34 52 16zM93 43 122 36 123 70 103 86 86 66zM-4 83 17 64 40 76 37 105 16 123H-4zM46 59 67 49 86 66 78 92 52 84zM64 112 78 92 103 86 121 98v28H60z"/>
-</g>
-<g fill="none" stroke-linejoin="round">
-<path stroke="${hedge}" stroke-width="10" d="${track(-2.4)}"/>
-<path stroke="${shoulder}" stroke-width="7.5" d="${track(-2.1)}"/>
-<path stroke="${road}" stroke-width="2.7" d="${track(-4.1)}"/>
-<path stroke="${road}" stroke-width="3.2" d="${track()}"/>
-</g>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">
+<title>Traffic queueing where a lane ends, on a motorway ring among fields and woods</title>
+<image width="${SIZE}" height="${SIZE}" href="data:image/jpeg;base64,${image.toString('base64')}"/>
 ${cars.join('\n')}
 </svg>\n`;
 }
 
-for (const [suffix, palette] of Object.entries({
-  '': { ground: '#a4b875', field: '#bdc788', hedge: '#71854f', shoulder: '#989d85',
-    road: '#495350', fast: [236, 240, 206], slow: [255, 75, 40] },
-  '-dark': { ground: '#445d38', field: '#60764c', hedge: '#364934', shoulder: '#777b66',
-    road: '#2f3a3a', fast: [226, 240, 185], slow: [255, 96, 57] }
-})) {
+for (const [suffix, dark, palette] of [
+  ['', false, { fast: [250, 250, 244], slow: [235, 45, 25] }],
+  ['-dark', true, { fast: [236, 240, 226], slow: [255, 80, 50] }]
+]) {
   const name = `traffic-sim${suffix}.svg`;
-  const svg = makeThumbnail(palette);
+  const svg = makeThumbnail(await still(dark), palette);
   writeFileSync(new URL(`../../assets/thumbs/${name}`, import.meta.url), svg);
   console.log(`${name}: ${Buffer.byteLength(svg)} bytes`);
 }
-console.log(`10 s loop from ${best.frame / 2} s of traffic; RMS cut distance ${Math.sqrt(best.error / count).toFixed(1)} m equivalent; wave at ${(wave * 3.6).toFixed(1)} km/h`);
+console.log(`${(best.f * FRAME).toFixed(0)} s of traffic, played over ${PLAY} s; ${count} cars; RMS cut distance ${Math.sqrt(best.error / count).toFixed(1)} m equivalent`);
