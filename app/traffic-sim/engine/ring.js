@@ -15,18 +15,18 @@
       errors for the Human Driver Model.
 
    A position runs from 0 to the ring's length, measured to the car's front
-   along the ring. Every lane has the same length, and the view stretches
-   each lane to fit its own drawn line. Lane 0 is the left lane, where
-   traffic keeps left; a world that drives on the right mirrors the drawing,
-   not the physics. Nothing here draws, so the same file runs in the browser
-   and in Node. */
+   along the ring. Each full lane uses the same distance coordinate. Lane 0
+   is the left lane. The engine runs in the browser and in Node. */
 
-import { HUMAN, SELFISH, makeParams, compileParams, command, profileFor } from './drivers.js';
+import { HUMAN, SELFISH, STOPPED_OBSTACLE, makeParams, compileParams, command, profileFor } from './drivers.js';
 import { drawTraits } from './population.js';
 import { makeRng, hashSeed } from './rng.js';
 
 const HARD = -2;          // a deceleration that counts as hard braking (m/s²)
 const SAMPLE_EVERY = 10;  // steps between speed samples, so once a second
+const EXTRA_TAPER = 30; // metres at each end of the extra lane
+const MERGE_DISTANCE = 90; // metres before the last usable part of the extra lane
+const MERGE_BIAS = 30;     // peak MOBIL incentive in m/s²
 const PARKED = 1e9;       // laneAge of a car that has never changed lane
 
 export class Ring {
@@ -34,12 +34,18 @@ export class Ring {
      seed: for the start positions and the noise. driverSeed: for each
      human's traits and estimation errors, the seed by default. absorb: the
      absorber switch on Coordinated Mode. keepLeft: the keep-left switch.
+     extraLane: opens an overtaking lane over the first third of the road.
      params: values to replace in DEFAULTS. capacity: room for cars that
      addCar() adds later. */
-  constructor({ length, lanes = 1, types, seed = 1, driverSeed = seed, absorb = false, keepLeft = true, params, capacity = 0 }) {
+  constructor({ length, lanes = 1, types, seed = 1, driverSeed = seed, absorb = false, keepLeft = true, params, capacity = 0, extraLane = false }) {
     const n = types.length, cap = Math.max(capacity, n);
     this.L = length;
-    this.lanes = lanes;
+    this.baseLanes = lanes;
+    this.extraLane = extraLane ? lanes : -1;
+    this.extraEnd = extraLane ? length / 3 : 0;
+    this.extraTaper = Math.min(EXTRA_TAPER, this.extraEnd / 4);
+    this.extraLimit = this.extraEnd - this.extraTaper;
+    this.lanes = lanes + Number(extraLane);
     this.n = n;
     this.capacity = cap;
     this.absorb = absorb;
@@ -53,13 +59,22 @@ export class Ring {
     this.laneChanges = 0;    // since the start
 
     const f = () => new Float64Array(cap);
+    const size = this.par.carSize;
+    const sizes = makeRng(hashSeed('sizes', seed));
+    this.len = f().fill(this.par.carLength);
+    this.width = f().fill(1.8);
+    if (size) for (let i = 0; i < cap; i++) {
+      const t = sizes.uniform();
+      this.len[i] = size.length[0] + t * (size.length[1] - size.length[0]);
+      this.width[i] = size.width[0] + t * (size.width[1] - size.width[0]);
+    }
     this.s = f();            // position along the ring (m)
     this.v = f();            // speed (m/s)
     this.acc = f();          // acceleration (m/s²)
     this.u = f();            // last step's command, with noise: a platoon's V2V message
     this.uNext = f();
     this.U = f();            // the 60-second average speed
-    this.gap = f();          // gap to the leader (m); Infinity for a car alone in its lane
+    this.gap = f();          // gap to the leader or obstacle (m); Infinity for a clear lane
     this.laneAge = f();      // time since the last lane change (s)
     this.brakeLeft = f();    // time left on a tap of the brakes (s)
     this.sNew = f();
@@ -71,10 +86,10 @@ export class Ring {
     this.profile = new Uint8Array(cap);   // the controller each car used in the last step
     this.lane = new Uint8Array(cap);
     this.fromLane = new Uint8Array(cap);
-    this.leader = new Int32Array(cap);    // -1 for a car alone in its lane
+    this.leader = new Int32Array(cap);    // -1 for clear road, -2 for the lane drop
     this.rank = new Int32Array(cap);      // place in its lane's order
-    this.order = Array.from({ length: lanes }, () => new Int32Array(cap));  // each lane's cars by position
-    this.count = new Int32Array(lanes);
+    this.order = Array.from({ length: this.lanes }, () => new Int32Array(cap));  // each lane's cars by position
+    this.count = new Int32Array(this.lanes);
     this.type.set(types);
 
     // Each car's human traits, drawn whatever its type, so a car that the
@@ -120,17 +135,26 @@ export class Ring {
      spacing, with up to half a metre of jitter, less when packed. With one lane this is the
      reference model's start. */
   place() {
-    const { n, lanes, L, c } = this;
+    const { n, baseLanes: lanes, L, c } = this;
     this.count.fill(0);
     for (let lane = 0; lane < lanes; lane++) {
       const inLane = Math.ceil((n - lane) / lanes);
       if (inLane <= 0) continue;
       const spacing = L / inLane;
-      const v0 = Math.min(Math.max((spacing - c.len - 2) / 1.4, 0), c.vMax);
+      let free = spacing - c.len;
+      if (this.par.carSize) {
+        let occupied = 0;
+        for (let i = lane; i < n; i += lanes) occupied += this.len[i];
+        free = (L - occupied) / inLane;
+      }
+      const v0 = Math.min(Math.max((free - 2) / 1.4, 0), c.vMax);
+      let front = lane / lanes * spacing;
       for (let i = lane, k = 0; i < n; i += lanes, k++) {
         // The jitter shrinks only when cars are packed too close for it, so
         // that they never start overlapping.
-        const x = (k + lane / lanes) * spacing + (this.rng.uniform() - 0.5) * Math.min(1, spacing - c.len);
+        const base = this.par.carSize ? front : (k + lane / lanes) * spacing;
+        const x = base + (this.rng.uniform() - 0.5) * Math.min(1, Math.max(0, free));
+        if (i + lanes < n) front += this.len[i + lanes] + free;
         this.s[i] = x - Math.floor(x / L) * L;
         this.v[i] = v0;
         this.U[i] = v0;
@@ -202,9 +226,9 @@ export class Ring {
       if (j < 0) continue;
       let d = sNew[j] - sNew[i];
       d -= Math.floor(d / L) * L;
-      if (d - c.len < 0) {
+      if (d - this.len[j] < 0) {
         this.hitList[hits] = i;
-        this.hitGap[hits] = d - c.len;
+        this.hitGap[hits] = d - this.len[j];
         this.hitV[hits] = Math.min(vNew[i], vNew[j]);
         hits++;
       }
@@ -213,6 +237,17 @@ export class Ring {
       const i = this.hitList[h];
       sNew[i] += this.hitGap[h] - 0.05;
       vNew[i] = this.hitV[h];
+    }
+    if (this.extraLane >= 0) {
+      const order = this.order[this.extraLane], limit = this.extraLimit - 0.05;
+      for (let k = 0; k < this.count[this.extraLane]; k++) {
+        const i = order[k];
+        if (sNew[i] > limit) {
+          sNew[i] = limit;
+          vNew[i] = acc[i] = 0;
+        }
+        sNew[i] = Math.max(this.len[i], sNew[i]);
+      }
     }
     this.crashes += hits;
 
@@ -281,7 +316,7 @@ export class Ring {
      within the reaction time is seen as it is now: a lane change takes
      longer than a reaction time on a real road, though it is instant here. */
   humanCommand(i) {
-    const c = this.c, cap = this.capacity, len = this.c.len, L = this.L;
+    const c = this.c, cap = this.capacity, L = this.L;
     const react = this.delay[i];
     const back = react / c.dt, steps = Math.floor(back), beta = back - steps;
     const newer = ((this.slot - steps) % this.slots + this.slots) % this.slots * cap;
@@ -303,22 +338,30 @@ export class Ring {
     let out = a * (1 - (c.hDelta === 4 ? (r * r) * (r * r) : Math.pow(r, c.hDelta)));
 
     const lane = this.lane[i], o = this.order[lane], m = this.count[lane];
-    const ahead = Math.min(c.hAnticipate, m - 1);
+    const inExtra = lane === this.extraLane;
+    const ahead = Math.min(c.hAnticipate, inExtra ? m - this.rank[i] : m - 1);
     if (ahead > 0) {
       const g = c.hGamma[ahead];
       const T = this.timeGap[i] / g, s0 = c.hS0 / g, root = 2 * this.sqrtAB[i];
       const errS = this.errors ? Math.exp(c.hDistanceError * this.errS[i]) : 1;
       const errV = this.errors ? c.hSpeedError * this.errV[i] : 0;
       const sPast = pastS(i), moved = this.laneAge[i] < react;
+      let occupied = 0;
       for (let k = 1, q = this.rank[i]; k <= ahead; k++) {
-        q = q + 1 < m ? q + 1 : 0;
-        const j = o[q];
+        q++;
+        const obstacle = inExtra && q === m;
+        if (q === m && !obstacle) q = 0;
+        const j = obstacle ? STOPPED_OBSTACLE : o[q];
+        if (!obstacle) occupied += this.len[j];
         let gap, dv;
-        if (moved || this.laneAge[j] < react) {
-          gap = this.dist(this.s[i], this.s[j]) - k * len;
+        if (obstacle) {
+          gap = this.extraLimit - this.s[i] - occupied;
+          dv = this.v[i];
+        } else if (moved || this.laneAge[j] < react) {
+          gap = this.dist(this.s[i], this.s[j]) - occupied;
           dv = this.v[i] - this.v[j];
         } else {
-          gap = this.dist(sPast, pastS(j)) - k * len;
+          gap = this.dist(sPast, pastS(j)) - occupied;
           dv = vPast - pastV(j);
         }
         const dvSeen = dv + gap * errV;
@@ -342,11 +385,12 @@ export class Ring {
      Returns the acceleration a, capped by the rule. */
   keepLeftCap(i, lane, a) {
     if (lane + 1 >= this.lanes) return a;
+    if (lane + 1 === this.extraLane && this.s[i] >= this.extraLimit) return a;
     const c = this.c, j = this.ahead(lane + 1, this.s[i]);
     if (j < 0) return a;
     const vi = this.v[i], vj = this.v[j];
     if (!(vi > vj && vj > c.mQueueSpeed)) return a;
-    const gap = this.dist(this.s[i], this.s[j]) - c.len;
+    const gap = this.dist(this.s[i], this.s[j]) - this.len[j];
     const capped = Math.max(gap > 0 ? command(this, i, j, gap) : vj - vi, -c.mSafeBrake);
     if (capped >= a) return a;
     if (this.type[i] === SELFISH && a - capped > c.mUndertake) return a;
@@ -369,6 +413,10 @@ export class Ring {
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
       if (s[o[mid]] > x) hi = mid; else lo = mid + 1;
+    }
+    if (lane === this.extraLane) {
+      this.behindCar = lo === 0 ? -1 : o[lo - 1];
+      return (this.aheadCar = lo === m ? -1 : o[lo]);
     }
     this.behindCar = o[lo === 0 ? m - 1 : lo - 1];
     return (this.aheadCar = o[lo === m ? 0 : lo]);
@@ -395,18 +443,21 @@ export class Ring {
   }
 
   findLeaders() {
-    const s = this.s, len = this.c.len;
+    const s = this.s;
     for (let lane = 0; lane < this.lanes; lane++) {
       const o = this.order[lane], m = this.count[lane];
       for (let k = 0; k < m; k++) {
         const i = o[k];
-        if (m === 1) {
+        if (lane === this.extraLane && k === m - 1) {
+          this.leader[i] = STOPPED_OBSTACLE;
+          this.gap[i] = this.extraLimit - s[i];
+        } else if (m === 1) {
           this.leader[i] = -1;
           this.gap[i] = Infinity;
         } else {
           const j = o[k + 1 < m ? k + 1 : 0];
           this.leader[i] = j;
-          this.gap[i] = this.dist(s[i], s[j]) - len;
+          this.gap[i] = this.dist(s[i], s[j]) - this.len[j];
         }
       }
     }
@@ -415,12 +466,16 @@ export class Ring {
   changeLanes() {
     const c = this.c;
     for (let i = 0; i < this.n; i++) {
-      if (this.laneAge[i] < c.mCooldown || this.brakeLeft[i] > 0) continue;
       const from = this.lane[i];
+      const merge = from === this.extraLane ? this.extraLimit - this.s[i] : Infinity;
+      if (merge > MERGE_DISTANCE && (this.laneAge[i] < c.mCooldown || this.brakeLeft[i] > 0)) continue;
       let best = -1, bestMargin = 0;
       for (let to = from - 1; to <= from + 1; to += 2) {
         if (to < 0 || to >= this.lanes) continue;
-        const margin = this.laneGain(i, from, to);
+        if (to === this.extraLane &&
+            (this.s[i] - this.len[i] < this.extraTaper ||
+             this.extraLimit - this.s[i] < MERGE_DISTANCE)) continue;
+        const margin = this.laneGain(i, from, to) + Math.max(0, 1 - merge / MERGE_DISTANCE) * MERGE_BIAS;
         if (margin > bestMargin) {
           best = to;
           bestMargin = margin;
@@ -446,35 +501,47 @@ export class Ring {
      the threshold less the bias. */
   laneGain(i, from, to) {
     const { s, c } = this;
-    const x = s[i], len = c.len;
+    const x = s[i];
 
     const lead = this.ahead(to, x), back = this.behindCar, mt = this.count[to];
-    const gapNew = lead < 0 ? Infinity : this.dist(x, s[lead]) - len;
-    const gapBack = back < 0 ? Infinity : this.dist(s[back], x) - len;
+    const gapNew = lead < 0 ? (to === this.extraLane ? this.extraLimit - x : Infinity)
+      : this.dist(x, s[lead]) - this.len[lead];
+    const next = lead < 0 && to === this.extraLane ? STOPPED_OBSTACLE : lead;
+    const gapBack = back < 0 ? Infinity : this.dist(s[back], x) - this.len[i];
     if (gapNew <= c.mMinGap || gapBack <= c.mMinGap) return -Infinity;
-    let aNew = command(this, i, lead, gapNew);
+    let aNew = command(this, i, next, gapNew);
     if (aNew < -c.mSafeBrake) return -Infinity;
 
     let joined = 0, left = 0;
     if (back >= 0) {
       const backAfter = command(this, back, i, gapBack);
       if (backAfter < -c.mSafeBrake) return -Infinity;
-      const backLead = mt > 1 ? lead : -1;
-      const backBefore = command(this, back, backLead,
-        backLead < 0 ? Infinity : this.dist(s[back], s[backLead]) - len);
+      const backLead = to === this.extraLane ? next : mt > 1 ? lead : -1;
+      const backGap = backLead === STOPPED_OBSTACLE ? this.extraLimit - s[back]
+        : backLead < 0 ? Infinity : this.dist(s[back], s[backLead]) - this.len[backLead];
+      const backBefore = command(this, back, backLead, backGap);
       joined = backAfter - backBefore;
     }
 
     const of = this.order[from], mf = this.count[from], k = this.rank[i];
     let aOld;
-    if (mf > 1) {
+    if (from === this.extraLane) {
+      const oldLead = k + 1 < mf ? of[k + 1] : STOPPED_OBSTACLE;
+      const oldGap = oldLead === STOPPED_OBSTACLE ? this.extraLimit - x : s[oldLead] - x - this.len[oldLead];
+      aOld = command(this, i, oldLead, oldGap);
+      if (k > 0) {
+        const oldBack = of[k - 1];
+        const before = command(this, oldBack, i, x - s[oldBack] - this.len[i]);
+        left = command(this, oldBack, oldLead, oldGap + x - s[oldBack]) - before;
+      }
+    } else if (mf > 1) {
       const oldLead = of[k + 1 < mf ? k + 1 : 0];
       const oldBack = of[k > 0 ? k - 1 : mf - 1];
-      aOld = command(this, i, oldLead, this.dist(x, s[oldLead]) - len);
-      const backBefore = command(this, oldBack, i, this.dist(s[oldBack], x) - len);
+      aOld = command(this, i, oldLead, this.dist(x, s[oldLead]) - this.len[oldLead]);
+      const backBefore = command(this, oldBack, i, this.dist(s[oldBack], x) - this.len[i]);
       const nextLead = oldLead === oldBack ? -1 : oldLead;
       const backAfter = command(this, oldBack, nextLead,
-        nextLead < 0 ? Infinity : this.dist(s[oldBack], s[nextLead]) - len);
+        nextLead < 0 ? Infinity : this.dist(s[oldBack], s[nextLead]) - this.len[nextLead]);
       left = backAfter - backBefore;
     } else {
       aOld = command(this, i, -1, Infinity);
@@ -526,26 +593,28 @@ export class Ring {
      the ring is full or no gap has room for a car with a jam gap each side. */
   addCar(type) {
     if (this.n >= this.capacity) return -1;
-    const { s, v, L, c } = this;
+    const { s, v, L } = this;
+    const newLength = this.len[this.n];
     let bestLane = -1, bestK = -1, room = 0;
-    for (let lane = 0; lane < this.lanes; lane++) {
+    for (let lane = 0; lane < this.baseLanes; lane++) {
       const o = this.order[lane], m = this.count[lane];
       if (m === 0) {
-        if (L > room) { room = L; bestLane = lane; bestK = -1; }
+        if (L - newLength > room) { room = L - newLength; bestLane = lane; bestK = -1; }
         continue;
       }
       for (let k = 0; k < m; k++) {
-        const d = m === 1 ? L : this.dist(s[o[k]], s[o[k + 1 < m ? k + 1 : 0]]);
+        const lead = o[k + 1 < m ? k + 1 : 0];
+        const d = (m === 1 ? L : this.dist(s[o[k]], s[lead])) - this.len[lead] - newLength;
         if (d > room) { room = d; bestLane = lane; bestK = k; }
       }
     }
-    if (room / 2 - c.len < this.par.human.s0) return -1;
+    if (room / 2 < this.par.human.s0) return -1;
 
     const i = this.n++, o = this.order[bestLane], m = this.count[bestLane];
     let x = 0, speed = 0;
     if (bestK >= 0) {
       const back = o[bestK], lead = o[bestK + 1 < m ? bestK + 1 : 0];
-      x = s[back] + room / 2;
+      x = s[back] + newLength + room / 2;
       speed = (v[back] + v[lead]) / 2;
     }
     s[i] = x - Math.floor(x / L) * L;
@@ -593,7 +662,7 @@ export class Ring {
       }
       swing = Math.sqrt(swing / n);
     }
-    const density = n / (this.L / 1000) / this.lanes;
+    const density = n / (this.L / 1000) / this.baseLanes;
     const hours = st.steps * this.c.dt / 3600;
     return {
       time: st.steps * this.c.dt,

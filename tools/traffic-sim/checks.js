@@ -175,6 +175,7 @@ const seeds = [1, 2, 3];
   h.traits.reactionTime.median = 0.5;
   Object.assign(h, { reactionAs: 'lag', noise: 0.3, anticipate: 1, distanceError: 0, speedError: 0 });
   p.speedLimit = 30;
+  p.carSize = null;
   const types = mixTypes(50, { coordinated: 0.2, selfish: 0.2 }, makeRng(4));
   const a = run({ length: 50 / 45 * 1000, types, seed: 8 }, 300, 300).stats();
   const b = run({ length: 50 / 45 * 1000, types, seed: 8, params: p }, 300, 300).stats();
@@ -335,6 +336,29 @@ for (const lanes of [1, 2]) {
   check("The Human Driver Model, with its authors' parameters, makes waves that travel back at 10 to 25 km/h",
     swing > 1.5 && wave < -10 && wave > -25 && crashes === 0,
     `at 35 per km: speed swing ${swing.toFixed(1)} m/s, waves at ${wave.toFixed(0)} km/h, ${crashes} collisions`);
+}
+
+{
+  let outside = 0, entered = 0, merged = 0;
+  for (const lanes of [1, 2]) {
+    for (const density of [24, 44, 200]) {
+      const ring = new Ring({ length: 1000, lanes, extraLane: true,
+        types: new Uint8Array(density * lanes), seed: 11, params: uk.params });
+      const previous = ring.lane.slice();
+      for (let step = 0; step < 4500; step++) {
+        ring.step();
+        for (let i = 0; i < ring.n; i++) {
+          if (ring.lane[i] === ring.extraLane) {
+            if (ring.s[i] - ring.len[i] < -1e-9 || ring.s[i] >= ring.extraLimit) outside++;
+            if (previous[i] !== ring.extraLane) entered++;
+          } else if (previous[i] === ring.extraLane) merged++;
+        }
+        previous.set(ring.lane);
+      }
+    }
+  }
+  check('Cars use and leave the extra lane within its section', outside === 0 && entered > 0 && merged > 0,
+    `${entered} entries, ${merged} exits, ${outside} car steps outside the section`);
 }
 
 console.log(failed ? `\n${failed} check${failed > 1 ? 's' : ''} failed` : '\nAll checks passed');

@@ -12,7 +12,7 @@ import { makeRng, hashSeed } from './engine/rng.js';
 import { roundHalfEven } from './engine/mix.js';
 import { View, makeOval } from './view.js';
 
-const LANE_LENGTH = 800;   // metres of ring in each lane
+const LENGTHS = [1000, 2000, 5000, 10000];
 const SPEEDS = [1, 2, 5, 10, 20, 50];
 const MAX_STEPS = 400;     // per frame: a slow device drops time rather than stalls
 const LANE_SLIDE = 3;      // seconds a lane change takes on screen
@@ -26,32 +26,40 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // The drivers: UK motorway humans and the self-driving controllers.
 const population = readSettings(await (await fetch('settings/uk-motorway.json')).text());
 
-const settings = {
-  lanes: 1, density: 44, av: 0, selfish: 50, absorb: false, keep: true,
+const defaults = {
+  length: 1000, lanes: 1, extra: false, density: 44, av: 0, selfish: 50, absorb: false, keep: true,
   speed: 5, colour: 'type', camera: 'top', seed: Math.floor(Math.random() * 1e6)
 };
+const settings = { ...defaults };
 const LIMITS = { lanes: [1, 2], density: [1, 200], av: [0, 100], selfish: [0, 100], seed: [0, 1e9] };
 // The traffic slider's 52 stops, in cars per km of lane: sparse at the
-// bottom, then every 4 from 20 to 200. At 200 the 5 m cars touch.
+// bottom, then every 4 from 20 to 200. The packed range starts at the first stop beyond the mean stopped spacing.
 const STOPS = [1, 2, 4, 8, 12, 16, ...Array.from({ length: 46 }, (_, k) => 20 + 4 * k)];
 // Above this, cars sit closer than the 2 m gap a stopped driver keeps, so
 // nothing can move. The slider shows it as a red zone.
-const PACKED = 144;
+const { carSize, carLength, human } = population.params;
+const meanLength = carSize ? (carSize.length[0] + carSize.length[1]) / 2 : carLength;
+const PACKED = 1000 / (meanLength + human.s0);
 const stopIndex = d => STOPS.reduce((best, v, i) => Math.abs(v - d) < Math.abs(STOPS[best] - d) ? i : best, 0);
+const packedIndex = STOPS.findIndex(d => d >= PACKED);
+$('density').style.setProperty('--packed', `calc(8px + (100% - 16px) * ${packedIndex / (STOPS.length - 1)})`);
 function showDensity(d) {
   $('density-out').textContent = d;
+  $('density').setAttribute('aria-valuetext', `${d} cars per km of lane`);
   $('density-out').classList.toggle('packed', d >= PACKED);
 }
 
 function readHash() {
   for (const part of location.hash.replace(/^#/, '').split('&')) {
     const [key, raw] = part.split('=');
-    if (!(key in settings) || raw === undefined) continue;
-    const value = decodeURIComponent(raw);
-    if (key === 'absorb') settings.absorb = value === '1';
+    if (!Object.hasOwn(settings, key) || raw === undefined) continue;
+    let value;
+    try { value = decodeURIComponent(raw); } catch { continue; }
+    if (key === 'absorb' || key === 'extra') settings[key] = value === '1';
     else if (key === 'keep') settings.keep = value !== '0';
     else if (key === 'colour') settings.colour = value === 'speed' ? 'speed' : 'type';
     else if (key === 'camera') settings.camera = ['top', 'tilt', 'ride'].includes(value) ? value : 'top';
+    else if (key === 'length') settings.length = LENGTHS.includes(+value) ? +value : LENGTHS[0];
     else if (key === 'speed') settings.speed = SPEEDS.includes(+value) ? +value : 5;
     else if (Number.isFinite(+value)) {
       const [lo, hi] = LIMITS[key];
@@ -65,7 +73,7 @@ function writeHash() {
   clearTimeout(hashTimer);
   hashTimer = setTimeout(() => {
     const s = settings;
-    const parts = [`lanes=${s.lanes}`, `keep=${s.keep ? 1 : 0}`, `density=${s.density}`, `av=${s.av}`, `selfish=${s.selfish}`,
+    const parts = [`length=${s.length}`, `extra=${+s.extra}`, `lanes=${s.lanes}`, `keep=${s.keep ? 1 : 0}`, `density=${s.density}`, `av=${s.av}`, `selfish=${s.selfish}`,
       `absorb=${s.absorb ? 1 : 0}`, `speed=${s.speed}`, `colour=${s.colour}`, `camera=${s.camera}`, `seed=${s.seed}`];
     try { history.replaceState(null, '', '#' + parts.join('&')); } catch (e) { /* a sandboxed frame may refuse */ }
   }, 300);
@@ -75,21 +83,24 @@ function writeHash() {
 
 const THEMES = {
   dark: {
-    fog: [0.086, 0.086, 0.102], ground: [0.13, 0.16, 0.14], road: [0.21, 0.215, 0.235], kerb: [0.32, 0.32, 0.33],
+    fog: [0.22, 0.28, 0.25], ground: [0.34, 0.46, 0.26], road: [0.25, 0.27, 0.26], kerb: [0.63, 0.65, 0.60],
     line: [0.88, 0.87, 0.82], shadow: 0.55, accent: [1.0, 0.82, 0.3], link: [0.45, 0.75, 1.0],
     glass: [0.13, 0.17, 0.23], tyre: [0.05, 0.05, 0.06], fogDensity: 1.2,
     types: { [HUMAN]: [0.86, 0.83, 0.76], [COORDINATED]: [0.26, 0.56, 1.0], [SELFISH]: [1.0, 0.5, 0.16] }
   },
   light: {
-    fog: [0.965, 0.953, 0.925], ground: [0.85, 0.88, 0.79], road: [0.56, 0.57, 0.6], kerb: [0.74, 0.74, 0.72],
+    fog: [0.76, 0.83, 0.73], ground: [0.58, 0.70, 0.39], road: [0.34, 0.36, 0.35], kerb: [0.75, 0.76, 0.71],
     line: [0.99, 0.99, 0.97], shadow: 0.32, accent: [0.86, 0.42, 0.0], link: [0.08, 0.36, 0.86],
     glass: [0.2, 0.26, 0.33], tyre: [0.09, 0.09, 0.1], fogDensity: 1.2,
     types: { [HUMAN]: [0.98, 0.97, 0.94], [COORDINATED]: [0.16, 0.45, 0.95], [SELFISH]: [0.98, 0.45, 0.1] }
   }
 };
-const darkQuery = matchMedia('(prefers-color-scheme: dark)');
-let theme = darkQuery.matches ? THEMES.dark : THEMES.light;
-darkQuery.addEventListener('change', e => { theme = e.matches ? THEMES.dark : THEMES.light; renderLegend(); });
+const themeToggle = document.querySelector('.theme-toggle');
+window.Theme.wireThemeToggle();
+const openingTheme = document.documentElement.dataset.theme;
+const readTheme = () => THEMES[document.documentElement.dataset.theme] || THEMES.light;
+let theme = readTheme();
+themeToggle.addEventListener('click', () => { theme = readTheme(); renderLegend(); });
 
 // Speed colours: red when stopped, amber at 12 m/s, green from 25 m/s.
 function speedColour(v) {
@@ -107,7 +118,7 @@ let clock = 0, running = true, selected = -1;
 const live = { flow: 0, speed: 0, spread: 0, hard: 0, stopped: 0, primed: false };
 
 function build() {
-  n = Math.round(settings.density * LANE_LENGTH / 1000 * settings.lanes);
+  n = Math.round(settings.density * settings.length / 1000 * settings.lanes);
   const rng = makeRng(hashSeed('cars', settings.seed, n));
   // A fixed random order of the cars, and a random rank for each. The first
   // cars in the order drive themselves, and the lowest-ranked of those are
@@ -119,14 +130,14 @@ function build() {
   }
   rank = Float64Array.from({ length: n }, () => rng.uniform());
   ring = new Ring({
-    length: LANE_LENGTH, lanes: settings.lanes, types: new Uint8Array(n), seed: settings.seed,
+    length: settings.length, lanes: settings.lanes, extraLane: settings.extra, types: new Uint8Array(n), seed: settings.seed,
     absorb: settings.absorb, keepLeft: settings.keep, params: population.params
   });
   retype();
-  oval = makeOval(LANE_LENGTH, settings.lanes);
-  view.setRoad(oval);
+  oval = makeOval(settings.length, settings.lanes, ring.extraEnd, ring.extraTaper);
+  if (!view.oval || view.oval.length !== oval.length || view.oval.lanes !== oval.lanes || view.oval.extraEnd !== oval.extraEnd) view.setRoad(oval);
   prevS = new Float64Array(ring.s.subarray(0, n));
-  inst = new Float32Array(n * 8);
+  inst = new Float32Array(n * 10);
   links = new Float32Array(n * 6);
   clock = 0;
   live.primed = false;
@@ -155,7 +166,7 @@ function step() {
     if (v < 0.5) stopped++;
   }
   const mean = sum / n, spread = Math.sqrt(Math.max(sum2 / n - mean * mean, 0));
-  const flow = (n / settings.lanes) / (LANE_LENGTH / 1000) * mean * 3.6;
+  const flow = (n / settings.lanes) / (settings.length / 1000) * mean * 3.6;
   const k = live.primed ? ring.c.dt / AVERAGE : 1;
   live.flow += (flow - live.flow) * k;
   live.speed += (mean * 3.6 - live.speed) * k;
@@ -171,15 +182,15 @@ const pose = [0, 0, 0];
 // Where car i is drawn, alpha of the way from its last step to this one,
 // at distance back from its front: [x, z, heading].
 function carPose(i, alpha, back) {
-  const L = LANE_LENGTH;
+  const L = settings.length;
   let s0 = prevS[i], s1 = ring.s[i];
   if (s1 < s0 - L / 2) s1 += L;
   const s = s0 + (s1 - s0) * alpha - back;
-  let d = oval.laneOffset(ring.lane[i]);
+  let d = oval.laneOffset(ring.lane[i], s);
   const age = ring.laneAge[i];
   if (age < LANE_SLIDE) {
     const f = age / LANE_SLIDE, ease = f * f * (3 - 2 * f);
-    d = oval.laneOffset(ring.fromLane[i]) + (d - oval.laneOffset(ring.fromLane[i])) * ease;
+    d = oval.laneOffset(ring.fromLane[i], s) + (d - oval.laneOffset(ring.fromLane[i], s)) * ease;
   }
   const p = oval.at(s / L, d);
   pose[0] = p[0]; pose[1] = p[1]; pose[2] = p[2];
@@ -187,15 +198,16 @@ function carPose(i, alpha, back) {
 }
 
 function fillInstances(alpha) {
-  const half = ring.c.len / 2;
   for (let i = 0; i < n; i++) {
-    const [x, z, h] = carPose(i, alpha, half), o = i * 8;
+    const [x, z, h] = carPose(i, alpha, ring.len[i] / 2), o = i * 10;
     const v = ring.v[i], a = ring.acc[i];
     const col = settings.colour === 'speed' ? speedColour(v) : theme.types[ring.type[i]];
     inst[o] = x; inst[o + 1] = z; inst[o + 2] = h;
     inst[o + 3] = ring.brakeLeft[i] > 0 || v < 0.3 ? 1 : Math.min(1, Math.max(0, (-a - 0.4) / 2.4));
     inst[o + 4] = col[0]; inst[o + 5] = col[1]; inst[o + 6] = col[2];
     inst[o + 7] = i === selected && settings.camera !== 'ride' ? 1 : 0;
+    inst[o + 8] = ring.len[i];
+    inst[o + 9] = ring.width[i];
   }
   // A faint line from each platooning car to the car it follows over V2V.
   let count = 0;
@@ -205,7 +217,7 @@ function fillInstances(alpha) {
     if (j < 0) continue;
     const [x0, z0] = carPose(i, alpha, 0);
     links[count * 6] = x0; links[count * 6 + 1] = 0.9; links[count * 6 + 2] = z0;
-    const [x1, z1] = carPose(j, alpha, ring.c.len);
+    const [x1, z1] = carPose(j, alpha, ring.len[j]);
     links[count * 6 + 3] = x1; links[count * 6 + 4] = 0.9; links[count * 6 + 5] = z1;
     count++;
   }
@@ -218,7 +230,7 @@ const canvas = $('view');
 const view = new View(canvas);
 const cam = view.cam;
 const goal = { x: 0, z: 0, dist: 400, yaw: 0, pitch: Math.PI / 2 };
-let rideDist = 14;
+let rideDist = 14, fitted = true;
 
 const CAMERAS = { top: Math.PI / 2, tilt: 0.62 };
 // The part of the screen the cards leave clear. A card that is narrow for
@@ -227,8 +239,9 @@ const CAMERAS = { top: Math.PI / 2, tilt: 0.62 };
 // title on a phone held sideways, sits in a corner the oval leaves empty.
 function freeArea() {
   const W = view.W, H = view.H, free = { left: 0, top: 0, right: W, bottom: H };
-  for (const r of [$('controls').getBoundingClientRect(), $('numbers').getBoundingClientRect()]) {
-    if (r.width * r.height < W * H / 20) continue;
+  for (const id of ['controls', 'numbers']) {
+    const r = $(id).getBoundingClientRect();
+    if (r.width * r.height < W * H / 20 && id !== 'controls') continue;
     if (r.width / W < r.height / H) {
       if (r.left + r.width / 2 < W / 2) free.left = Math.max(free.left, r.right + 8);
       else free.right = Math.min(free.right, r.left - 8);
@@ -238,6 +251,7 @@ function freeArea() {
   return free;
 }
 function fitCamera(now) {
+  fitted = true;
   view.resize();
   const f = view.fit(freeArea());
   goal.x = f.x; goal.z = f.z; goal.yaw = f.yaw;
@@ -248,7 +262,7 @@ function fitCamera(now) {
 function ease(dtReal) {
   if (settings.camera === 'ride') {
     const i = selected >= 0 ? selected : 0;
-    const [x, z, h] = carPose(i, running ? clock / ring.c.dt : 1, ring.c.len / 2);
+    const [x, z, h] = carPose(i, running ? clock / ring.c.dt : 1, ring.len[i] / 2);
     cam.follow = cam.follow || [x, z, h];
     // Smooth the heading through the curves, taking the short way round.
     let dh = h - cam.follow[2];
@@ -292,6 +306,7 @@ function frame(now) {
   ease(real);
   const linkCount = fillInstances(alpha);
   frameCam = view.draw(inst, n, links, linkCount, theme);
+  renderScale();
   if (now - lastNumbers > 250) {
     lastNumbers = now;
     renderNumbers();
@@ -305,6 +320,7 @@ function pressed(group, value) {
   for (const b of document.querySelectorAll(`[data-${group}]`)) b.setAttribute('aria-pressed', String(b.dataset[group] === String(value)));
 }
 function renderControls() {
+  pressed('length', settings.length);
   pressed('lanes', settings.lanes);
   pressed('speed', settings.speed);
   pressed('colour', settings.colour);
@@ -317,7 +333,8 @@ function renderControls() {
   $('selfish-out').textContent = settings.selfish + '%';
   $('absorb').checked = settings.absorb;
   $('keep').checked = settings.keep;
-  $('keep').disabled = settings.lanes === 1;
+  $('extra').checked = settings.extra;
+  $('keep').disabled = settings.lanes === 1 && !settings.extra;
   $('run').textContent = running ? 'Pause' : 'Run';
   $('run').setAttribute('aria-pressed', String(!running));
   $('step').disabled = running;
@@ -328,14 +345,14 @@ function renderControls() {
   document.querySelector('[data-step="run"]').classList.toggle('next', !running);
 }
 function renderNumbers() {
-  const f = x => Math.round(x).toLocaleString('en-GB');
+  const f = x => Math.round(x).toLocaleString('en-GB', { useGrouping: Math.abs(x) >= 10000 });
   $('n-flow').textContent = f(live.flow);
   $('n-speed').textContent = f(live.speed);
   $('n-spread').textContent = f(live.spread);
   $('n-stopped').textContent = f(live.stopped);
   $('n-hard').textContent = (100 * live.hard).toFixed(1) + '%';
-  $('n-cars').textContent = `${n} cars on ${settings.lanes === 1 ? 'one lane' : 'two lanes'} of ${LANE_LENGTH} m`;
-  $('n-time').textContent = formatTime(ring.time);
+  $('n-cars').textContent = `${n} cars on ${settings.lanes === 1 ? 'one lane' : 'two lanes'} of ${settings.length / 1000} km`;
+  $('n-time').textContent = `Simulated time ${formatTime(ring.time)}`;
 }
 function formatTime(t) {
   const m = Math.floor(t / 60), s = Math.floor(t % 60);
@@ -353,23 +370,35 @@ function changed() {
   writeHash();
 }
 
-for (const b of document.querySelectorAll('[data-lanes]')) {
+for (const key of ['length', 'lanes']) for (const b of document.querySelectorAll(`[data-${key}]`)) {
   b.addEventListener('click', () => {
-    if (+b.dataset.lanes === settings.lanes) return;
-    settings.lanes = +b.dataset.lanes;
+    if (+b.dataset[key] === settings[key]) return;
+    settings[key] = +b.dataset[key];
     build();
     changed();
   });
 }
+$('extra').addEventListener('change', e => {
+  settings.extra = e.target.checked;
+  build();
+  changed();
+});
 $('keep').addEventListener('change', e => { settings.keep = e.target.checked; ring.keepLeft = settings.keep; changed(); });
 // The traffic slider rebuilds the ring, so it applies on release; only its
 // number follows the drag.
 $('density').addEventListener('input', e => showDensity(STOPS[+e.target.value]));
-$('density').addEventListener('change', e => {
-  settings.density = STOPS[+e.target.value];
+function setDensity(density) {
+  settings.density = density;
   build();
   changed();
-});
+}
+$('density').addEventListener('change', e => setDensity(STOPS[+e.target.value]));
+for (const tick of $('ticks').querySelectorAll('button')) {
+  const density = +tick.dataset.density;
+  tick.style.setProperty('--position', `calc(8px + (100% - 16px) * ${stopIndex(density) / (STOPS.length - 1)})`);
+  tick.title = `${density} cars per km of lane`;
+  tick.addEventListener('click', () => setDensity(density));
+}
 // The mix sliders retype cars in place, so a jam forms or clears live.
 $('av').addEventListener('input', e => { settings.av = +e.target.value; retype(); changed(); });
 $('selfish').addEventListener('input', e => { settings.selfish = +e.target.value; retype(); changed(); });
@@ -405,11 +434,27 @@ for (const b of document.querySelectorAll('[data-camera]')) {
     changed();
   });
 }
-$('fit').addEventListener('click', () => {
+function fitRoad() {
   if (settings.camera === 'ride') settings.camera = 'top';
   fitCamera(false);
   changed();
+}
+$('fit').addEventListener('click', fitRoad);
+$('reset-view').addEventListener('click', () => {
+  settings.camera = 'top';
+  rideDist = 14;
+  fitRoad();
 });
+$('zoom-in').addEventListener('click', () => zoomAbout(0.8, view.W / 2, view.H / 2));
+$('zoom-out').addEventListener('click', () => zoomAbout(1.25, view.W / 2, view.H / 2));
+
+const about = $('about');
+$('about-open').addEventListener('click', () => {
+  if (about.open) about.close();
+  else about.show();
+});
+$('about-close').addEventListener('click', () => about.close());
+about.addEventListener('close', () => $('about-open').focus());
 
 // On a small screen the steps fold away behind the title, to leave the road clear.
 const small = matchMedia('(max-width: 640px), (max-height: 500px)');
@@ -421,6 +466,19 @@ function fold(open) {
 }
 $('fold').addEventListener('click', () => fold($('controls').classList.contains('folded')));
 fold(!small.matches);
+$('reset-options').addEventListener('click', () => {
+  Object.assign(settings, defaults);
+  if (openingTheme && openingTheme !== document.documentElement.dataset.theme) themeToggle.click();
+  running = true;
+  selected = -1;
+  rideDist = 14;
+  last = 0;
+  fold(!small.matches);
+  build();
+  changed();
+  renderLegend();
+  renderNumbers();
+});
 
 const fsButton = $('fullscreen');
 const fsEnabled = document.fullscreenEnabled || document.webkitFullscreenEnabled;
@@ -437,7 +495,8 @@ function toggleFullscreen() {
 fsButton.addEventListener('click', () => { toggleFullscreen(); fsButton.blur(); });
 
 document.addEventListener('keydown', e => {
-  if (e.target.closest && e.target.closest('input, select, textarea')) return;
+  if (e.key === 'Escape' && about.open) { about.close(); return; }
+  if (e.target.closest && e.target.closest('input, select, textarea, button, a, dialog')) return;
   if (e.key === ' ') { e.preventDefault(); toggleRun(); }
   else if (e.key === '.' && !running) $('step').click();
   else if ((e.key === 'f' || e.key === 'F') && fsEnabled && !e.metaKey && !e.ctrlKey) toggleFullscreen();
@@ -454,8 +513,28 @@ let down = null, pinch = null, turn = null;
 function metresPerPixel() {
   return 2 * Math.tan(20 * Math.PI / 180) * (frameCam ? frameCam.range : cam.dist) / view.H;
 }
+let scaleKey;
+function renderScale() {
+  const scale = $('map-scale');
+  const tools = $('map-tools');
+  const x = tools.offsetLeft + 10, y = tools.offsetTop + tools.offsetHeight - 6;
+  const a = view.groundAt(x, y, 0, frameCam), b = view.groundAt(x - 90, y, 0, frameCam);
+  if (!a || !b || y <= 0) { scale.hidden = true; return; }
+  const span = Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const base = 10 ** Math.floor(Math.log10(span));
+  const size = (span >= 5 * base ? 5 : span >= 2 * base ? 2 : 1) * base;
+  const width = Math.round(90 * size / span);
+  const key = `${size}:${width}`;
+  if (key !== scaleKey) {
+    scale.style.width = `${width}px`;
+    scale.textContent = size >= 1000 ? `${size / 1000} km` : `${+size.toFixed(2)} m`;
+    scaleKey = key;
+  }
+  scale.hidden = false;
+}
 function panBy(dx, dy) {
-  if (settings.camera === 'ride') return;
+  if (settings.camera === 'ride' || (!dx && !dy)) return;
+  fitted = false;
   const k = metresPerPixel(), c = Math.cos(cam.yaw), s = Math.sin(cam.yaw), up = dy / Math.max(0.3, Math.sin(cam.pitch));
   cam.x += (-c * dx + s * up) * k;
   cam.z += (-s * dx - c * up) * k;
@@ -466,6 +545,7 @@ function zoomAbout(factor, px, py) {
     rideDist = Math.min(60, Math.max(6, rideDist * factor));
     return;
   }
+  fitted = false;
   const before = view.groundAt(px, py);
   cam.dist = goal.dist = clampDist(cam.dist * factor);
   const after = view.groundAt(px, py);
@@ -477,6 +557,7 @@ function zoomAbout(factor, px, py) {
 }
 function turnBy(angle, tilt) {
   if (settings.camera === 'ride') return;
+  fitted = false;
   cam.yaw += angle;
   goal.yaw = cam.yaw;
   if (tilt) {
@@ -514,7 +595,10 @@ canvas.addEventListener('pointermove', e => {
   const dx = e.clientX - p.x, dy = e.clientY - p.y;
   p.x = e.clientX;
   p.y = e.clientY;
-  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) down.moved = true;
+  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) {
+    down.moved = true;
+    $('gesture-hint').classList.add('used');
+  }
   if (pointers.size === 1) panBy(dx, dy);
   else if (pointers.size === 2 && pinch) {
     const q = pinchState();
@@ -550,7 +634,7 @@ function tapAt(px, py) {
   if (!hit) return;
   let best = -1, bestD = 5;
   for (let i = 0; i < n; i++) {
-    const d = Math.hypot(inst[i * 8] - hit[0], inst[i * 8 + 1] - hit[1]);
+    const d = Math.hypot(inst[i * 10] - hit[0], inst[i * 10 + 1] - hit[1]);
     if (d < bestD) { best = i; bestD = d; }
   }
   if (best < 0) return;
@@ -570,7 +654,7 @@ writeHash();
 let wide = view.W >= view.H;
 window.addEventListener('resize', () => {
   view.resize();
-  if ((view.W >= view.H) !== wide) {
+  if (fitted || (view.W >= view.H) !== wide) {
     wide = view.W >= view.H;
     fitCamera(true);
   }

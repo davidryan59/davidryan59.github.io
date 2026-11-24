@@ -26,6 +26,7 @@ export const PROFILE_NAMES = ['selfish', 'timid', 'cooperative', 'platoon', 'abs
 
 export const DEFAULTS = {
   dt: 0.1,               // fixed time step (s)
+  carSize: null,       // optional length and width ranges (m)
   carLength: 5,
   speedLimit: 30,        // the self-driving cars' limit (m/s). Humans have their own desired speeds
   human: {
@@ -155,8 +156,10 @@ export function compileParams(par) {
   };
 }
 
+export const STOPPED_OBSTACLE = -2;
+
 /* The acceleration car i asks for behind car j at the given gap, before
-   noise and lag. j = -1 means an empty road ahead, with an infinite gap.
+   noise and lag. j = -1 means an empty road ahead. j = -2 means a stopped obstacle.
    For a human it is the plain Intelligent Driver Model with the driver's
    own parameters, on the present positions. The step loop uses it for every
    car unless the Human Driver Model is on (ring.js). MOBIL's what-if tests
@@ -164,7 +167,7 @@ export function compileParams(par) {
 export function command(ring, i, j, gap) {
   const c = ring.c;
   const v = ring.v[i];
-  const vl = j < 0 ? v : ring.v[j];
+  const vl = j === STOPPED_OBSTACLE ? 0 : j < 0 ? v : ring.v[j];
   const type = ring.type[i];
 
   if (type === HUMAN) {

@@ -4,59 +4,79 @@
    then every car in one instanced draw call. The view knows the road's
    shape and where each car is. It runs no traffic. */
 
-const LANE_WIDTH = 3.5;
+import { FIELDS_GLSL, TREE_VS, TREE_FS, trees, treeMesh } from './scenery.js';
+
+export const LANE_WIDTH = 3.65;
 const FOV = 40 * Math.PI / 180;
 
 /* ---------------------------------------------------------------- road */
 
-/* An oval with two straights and two semicircles, the straights twice the
-   radius. The cars go anticlockwise as seen from above, along the bottom
-   straight first. Offset d runs outwards from the centre line. Every lane
-   holds the same length of ring, so each lane's drawn line is stretched to
-   fit: a car at fraction t of the ring sits at fraction t of its lane. */
-export function makeOval(length, lanes) {
-  const R = length / (2 * Math.PI + 4), S = 2 * R;
+/* Clockwise oval, starting at the left end of the top straight.
+   The engine uses one distance coordinate across all lanes. */
+export function makeOval(length, lanes, extraEnd = 0, extraTaper = 0) {
+  const R = length / (2 * Math.PI + 4), S = 2 * R, curve = Math.PI * R;
   const half = lanes * LANE_WIDTH / 2;
-  // A point on one of the four pieces: f runs from 0 to 1 along the piece.
-  function piece(k, f, d) {
+  const outside = half + 12, inside = half + 22 + (extraEnd ? LANE_WIDTH : 0);
+  function point(along, d) {
+    const u = along - Math.floor(along / length) * length;
     const r = R + d;
-    if (k === 0) return [-S / 2 + f * S, r, 0];
-    if (k === 2) return [S / 2 - f * S, -r, Math.PI];
-    const th = k === 1 ? Math.PI / 2 - f * Math.PI : -Math.PI / 2 - f * Math.PI;
-    return [(k === 1 ? S / 2 : -S / 2) + r * Math.cos(th), r * Math.sin(th), th - Math.PI / 2];
+    if (u < S) return [-S / 2 + u, -r, 0];
+    if (u < S + curve) {
+      const a = (u - S) / R - Math.PI / 2;
+      return [S / 2 + r * Math.cos(a), r * Math.sin(a), a + Math.PI / 2];
+    }
+    if (u < 2 * S + curve) return [S / 2 - (u - S - curve), r, Math.PI];
+    const a = (u - 2 * S - curve) / R + Math.PI / 2;
+    return [-S / 2 + r * Math.cos(a), r * Math.sin(a), a + Math.PI / 2];
+  }
+  function extension(along) {
+    if (!extraEnd) return 0;
+    return Math.max(0, Math.min(1, along / extraTaper, (extraEnd - along) / extraTaper)) * LANE_WIDTH;
   }
   return {
-    length, lanes, R, S, half,
-    width: S + 2 * (R + half + 1),
-    height: 2 * (R + half + 1),
-    laneOffset: lane => (lane - (lanes - 1) / 2) * LANE_WIDTH,
-    // [x, z, heading] at fraction t of the lane at offset d.
-    at(t, d) {
-      const r = R + d, curve = Math.PI * r, P = 2 * S + 2 * curve;
-      let u = (t - Math.floor(t)) * P;
-      if (u < S) return piece(0, u / S, d);
-      u -= S;
-      if (u < curve) return piece(1, u / curve, d);
-      u -= curve;
-      if (u < S) return piece(2, u / S, d);
-      return piece(3, Math.min((u - S) / curve, 1), d);
+    length, lanes, R, S, half, extraEnd, extraTaper,
+    width: S + 2 * (R + outside),
+    height: 2 * (R + outside),
+    laneOffset(lane, along) {
+      return lane < lanes ? half - (lane + 0.5) * LANE_WIDTH
+        : LANE_WIDTH / 2 - half - extension(along);
     },
-    // The road as triangles: x, z, offset, distance along the centre line.
+    at: (t, d) => point(t * length, d),
     mesh() {
-      const out = [], edge = half + 1.2;
-      const steps = [8, 96, 8, 96];
-      let along = 0;
-      for (let k = 0; k < 4; k++) {
-        const pieceLength = k % 2 ? Math.PI * R : S;
+      const out = [];
+      const breaks = [0, S, S + curve, 2 * S + curve, length];
+      const steps = [12, 128, 12, 128];
+      const samples = [];
+      for (let k = 0; k < steps.length; k++) {
         for (let q = 0; q < steps[k]; q++) {
-          const f0 = q / steps[k], f1 = (q + 1) / steps[k];
-          const a0 = along + f0 * pieceLength, a1 = along + f1 * pieceLength;
-          const p = [piece(k, f0, -edge), piece(k, f0, edge), piece(k, f1, -edge), piece(k, f1, edge)];
-          const v = (pt, d, a) => out.push(pt[0], pt[1], d, a);
-          v(p[0], -edge, a0); v(p[1], edge, a0); v(p[2], -edge, a1);
-          v(p[2], -edge, a1); v(p[1], edge, a0); v(p[3], edge, a1);
+          samples.push(breaks[k] + (breaks[k + 1] - breaks[k]) * q / steps[k]);
         }
-        along += pieceLength;
+      }
+      if (extraEnd) samples.push(extraTaper, extraEnd - extraTaper, extraEnd);
+      samples.push(length);
+      samples.sort((a, b) => a - b);
+
+      const vertex = (u, d, h, material) => {
+        const [x, z] = point(u, d);
+        out.push(x, z, d, u, h, material);
+      };
+      for (let k = 1; k < samples.length; k++) {
+        const a = samples[k - 1], b = samples[k];
+        const strip = (d0, h0, d1, h1, material, median = false) => {
+          const da = median ? -half - extension(a) : 0;
+          const db = median ? -half - extension(b) : 0;
+          vertex(a, d0 + da, h0, material); vertex(a, d1 + da, h1, material); vertex(b, d0 + db, h0, material);
+          vertex(b, d0 + db, h0, material); vertex(a, d1 + da, h1, material); vertex(b, d1 + db, h1, material);
+        };
+        strip(-inside, 0, outside, 0, 0);
+        // Steel rail, then a concrete barrier with sloped faces.
+        strip(-0.59, 0, -0.61, 0.52, 5, true);
+        strip(-0.50, 0.48, -0.50, 0.77, 1, true);
+        strip(-0.50, 0.77, -0.66, 0.77, 2, true);
+        strip(-0.66, 0.77, -0.66, 0.48, 1, true);
+        strip(-0.7, 0, -1.00, 0.93, 3, true);
+        strip(-1.00, 0.93, -1.60, 0.93, 4, true);
+        strip(-1.60, 0.93, -1.90, 0, 3, true);
       }
       return new Float32Array(out);
     }
@@ -68,7 +88,7 @@ export function makeOval(length, lanes) {
 // Roles pick a colour in the shader: paint, glass, tyre, brake light, headlight.
 const PAINT = 0, GLASS = 1, TYRE = 2, BRAKE = 3, LAMP = 4;
 
-// A car 4.3 m long along local x, centred on the origin: x forward, y up.
+// A 4.4 m by 1.92 m template, scaled per car.
 function carMesh() {
   const out = [];
   function box(x0, x1, y0, y1, z0, z1, role) {
@@ -98,8 +118,7 @@ function carMesh() {
 
 /* ------------------------------------------------------------- shaders */
 
-// The ground is one square kilometres across, so its distance for the fog
-// is measured per pixel, not between corners.
+// Measure ground fog per pixel across the whole scene.
 const GROUND_VS = `#version 300 es
 layout(location=0) in vec2 a_pos;
 uniform mat4 u_viewProj;
@@ -114,20 +133,24 @@ in vec3 v_p;
 uniform vec3 u_ground, u_fog, u_eye;
 uniform float u_fogDensity, u_fogStart;
 out vec4 o;
+${FIELDS_GLSL}
 void main() {
   float d = distance(v_p, u_eye);
-  o = vec4(mix(u_ground, u_fog, 1.0 - exp(-max(d - u_fogStart, 0.0) * u_fogDensity)), 1.0);
+  o = vec4(mix(fields(v_p.xz, u_ground), u_fog, 1.0 - exp(-max(d - u_fogStart, 0.0) * u_fogDensity)), 1.0);
 }`;
 
 // The road carries its markings: solid edge lines, and a dashed line
 // between lanes, antialiased with fwidth.
 const ROAD_VS = `#version 300 es
 layout(location=0) in vec4 a_road;
+layout(location=1) in vec2 a_section;
 uniform mat4 u_viewProj;
 uniform vec3 u_eye;
 out float v_lat, v_along, v_dist;
+flat out int v_material;
 void main() {
-  vec3 p = vec3(a_road.x, 0.0, a_road.y);
+  vec3 p = vec3(a_road.x, a_section.x, a_road.y);
+  v_material = int(a_section.y);
   v_lat = a_road.z;
   v_along = a_road.w;
   v_dist = distance(p, u_eye);
@@ -136,24 +159,68 @@ void main() {
 const ROAD_FS = `#version 300 es
 precision highp float;
 in float v_lat, v_along, v_dist;
-uniform vec3 u_road, u_kerb, u_line, u_fog;
-uniform float u_half, u_lanes, u_fogDensity, u_fogStart;
+flat in int v_material;
+uniform vec3 u_road, u_kerb, u_line, u_fog, u_ground;
+uniform float u_half, u_lanes, u_extraEnd, u_extraTaper, u_radius, u_fogDensity, u_fogStart;
 out vec4 o;
 float stripe(float x, float w) {
-  float aa = fwidth(x) * 0.75;
-  return 1.0 - smoothstep(w - aa, w + aa, abs(x));
+  float aa = max(fwidth(x) * 0.5, 0.001);
+  return clamp((w + aa - abs(x)) / (2.0 * aa), 0.0, 1.0)
+    - clamp((-w + aa - abs(x)) / (2.0 * aa), 0.0, 1.0);
+}
+float dashes(float lateral, float width, float phase) {
+  float aa = max(fwidth(phase) * 0.5, 0.001);
+  float distance = abs(mod(phase + 3.5, 9.0) - 4.5);
+  float mark = 1.0 - smoothstep(max(0.0, 1.0 - aa), 1.0 + aa, distance);
+  return stripe(lateral, width) * mix(mark, 2.0 / 9.0, smoothstep(1.0, 7.0, aa));
+}
+float laneDistance(float offset) {
+  float straight = 2.0 * u_radius, bend = 3.14159265 * u_radius;
+  float onBends = clamp(v_along - straight, 0.0, bend)
+    + clamp(v_along - 2.0 * straight - bend, 0.0, bend);
+  return v_along + offset * onBends / u_radius;
 }
 void main() {
-  float a = abs(v_lat);
-  vec3 c = mix(u_road, u_kerb, smoothstep(u_half + 0.05, u_half + 0.25, a));
-  float line = stripe(a - (u_half - 0.3), 0.08);
-  if (u_lanes > 1.5) {
-    float dash = step(fract(v_along / 9.0), 0.36);
-    for (float k = 1.0; k < 4.0; k += 1.0) {
-      if (k < u_lanes) line = max(line, dash * stripe(v_lat + u_half - k * ${LANE_WIDTH.toFixed(1)}, 0.07));
+  vec3 c;
+  if (v_material == 1) c = u_kerb * (0.77 + 0.14 * step(0.18, mod(v_along, 2.0)));
+  else if (v_material == 2) c = u_kerb * 1.17;
+  else if (v_material == 3) c = u_kerb * 0.88;
+  else if (v_material == 4) c = u_kerb;
+  else if (v_material == 5) {
+    if (mod(v_along, 2.0) > 0.15) discard;
+    c = u_kerb * 0.63;
+  } else {
+    float extension = u_extraEnd > 0.0
+      ? clamp(min(v_along, u_extraEnd - v_along) / u_extraTaper, 0.0, 1.0) * ${LANE_WIDTH}
+      : 0.0;
+    float near = u_half, median = -u_half - extension;
+    float far = median - 2.6;
+    float farEdge = far - u_lanes * ${LANE_WIDTH};
+    float outside = max(v_lat - near, farEdge - v_lat);
+    if (outside > 10.0) discard;
+    vec3 verge = u_ground * vec3(0.83, 1.04, 0.74);
+    float mowing = 0.95 + 0.06 * cos(v_along * 0.39);
+    c = outside > 8.7 ? u_ground * vec3(0.46, 0.65, 0.42) : verge * mowing;
+    if (outside <= 3.3) {
+      bool shoulder = outside > 0.0 || (v_lat < median && v_lat > far);
+      c = shoulder ? u_road * 1.15 : u_road;
+      float line = max(max(stripe(v_lat - near, 0.105), stripe(v_lat - median, 0.105)),
+        max(stripe(v_lat - farEdge, 0.105), stripe(v_lat - far, 0.105)));
+      for (int k = 1; k <= 2; k++) {
+        float mark = near - float(k) * ${LANE_WIDTH};
+        if (float(k) < u_lanes || (float(k) == u_lanes && extension > 3.6)) {
+          line = max(line, dashes(v_lat - mark, 0.08, laneDistance(mark)));
+        }
+        if (float(k) < u_lanes) {
+          float farMark = far - float(k) * ${LANE_WIDTH};
+          line = max(line, dashes(v_lat - farMark, 0.08, laneDistance(farMark)));
+        }
+      }
+      float ribs = max(stripe(v_lat - near - 0.23, 0.13), stripe(v_lat - farEdge + 0.23, 0.13));
+      float rumble = step(0.62, fract(v_along / 1.1)) * (1.0 - smoothstep(0.2, 1.0, fwidth(v_along)));
+      c = mix(c, u_line, max(line, ribs * rumble * 0.68));
     }
   }
-  c = mix(c, u_line, line);
   o = vec4(mix(c, u_fog, 1.0 - exp(-max(v_dist - u_fogStart, 0.0) * u_fogDensity)), 1.0);
 }`;
 
@@ -162,16 +229,17 @@ const SHADOW_VS = `#version 300 es
 layout(location=0) in vec2 a_corner;
 layout(location=1) in vec4 a_inst;
 layout(location=2) in vec4 a_col;
+layout(location=3) in vec2 a_size;
 uniform mat4 u_viewProj;
 uniform float u_halo;
 out vec2 v_local;
 flat out float v_flag;
 void main() {
   float grow = a_col.w > 0.5 ? u_halo : 1.0;
-  vec2 size = vec2(3.0, 1.55) * grow;
+  vec2 size = a_size * vec2(0.68, 0.81) * grow;
   vec2 l = a_corner * size;
   float c = cos(a_inst.z), s = sin(a_inst.z);
-  vec3 p = vec3(a_inst.x + c * l.x - s * l.y, 0.0, a_inst.y + s * l.x + c * l.y);
+  vec3 p = vec3(a_inst.x + c * l.x - s * l.y, 0.025, a_inst.y + s * l.x + c * l.y);
   v_local = a_corner;
   v_flag = a_col.w;
   gl_Position = u_viewProj * vec4(p, 1.0);
@@ -211,6 +279,7 @@ layout(location=1) in vec3 a_normal;
 layout(location=2) in float a_role;
 layout(location=3) in vec4 a_inst;
 layout(location=4) in vec4 a_col;
+layout(location=5) in vec2 a_size;
 uniform mat4 u_viewProj;
 uniform vec3 u_eye;
 out vec3 v_normal, v_col;
@@ -218,7 +287,8 @@ out float v_brake, v_dist;
 flat out int v_role;
 void main() {
   float c = cos(a_inst.z), s = sin(a_inst.z);
-  vec3 p = vec3(a_inst.x + c * a_pos.x - s * a_pos.z, a_pos.y, a_inst.y + s * a_pos.x + c * a_pos.z);
+  vec2 local = a_pos.xz * a_size / vec2(4.4, 1.92);
+  vec3 p = vec3(a_inst.x + c * local.x - s * local.y, a_pos.y, a_inst.y + s * local.x + c * local.y);
   v_normal = vec3(c * a_normal.x - s * a_normal.z, a_normal.y, s * a_normal.x + c * a_normal.z);
   v_col = a_col.rgb;
   v_brake = a_inst.w;
@@ -304,6 +374,7 @@ export class View {
     this.shadow = program(SHADOW_VS, SHADOW_FS);
     this.link = program(LINK_VS, LINK_FS);
     this.car = program(CAR_VS, CAR_FS);
+    this.tree = program(TREE_VS, TREE_FS);
 
     // Ground: one big square.
     this.groundVao = gl.createVertexArray();
@@ -319,17 +390,32 @@ export class View {
     this.roadBuf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.roadBuf);
     gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 24, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 16);
+
+    this.treeVao = gl.createVertexArray();
+    gl.bindVertexArray(this.treeVao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    const meshTrees = treeMesh();
+    this.treeVerts = meshTrees.length / 4;
+    gl.bufferData(gl.ARRAY_BUFFER, meshTrees, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
-    this.roadCount = 0;
+    this.treeBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.treeBuf);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribDivisor(1, 1);
 
     // Per-car data shared by the shadow and car passes: x, z, heading,
-    // brake, then r, g, b, flag.
+    // brake, then r, g, b, flag, length, width.
     this.instBuf = gl.createBuffer();
     const instanced = () => {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
-      for (const [loc, off] of [[this.instLoc, 0], [this.instLoc + 1, 16]]) {
+      for (const [loc, size, off] of [[this.instLoc, 4, 0], [this.instLoc + 1, 4, 16], [this.instLoc + 2, 2, 32]]) {
         gl.enableVertexAttribArray(loc);
-        gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 32, off);
+        gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 40, off);
         gl.vertexAttribDivisor(loc, 1);
       }
     };
@@ -373,7 +459,11 @@ export class View {
     const mesh = oval.mesh();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.roadBuf);
     gl.bufferData(gl.ARRAY_BUFFER, mesh, gl.STATIC_DRAW);
-    this.roadCount = mesh.length / 4;
+    this.roadCount = mesh.length / 6;
+    const planting = trees(oval);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.treeBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, planting, gl.STATIC_DRAW);
+    this.treeCount = planting.length / 4;
     const g = 8 * Math.max(oval.width, oval.height);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.groundBuf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-g, -g, g, -g, -g, g, -g, g, g, -g, g, g]), gl.STATIC_DRAW);
@@ -439,8 +529,8 @@ export class View {
     return [cam.eye[0] + k * dir[0], cam.eye[2] + k * dir[2]];
   }
 
-  /* Draws a frame. cars: Float32Array of 8 numbers per car (x, z,
-     heading, brake, r, g, b, flag). links: Float32Array of line ends,
+  /* Draws a frame. cars: Float32Array of 10 numbers per car (x, z,
+     heading, brake, r, g, b, flag, length, width). links: Float32Array of line ends,
      3 numbers each. theme: the colours. */
   draw(cars, count, links, linkCount, theme) {
     const gl = this.gl, cam = this.camera();
@@ -460,26 +550,37 @@ export class View {
       gl.uniform1f(prog.U.u_fogStart, fogStart);
     };
 
-    // The flat layers draw in order with no depth test, so they never fight.
+    // The ground is the backdrop. Road, barriers and trees use depth.
     gl.disable(gl.DEPTH_TEST);
     common(this.ground);
     gl.uniform3fv(this.ground.U.u_ground, theme.ground);
     gl.bindVertexArray(this.groundVao);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 
+    gl.enable(gl.DEPTH_TEST);
     common(this.road);
     const R = this.road.U;
     gl.uniform3fv(R.u_road, theme.road);
     gl.uniform3fv(R.u_kerb, theme.kerb);
     gl.uniform3fv(R.u_line, theme.line);
+    gl.uniform3fv(R.u_ground, theme.ground);
+    gl.uniform1f(R.u_radius, this.oval.R);
     gl.uniform1f(R.u_half, this.oval.half);
     gl.uniform1f(R.u_lanes, this.oval.lanes);
+    gl.uniform1f(R.u_extraEnd, this.oval.extraEnd);
+    gl.uniform1f(R.u_extraTaper, this.oval.extraTaper);
     gl.bindVertexArray(this.roadVao);
     gl.drawArrays(gl.TRIANGLES, 0, this.roadCount);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, cars.subarray(0, count * 8), gl.DYNAMIC_DRAW);
+    common(this.tree);
+    gl.uniform3fv(this.tree.U.u_ground, theme.ground);
+    gl.bindVertexArray(this.treeVao);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, this.treeVerts, this.treeCount);
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, cars.subarray(0, count * 10), gl.DYNAMIC_DRAW);
+
+    gl.depthMask(false);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     common(this.shadow);
@@ -489,7 +590,7 @@ export class View {
     gl.bindVertexArray(this.shadowVao);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
 
-    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(true);
     if (linkCount) {
       common(this.link);
       gl.uniform4f(this.link.U.u_col, ...theme.link, 0.75);

@@ -18,6 +18,7 @@
   "params": {
     "dt": "0.1 s",
     "carLength": "5 m",
+    "carSize": { "length": ["3.6 m", "5.1 m"], "width": ["1.65 m", "1.9 m"] },
     "speedLimit": "70 mph",
     "human": {
       "link": 0.5,

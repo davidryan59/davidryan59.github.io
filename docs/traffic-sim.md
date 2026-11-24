@@ -48,9 +48,12 @@ traffic-simulation.de, which is GPL v3.
       address, and light and dark themes. The screen-fit check passes at all
       six sizes
 - [ ] v0.1, the rest: the space-time strip, find-the-limit in a Web Worker,
-      the energy figure and an About panel
-- [ ] Ship v0.1: version marker, both addresses, builder page entry, share
-      card, and a try on a real phone and a real iPad
+      and the energy figure
+- [x] Pre-grant demo: four lengths, the extra lane, varied car sizes,
+      countryside motorway, an About panel, a builder page thumbnail and a
+      share card
+- [ ] Ship v0.1: version marker, both addresses and a try on a real phone
+      and a real iPad
 - [ ] v0.2: the T-junction, with one lane per arm, six routes and four
       junction rules
 - [ ] v0.3: two lanes per arm, AI turn-taking and capacity heatmaps
@@ -69,7 +72,8 @@ traffic-simulation.de, which is GPL v3.
 | `app/traffic-sim/settings/uk-motorway.json` | UK motorway humans, the app's population |
 | `app/traffic-sim/index.html`, `style.css` | The page: the cards and their layout |
 | `app/traffic-sim/app.js` | The page's logic: controls, the clock, input, live numbers and the address |
-| `app/traffic-sim/view.js` | The 3D view: the oval's shape, the meshes, the shaders and the camera |
+| `app/traffic-sim/view.js` | The oval, road, car meshes, shaders and camera |
+| `app/traffic-sim/scenery.js` | Field and hedge shader, tree mesh and planting |
 | `tools/traffic-sim/sweep.js` | The one-lane sweep: 1,848 runs on every core |
 | `tools/traffic-sim/tables.js` | The tables from a sweep, and a cell-by-cell comparison of two sweeps |
 | `tools/traffic-sim/calibrate.js` | Humans alone over a grid of parameters: peak flow, wave onset, wave speed, emergency stops, collisions |
@@ -94,7 +98,9 @@ ring.stats().flow;      // vehicles per hour per lane since the last resetStats(
 `new Ring(options)` takes:
 
 - `length`: the ring's length in metres. Every lane has this length.
-- `lanes`: 1 or more. The app uses 1 and 2. Lane 0 is the left lane.
+- `lanes`: the number of full lanes. The app uses 1 and 2. Lane 0 is
+  the left lane.
+- `extraLane`: adds a partial overtaking lane on the right. Off by default.
 - `types`: one driver type per car. The number of cars is the length of
   this list.
 - `seed`: the seed for the start positions and the noise.
@@ -115,13 +121,14 @@ The view reads these arrays, indexed by car, for the first `ring.n` cars:
 
 | Array | Meaning |
 |---|---|
+| `len`, `width` | Length and width of each car (m) |
 | `s` | Position of the car's front along the ring, from 0 to `length` (m) |
 | `v`, `acc` | Speed (m/s) and acceleration (m/s²) |
 | `lane` | Lane, from 0 |
 | `fromLane`, `laneAge` | The lane before the last change, and the time since it (s). The view slides a car across over the first seconds |
 | `type` | Driver type. The view may change it mid-run |
 | `profile` | The controller the car used in the last step. `P_PLATOON` marks a V2V link to the car ahead |
-| `leader`, `gap` | The car ahead in the same lane, and the gap to its rear (m). −1 and Infinity for a car alone in its lane |
+| `leader`, `gap` | The leader and the gap to its rear (m). −1 and Infinity mean clear road. −2 and a finite gap mark the lane drop |
 | `brakeLeft` | Time left on a tap of the brakes (s) |
 | `desiredSpeed`, `timeGap`, `acceleration`, `braking`, `reactionTime`, `politeness` | Each car's human traits, in SI units, used while the car is human |
 
@@ -643,23 +650,48 @@ With the settings files and the UK population:
 
 ## The view
 
-`view.js` draws the ring with hand-written WebGL 2, in a low-poly "toy
-town" style. Each frame draws, in order:
+The view draws the road in WebGL 2. Traffic runs clockwise on the outer
+carriageway. Lane 0 sits beside the outer shoulder. The inner carriageway
+has the same number of full lanes and carries no simulated traffic.
 
-1. the ground, a plain square with fog that starts beyond the point the
-   camera looks at;
-2. the road, whose shader draws the solid edge lines and the dashed lines
-   between lanes, antialiased;
-3. a soft shadow under each car, and a halo under the chosen car;
-4. a faint line from each car in a platoon to the car it follows over V2V;
-5. the cars: one mesh of 11 boxes, drawn for every car in one instanced
-   call. The brake lights glow from −0.4 m/s² and fully at −2.8 m/s², and
-   whenever a car stands still or a visitor holds its brakes.
+The road has 3.65 m lanes, 3.3 m shoulders, and 0.7 m hard strips by the
+central barrier. The outer edge lines have rumble strips. Solid white
+lines mark both road edges. Lane dividers use 2 m marks and 7 m gaps.
+The central reservation has a steel rail and a concrete barrier.
 
-**The road.** Each lane holds 800 m of ring, so the number of cars is the
-density times 0.8 times the lanes: 36 cars on one lane at 45 per km. The
-oval's straights are twice its radius. A lane change slides the car across
-over 3 s.
+A ground shader draws an irregular patchwork of fields and hedge lines.
+Some fields are split. The typical area is about 46 m by 38 m. A mown
+verge joins the field hedges to the shoulders. The view builds one set
+of up to 420 trees at hedge junctions when the road changes. One
+instanced draw renders the trees. Both theme palettes show daylight.
+
+The view draws car shadows and a halo under the selected car. It draws
+a line between connected cars in a platoon. One instanced draw renders
+the cars, using the same 11-box template for each. Brake lights start
+to glow at −0.4 m/s² and reach full brightness at −2.8 m/s².
+
+**Car sizes.** The UK settings draw lengths uniformly from 3.6 to 5.1 m.
+The same seeded draw sets the width from 1.65 to 1.9 m.
+`params.carSize` holds the length and width ranges. The reference
+keeps its 5 m cars with `carSize` set to null. The engine uses each car's length to place cars and
+measure gaps. The view scales each car mesh to its length and width.
+The engine uses the same distance coordinate on every full lane.
+Rendered spacing on curves varies slightly with the lane radius.
+
+**The road.** Full lanes measure 1, 2, 5 or 10 km, with 1 km as the
+default. Multiply density by the lane length in km and by the lane count
+to get the number of cars. The oval's straights are twice its bend
+radius. The ground and camera fit scale with the ring. A lane change
+slides the car across over 3 s.
+
+**Extra lane.** The lane starts at the top straight and covers the first
+third of the oval. On this oval, the section ends on the first bend. The
+road tapers over 30 m at each end. Traffic starts in the full lanes.
+Cars can enter past the first taper and at least 90 m before the last
+taper. A stopped obstacle marks the start of the last taper. The
+merge incentive grows over the 90 m before it, within MOBIL's safety
+limits. Cars wait for a safe gap. Density and flow use the full lane
+lengths.
 
 **The clock.** Each frame runs as many 0.1 s steps as the speed and the
 real time since the last frame need, up to 400. A slow device then drops
@@ -667,12 +699,15 @@ time rather than stalls. The view draws each car between its last two
 positions, so motion stays smooth at 1×. The speed starts at 5×, because a
 jam takes a few simulated minutes to form.
 
-**The controls,** top left as numbered steps:
+The controls sit in the card at the top left.
 
-1. **Road:** one lane or two, which rebuilds the ring, and the keep-left
-   switch, on by default and live on two lanes.
-2. **Traffic:** cars per km of lane, 10 to 80. It rebuilds the ring, so it
-   applies on release, and only its number follows the drag.
+1. **Road:** length and lane count rebuild the ring. Keep left takes
+   effect where there are two or more lanes and starts on. Extra lane
+   rebuilds the ring and starts off.
+2. **Traffic:** cars per km of lane from 1 to 200, in 52 stops. The track and
+   number turn red from 160 cars/km. The mean length of 4.35 m and
+   stopped gap of 2 m give a threshold of 157.5 cars/km. The ring
+   rebuilds on release. Click a named preset to jump to its stop.
 3. **Drivers:** the self-driving share, the selfish share of those, and the
    absorber switch. These change cars in place, so a jam forms or clears
    live. The cars keep a fixed random order and a random rank, so a slider
@@ -683,26 +718,41 @@ jam takes a few simulated minutes to form.
    tilted, or riding behind the chosen car; and a button that fits the road
    to the screen again.
 
-The step with the next action is lit: Drivers while every car is human, and
-Run while paused.
+The About button opens a non-modal panel with the model and data credits.
+The sun and moon switch changes the cards and the scene. Reset options
+restores the defaults and the opening theme. The zoom card changes the
+zoom or returns to the overview. Its scale bar measures ground distance
+in metres or kilometres at the bar's position.
+
+The named density presets use one lane of 1 km with UK humans. The table
+averages seeds 7, 11 and 42 after 600 s of warm-up and over 600 s of
+measurement.
+
+| Preset | Cars/km | Engine result |
+|---|---:|---|
+| Free flow | 12 | Mean speed 92 km/h and speed swing 0.4 m/s |
+| Jams start | 40 | First sampled density above the 1.5 m/s wave threshold, with a 2.1 m/s swing |
+| Stop-go | 60 | Mean speed 26 km/h, a 4.9 m/s swing, and some stopped cars |
+| Gridlock | 160 | Every sampled car stopped, at the first red step |
 
 **Input.** Drag to pan. The wheel or a pinch zooms about the pointer. A
 right-drag or a ctrl-drag turns the view, and tilts it when moved up or
 down; a two-finger twist turns it. A tap on a car brakes it and chooses it
 for the ride-along camera. Space runs or pauses, the full stop steps, and F
-goes full screen.
+goes full screen. The canvas hint fades after the first drag.
 
 **Live numbers,** top right: flow, mean speed, the spread of speeds, the
 cars standing still, and the share of cars braking hard. Each is an average
 over about the last 15 s of simulated time, except the count of stopped
-cars, which is the present one.
+cars, which is the present one. Car count and simulated time appear on
+separate lines.
 
 **The drivers.** The page loads `settings/uk-motorway.json` at the start,
 and every ring it builds uses that population. Each car keeps its own human
 traits when a slider turns it human again.
 
 **The address.** The controls and the seed follow the #, for example
-`#lanes=1&keep=1&density=45&av=30&selfish=50&absorb=0&speed=5&colour=type&camera=top&seed=11`.
+`#length=1000&extra=0&lanes=1&keep=1&density=44&av=30&selfish=50&absorb=0&speed=5&colour=type&camera=top&seed=11`.
 The same address replays the same run.
 
 **Screen fit.** The 3D view fills the window. The road fits the part of the
@@ -713,10 +763,10 @@ the right when the phone is sideways. `tools/screen-fit/check.js` passes at
 all six sizes:
 
 ```sh
-node tools/screen-fit/check.js http://localhost:8000/app/traffic-sim/ '#view' --controls '#fold'
+node tools/screen-fit/check.js http://localhost:8123/app/traffic-sim/ '#view' --controls '#fold'
 ```
 
-**Checked in a browser.** In headless Chromium on 2026-10-08, with seed 11
+**Original browser check.** In headless Chromium on 2026-10-08, with seed 11
 and the UK population, humans alone at 45 cars per km formed waves within 22
 simulated minutes. Speeds spread by 11 km/h, no car stood still, and flow
 was 1,883 cars per hour. Two coordinated cars with the absorber switch on
@@ -725,6 +775,12 @@ flow rose to 1,910. With the reference population, the same test had 5 cars
 standing still and a spread of 27 km/h, which two absorbers cleared. The
 keep-left switch turns keep left on and off live, and the page records it
 in the address.
+
+**Builder page and sharing.** Run `node tools/thumbnails/traffic-sim.js`
+to bake the light and dark 120 px SVG thumbnails from the engine. The
+baked wave travels against the traffic and repeats every 10 s. With the
+app served locally on port 8123, run `node tools/traffic-sim/card.js`
+to capture the 1200 × 630 share card from WebGL.
 
 ## Speed
 
@@ -740,9 +796,9 @@ of one core in Node.
 
 ## Decisions taken in the engine
 
-- Every lane of a ring has the same length. The view stretches each lane to
-  its drawn line, so the physics stays simple and the drawing still fits.
-- A car alone in its lane drives on an empty road.
+- Full lanes share one distance coordinate. The view uses it to align
+  adjoining lanes.
+- A car alone in a full lane has clear road ahead.
 - The absorber switch acts behind every car that is not coordinated,
   selfish cars included.
 - Lane 0 is the left lane. Keep left is the asymmetric MOBIL rule, mirrored,

@@ -18,6 +18,7 @@
   "params": {
     "dt": "0.1 s",
     "carLength": "5 m",
+    "carSize": null,
     "speedLimit": "30 m/s",
     "human": {
       "link": 0,

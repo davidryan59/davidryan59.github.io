@@ -1,14 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>traffic-sim – watch a traffic jam form, then fix it</title>
+<title>Traffic Simulator | Watch a jam form, then fix it</title>
 <meta name="description" content="A 3D traffic simulator. Watch a phantom traffic jam form on a ring road, then add self-driving cars that drive selfishly or in coordination, and see what changes.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://drbuild.uk/app/traffic-sim/">
+<meta property="og:title" content="Traffic Simulator">
+<meta property="og:description" content="Watch a jam form, then fix it. Change the road, traffic density and mix of driver types.">
+<meta property="og:image" content="https://drbuild.uk/social/traffic-sim.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A traffic jam, coloured red, on a ring motorway among patchwork fields">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="A traffic jam, coloured red, on a ring motorway among patchwork fields">
+<meta name="twitter:creator" content="@davidryan59">
 <link rel="canonical" href="https://drbuild.uk/app/traffic-sim/">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <link rel="icon" href="../../favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<script src="../../assets/theme.js"></script>
+<script>Theme.initTheme();</script>
 <link rel="stylesheet" href="style.css">
 <script data-goatcounter="https://drbuild.goatcounter.com/count"
         async src="../../assets/count.js"></script>
@@ -18,74 +31,104 @@
 
 <div class="top">
   <section class="card controls" id="controls" aria-label="Controls">
-    <header>
-      <a class="back" href="../../">drbuild.uk</a>
-      <h1>traffic-sim</h1>
-      <button type="button" id="fullscreen" class="small" title="Full screen (F)" aria-label="Full screen">⛶</button>
-      <button type="button" id="fold" class="small" aria-controls="steps" aria-expanded="true">Hide</button>
+    <header class="title">
+      <a class="back" href="../../">← David Ryan's builder page</a>
+      <button type="button" id="about-open" class="small" aria-haspopup="dialog" aria-controls="about">About</button>
+      <h1>Traffic Simulator</h1>
+      <p class="subtitle">Watch a jam form, then fix it</p>
+      <div class="title-actions">
+        <button class="theme-toggle" type="button" hidden>
+          <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4.1"/><path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/>
+          </svg>
+          <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/>
+          </svg>
+        </button>
+        <button type="button" id="fullscreen" class="small" title="Full screen (F)" aria-label="Full screen">⛶</button>
+        <button type="button" id="fold" class="small" aria-controls="options" aria-expanded="true">Hide</button>
+      </div>
     </header>
-    <ol class="steps" id="steps">
-      <li data-step="road">
-        <h2>Road</h2>
-        <div class="seg" role="group" aria-label="Road">
-          <button type="button" data-lanes="1">One lane</button>
-          <button type="button" data-lanes="2">Two lanes</button>
-        </div>
-        <label class="check"><input type="checkbox" id="keep" checked> Keep left</label>
-      </li>
-      <li data-step="traffic">
-        <h2>Traffic</h2>
-        <label class="slider">
-          <span>Cars per km of lane <output id="density-out">44</output></span>
-          <input type="range" id="density" min="0" max="51" step="1" value="12">
-          <span class="packed-zone" aria-hidden="true"></span>
-        </label>
-      </li>
-      <li data-step="drivers">
-        <h2>Drivers</h2>
-        <label class="slider">
-          <span>Self-driving <output id="av-out">0%</output></span>
-          <input type="range" id="av" min="0" max="100" step="1" value="0">
-        </label>
-        <label class="slider">
-          <span>Selfish, of those <output id="selfish-out">50%</output></span>
-          <input type="range" id="selfish" min="0" max="100" step="1" value="50">
-        </label>
-        <label class="check"><input type="checkbox" id="absorb"> Coordinated cars absorb waves</label>
-      </li>
-      <li data-step="run">
-        <h2>Run</h2>
-        <div class="row">
-          <button type="button" id="run">Pause</button>
-          <button type="button" id="step" title="One step of 0.1 s (full stop key)">Step</button>
-          <button type="button" id="new" title="New cars, from a new seed">New cars</button>
-        </div>
-        <div class="seg speeds" role="group" aria-label="Speed">
-          <button type="button" data-speed="1">1×</button>
-          <button type="button" data-speed="2">2×</button>
-          <button type="button" data-speed="5">5×</button>
-          <button type="button" data-speed="10">10×</button>
-          <button type="button" data-speed="20">20×</button>
-          <button type="button" data-speed="50">50×</button>
-        </div>
-      </li>
-      <li data-step="view">
-        <h2>View</h2>
-        <div class="seg" role="group" aria-label="Colour">
-          <button type="button" data-colour="type">Drivers</button>
-          <button type="button" data-colour="speed">Speed</button>
-        </div>
-        <div class="seg" role="group" aria-label="Camera">
-          <button type="button" data-camera="top">Above</button>
-          <button type="button" data-camera="tilt">Tilted</button>
-          <button type="button" data-camera="ride">Ride along</button>
-        </div>
-        <div class="row">
-          <button type="button" id="fit">Fit the road</button>
-        </div>
-      </li>
-    </ol>
-    <p class="hint">Tap a car to make it brake.</p>
+    <div id="options">
+      <ol class="steps" id="steps">
+        <li data-step="road">
+          <h2>Road</h2>
+          <div class="road-choice"><span id="length-label">Length</span>
+            <div class="seg" role="group" aria-labelledby="length-label">
+              <button type="button" data-length="1000">1 km</button>
+              <button type="button" data-length="2000">2 km</button>
+              <button type="button" data-length="5000">5 km</button>
+              <button type="button" data-length="10000">10 km</button>
+            </div>
+          </div>
+          <div class="road-choice"><span id="lanes-label">Lanes</span>
+            <div class="seg" role="group" aria-labelledby="lanes-label">
+              <button type="button" data-lanes="1">1</button>
+              <button type="button" data-lanes="2">2</button>
+            </div>
+          </div>
+          <label class="check"><input type="checkbox" id="extra"> Extra lane</label>
+          <label class="check"><input type="checkbox" id="keep" checked> Keep left</label>
+        </li>
+        <li data-step="traffic">
+          <h2>Traffic</h2>
+          <label class="slider">
+            <span>Cars per km of lane <output id="density-out">44</output></span>
+            <input type="range" id="density" min="0" max="51" step="1" value="12">
+          </label>
+          <div class="ticks placed" id="ticks" aria-label="Density presets">
+            <button type="button" data-density="12">Free flow</button>
+            <button type="button" data-density="40">Jams start</button>
+            <button type="button" data-density="60">Stop-go</button>
+            <button type="button" data-density="160">Gridlock</button>
+          </div>
+        </li>
+        <li data-step="drivers">
+          <h2>Drivers</h2>
+          <label class="slider">
+            <span>Self-driving <output id="av-out">0%</output></span>
+            <input type="range" id="av" min="0" max="100" step="1" value="0">
+          </label>
+          <label class="slider">
+            <span>Selfish, of those <output id="selfish-out">50%</output></span>
+            <input type="range" id="selfish" min="0" max="100" step="1" value="50">
+          </label>
+          <label class="check"><input type="checkbox" id="absorb"> Coordinated cars absorb waves</label>
+        </li>
+        <li data-step="run">
+          <h2>Run</h2>
+          <div class="row">
+            <button type="button" id="run">Pause</button>
+            <button type="button" id="step" title="One step of 0.1 s (full stop key)">Step</button>
+            <button type="button" id="new" title="New cars, from a new seed">New cars</button>
+          </div>
+          <div class="seg speeds" role="group" aria-label="Speed">
+            <button type="button" data-speed="1">1×</button>
+            <button type="button" data-speed="2">2×</button>
+            <button type="button" data-speed="5">5×</button>
+            <button type="button" data-speed="10">10×</button>
+            <button type="button" data-speed="20">20×</button>
+            <button type="button" data-speed="50">50×</button>
+          </div>
+        </li>
+        <li data-step="view">
+          <h2>View</h2>
+          <div class="seg" role="group" aria-label="Colour">
+            <button type="button" data-colour="type">Drivers</button>
+            <button type="button" data-colour="speed">Speed</button>
+          </div>
+          <div class="seg" role="group" aria-label="Camera">
+            <button type="button" data-camera="top">Above</button>
+            <button type="button" data-camera="tilt">Tilted</button>
+            <button type="button" data-camera="ride">Ride along</button>
+          </div>
+          <div class="row">
+            <button type="button" id="fit">Fit the road</button>
+          </div>
+        </li>
+      </ol>
+      <button type="button" class="linkish" id="reset-options">Reset options</button>
+    </div>
   </section>
 
   <section class="card numbers" id="numbers" aria-label="Live numbers" aria-live="off">
@@ -97,9 +140,40 @@
       <div><dt>Hard braking</dt><dd><span id="n-hard">0%</span></dd></div>
     </dl>
     <ul class="legend" id="legend"></ul>
-    <p class="meta"><span id="n-cars"></span> · <span id="n-time">0:00</span></p>
+    <p class="meta"><span id="n-cars"></span><span id="n-time">0:00</span></p>
   </section>
 </div>
+
+<div class="gesture-hint" id="gesture-hint">drag to move, scroll to zoom, tap a car to brake</div>
+<div class="map-tools" id="map-tools">
+  <div id="map-scale" class="map-scale" hidden></div>
+  <div class="card zoom" role="group" aria-label="Map zoom">
+    <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+    <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+    <button type="button" id="reset-view" aria-label="Back to the start" title="Back to the start">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg>
+    </button>
+  </div>
+</div>
+
+<dialog class="card about" id="about" aria-labelledby="about-title">
+  <button type="button" id="about-close" class="small" aria-label="Close About" autofocus>×</button>
+  <h2 id="about-title">About Traffic Simulator</h2>
+  <p>Watch small speed changes grow into a jam on a ring road. Selfish and Coordinated cars use driving rules set by hand.</p>
+  <p>Set Self-driving to 100%, then raise Selfish. Watch the speed spread as the mix changes.</p>
+  <p>Choose the road, density, driver mix and simulation speed. Colour the cars by driver or speed, or ride along with a car.</p>
+  <p>Drag to move, scroll or pinch to zoom, and right-drag or twist to turn. Tap a car to brake it. Space pauses and a full stop advances one step.</p>
+  <p>The address bar keeps the simulation settings and seed. Copy the address to share that setup.</p>
+  <h3>Models and data</h3>
+  <ul>
+    <li>Intelligent Driver Model (IDM), Treiber, Hennecke and Helbing</li>
+    <li>MOBIL, Kesting, Treiber and Helbing</li>
+    <li>Human Driver Model, Treiber, Kesting and Helbing</li>
+    <li>Sugiyama and colleagues’ 2008 ring experiment</li>
+    <li>Department for Transport speed statistics and the highD motorway data</li>
+  </ul>
+  <p><a href="https://github.com/davidryan59/davidryan59.github.io/tree/main/app/traffic-sim">Traffic Simulator code on GitHub</a></p>
+</dialog>
 
 <noscript><p class="fail">traffic-sim needs JavaScript and WebGL 2.</p></noscript>
 <script type="module">
