@@ -1,5 +1,5 @@
 /* traffic-sim: the page. It builds a ring from the controls, runs it on the
-   engine's fixed 0.1 s step at the chosen speed, and draws each frame with
+   engine's fixed 0.1 s step at the chosen speed, and draws with
    view.js, placing every car between its last two steps so that motion is
    smooth at any speed. Every driver parameter comes from the settings file
    settings/uk-motorway.json. The controls and the seed live in the address
@@ -13,13 +13,18 @@ import { roundHalfEven } from './engine/mix.js';
 import { View, makeOval } from './view.js';
 
 const LENGTHS = [1000, 2000, 5000, 10000];
-const SPEEDS = [1, 2, 5, 10, 20, 50];
-const MAX_STEPS = 400;     // per frame: a slow device drops time rather than stalls
+const MAX_SPEED = 200;
+const FRAME_MS = 1000 / 60;
+const MAX_DRAW_INTERVAL = 3;
 const LANE_SLIDE = 3;      // seconds a lane change takes on screen
 const AVERAGE = 15;        // seconds of simulated time the live numbers average over
 
 const $ = id => document.getElementById(id);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const speedInput = $('speed');
+const speedActual = $('speed-actual');
+const speedPosition = speed => Math.log(speed) / Math.log(MAX_SPEED);
+const formatSpeed = speed => Number(speed.toPrecision(4)) + '×';
 
 /* ------------------------------------------------------------ settings */
 
@@ -60,8 +65,9 @@ function readHash() {
     else if (key === 'colour') settings.colour = value === 'speed' ? 'speed' : 'type';
     else if (key === 'camera') settings.camera = ['top', 'tilt', 'ride'].includes(value) ? value : 'top';
     else if (key === 'length') settings.length = LENGTHS.includes(+value) ? +value : LENGTHS[0];
-    else if (key === 'speed') settings.speed = SPEEDS.includes(+value) ? +value : 5;
-    else if (Number.isFinite(+value)) {
+    else if (key === 'speed') {
+      settings.speed = value.trim() && Number.isFinite(+value) ? Math.min(MAX_SPEED, Math.max(1, +value)) : defaults.speed;
+    } else if (Number.isFinite(+value)) {
       const [lo, hi] = LIMITS[key];
       settings[key] = Math.min(hi, Math.max(lo, Math.round(+value)));
       if (key === 'density') settings.density = STOPS[stopIndex(settings.density)];
@@ -74,7 +80,7 @@ function writeHash() {
   hashTimer = setTimeout(() => {
     const s = settings;
     const parts = [`length=${s.length}`, `extra=${+s.extra}`, `lanes=${s.lanes}`, `keep=${s.keep ? 1 : 0}`, `density=${s.density}`, `av=${s.av}`, `selfish=${s.selfish}`,
-      `absorb=${s.absorb ? 1 : 0}`, `speed=${s.speed}`, `colour=${s.colour}`, `camera=${s.camera}`, `seed=${s.seed}`];
+      `absorb=${s.absorb ? 1 : 0}`, `speed=${Number(s.speed.toPrecision(6))}`, `colour=${s.colour}`, `camera=${s.camera}`, `seed=${s.seed}`];
     try { history.replaceState(null, '', '#' + parts.join('&')); } catch (e) { /* a sandboxed frame may refuse */ }
   }, 300);
 }
@@ -140,7 +146,7 @@ function build() {
   odo = new Float64Array(n);   // distance each car has driven up to prevS, for lane wander
   inst = new Float32Array(n * 10);
   links = new Float32Array(n * 6);
-  clock = 0;
+  resetClock();
   live.primed = false;
   if (selected >= n) selected = -1;
   fitCamera(true);
@@ -302,7 +308,7 @@ function fitCamera(now) {
 function ease(dtReal) {
   if (settings.camera === 'ride') {
     const i = selected >= 0 ? selected : 0;
-    const [x, z, h] = carPose(i, running ? clock / ring.c.dt : 1, ring.len[i] / 2);
+    const [x, z, h] = carPose(i, frameAlpha(), ring.len[i] / 2);
     cam.follow = cam.follow || [x, z, h];
     // Smooth the heading through the curves, taking the short way round.
     let dh = h - cam.follow[2];
@@ -329,24 +335,99 @@ function clampDist(d) {
 
 /* ---------------------------------------------------------------- loop */
 
-let last = 0, lastNumbers = 0, frameCam = null;
-function frame(now) {
-  const real = last ? Math.min(0.25, (now - last) / 1000) : 0;
-  last = now;
-  const dt = ring.c.dt;
-  if (running) clock += real * settings.speed;
-  let steps = 0;
-  while (clock >= dt && steps < MAX_STEPS) {
+let last = 0, lastDraw = 0, lastNumbers = 0, frameCam = null;
+let frameMs = FRAME_MS, drawEvery = 1, framesSinceDraw = 0, spareSince = 0;
+let rateStart = 0, rateTime = 0;
+
+function resetSpeedMeter() {
+  rateStart = 0;
+  speedActual.hidden = true;
+  speedActual.textContent = '';
+}
+
+function resetClock() {
+  clock = 0;
+  last = 0;
+  drawEvery = 1;
+  framesSinceDraw = 0;
+  spareSince = 0;
+  resetSpeedMeter();
+}
+
+function measureSpeed(now, dt) {
+  if (!rateStart) {
+    rateStart = now;
+    rateTime = ring.time;
+    return;
+  }
+  const real = (now - rateStart) / 1000;
+  if (real < 1) return;
+  const advanced = ring.time - rateTime;
+  // A window may end just short of the next whole step.
+  speedActual.hidden = advanced + dt >= real * settings.speed;
+  speedActual.textContent = speedActual.hidden ? '' : `${formatSpeed(advanced / real)} achieved`;
+  rateStart = now;
+  rateTime = ring.time;
+}
+
+function advance(dt, deadline) {
+  while (clock >= dt && performance.now() < deadline) {
     step();
     clock -= dt;
-    steps++;
   }
-  if (steps === MAX_STEPS) clock = 0;
-  const alpha = running ? clock / dt : 1;
-  ease(real);
-  const linkCount = fillInstances(alpha);
-  frameCam = view.draw(inst, n, links, linkCount, theme);
-  renderScale();
+}
+
+function frameAlpha() {
+  return running ? Math.min(1, clock / ring.c.dt) : 1;
+}
+
+function frame(now) {
+  const started = performance.now();
+  const elapsed = last ? now - last : 0;
+  last = now;
+  framesSinceDraw++;
+  let draw = framesSinceDraw >= drawEvery;
+  if (running) {
+    if (elapsed > 0) frameMs += (Math.min(elapsed, FRAME_MS) - frameMs) / 8;
+    const dt = ring.c.dt, drawBudget = frameMs * 0.5, skipBudget = frameMs * 0.8;
+    clock += elapsed / 1000 * settings.speed;
+    advance(dt, started + (draw ? drawBudget : skipBudget));
+    if (clock >= dt) {
+      // A skipped frame has more time to clear work left over from a draw.
+      if (drawEvery === 1) {
+        drawEvery = 2;
+        draw = false;
+        advance(dt, started + skipBudget);
+      } else if (drawEvery === 2 && !draw) {
+        drawEvery = MAX_DRAW_INTERVAL;
+      } else if (drawEvery === MAX_DRAW_INTERVAL && framesSinceDraw === MAX_DRAW_INTERVAL - 1) {
+        // Both skipped frames have used their budget. Keep the partial step.
+        clock %= dt;
+      }
+    }
+    // Restore drawing gradually after sustained headroom.
+    if (drawEvery > 1 && clock < dt && performance.now() - started < drawBudget * 0.8) {
+      if (!spareSince) spareSince = now;
+      if (draw && now - spareSince >= 500) {
+        drawEvery--;
+        spareSince = now;
+      }
+    } else {
+      spareSince = 0;
+    }
+    // Sample once the work due for this frame has run or been dropped.
+    // This keeps a draw frame's temporary backlog out of the speed reading.
+    if (clock < dt) measureSpeed(now, dt);
+  }
+  if (draw) {
+    const real = lastDraw ? Math.min(0.25, (now - lastDraw) / 1000) : 0;
+    lastDraw = now;
+    framesSinceDraw = 0;
+    ease(real);
+    const linkCount = fillInstances(frameAlpha());
+    frameCam = view.draw(inst, n, links, linkCount, theme);
+    renderScale();
+  }
   if (now - lastNumbers > 250) {
     lastNumbers = now;
     renderNumbers();
@@ -359,10 +440,16 @@ function frame(now) {
 function pressed(group, value) {
   for (const b of document.querySelectorAll(`[data-${group}]`)) b.setAttribute('aria-pressed', String(b.dataset[group] === String(value)));
 }
+function renderSpeed() {
+  const label = formatSpeed(settings.speed);
+  $('speed-out').textContent = label;
+  speedInput.setAttribute('aria-valuetext', label);
+}
 function renderControls() {
   pressed('length', settings.length);
   pressed('lanes', settings.lanes);
-  pressed('speed', settings.speed);
+  speedInput.value = speedPosition(settings.speed);
+  renderSpeed();
   pressed('colour', settings.colour);
   pressed('camera', settings.camera);
   $('density').value = stopIndex(settings.density);
@@ -446,7 +533,7 @@ $('absorb').addEventListener('change', e => { settings.absorb = e.target.checked
 
 function toggleRun() {
   running = !running;
-  last = 0;
+  resetClock();
   changed();
 }
 $('run').addEventListener('click', toggleRun);
@@ -455,9 +542,18 @@ $('step').addEventListener('click', () => {
   prevS.set(ring.s.subarray(0, n));
   renderNumbers();
 });
-for (const b of document.querySelectorAll('[data-speed]')) {
-  b.addEventListener('click', () => { settings.speed = +b.dataset.speed; changed(); });
+for (const speed of [1, 2, 5, 10, 20, 50, 100, MAX_SPEED]) {
+  const tick = document.createElement('span');
+  tick.textContent = speed;
+  tick.style.setProperty('--position', `${speedPosition(speed) * 100}%`);
+  $('speed-ticks').append(tick);
 }
+speedInput.addEventListener('input', () => {
+  settings.speed = MAX_SPEED ** +speedInput.value;
+  resetSpeedMeter();
+  renderSpeed();
+  writeHash();
+});
 $('new').addEventListener('click', () => {
   settings.seed = Math.floor(Math.random() * 1e6);
   build();
@@ -512,7 +608,6 @@ $('reset-options').addEventListener('click', () => {
   running = true;
   selected = -1;
   rideDist = 14;
-  last = 0;
   fold(!small.matches);
   build();
   changed();
@@ -698,6 +793,10 @@ window.addEventListener('resize', () => {
     wide = view.W >= view.H;
     fitCamera(true);
   }
+});
+document.addEventListener('visibilitychange', () => {
+  last = 0;
+  resetSpeedMeter();
 });
 requestAnimationFrame(frame);
 // For checks in a headless browser: the ring and the view.

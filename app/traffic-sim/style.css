@@ -105,31 +105,57 @@ button.small { padding: 0.15rem 0.45rem; font-size: 0.75rem; }
 .seg button:last-child { border-radius: 0 6px 6px 0; }
 .row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.3rem 0 0.15rem; }
 
-.slider { display: block; margin: 0.15rem 0 0.35rem; font: 0.82rem/1.3 var(--ui); }
-.slider span { display: flex; justify-content: space-between; }
+.slider { --thumb: 16px; display: block; margin: 0.15rem 0 0.35rem; font: 0.82rem/1.3 var(--ui); }
+.slider > span, .speed-label { display: flex; justify-content: space-between; }
 .slider output { font-variant-numeric: tabular-nums; color: var(--h1); }
 .slider input { width: 100%; margin: 0.15rem 0 0; accent-color: var(--accent); }
 #density {
-  --thumb: 16px;
   --packed: 72.55%;
   --track: linear-gradient(to right, var(--rule) 0 var(--packed), #d33 var(--packed) 100%);
+}
+:is(#density, #speed) {
   appearance: none;
   -webkit-appearance: none;
   height: 20px;
   background: transparent;
 }
-#density::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--track); }
-#density::-moz-range-track { height: 6px; border-radius: 3px; background: var(--track); }
-#density::-webkit-slider-thumb {
+:is(#density, #speed)::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--track, var(--rule)); }
+:is(#density, #speed)::-moz-range-track { height: 6px; border-radius: 3px; background: var(--track, var(--rule)); }
+:is(#density, #speed)::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: var(--thumb); height: var(--thumb); margin-top: -5px;
   border: 0; border-radius: 50%; background: var(--accent);
 }
-#density::-moz-range-thumb {
+:is(#density, #speed)::-moz-range-thumb {
   width: var(--thumb); height: var(--thumb);
   border: 0; border-radius: 50%; background: var(--accent);
 }
 .slider output.packed { color: #d33; font-weight: 600; }
+.run-speed { margin-top: 0.4rem; }
+#speed { display: block; }
+#speed-actual { margin-inline-start: 0.3rem; font-variant-numeric: tabular-nums; }
+.speed-ticks {
+  position: relative;
+  height: 1.15rem;
+  margin: -2px calc(var(--thumb) / 2) 0;
+  font-size: 0.65rem;
+  pointer-events: none;
+}
+.speed-ticks span {
+  position: absolute;
+  left: var(--position);
+  padding-top: 4px;
+  transform: translateX(-50%);
+}
+.speed-ticks span::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 3px;
+  background: currentColor;
+}
 .check { display: flex; gap: 0.4rem; align-items: center; font: 0.82rem/1.3 var(--ui); }
 .check input { accent-color: var(--accent); }
 

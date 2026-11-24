@@ -101,13 +101,16 @@
             <button type="button" id="step" title="One step of 0.1 s (full stop key)">Step</button>
             <button type="button" id="new" title="New cars, from a new seed">New cars</button>
           </div>
-          <div class="seg speeds" role="group" aria-label="Speed">
-            <button type="button" data-speed="1">1×</button>
-            <button type="button" data-speed="2">2×</button>
-            <button type="button" data-speed="5">5×</button>
-            <button type="button" data-speed="10">10×</button>
-            <button type="button" data-speed="20">20×</button>
-            <button type="button" data-speed="50">50×</button>
+          <div class="slider run-speed">
+            <div class="speed-label">
+              <label for="speed">Speed</label>
+              <div>
+                <output id="speed-out" for="speed" aria-hidden="true">5×</output>
+                <small id="speed-actual" hidden></small>
+              </div>
+            </div>
+            <input type="range" id="speed" min="0" max="1" step="any" aria-describedby="speed-actual">
+            <div class="speed-ticks" id="speed-ticks" aria-hidden="true"></div>
           </div>
         </li>
         <li data-step="view">
@@ -158,6 +161,7 @@
 <dialog class="card about" id="about" aria-labelledby="about-title">
   <button type="button" id="about-close" class="small" aria-label="Close About" autofocus>×</button>
   <h2 id="about-title">About Traffic Simulator</h2>
+  <p>Version 0.1-preview.1</p>
   <p>Watch small speed changes grow into a jam on a ring road. Selfish and Coordinated cars use driving rules set by hand.</p>
   <p>Set Self-driving to 100%, then raise Selfish. Watch the speed spread as the mix changes.</p>
   <p>Choose the road, density, driver mix and simulation speed. Colour the cars by driver or speed, or ride along with a car.</p>

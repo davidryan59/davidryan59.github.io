@@ -52,11 +52,19 @@ traffic-simulation.de, which is GPL v3.
 - [x] Demo update: four lengths, the extra lane, varied car sizes,
       countryside motorway, an About panel, a builder page thumbnail and a
       share card
-- [ ] Ship v0.1: version marker, both addresses and a try on a real phone
-      and a real iPad
+- [ ] Ship v0.1: update the preview version marker, check both addresses,
+      and try the app on a real phone and a real iPad
 - [ ] v0.2: the T-junction, with one lane per arm, six routes and four
       junction rules
 - [ ] v0.3: two lanes per arm, AI turn-taking and capacity heatmaps
+
+## Release notes
+
+### v0.1-preview.1 (2026-11-24)
+
+The Run slider sets speeds from 1× to 200×. The app draws fewer frames under
+load and shows the achieved speed when the simulation runs slower than set.
+Shared addresses with the previous speed values still work.
 
 ## Files
 
@@ -713,11 +721,15 @@ This is a stopgap. The order at the merge is still close to random, not a
 true zip; a proper merge model, with converging lanes, is planned work.
 Density and flow use the full lane lengths.
 
-**The clock.** Each frame runs as many 0.1 s steps as the speed and the
-real time since the last frame need, up to 400. A slow device then drops
-time rather than stalls. The view draws each car between its last two
-positions, so motion stays smooth at 1×. The speed starts at 5×, because a
-jam takes a few simulated minutes to form.
+**The clock.** Each frame adds simulated time at the chosen speed and runs
+fixed 0.1 s steps within a time budget. The budget uses half the frame
+interval when drawing and four-fifths when skipping a draw. The interval
+used for the budget is capped at 1/60 s. If work remains, the view first
+draws every second frame, then every third if the skipped frame cannot
+catch up. At that rate, it drops any whole steps still due after both
+skipped frames. The app measures the speed from simulated time advanced
+over about one second of real time. The view interpolates between the last two
+steps to keep motion smooth at 1×.
 
 The controls sit in the card at the top left.
 
@@ -733,7 +745,8 @@ The controls sit in the card at the top left.
    live. The cars keep a fixed random order and a random rank, so a slider
    changes as few cars as it can.
 4. **Run:** pause, a single step while paused, new cars from a new seed, and
-   speeds from 1× to 50×.
+   a logarithmic slider from 1× to 200×. It starts at 5× and shows the
+   achieved speed beside the setting when it runs slower.
 5. **View:** colour by driver type or by speed; the camera from above,
    tilted, or riding behind the chosen car; and a button that fits the road
    to the screen again.
@@ -803,6 +816,22 @@ app served locally on port 8123, run `node tools/traffic-sim/card.js`
 to capture the 1200 × 630 share card from WebGL.
 
 ## Speed
+
+On 2026-11-24, Node 26.12.1 on an Apple M1 Max measured the cost of
+`Ring.step()` with the app's driver mix and UK motorway settings. Each
+seed (7, 11 and 42) ran 2,500 warm-up steps and 5,000 timed steps.
+
+| Scene | Cars | Median time per step | Range across seeds |
+|---|---:|---:|---:|
+| Default, two 2 km lanes at 60 cars/km/lane, extra lane on | 240 | 0.069 ms | 0.068–0.071 ms |
+| Heaviest, two 10 km lanes at 200 cars/km/lane, extra lane on | 4,000 | 1.660 ms | 1.319–1.744 ms |
+| Same 10 km scene with the extra lane off | 4,000 | 1.329 ms | 1.273–1.388 ms |
+
+The 200× ceiling needs 2,000 steps a second. At the default scene's
+measured cost, that uses about 140 ms of CPU time per second for the engine.
+Chrome with Metal rendering sustained 200× at the default scene and
+199.9× with Chrome's 3× CPU slowdown. The heaviest scene drew every third
+frame and achieved about 48×.
 
 A one-lane run of 50 cars for 1,500 s takes about 60 ms in Node on an Apple
 laptop with the reference population, and about 120 ms with the UK one,
