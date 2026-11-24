@@ -4,7 +4,9 @@
    then every car in one instanced draw call. The view knows the road's
    shape and where each car is. It runs no traffic. */
 
-import { FIELDS_GLSL, TREE_VS, TREE_FS, trees, treeMesh } from './scenery.js';
+import { FIELDS_GLSL, CROWN_VS, CROWN_FS, TRUNK_VS, TRUNK_FS, SHADE_VS, SHADE_FS, QUAD, trees, trunkMesh } from './scenery.js';
+
+const SUN = (() => { const s = [-0.45, 0.8, -0.4], l = Math.hypot(...s); return s.map(x => x / l); })();
 
 export const LANE_WIDTH = 3.65;
 const FOV = 40 * Math.PI / 180;
@@ -13,7 +15,7 @@ const FOV = 40 * Math.PI / 180;
 
 /* Clockwise oval, starting at the left end of the top straight.
    The engine uses one distance coordinate across all lanes. */
-export function makeOval(length, lanes, extraEnd = 0, extraTaper = 0) {
+export function makeOval(length, lanes, extraEnd = 0, extraGain = 0, extraDrop = 0) {
   const R = length / (2 * Math.PI + 4), S = 2 * R, curve = Math.PI * R;
   const half = lanes * LANE_WIDTH / 2;
   const outside = half + 12, inside = half + 22 + (extraEnd ? LANE_WIDTH : 0);
@@ -31,10 +33,10 @@ export function makeOval(length, lanes, extraEnd = 0, extraTaper = 0) {
   }
   function extension(along) {
     if (!extraEnd) return 0;
-    return Math.max(0, Math.min(1, along / extraTaper, (extraEnd - along) / extraTaper)) * LANE_WIDTH;
+    return Math.max(0, Math.min(1, along / extraGain, (extraEnd - along) / extraDrop)) * LANE_WIDTH;
   }
   return {
-    length, lanes, R, S, half, extraEnd, extraTaper,
+    length, lanes, R, S, half, extraEnd, extraGain, extraDrop,
     width: S + 2 * (R + outside),
     height: 2 * (R + outside),
     laneOffset(lane, along) {
@@ -52,7 +54,7 @@ export function makeOval(length, lanes, extraEnd = 0, extraTaper = 0) {
           samples.push(breaks[k] + (breaks[k + 1] - breaks[k]) * q / steps[k]);
         }
       }
-      if (extraEnd) samples.push(extraTaper, extraEnd - extraTaper, extraEnd);
+      if (extraEnd) samples.push(extraGain, extraEnd - extraDrop, extraEnd);
       samples.push(length);
       samples.sort((a, b) => a - b);
 
@@ -161,7 +163,7 @@ precision highp float;
 in float v_lat, v_along, v_dist;
 flat in int v_material;
 uniform vec3 u_road, u_kerb, u_line, u_fog, u_ground;
-uniform float u_half, u_lanes, u_extraEnd, u_extraTaper, u_radius, u_fogDensity, u_fogStart;
+uniform float u_half, u_lanes, u_extraEnd, u_extraGain, u_extraDrop, u_radius, u_fogDensity, u_fogStart;
 out vec4 o;
 float stripe(float x, float w) {
   float aa = max(fwidth(x) * 0.5, 0.001);
@@ -191,7 +193,7 @@ void main() {
     c = u_kerb * 0.63;
   } else {
     float extension = u_extraEnd > 0.0
-      ? clamp(min(v_along, u_extraEnd - v_along) / u_extraTaper, 0.0, 1.0) * ${LANE_WIDTH}
+      ? clamp(min(v_along / u_extraGain, (u_extraEnd - v_along) / u_extraDrop), 0.0, 1.0) * ${LANE_WIDTH}
       : 0.0;
     float near = u_half, median = -u_half - extension;
     float far = median - 2.6;
@@ -374,7 +376,9 @@ export class View {
     this.shadow = program(SHADOW_VS, SHADOW_FS);
     this.link = program(LINK_VS, LINK_FS);
     this.car = program(CAR_VS, CAR_FS);
-    this.tree = program(TREE_VS, TREE_FS);
+    this.crown = program(CROWN_VS, CROWN_FS);
+    this.trunk = program(TRUNK_VS, TRUNK_FS);
+    this.shade = program(SHADE_VS, SHADE_FS);
 
     // Ground: one big square.
     this.groundVao = gl.createVertexArray();
@@ -394,19 +398,26 @@ export class View {
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 16);
 
-    this.treeVao = gl.createVertexArray();
-    gl.bindVertexArray(this.treeVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    const meshTrees = treeMesh();
-    this.treeVerts = meshTrees.length / 4;
-    gl.bufferData(gl.ARRAY_BUFFER, meshTrees, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
+    // Trees: one buffer of x, z, size and seed, drawn three ways. A sprite
+    // quad gives each crown and its shadow; a small mesh gives the trunk.
     this.treeBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.treeBuf);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 0, 0);
-    gl.vertexAttribDivisor(1, 1);
+    const treeVao = (data, size) => {
+      const vao = gl.createVertexArray();
+      gl.bindVertexArray(vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, size, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.treeBuf);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 0, 0);
+      gl.vertexAttribDivisor(1, 1);
+      return vao;
+    };
+    this.quadVao = treeVao(QUAD, 2);
+    const trunk = trunkMesh();
+    this.trunkVerts = trunk.length / 4;
+    this.trunkVao = treeVao(trunk, 4);
 
     // Per-car data shared by the shadow and car passes: x, z, heading,
     // brake, then r, g, b, flag, length, width.
@@ -568,14 +579,38 @@ export class View {
     gl.uniform1f(R.u_half, this.oval.half);
     gl.uniform1f(R.u_lanes, this.oval.lanes);
     gl.uniform1f(R.u_extraEnd, this.oval.extraEnd);
-    gl.uniform1f(R.u_extraTaper, this.oval.extraTaper);
+    gl.uniform1f(R.u_extraGain, this.oval.extraGain);
+    gl.uniform1f(R.u_extraDrop, this.oval.extraDrop);
     gl.bindVertexArray(this.roadVao);
     gl.drawArrays(gl.TRIANGLES, 0, this.roadCount);
 
-    common(this.tree);
-    gl.uniform3fv(this.tree.U.u_ground, theme.ground);
-    gl.bindVertexArray(this.treeVao);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, this.treeVerts, this.treeCount);
+    // Tree shadows on the ground, then trunks, then crowns.
+    gl.depthMask(false);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    common(this.shade);
+    gl.uniform3fv(this.shade.U.u_sun, SUN);
+    gl.uniform1f(this.shade.U.u_shade, 0.3);
+    gl.bindVertexArray(this.quadVao);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.treeCount);
+    gl.disable(gl.BLEND);
+    gl.depthMask(true);
+
+    common(this.trunk);
+    gl.bindVertexArray(this.trunkVao);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, this.trunkVerts, this.treeCount);
+
+    common(this.crown);
+    const C = this.crown.U;
+    gl.uniform3fv(C.u_ground, theme.ground);
+    gl.uniform3fv(C.u_right, cam.look.x);
+    gl.uniform3fv(C.u_up, cam.look.y);
+    gl.uniform3fv(C.u_toward, cam.look.z);
+    gl.uniform3fv(C.u_sun, SUN);
+    gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+    gl.bindVertexArray(this.quadVao);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.treeCount);
+    gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instBuf);
     gl.bufferData(gl.ARRAY_BUFFER, cars.subarray(0, count * 10), gl.DYNAMIC_DRAW);

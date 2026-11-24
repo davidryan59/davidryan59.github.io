@@ -134,7 +134,7 @@ function build() {
     absorb: settings.absorb, keepLeft: settings.keep, params: population.params
   });
   retype();
-  oval = makeOval(settings.length, settings.lanes, ring.extraEnd, ring.extraTaper);
+  oval = makeOval(settings.length, settings.lanes, ring.extraEnd, ring.extraGain, ring.extraDrop);
   if (!view.oval || view.oval.length !== oval.length || view.oval.lanes !== oval.lanes || view.oval.extraEnd !== oval.extraEnd) view.setRoad(oval);
   prevS = new Float64Array(ring.s.subarray(0, n));
   inst = new Float32Array(n * 10);

@@ -24,9 +24,20 @@ import { makeRng, hashSeed } from './rng.js';
 
 const HARD = -2;          // a deceleration that counts as hard braking (m/s²)
 const SAMPLE_EVERY = 10;  // steps between speed samples, so once a second
-const EXTRA_TAPER = 30; // metres at each end of the extra lane
-const MERGE_DISTANCE = 90; // metres before the last usable part of the extra lane
+const GAIN_TAPER = 80;     // the longest taper where the extra lane opens (m)
+const DROP_TAPER = 150;    // the longest taper where it closes (m)
+const MERGE_DISTANCE = 120; // metres before the last usable part of the extra lane
 const MERGE_BIAS = 30;     // peak MOBIL incentive in m/s²
+const MERGE_BRAKE = 6;     // the hardest braking a merge near the lane end may force (m/s²)
+const VIEW = 150;          // how far ahead a driver judges a lane's speed (m)
+const ENTRY_TIME = 4;      // the least time a car must be able to spend in the extra lane (s)
+const COURTESY_BRAKE = 2;  // the hardest a driver brakes to let a car in (m/s²)
+const COURTESY_ROOM = 3;   // extra room a driver leaves for the car they let in (m)
+const PASS_LOOK = 40;      // how far ahead in the next lane a driver looks when passing (m)
+const PASS_EASE = 0.5;     // how quickly a driver brings their passing speed down (1/s)
+const COURTESY_REACH = 25; // how far ahead a merging car may be and still be let in (m)
+const WAIT_FULL = 20;      // queueing this long in the extra lane makes a driver fully urgent (s)
+const ZIP_TIME = 5;        // after letting one car in, a driver waits this long before the next (s)
 const PARKED = 1e9;       // laneAge of a car that has never changed lane
 
 export class Ring {
@@ -43,8 +54,11 @@ export class Ring {
     this.baseLanes = lanes;
     this.extraLane = extraLane ? lanes : -1;
     this.extraEnd = extraLane ? length / 3 : 0;
-    this.extraTaper = Math.min(EXTRA_TAPER, this.extraEnd / 4);
-    this.extraLimit = this.extraEnd - this.extraTaper;
+    // The lane widens over the gain taper and narrows over the drop taper.
+    // A car can use it until the drop taper is 45% done, about 2 m wide.
+    this.extraGain = Math.min(GAIN_TAPER, this.extraEnd * 0.2);
+    this.extraDrop = Math.min(DROP_TAPER, this.extraEnd * 0.4);
+    this.extraLimit = this.extraEnd - 0.55 * this.extraDrop;
     this.lanes = lanes + Number(extraLane);
     this.n = n;
     this.capacity = cap;
@@ -87,6 +101,11 @@ export class Ring {
     this.lane = new Uint8Array(cap);
     this.fromLane = new Uint8Array(cap);
     this.leader = new Int32Array(cap);    // -1 for clear road, -2 for the lane drop
+    this.yieldTo = new Int32Array(cap).fill(-1); // a merging car this car makes room for, or -1
+    this.yieldGap = f();     // the gap to that merging car (m)
+    this.helped = new Uint8Array(cap); // 1 while a car behind in the next lane makes room for this car
+    this.wait = f();         // time spent queueing in the extra lane (s)
+    this.urge = f();         // how urgently a car in the extra lane wants out, 0 to 1
     this.rank = new Int32Array(cap);      // place in its lane's order
     this.order = Array.from({ length: this.lanes }, () => new Int32Array(cap));  // each lane's cars by position
     this.count = new Int32Array(this.lanes);
@@ -182,12 +201,19 @@ export class Ring {
     for (let i = 0; i < n; i++) U[i] += (v[i] - U[i]) * dt / c.aAverageTime;
     if (this.lanes > 1) this.changeLanes();
     this.findLeaders();
+    if (this.extraLane > 0) this.findYields();
 
     const u = this.uNext, keepLeft = this.keepLeft && this.lanes > 1;
     for (let i = 0; i < n; i++) {
       const j = this.leader[i], human = this.type[i] === HUMAN;
       let cmd = human && this.hdm ? this.humanCommand(i) : command(this, i, j, this.gap[i]);
       if (keepLeft) cmd = this.keepLeftCap(i, this.lane[i], cmd);
+      const y = this.yieldTo[i];
+      if (y >= 0) {
+        const room = command(this, i, y, this.yieldGap[i] - COURTESY_ROOM);
+        if (room > -COURTESY_BRAKE && room < cmd) cmd = room;
+      }
+      if (this.lanes > 1 && this.type[i] !== SELFISH) cmd = this.passingCap(i, cmd);
       this.profile[i] = profileFor(this.type[i], j < 0 ? -1 : this.type[j], this.absorb);
       if (this.brakeLeft[i] > 0) {
         cmd = -c.tapBrake;
@@ -468,14 +494,22 @@ export class Ring {
     for (let i = 0; i < this.n; i++) {
       const from = this.lane[i];
       const merge = from === this.extraLane ? this.extraLimit - this.s[i] : Infinity;
-      if (merge > MERGE_DISTANCE && (this.laneAge[i] < c.mCooldown || this.brakeLeft[i] > 0)) continue;
+      let urge = 0;
+      if (from === this.extraLane) {
+        this.wait[i] = this.v[i] < 2 ? this.wait[i] + c.dt : Math.max(0, this.wait[i] - c.dt);
+        urge = Math.max(0, 1 - merge / MERGE_DISTANCE, this.wait[i] / WAIT_FULL, this.helped[i]);
+        if (urge > 1) urge = 1;
+      } else this.wait[i] = 0;
+      this.urge[i] = urge;
+      if (urge === 0 && (this.laneAge[i] < c.mCooldown || this.brakeLeft[i] > 0)) continue;
       let best = -1, bestMargin = 0;
       for (let to = from - 1; to <= from + 1; to += 2) {
         if (to < 0 || to >= this.lanes) continue;
         if (to === this.extraLane &&
-            (this.s[i] - this.len[i] < this.extraTaper ||
-             this.extraLimit - this.s[i] < MERGE_DISTANCE)) continue;
-        const margin = this.laneGain(i, from, to) + Math.max(0, 1 - merge / MERGE_DISTANCE) * MERGE_BIAS;
+            (this.s[i] - this.len[i] < 0.5 * this.extraGain ||
+             this.extraLimit - this.s[i] < MERGE_DISTANCE + ENTRY_TIME * this.v[i] ||
+             this.slowestAhead(to, this.s[i]) < this.slowestAhead(from, this.s[i]))) continue;
+        const margin = this.laneGain(i, from, to) + (to < from ? urge * MERGE_BIAS : 0);
         if (margin > bestMargin) {
           best = to;
           bestMargin = margin;
@@ -502,20 +536,22 @@ export class Ring {
   laneGain(i, from, to) {
     const { s, c } = this;
     const x = s[i];
+    const safe = from === this.extraLane ? c.mSafeBrake + this.urge[i] * (MERGE_BRAKE - c.mSafeBrake) : c.mSafeBrake;
 
     const lead = this.ahead(to, x), back = this.behindCar, mt = this.count[to];
     const gapNew = lead < 0 ? (to === this.extraLane ? this.extraLimit - x : Infinity)
       : this.dist(x, s[lead]) - this.len[lead];
     const next = lead < 0 && to === this.extraLane ? STOPPED_OBSTACLE : lead;
     const gapBack = back < 0 ? Infinity : this.dist(s[back], x) - this.len[i];
-    if (gapNew <= c.mMinGap || gapBack <= c.mMinGap) return -Infinity;
+    const minGap = from === this.extraLane ? c.mMinGap * (1 - 0.75 * this.urge[i]) : c.mMinGap;
+    if (gapNew <= minGap || gapBack <= minGap) return -Infinity;
     let aNew = command(this, i, next, gapNew);
-    if (aNew < -c.mSafeBrake) return -Infinity;
+    if (aNew < -safe) return -Infinity;
 
     let joined = 0, left = 0;
     if (back >= 0) {
       const backAfter = command(this, back, i, gapBack);
-      if (backAfter < -c.mSafeBrake) return -Infinity;
+      if (backAfter < -safe) return -Infinity;
       const backLead = to === this.extraLane ? next : mt > 1 ? lead : -1;
       const backGap = backLead === STOPPED_OBSTACLE ? this.extraLimit - s[back]
         : backLead < 0 ? Infinity : this.dist(s[back], s[backLead]) - this.len[backLead];
@@ -554,6 +590,77 @@ export class Ring {
     return to > from
       ? aNew - aOld + p * joined - (c.mThreshold + c.mBias)
       : aNew - aOld + p * left - (c.mThreshold - c.mBias);
+  }
+
+  /* Drivers pass a queueing lane with care. When a car just ahead in
+     either next lane moves slower than queueSpeed, car i goes no more than its
+     passing margin faster than the slowest car just ahead in either next
+     lane, easing down to that speed with braking no harder than
+     COURTESY_BRAKE. A human's margin runs from about 20 km/h for a driver
+     who wants 25 m/s to about 30 km/h for one who wants 37 m/s; a
+     self-driving car's is 25 km/h. Returns the acceleration, capped. */
+  passingCap(i, a) {
+    const x = this.s[i], lane = this.lane[i];
+    let slowest = Infinity;
+    for (let side = lane - 1; side <= lane + 1; side += 2) {
+      if (side < 0 || side >= this.lanes) continue;
+      const j = this.ahead(side, x);
+      if (j < 0 || this.dist(x, this.s[j]) > PASS_LOOK) continue;
+      if (this.v[j] < slowest) slowest = this.v[j];
+    }
+    if (slowest >= this.c.mQueueSpeed) return a;
+    const margin = this.type[i] === HUMAN ? 0.22 * this.desiredSpeed[i] : 7;
+    const capped = Math.max(PASS_EASE * (slowest + margin - this.v[i]), -COURTESY_BRAKE);
+    return capped < a ? capped : a;
+  }
+
+  /* The slowest car within VIEW ahead of position x in a lane, as a driver
+     judges whether that lane is worth joining. Infinity for a clear view. */
+  slowestAhead(lane, x) {
+    const lead = this.ahead(lane, x);
+    if (lead < 0) return Infinity;
+    const o = this.order[lane], m = this.count[lane], wrap = lane !== this.extraLane;
+    let slowest = Infinity;
+    for (let q = 0, k = this.rank[lead]; q < m; q++, k++) {
+      if (k === m) {
+        if (!wrap) break;
+        k = 0;
+      }
+      const j = o[k];
+      if (this.dist(x, this.s[j]) > VIEW) break;
+      if (this.v[j] < slowest) slowest = this.v[j];
+    }
+    return slowest;
+  }
+
+  /* Merging in turn. A car in the extra lane that urgently wants out, near
+     the lane's end or after queueing, gets room from the car just behind
+     it in the next lane, when it is no more than COURTESY_REACH ahead.
+     That driver treats it as a leader, so long as doing so needs no harder
+     braking than COURTESY_BRAKE. A driver who has
+     just let a car in does not let in the next, so the lanes zip together.
+     A driver with no politeness, such as a selfish car, never makes room. */
+  findYields() {
+    const E = this.extraLane, T = E - 1, o = this.order[E], m = this.count[E];
+    const c = this.c, y = this.yieldTo;
+    y.fill(-1, 0, this.n);
+    this.helped.fill(0, 0, this.n);
+    for (let k = 0; k < m; k++) {
+      const mi = o[k], x = this.s[mi];
+      this.ahead(T, x);
+      const j = this.behindCar;
+      if (j < 0 || y[j] >= 0) continue;
+      if (this.urge[mi] < 0.5) continue;
+      const p = this.type[j] === HUMAN ? this.politeness[j] : c.politeness[this.type[j]];
+      if (!(p > 0)) continue;
+      const g = this.dist(this.s[j], x) - this.len[mi];
+      if (g < 1 || g > COURTESY_REACH || g >= this.gap[j]) continue;
+      const lead = this.leader[j];
+      if (lead >= 0 && this.fromLane[lead] === E && this.laneAge[lead] < ZIP_TIME) continue;
+      y[j] = mi;
+      this.yieldGap[j] = g;
+      this.helped[mi] = 1;
+    }
   }
 
   moveToLane(i, to) {
