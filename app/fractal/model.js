@@ -234,6 +234,8 @@
           var child = parent.children[j];
           var item = { letter: child.letter, matrix: compose(frontier[i].matrix, child.matrix),
             path: frontier[i].path + j.toString(36), level: level + 1 };
+          // A branch wholly off screen is dropped: not drawn, not counted.
+          if (options.cull && options.cull(item)) continue;
           var scale = singularValues(item.matrix)[0];
           if (level + 1 >= minDepth && minScale && scale < minScale) terminal.push(item);
           else next.push(item);
@@ -291,12 +293,56 @@
     var ratios = maps.map(function (m) { return singularValues(m)[0]; });
     var same = ratios.every(function (r) { return Math.abs(r - ratios[0]) < 1e-8; });
     var exact = null;
-    if (same && rule.letters.length === 1) {
-      var count = rule.letters[0].children.length, inverse = 1 / ratios[0];
-      var rounded = Math.round(inverse);
-      if (Math.abs(inverse - rounded) < 1e-8) exact = 'log ' + count + ' / log ' + rounded;
+    // With one ratio r for every copy, the dimension is log ρ / log (1/r),
+    // where ρ is the growth rate of the copy counts. Name it when both parts
+    // are whole numbers, square roots or powers of the golden ratio.
+    if (same) {
+      var top = logName(spectralRadius(weightedMatrix(rule, 0)), true), bottom = logName(1 / ratios[0], false);
+      if (top && bottom) exact = top + ' / ' + bottom;
     }
     return { value: value, exact: exact };
+  }
+
+  var GOLDEN = (1 + Math.sqrt(5)) / 2;
+  function logName(x, allowGolden) {
+    var near = function (a, b) { return Math.abs(a - b) < 1e-7 * Math.max(1, b); };
+    if (near(x, Math.round(x)) && Math.round(x) > 1) return 'log ' + Math.round(x);
+    if (near(x * x, Math.round(x * x)) && Math.round(x * x) > 1) return 'log √' + Math.round(x * x);
+    for (var k = 1; allowGolden && k <= 6; k++) if (near(x, Math.pow(GOLDEN, k))) return (k > 1 ? k + ' ' : '') + 'log φ';
+    return null;
+  }
+
+  // A disc for each parent that holds its frame and every copy below it, at
+  // any depth: frame ⊆ disc, and each child map sends its letter's disc
+  // inside this one. Discs are centred on the frame. The radii come from the
+  // least solution of r = max(frame radius, |f(c') − c| + σ₁(f) r'), raised
+  // a little and then checked, so a disc off screen proves its whole branch
+  // is off screen. Returns null when no such discs exist, as for a rule
+  // whose copies do not all shrink.
+  function coverDiscs(rule) {
+    var frame = framePolygon(rule.frame), centre = [0, 0];
+    frame.forEach(function (p) { centre[0] += p[0] / frame.length; centre[1] += p[1] / frame.length; });
+    var reach = Math.max.apply(null, frame.map(function (p) { return Math.hypot(p[0] - centre[0], p[1] - centre[1]); }));
+    var links = rule.letters.map(function (letter) {
+      return letter.children.map(function (child) {
+        var c = apply(child.matrix, centre);
+        return { letter: child.letter, offset: Math.hypot(c[0] - centre[0], c[1] - centre[1]), scale: singularValues(child.matrix)[0] };
+      });
+    });
+    if (links.some(function (list) { return list.some(function (l) { return l.scale >= 1 - EPS; }); })) return null;
+    var radius = {}, ids = rule.letters.map(function (l) { return l.id; });
+    ids.forEach(function (id) { radius[id] = reach; });
+    var need = function (i) { return links[i].reduce(function (r, l) { return Math.max(r, l.offset + l.scale * (radius[l.letter] || reach)); }, reach); };
+    for (var step = 0; step < 400; step++) {
+      var moved = 0;
+      ids.forEach(function (id, i) { var r = need(i); moved = Math.max(moved, r - radius[id]); radius[id] = Math.max(radius[id], r); });
+      if (moved < 1e-12) break;
+    }
+    ids.forEach(function (id) { radius[id] = radius[id] * 1.001 + 1e-9; });
+    if (ids.some(function (id, i) { return need(i) > radius[id] || !isFinite(radius[id]); })) return null;
+    var discs = {};
+    ids.forEach(function (id) { discs[id] = { centre: centre, radius: radius[id] }; });
+    return discs;
   }
 
   function phi(s1, s2, exponent) {
@@ -445,6 +491,15 @@
       if (!leaves.clipped || level <= 1) break;
       level--;
     }
+    // A converging rule with few copies per level goes deeper, while a whole
+    // level holds at most 20,000 copies. The box count needs many more
+    // sample points than boxes: the Dragon has only 128 copies at level 7.
+    var target = Math.min(20000, options.maxInstances || 60000);
+    while (stat.name === 'Converges' && !leaves.clipped && leaves.length && leaves.length * 2 <= target && level < 24) {
+      var deeper = enumerate(rule, start, level + 1, { maxInstances: target, maxMs: options.maxMs || 0 });
+      if (deeper.clipped || deeper.length <= leaves.length) break;
+      leaves = deeper; level++;
+    }
     var points = [], samples = [];
     leaves.forEach(function (item) {
       transformedFrame(rule.frame, item.matrix).forEach(function (p) { points.push(p); });
@@ -457,7 +512,9 @@
     var formula = sim ? sim.value : affinity;
     var box = boxDimension(samples);
     var overlap = directOverlap(rule) || (formula != null && formula > 2 + 1e-6) ||
-      (formula != null && box != null && formula - box > 0.25 && leaves.length > 100);
+      // A box count on a 64 × 64 grid reads low for a solid shape with a rough
+      // edge (the Dragon reads 1.75 for 2), so the gap must pass 0.35.
+      (formula != null && box != null && formula - box > 0.35 && leaves.length > 100);
     return {
       status: stat, dimension: formula, exactDimension: sim && sim.exact,
       dimensionKind: sim ? 'Similarity' : 'Affinity estimate', boxDimension: box,
@@ -520,7 +577,7 @@
     polygonArea: polygonArea, convexHull: convexHull, intersectionArea: intersectionArea,
     enumerate: enumerate, expand: expand, spectralRadius: spectralRadius, similarityDimension: similarityDimension,
     affinityDimension: affinityDimension, status: status, growthBounds: growthBounds, eigenRadius: eigenRadius, bounds: bounds, boxDimension: boxDimension,
-    analyse: analyse, directOverlap: directOverlap, attractorHulls: attractorHulls, child: child, baseRule: baseRule,
+    coverDiscs: coverDiscs, analyse: analyse, directOverlap: directOverlap, attractorHulls: attractorHulls, child: child, baseRule: baseRule,
     demos: demos, nextId: nextId
   };
 });

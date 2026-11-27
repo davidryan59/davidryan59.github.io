@@ -15,6 +15,9 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Report convergence, dimension, box count, convex hull, and overlap.
 - [x] Edit exact square grids from 2 by 2 to 5 by 5.
 - [x] Edit subdivided equilateral-triangle grids.
+- [ ] Finish Square and Triangle modes. Until then their buttons are greyed
+      out with a "Coming soon" tooltip, and the blank square and blank
+      triangle demos are gone. A saved rule in either mode still opens.
 - [x] Move, turn, scale, flip, stretch, and skew children in Free mode.
 - [x] Support Stretch, Stacking, and Grid per letter.
 - [x] List the children in drawing order, reorder them by drag, and edit
@@ -26,6 +29,8 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Offer Fast, Balanced, Detailed, and editable calculation limits.
 - [x] Use the four-corner control layout and fit all six browser sizes.
 - [x] Add the builder-page entry and `/fractal` short address.
+- [x] Draw copies in colour batches and skip branches wholly off screen.
+- [x] Show the version marker at the stage's bottom right.
 
 ## Rule model
 
@@ -145,8 +150,26 @@ The iteration strip shows levels zero through four. The main view expands the
 selected starting letter to the chosen depth. It stops expanding after 60,000
 frames, so a large branching rule stays responsive. During a child drag or a
 Iterations drag it draws at most 4000 copies within 40 ms, then draws in full
-on release. Copies wholly off the canvas are not drawn, though the calculation
-still spends its copy budget on them.
+on release.
+
+`drawBatch()` draws the main view and the iteration strip. Copies of one
+colour and opacity share one `Path2D`, so the canvas fills and strokes each
+colour once. Every outline goes in anticlockwise, so overlapping copies,
+flipped or not, never cancel to a hole under the nonzero fill rule. Outlines
+end with a line back to their start: `closePath()` on a large `Path2D` slows
+as the path grows, and took 15 s of a 3 s-per-frame profile. Copies large
+enough for a number get one, drawn on top. Colour groups draw in the order
+they first appear, so overlap order follows the colours. 500,000 Dragon
+copies draw in about 240 ms in Chrome on an M-series Mac.
+
+The main view skips branches wholly off screen, so the copy and time limits
+are spent on what shows. `coverDiscs()` in the model gives each parent a disc
+that holds its frame and every copy below it, at any depth. The radii are the
+least solution of r = max(frame radius, |f(c′) − c| + σ₁(f) r′), raised by
+0.1% and then checked against that inequality, so the bound is proved rather
+than sampled. `expand()` takes a `cull` test and drops a child whose mapped
+disc lies off the canvas. A rule with a copy that does not shrink has no
+discs and is not pruned, and Grows and Cycles views are never pruned.
 
 Converging rules share one fitted camera. Growing and cycling rules show the
 latest four levels together. The main view can show or hide its convex hull.
@@ -175,16 +198,28 @@ and Cycles show the latest four levels in the main view.
 
 For similarity maps, the app solves the Mauldin-Williams equation. It finds
 the value `s` where the spectral radius of the weighted child-count matrix is
-one. Equal ratios also get an exact display such as `log 3 / log 2`.
+one. When every copy shares one ratio r, the value is log ρ / log (1/r), where
+ρ is the spectral radius of the child-count matrix. The Formula row names it
+when ρ is a whole number, a square root or a power of the golden ratio φ, and
+1/r is a whole number or a square root: `log 3 / log 2` for the Sieve,
+`2 log φ / log 2` for the Linked pair, `log 2 / log √2` for the Dragon.
+Otherwise the row reads Method, and names Similarity equation or Affinity
+estimate. When overlap is likely the value shows as an upper limit, `≤ 1.4181`.
+A parent with no children reads Empty, with dashes in every row.
 
 For affine maps, the app estimates Falconer's affinity dimension from products
 of singular values. The estimate is numerical. A separate box count fits the
-slope of occupied boxes at several resolutions.
+slope of occupied boxes on 8, 16, 32 and 64 square grids, shown to 2 places.
+A converging rule is analysed at the deepest level holding at most 20,000
+copies, starting from Analysis depth, so a two-copy rule such as the Dragon
+has enough sample points.
 
 The convex hull comes from the transformed frame corners at the rendered
 depth. Andrew's monotone-chain algorithm returns its corners and area. The
 overlap flag combines direct child-polygon intersections, a similarity
-dimension above two, and disagreement between the formula and box count.
+dimension above two, and a formula more than 0.35 above the box count. The
+box count reads low for a solid shape with a rough edge (the Dragon reads
+1.75 for 2), so a smaller gap gives false alarms.
 
 ## Address and demos
 
@@ -203,14 +238,15 @@ Every expansion stops at the first applicable limit. The stage names that
 limit beside its copy count. No limit is ever passed by work in the
 background: a high Iterations value with a copy limit of 25,000 builds at most
 25,000 copies. Frame time covers a whole frame: working out the copies and
-drawing them. Drawing takes most of it: working out 25,000 Dragon copies
-takes about 5 ms, and drawing them about 35 ms. Each frame measures its time
-per copy, and the next frame turns Frame time into a copy limit. A frame
-stopped this way reads "time limit". To keep a view fast, set the other
-limits high and Frame time low, such as 50 ms. Minimum iterations sets the
-fewest iterations before Minimum scale may stop a copy splitting. Analysis
-depth sets the iterations behind the readouts (box dimension, overlap and the
-hull) and does not change the drawing. Minimum scale uses the affine map's largest
+drawing them. Each full frame measures its time per copy, and the next frame
+turns Frame time into a copy limit. Drag frames do not teach the estimate:
+they stop at shallower levels, where larger copies cost more each to fill. A
+frame stopped this way reads "time limit". To keep a view fast, set the other
+limits high and Frame time low: at 50 ms the Dragon draws about 105,000
+copies a frame. Minimum iterations sets the fewest iterations before Minimum
+scale may stop a copy splitting. Analysis depth sets the fewest iterations
+behind the readouts (box dimension, overlap and the hull) and does not change
+the drawing. Minimum scale uses the affine map's largest
 singular value, so the same limit works for any frame shape and for stretched
 copies.
 
@@ -218,19 +254,22 @@ copies.
 |---|---:|---:|---:|
 | Iterations | 6 | 7 | 10 |
 | Minimum iterations | 3 | 4 | 5 |
-| Maximum copies | 10,000 | 60,000 | 120,000 |
-| Minimum linear scale | 1/1,000 | 1/10,000 | Unlimited |
+| Maximum copies | 10,000 | 25,000 | 120,000 |
+| Minimum linear scale | 1/1000 | 1/2500 | Unlimited |
 | Frame time | 100 ms | 250 ms | 1,000 ms |
 | Analysis depth | 5 | 7 | 9 |
 | Hull refinement | 16 | 32 | 64 steps |
 
-Advanced controls expose every value. Maximum copies, minimum scale, and
-frame time use logarithmic stepped sliders. Iteration depths use linear
+Advanced holds Maximum copies, Minimum scale and Frame time. A fourth level
+inside it, Technical, holds Minimum iterations, Analysis depth and Hull
+refinement, which most visitors never need. Each control has a tooltip.
+Maximum copies, minimum scale, and frame time use logarithmic stepped
+sliders. Iteration depths use linear
 sliders. Hull refinement uses a select. Changing one advanced value marks the
 settings Custom. Selecting a preset restores all seven values.
 
-The selectable ranges are 1,000 to 250,000 copies, minimum scales from 1/10
-to 1/1,000,000 or Unlimited, and frame times from 25 to 2,000 ms.
+The selectable ranges are 1 to 500,000 copies, minimum scales from 1/1 to
+1/1,000,000 or Unlimited, and frame times from 1 to 2000 ms.
 Iterations run from 0, the parent alone, to 20. These limits and the selected view travel
 with a shared address.
 
@@ -255,6 +294,17 @@ On an upright touch screen, the editor and readouts become horizontally
 scrolling cards below the limit. On a short sideways touch screen, the editor
 becomes a narrow right rail. Every canvas uses Pointer Events. The full-screen
 button appears only where the browser supports it.
+
+## Version marker
+
+The stage's bottom right shows `v{X.Y.Z} ({hash})`, such as `v1.0.0 (b5ce)`.
+The site has no build step, so nothing can write the hash into the page.
+On drbuild.uk, `showVersion()` reads the latest commit that changed
+`app/fractal` from GitHub's public API, once per visit, and keeps it in
+session storage. A local copy shows `(local)`, and a failed request shows
+`(?)`. Raise `APP_VERSION` in `app.js` before each deploy. The hash names the
+last commit to change the app, which is the one GitHub Pages serves once the
+deploy finishes.
 
 ## Later
 

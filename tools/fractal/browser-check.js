@@ -45,6 +45,8 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.waitForSelector('#status-badge');
   equal(await page.locator('#status-badge').textContent(), 'Converges', 'Sieve converges');
   equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'Sieve formula');
+  check(/^\d\.\d\d$/.test(await page.locator('#box-dimension').textContent()), 'box count shows two decimals');
+  equal(await page.locator('#build-version').textContent(), 'v1.0.0 (local)', 'a local copy shows its version as local');
   check(Math.abs(Number(await page.locator('#dimension-value').textContent()) - Math.log(3) / Math.log(2)) < 0.001, 'Sieve dimension');
   equal(await rows(), 3, 'Sieve has three children');
   equal(await page.locator('[data-mode].active').textContent(), 'Free', 'Free mode is the default');
@@ -249,6 +251,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   equal(await tabs(), 2, 'linked demo has two parents');
   equal(await page.locator('#letter-tabs button').first().textContent(), '1', 'parents are numbered');
   check(Math.abs(Number(await page.locator('#dimension-value').textContent()) - 1.3885) < 0.002, 'linked dimension');
+  equal(await page.locator('#dimension').textContent(), '2 log φ / log 2', 'linked formula names the golden ratio');
   await page.locator('#rule-editor').focus();
   await page.keyboard.press('Shift+Digit2');
   equal(await activeTab(), '2', 'Shift+2 shows parent 2');
@@ -274,12 +277,12 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   equal(await rows(), 2, 'the moved parent keeps its children under its new number');
   console.log('Duplicated, removed and reordered parents.');
 
-  await page.selectOption('#demo', 'blankTriangle');
-  equal(await page.locator('[data-mode].active').textContent(), 'Triangle', 'blank triangle opens in Triangle mode');
-  const editorBox = await page.locator('#rule-editor').boundingBox();
-  await page.mouse.click(editorBox.x + editorBox.width / 2, editorBox.y + editorBox.height * 0.45);
-  equal(await rows(), 1, 'a tap adds a triangle child');
-  check(await page.locator('#flip-v').isDisabled(), 'Triangle mode has no vertical flip');
+  equal(await page.locator('#demo option[value^="blank"]').count(), 0, 'the blank square and triangle demos are gone');
+  equal(await page.locator('[data-mode="triangle"]').getAttribute('title'), 'Coming soon', 'Triangle says coming soon');
+  await page.click('[data-mode="triangle"]', { force: true });
+  equal(await page.locator('[data-mode].active').textContent(), 'Free', 'greyed Triangle leaves the rule in Free mode');
+  await page.click('[data-mode="square"]', { force: true });
+  equal(await page.locator('[data-mode].active').textContent(), 'Free', 'greyed Square leaves the rule in Free mode');
 
   await page.selectOption('#demo', 'free');
   console.log('Opened Free demo.');
@@ -293,6 +296,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('#toggle-menu');
   await page.click('#add-letter');
   equal(await tabs(), 2, 'add a parent');
+  equal(await page.locator('#status-badge').textContent(), 'Empty', 'a parent with no children reads Empty');
   check((await page.url()).includes('#rule='), 'an edit encodes the rule');
 
   const restored = await browser.newPage({ viewport: { width: 900, height: 700 } });

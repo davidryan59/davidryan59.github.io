@@ -81,4 +81,26 @@ const overlap = M.clone(demos.sieve);
 overlap.letters[0].children.push(M.child('p1', overlap.letters[0].children[0].matrix.slice()));
 assert.strictEqual(M.directOverlap(overlap), true, 'coincident children overlap');
 
-console.log('Fractal model: 36 checks passed.');
+// Named formulas for one shared ratio.
+assert.strictEqual(M.similarityDimension(demos.linked).exact, '2 log φ / log 2', 'linked pair names the golden ratio');
+const dragon = M.clone(demos.sieve);
+dragon.letters[0].children = [M.child('p1', [.5, .5, -.5, .5, 0, 0]), M.child('p1', [-.5, .5, -.5, -.5, 1, 0])];
+assert.strictEqual(M.similarityDimension(dragon).exact, 'log 2 / log √2', 'the dragon is log 2 / log √2');
+assert.strictEqual(M.similarityDimension(demos.free).exact, null, 'unequal ratios name no formula');
+assert.strictEqual(M.analyse(dragon, 'p1', 7).overlap, false, 'the dragon has no overlap');
+
+// Each parent's disc holds every copy below it, so pruning by disc is safe.
+for (const [name, rule] of [['sieve', demos.sieve], ['linked', demos.linked], ['free', demos.free], ['dragon', dragon]]) {
+  const discs = M.coverDiscs(rule);
+  assert(discs, name + ' has cover discs');
+  for (const top of rule.letters) {
+    const disc = discs[top.id];
+    const inside = M.enumerate(rule, top.id, 8, 20000).every(item => M.transformedFrame(rule.frame, item.matrix)
+      .every(p => Math.hypot(p[0] - disc.centre[0], p[1] - disc.centre[1]) <= disc.radius + 1e-9));
+    assert(inside, name + ' parent ' + top.id + ' disc holds level 8');
+  }
+}
+const expanding = M.clone(demos.sieve); expanding.letters[0].children[0].matrix = [1.1, 0, 0, 1.1, 0, 0];
+assert.strictEqual(M.coverDiscs(expanding), null, 'a growing copy has no cover discs');
+
+console.log('Fractal model: 50 checks passed.');

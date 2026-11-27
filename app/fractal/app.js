@@ -3,17 +3,13 @@
 
   var M = window.FractalModel;
   var PALETTE = ['#e9b44c', '#59c3b5', '#dc6f82', '#8297e8', '#d98fd0', '#7fc66c', '#f28b54', '#a68bd7', '#57a9d8', '#d2c65e'];
-  var DEMO_NAMES = { sieve: 'Sierpinski sieve', linked: 'Linked pair', free: 'Free placement', blankSquare: 'Blank square rule', blankTriangle: 'Blank triangle rule' };
+  var DEMO_NAMES = { sieve: 'Sierpinski sieve', linked: 'Linked pair', free: 'Free placement' };
   var EXPLANATIONS = {
     sieve: 'Three half-size copies leave the top-right quarter empty. Repeating that rule makes the right-angled Sierpinski triangle.',
     linked: 'Parent 1 makes one 1 and one 2. Parent 2 makes one 1 and two 2s. The two parents share one limit through a linked rule.',
-    free: 'Three freely placed copies show continuous position, angle, scale, and reflection. The dashed frame is their parent.',
-    blankSquare: 'Tap square cells to build a new rule.',
-    blankTriangle: 'Tap upright or downward triangle cells to build a new rule.'
+    free: 'Three freely placed copies show continuous position, angle, scale, and reflection. The dashed frame is their parent.'
   };
   var demos = M.demos();
-  demos.blankSquare = M.baseRule('square', 'square', [{ id: 'p1', children: [] }]);
-  demos.blankTriangle = M.baseRule('triangle', 'triangle', [{ id: 'p1', children: [] }]);
   // Slider stops: every whole number from 1 to 10, then round numbers in each
   // decade (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6 and 8 times ten to a power). Round
   // numbers come first, even where that bends the log spacing a little.
@@ -110,7 +106,8 @@
   function orderFraction(path) {
     var letter = state.currentLetter, start = 0, width = 1;
     for (var i = 0; i < path.length; i++) {
-      var kids = orderLetters[letter], j = parseInt(path[i], 36);
+      // The path holds base-36 digits: 0 to 9, then a to z.
+      var code = path.charCodeAt(i), kids = orderLetters[letter], j = code < 58 ? code - 48 : code - 87;
       if (!kids || !kids.length || !(j < kids.length)) break;
       start += width * j / kids.length; width /= kids.length; letter = kids[j];
     }
@@ -298,8 +295,12 @@
     return null;
   }
 
+  // Square and Triangle are greyed out until they are finished. A saved rule
+  // in either mode still opens and draws.
+  var MODES_READY = { free: true };
   function changeMode(mode) {
     if (mode === state.rule.mode) return true;
+    if (!MODES_READY[mode]) { notice('Square and Triangle modes are coming soon. Free mode with Snap corners covers grid layouts.'); return false; }
     if (mode === 'free') { state.rule.mode = 'free'; state.selectedId = null; state.editorCamera = null; markEdited(); commit(); return true; }
     var targetFrame = mode;
     if (state.rule.frame !== targetFrame && allChildren().length) {
@@ -374,6 +375,50 @@
     ctx.restore();
   }
 
+  // Draws many copies fast. Copies of one colour and opacity share one path,
+  // so the canvas fills and strokes each colour once instead of once per
+  // copy. Each outline is added anticlockwise, so overlapping copies, flipped
+  // or not, never cancel to a hole. Copies large enough for a number still
+  // get one, drawn on top. Colour groups draw in the order they first
+  // appear, so the overlap order follows the colours, not each copy.
+  function drawBatch(ctx, items, view, options) {
+    var frame = M.framePolygon(state.rule.frame), n = frame.length, groups = [], byKey = {}, marks = [];
+    var clip = options.clip, threshold = options.letterThreshold || 10, xs = new Array(n), ys = new Array(n);
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i], m = item.matrix, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, area = 0;
+      for (var k = 0; k < n; k++) {
+        var p = frame[k], x = view.x + view.scale * (m[0] * p[0] + m[2] * p[1] + m[4]), y = view.y + view.scale * (m[1] * p[0] + m[3] * p[1] + m[5]);
+        xs[k] = x; ys[k] = y; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+      if (clip && (maxX < -2 || maxY < -2 || minX > clip[0] + 2 || minY > clip[1] + 2)) continue;
+      for (k = 0; k < n; k++) { var j = (k + 1) % n; area += xs[k] * ys[j] - xs[j] * ys[k]; }
+      var small = Math.sqrt(Math.abs(area / 2)) < threshold, colour = itemColour(item);
+      // Canvas ignores an opacity above 1, so clamp it.
+      var alpha = Math.min(1, options.alphaFor ? options.alphaFor(item) : (options.alpha == null ? 1 : options.alpha)), key = colour + alpha;
+      var group = byKey[key];
+      if (!group) { group = byKey[key] = { colour: colour, alpha: alpha, solid: null, tint: null }; groups.push(group); }
+      var target = small ? (group.solid || (group.solid = new Path2D())) : (group.tint || (group.tint = new Path2D()));
+      // Each outline ends with a line back to its start. Path2D's closePath
+      // slows as the path grows, so it is not used.
+      if (area < 0) { target.moveTo(xs[0], ys[0]); for (k = 1; k < n; k++) target.lineTo(xs[k], ys[k]); target.lineTo(xs[0], ys[0]); }
+      else { target.moveTo(xs[n - 1], ys[n - 1]); for (k = n - 2; k >= 0; k--) target.lineTo(xs[k], ys[k]); target.lineTo(xs[n - 1], ys[n - 1]); }
+      if (!small && options.letters !== false) marks.push([item, colour, alpha]);
+    }
+    ctx.save(); ctx.lineWidth = options.lineWidth || 1; ctx.lineJoin = 'bevel';
+    groups.forEach(function (group) {
+      ctx.globalAlpha = group.alpha; ctx.strokeStyle = group.colour;
+      if (group.tint) { ctx.fillStyle = group.colour + '28'; ctx.fill(group.tint); ctx.stroke(group.tint); }
+      if (group.solid) { ctx.fillStyle = group.colour; ctx.fill(group.solid); ctx.stroke(group.solid); }
+    });
+    ctx.restore();
+    marks.forEach(function (mark) {
+      var m = mark[0].matrix, s = view.scale;
+      ctx.save(); ctx.globalAlpha = mark[2];
+      ctx.transform(s * m[0], s * m[1], s * m[2], s * m[3], view.x + s * m[4], view.y + s * m[5]);
+      drawMark(ctx, mark[0].letter, mark[1], state.rule.frame); ctx.restore();
+    });
+  }
+
   // The orientation mark: the parent's number with an underline beneath it.
   // The underline shows which side is down. In the editor, the child's own
   // letter, A, B, C and on, sits at its top left (a triangle: near its top),
@@ -414,7 +459,7 @@
       var instances = level ? M.expand(state.rule, state.currentLetter, level, { maxInstances: 12000, maxMs: 0 }) : [{ letter: state.currentLetter, matrix: M.identity() }];
       if (!instances.length) return;
       var view = makeView(info.width, info.height, instancesBounds(instances, state.rule.frame), 12, null);
-      instances.forEach(function (item) { drawInstance(info.ctx, item, view, { letterThreshold: 7, lineWidth: .7 }); });
+      drawBatch(info.ctx, instances, view, { letterThreshold: 7, lineWidth: .7 });
     });
   }
 
@@ -424,8 +469,10 @@
   // The time limit covers a whole frame: working out the copies and drawing
   // them. Drawing takes most of it, and its cost is known only afterwards, so
   // each frame measures its time per copy and the next frame turns the time
-  // limit into a copy limit. The first frame assumes 2 µs a copy.
-  var msPerCopy = .002;
+  // limit into a copy limit. The first frame assumes 1 µs a copy. Only full
+  // frames teach the estimate: a drag frame stops at shallower levels, where
+  // larger copies cost more each to fill.
+  var msPerCopy = .001;
   function timeCopies(ms) { return Math.max(1, Math.floor(ms / msPerCopy)); }
   function measureFrame(copies, ms) {
     if (copies < 200) return;
@@ -433,12 +480,12 @@
     msPerCopy = msPerCopy * .5 + cost * .5;
   }
 
-  function mainInstances() {
+  function mainInstances(cull) {
     var depth = state.depth, cap = state.dragging ? Math.min(DRAG_COPIES, state.limits.maxInstances) : state.limits.maxInstances;
     var maxMs = state.dragging ? Math.min(DRAG_MS, state.limits.maxMs) : state.limits.maxMs;
     var timeCap = maxMs ? timeCopies(maxMs) : Infinity, byTime = timeCap < cap;
     if (byTime) cap = timeCap;
-    var items = expandMain(depth, cap, { maxInstances: cap, maxMs: maxMs,
+    var items = expandMain(depth, cap, { maxInstances: cap, maxMs: maxMs, cull: cull,
       minScale: state.limits.minScale, minDepth: Math.min(state.limits.minDepth, depth) });
     if (byTime && items.stoppedBy === 'copies') items.stoppedBy = 'time';
     return items;
@@ -461,6 +508,20 @@
     return depth ? M.expand(state.rule, state.currentLetter, depth, options) : [{ letter: state.currentLetter, matrix: M.identity(), level: 0 }];
   }
 
+  // A test for expand: true when a copy's whole branch lies off the canvas.
+  function offScreen(view, info) {
+    var discs = M.coverDiscs(state.rule);
+    if (!discs) return null;
+    var pad = 2, w = info.width, h = info.height;
+    return function (item) {
+      var disc = discs[item.letter]; if (!disc) return false;
+      var m = item.matrix, c = disc.centre;
+      var x = view.x + view.scale * (m[0] * c[0] + m[2] * c[1] + m[4]), y = view.y + view.scale * (m[1] * c[0] + m[3] * c[1] + m[5]);
+      var r = view.scale * M.singularValues(m)[0] * disc.radius + pad;
+      return x + r < 0 || y + r < 0 || x - r > w || y - r > h;
+    };
+  }
+
   function renderMain() {
     buildOrder();
     var info = prepareCanvas(el.limit), ctx = info.ctx;
@@ -470,19 +531,22 @@
       ctx.fillText('Parent ' + label(state.currentLetter) + ' has no children yet.', info.width / 2, info.height / 2);
       el.instanceCount.textContent = ''; return;
     }
-    var started = performance.now(), instances = mainInstances();
-    var b = state.analysis && state.analysis.bounds && state.analysis.status.name === 'Converges' ? state.analysis.bounds : instancesBounds(instances, state.rule.frame);
+    // When the frame is known before expanding, branches wholly off screen
+    // are dropped, so the copy and time limits are spent on what shows.
+    var started = performance.now();
+    var known = state.analysis && state.analysis.bounds && state.analysis.status.name === 'Converges' ? state.analysis.bounds : null;
     // While a child is dragged, the main view keeps the scale it had at the
     // start, so the picture does not jump as the extent changes.
-    if (state.editorDrag && state.editorDrag.mainBounds) b = state.editorDrag.mainBounds;
+    if (state.editorDrag && state.editorDrag.mainBounds) known = state.editorDrag.mainBounds;
+    var view = known ? makeView(info.width, info.height, known, 42, state.camera) : null;
+    var instances = mainInstances(view && !growing() ? offScreen(view, info) : null);
+    var b = known || instancesBounds(instances, state.rule.frame);
     state.lastMainBounds = b;
-    var view = makeView(info.width, info.height, b, 42, state.camera);
-    instances.forEach(function (item) {
-      var alpha = item.level == null ? .93 : .22 + .18 * item.level;
-      drawInstance(ctx, item, view, { letterThreshold: 8, lineWidth: .65, alpha: alpha, clip: [info.width, info.height] });
-    });
+    if (!view) view = makeView(info.width, info.height, b, 42, state.camera);
+    drawBatch(ctx, instances, view, { letterThreshold: 8, lineWidth: .65, clip: [info.width, info.height],
+      alphaFor: function (item) { return item.level == null ? .93 : .22 + .18 * item.level; } });
     if (state.showHull && state.analysis && state.analysis.status.name === 'Converges' && !state.editorDrag) drawHull(ctx, state.analysis.hull, view);
-    measureFrame(instances.length, performance.now() - started);
+    if (!state.dragging) measureFrame(instances.length, performance.now() - started);
     var reason = { copies: 'copy limit', time: 'time limit', scale: 'scale limit', iterations: 'iteration limit' }[instances.stoppedBy];
     el.instanceCount.textContent = count(instances.length) + (instances.length === 1 ? ' copy' : ' copies') + (reason ? ' · ' + reason : '');
   }
@@ -554,13 +618,18 @@
   }
 
   function renderReadouts() {
-    var a = state.analysis, status = a.status.name;
-    el.statusBadge.textContent = status; el.statusBadge.dataset.status = status.toLowerCase(); el.statusDetail.textContent = a.status.detail;
-    el.dimension.textContent = a.exactDimension || a.dimensionKind;
-    el.dimensionValue.textContent = a.dimension == null ? '—' : formatNumber(a.dimension, 4);
-    el.boxDimension.textContent = a.boxDimension == null ? '—' : formatNumber(a.boxDimension, 3);
-    el.overlap.textContent = a.overlap ? 'Likely' : 'None found';
-    el.hullCorners.textContent = a.hull.length; el.hullArea.textContent = formatNumber(a.hullArea, 4);
+    var a = state.analysis, status = a.status.name, empty = !currentLetter().children.length;
+    if (empty) status = 'Empty';
+    el.statusBadge.textContent = status; el.statusBadge.dataset.status = status.toLowerCase();
+    el.statusDetail.textContent = empty ? 'Parent ' + label(state.currentLetter) + ' has no children yet. Add one to start.' : a.status.detail;
+    // A named formula shows as Formula. Otherwise the row says how the value
+    // was found. Where copies overlap, the value is only an upper limit.
+    el.dimensionLabel.textContent = a.exactDimension ? 'Formula' : 'Method';
+    el.dimension.textContent = empty ? '—' : a.exactDimension || (a.dimensionKind === 'Similarity' ? 'Similarity equation' : a.dimensionKind);
+    el.dimensionValue.textContent = empty || a.dimension == null ? '—' : (a.overlap ? '≤ ' : '') + formatNumber(a.dimension, 4);
+    el.boxDimension.textContent = empty || a.boxDimension == null ? '—' : formatNumber(a.boxDimension, 2);
+    el.overlap.textContent = empty ? '—' : a.overlap ? 'Likely' : 'None found';
+    el.hullCorners.textContent = empty ? '—' : a.hull.length; el.hullArea.textContent = empty ? '—' : formatNumber(a.hullArea, 4);
     el.explanationText.textContent = state.demo ? EXPLANATIONS[state.demo] : 'The selected parent expands through the linked affine rule. Change a child to see every view and measurement update.';
   }
 
@@ -1766,13 +1835,32 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','mode-row','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','cols-field','snap-field','toggle-snap','lock-row','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','depth','depth-value','toggle-menu','toggle-popover','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','mode-row','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','cols-field','snap-field','toggle-snap','lock-row','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','dimension-label','build-version','depth','depth-value','toggle-menu','toggle-popover','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }
 
+  // The version marker, v{X.Y.Z} ({hash}). This is a static site with no
+  // build step, so the hash is the first four characters of the latest
+  // commit that changed this app, read from GitHub's public API once per
+  // visit. A local copy shows "local". Raise APP_VERSION before each deploy.
+  var APP_VERSION = 'v1.0.0';
+  function showVersion() {
+    var show = function (hash) { el.buildVersion.textContent = APP_VERSION + ' (' + hash + ')'; };
+    if (!/(^|\.)drbuild\.uk$|github\.io$/.test(location.hostname)) { show('local'); return; }
+    try { var kept = sessionStorage.getItem('fractal-build'); if (kept) { show(kept); return; } } catch (error) {}
+    show('…');
+    fetch('https://api.github.com/repos/davidryan59/davidryan59.github.io/commits?path=app/fractal&per_page=1')
+      .then(function (response) { return response.ok ? response.json() : Promise.reject(); })
+      .then(function (list) {
+        var hash = list && list[0] && list[0].sha ? list[0].sha.slice(0, 4) : '?'; show(hash);
+        try { sessionStorage.setItem('fractal-build', hash); } catch (error) {}
+      })
+      .catch(function () { show('?'); });
+  }
+
   function init() {
-    collectElements();
+    collectElements(); showVersion();
     el.maxCopies.max = COPY_VALUES.length - 1; el.minScale.max = SCALE_VALUES.length - 1; el.maxTime.max = TIME_VALUES.length - 1;
     var custom = document.createElement('option'); custom.value = ''; custom.textContent = 'Custom rule'; el.demo.appendChild(custom);
     loadAddress(); Theme.wireThemeToggle();

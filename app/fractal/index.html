@@ -59,15 +59,13 @@
           <option value="sieve">Sieve</option>
           <option value="linked">Linked pair</option>
           <option value="free">Free placement</option>
-          <option value="blankSquare">Blank square</option>
-          <option value="blankTriangle">Blank triangle</option>
         </select>
       </div>
 
       <div id="mode-row" class="mode-row" role="group" aria-label="Mode">
         <button type="button" data-mode="free">Free</button>
-        <button type="button" data-mode="square">Square</button>
-        <button type="button" data-mode="triangle">Triangle</button>
+        <button type="button" data-mode="square" aria-disabled="true" title="Coming soon">Square</button>
+        <button type="button" data-mode="triangle" aria-disabled="true" title="Coming soon">Triangle</button>
       </div>
 
       <div class="letter-row">
@@ -177,9 +175,12 @@
               <label class="limit-row" title="Stop before the drawing holds more copies than this"><span>Maximum copies <output id="max-copies-value">60,000</output></span><input id="max-copies" type="range" min="0" max="8" step="1" value="5"></label>
               <label class="limit-row" title="Stop splitting a copy once it is smaller than this, after the minimum iterations"><span>Minimum scale <output id="min-scale-value">1/10,000</output></span><input id="min-scale" type="range" min="0" max="6" step="1" value="3"></label>
               <label class="limit-row" title="Work out and draw each frame within this time. The app measures how long a copy takes to draw and limits the copies to fit"><span>Frame time <output id="max-time-value">250 ms</output></span><input id="max-time" type="range" min="0" max="8" step="1" value="4"></label>
-              <label class="limit-row" title="Minimum scale cannot stop splitting before this many iterations"><span>Minimum iterations <output id="min-depth-value">4</output></span><input id="min-depth" type="range" min="0" max="8" step="1" value="4"></label>
-              <label class="limit-row" title="The iterations used for the readouts: box dimension, overlap and the hull. It does not change the drawing"><span>Analysis depth <output id="analysis-depth-value">7</output></span><input id="analysis-depth" type="range" min="4" max="10" step="1" value="7"></label>
-              <label class="limit-select">Hull refinement<select id="hull-iterations"><option value="8">8 steps</option><option value="16">16 steps</option><option value="32" selected>32 steps</option><option value="64">64 steps</option></select></label>
+              <details id="technical-limits">
+                <summary>Technical</summary>
+                <label class="limit-row" title="Minimum scale cannot stop splitting before this many iterations"><span>Minimum iterations <output id="min-depth-value">4</output></span><input id="min-depth" type="range" min="0" max="8" step="1" value="4"></label>
+                <label class="limit-row" title="The iterations used for the readouts: box dimension, overlap and the hull. It does not change the drawing"><span>Analysis depth <output id="analysis-depth-value">7</output></span><input id="analysis-depth" type="range" min="4" max="10" step="1" value="7"></label>
+                <label class="limit-select" title="How many rounds refine each parent's hull, the dashed outline round the fractal. More rounds fit it more tightly">Hull refinement<select id="hull-iterations"><option value="8">8 steps</option><option value="16">16 steps</option><option value="32" selected>32 steps</option><option value="64">64 steps</option></select></label>
+              </details>
             </details>
           </div>
         </div>
@@ -198,7 +199,7 @@
       </div>
 
       <div id="notice" class="notice" role="status" hidden></div>
-      <div class="stage-caption"><span id="instance-count">0 frames</span></div>
+      <div class="stage-caption"><span id="instance-count">0 frames</span><span id="build-version"></span></div>
     </div>
   </section>
 
@@ -209,7 +210,7 @@
       <p id="status-detail"></p>
     </section>
     <dl class="readouts">
-      <div><dt>Formula</dt><dd id="dimension">log 3 / log 2</dd></div>
+      <div><dt id="dimension-label">Formula</dt><dd id="dimension">log 3 / log 2</dd></div>
       <div><dt>Value</dt><dd id="dimension-value">1.585</dd></div>
       <div><dt>Box count</dt><dd id="box-dimension">1.58</dd></div>
       <div><dt>Overlap</dt><dd id="overlap">None found</dd></div>
