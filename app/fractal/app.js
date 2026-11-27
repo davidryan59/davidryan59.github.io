@@ -3,9 +3,10 @@
 
   var M = window.FractalModel;
   var PALETTE = ['#e9b44c', '#59c3b5', '#dc6f82', '#8297e8', '#d98fd0', '#7fc66c', '#f28b54', '#a68bd7', '#57a9d8', '#d2c65e'];
-  var DEMO_NAMES = { sieve: 'Sierpinski sieve', linked: 'Linked pair', free: 'Free placement' };
+  var DEMO_NAMES = { sieve: 'Sierpinski sieve', gasket: 'Sierpinski gasket', linked: 'Linked pair', free: 'Free placement' };
   var EXPLANATIONS = {
     sieve: 'Three half-size copies leave the top-right quarter empty. Repeating that rule makes the right-angled Sierpinski triangle.',
+    gasket: 'Three half-size triangles sit in the corners of their parent, leaving the middle empty. Repeating that rule makes the equilateral Sierpinski triangle.',
     linked: 'Parent 1 makes one 1 and one 2. Parent 2 makes one 1 and two 2s. The two parents share one limit through a linked rule.',
     free: 'Three freely placed copies show continuous position, angle, scale, and reflection. The dashed frame is their parent.'
   };
@@ -156,7 +157,7 @@
   function normaliseRule(rule) {
     rule = M.clone(rule);
     delete rule.mode; delete rule.toggles;
-    rule.grid = { rows: rule.grid && rule.grid.rows || 2, cols: rule.grid && rule.grid.cols || 2 };
+    rule.grid = { rows: rule.grid && rule.grid.rows || 2, cols: rule.grid && rule.grid.cols || 2, side: rule.grid && rule.grid.side || 2 };
     rule.letters.forEach(function (letter) { letter.children.forEach(function (child) {
       ['cell', 'turn', 'flip', 'block', 'blockRows', 'blockCols'].forEach(function (key) { delete child[key]; });
     }); });
@@ -240,8 +241,18 @@
     state.noticeTimer = setTimeout(function () { el.notice.hidden = true; }, 3200);
   }
 
-  // The snap grid, shared by every parent.
-  function snapGridSize() { return { rows: state.rule.grid.rows, cols: state.rule.grid.cols }; }
+  // The snap grid, shared by every parent: Cols by Rows on a square frame,
+  // Per side on a triangle frame.
+  function snapGridSize() { return { rows: state.rule.grid.rows, cols: state.rule.grid.cols, side: state.rule.grid.side || 2 }; }
+
+  // Every parent and child draws in one frame shape, a square or a triangle.
+  // The frame is only a picture of the maps, so a switch keeps every map and
+  // the fractal stays the same; only the outlines change.
+  function setFrame(frame) {
+    if (frame === state.rule.frame) return;
+    state.rule.frame = frame; state.brush = M.identity(); state.editorCamera = null;
+    markEdited(); commit();
+  }
 
   function setGrid(rows, cols) {
     // The grid only guides snapping; it never moves a child.
@@ -835,6 +846,9 @@
     el.selectionHeading.textContent = child ? 'Selected child' : 'New child';
     el.selectionName.textContent = child ? childName(children.indexOf(child)) : '';
     el.removeChild.disabled = !child; el.duplicateChild.disabled = !child;
+    var triangle = state.rule.frame === 'triangle';
+    el.flipV.disabled = triangle;
+    el.flipV.title = triangle ? 'A triangle has no top-to-bottom flip' : 'Flip top to bottom (V)';
     renderChildLetters(); renderBrushPreview();
   }
 
@@ -842,8 +856,10 @@
     el.ruleName.textContent = state.demo ? DEMO_NAMES[state.demo] : state.savedName || 'Custom rule';
     el.demo.value = state.demo || '';
     el.depth.value = state.depth; el.depthValue.textContent = state.depth;
-    var grid = snapGridSize();
-    [[el.gridRows, grid.rows], [el.gridCols, grid.cols]].forEach(function (pair) {
+    var grid = snapGridSize(), triangle = state.rule.frame === 'triangle';
+    el.frameShape.querySelectorAll('[data-frame]').forEach(function (button) { var on = button.dataset.frame === state.rule.frame; button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+    el.colsField.hidden = triangle; el.rowsField.hidden = triangle; el.sideField.hidden = !triangle;
+    [[el.gridRows, grid.rows], [el.gridCols, grid.cols], [el.gridSide, grid.side]].forEach(function (pair) {
       pair[0].querySelectorAll('button').forEach(function (button) {
         var n = Number(button.textContent);
         button.classList.toggle('active', n === pair[1]); button.setAttribute('aria-pressed', n === pair[1] ? 'true' : 'false');
@@ -919,7 +935,11 @@
     return tidy(M.compose(matrix, about(clockwise ? [c, s, -s, c] : [c, -s, s, c], frameCentre())));
   }
 
+  // A triangle has no Flip V: a top-to-bottom mirror would stand it on its
+  // point, outside its own outline. Flip H and the turns cover its six
+  // symmetries.
   function orient(action) {
+    if (action === 'flipV' && state.rule.frame === 'triangle') return;
     var child = selectedChild();
     if (!child) { state.brush = orientMatrix(state.brush, action); renderBrushPreview(); return; }
     child.matrix = orientMatrix(child.matrix, action);
@@ -1182,12 +1202,19 @@
     return corners.map(function (p, i) { var q = corners[(i + 1) % corners.length]; return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; });
   }
   function drawSnapGrid(ctx, view, width, height) {
-    var grid = snapGridSize(), x0 = -view.x / view.scale, x1 = (width - view.x) / view.scale, y0 = -view.y / view.scale, y1 = (height - view.y) / view.scale, i;
-    // Far out, the grid would be a grey wash, so it thins to every nth line.
-    var stepX = Math.max(1, Math.ceil(4 * grid.cols / view.scale)), stepY = Math.max(1, Math.ceil(4 * grid.rows / view.scale));
+    var x0 = -view.x / view.scale, x1 = (width - view.x) / view.scale, y0 = -view.y / view.scale, y1 = (height - view.y) / view.scale;
+    var corners = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]], mid = [(x0 + x1) / 2, (y0 + y1) / 2], reach = Math.hypot(x1 - x0, y1 - y0);
     ctx.strokeStyle = css('--line'); ctx.lineWidth = 1; ctx.globalAlpha = .7;
-    for (i = Math.ceil(x0 * grid.cols / stepX) * stepX; i <= x1 * grid.cols; i += stepX) { var a = view.point([i / grid.cols, y0]), b = view.point([i / grid.cols, y1]); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
-    for (i = Math.ceil(y0 * grid.rows / stepY) * stepY; i <= y1 * grid.rows; i += stepY) { var c = view.point([x0, i / grid.rows]), d = view.point([x1, i / grid.rows]); ctx.beginPath(); ctx.moveTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.stroke(); }
+    snapLattice().families.forEach(function (f) {
+      var values = corners.map(function (p) { return dot(f.n, p); }), lo = Math.min.apply(null, values), hi = Math.max.apply(null, values);
+      // Far out, the grid would be a grey wash, so it thins to every nth line.
+      var step = Math.max(1, Math.ceil(4 / (f.spacing * view.scale))), along = [-f.n[1], f.n[0]];
+      for (var k = Math.ceil((lo - f.offset) / f.spacing / step) * step; f.offset + k * f.spacing <= hi; k += step) {
+        var shift = f.offset + k * f.spacing - dot(f.n, mid), q = [mid[0] + f.n[0] * shift, mid[1] + f.n[1] * shift];
+        var a = view.point([q[0] - along[0] * reach, q[1] - along[1] * reach]), b = view.point([q[0] + along[0] * reach, q[1] + along[1] * reach]);
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+      }
+    });
     ctx.globalAlpha = 1;
   }
 
@@ -1365,19 +1392,47 @@
     if (drag.job === 'scale') return [drag.handle.index];
     return [drag.handle.index, (drag.handle.index + 1) % n];
   }
-  function gridPointNear(c, grid) { return [Math.round(c[0] * grid.cols) / grid.cols, Math.round(c[1] * grid.rows) / grid.rows]; }
+  // The snap lattice follows the frame. A square frame has Cols by Rows
+  // cells. A triangle frame is cut into Per side pieces along each side, so
+  // its lattice is triangular, with lines parallel to its three sides. Each
+  // family of lines is n · p = offset + k × spacing, for whole k, with n a
+  // unit vector.
+  function snapLattice() {
+    var grid = snapGridSize();
+    if (state.rule.frame !== 'triangle') return {
+      families: [{ n: [1, 0], spacing: 1 / grid.cols, offset: 0 }, { n: [0, 1], spacing: 1 / grid.rows, offset: 0 }],
+      near: function (c) { return [Math.round(c[0] * grid.cols) / grid.cols, Math.round(c[1] * grid.rows) / grid.rows]; }
+    };
+    var k = grid.side, h = M.TRI_H, step = h / k;
+    return {
+      families: [{ n: [0, 1], spacing: step, offset: 0 }, { n: [h, -.5], spacing: step, offset: h / 2 }, { n: [h, .5], spacing: step, offset: h / 2 }],
+      // Lattice point (i, j) is the apex plus i steps down the left side and
+      // j down the right: (1/2 + (j − i) / 2k, h (i + j) / k). The nearest
+      // one is a corner of the rhombus cell around c.
+      near: function (c) {
+        var s = c[1] * k / h, d = (c[0] - .5) * 2 * k, i = (s - d) / 2, j = (s + d) / 2, best = null, bestD = Infinity;
+        [Math.floor(i), Math.ceil(i)].forEach(function (a) {
+          [Math.floor(j), Math.ceil(j)].forEach(function (b) {
+            var p = [.5 + (b - a) / (2 * k), h * (a + b) / k], gap = distance(p, c);
+            if (gap < bestD) { bestD = gap; best = p; }
+          });
+        });
+        return best;
+      }
+    };
+  }
   function snapScale(drag, m) {
-    var grid = snapGridSize(), view = state.editorView, c = M.apply(m, frameCentre());
+    var lattice = snapLattice(), view = state.editorView, c = M.apply(m, frameCentre());
     var corner = M.apply(m, M.framePolygon(state.rule.frame)[drag.handle.index]), v = [corner[0] - c[0], corner[1] - c[1]];
     var best = null, bestScore = Infinity;
-    [[0, grid.cols], [1, grid.rows]].forEach(function (pair) {
-      var axis = pair[0], cells = pair[1];
-      if (Math.abs(v[axis]) < 1e-9) return;
-      var t = (Math.round(corner[axis] * cells) / cells - c[axis]) / v[axis];
+    lattice.families.forEach(function (f) {
+      var nv = dot(f.n, v);
+      if (Math.abs(nv) < 1e-9) return;
+      var line = f.offset + Math.round((dot(f.n, corner) - f.offset) / f.spacing) * f.spacing, t = (line - dot(f.n, c)) / nv;
       if (t <= 0) return;
       var moved = [c[0] + v[0] * t, c[1] + v[1] * t];
       if (distance(view.point(moved), view.point(corner)) > SNAP_REACH) return;
-      var score = distance(view.point(moved), view.point(gridPointNear(moved, grid)));
+      var score = distance(view.point(moved), view.point(lattice.near(moved)));
       if (score < bestScore) { best = t; bestScore = score; }
     });
     return best == null ? m : M.compose(about([best, 0, 0, best], c), m);
@@ -1393,8 +1448,8 @@
     M.framePolygon(frame).forEach(add);
     currentLetter().children.forEach(function (child) { if (child !== drag.child) M.transformedFrame(frame, child.matrix).forEach(add); });
     if (state.snapGrid) {
-      var grid = snapGridSize();
-      mine.forEach(function (c) { add(gridPointNear(c, grid)); });
+      var lattice = snapLattice();
+      mine.forEach(function (c) { add(lattice.near(c)); });
     }
     var out = m.slice();
     [0, 1].forEach(function (axis) {
@@ -1409,11 +1464,11 @@
   function snapToGrid(drag, point, m, shift) {
     if (!state.snapGrid || drag.job === 'rotate') return m;
     if (drag.job === 'scale' && !(shift && !state.locks.stretch)) return snapScale(drag, m);
-    var grid = snapGridSize(), view = state.editorView, corners = M.transformedFrame(state.rule.frame, m);
+    var lattice = snapLattice(), view = state.editorView, corners = M.transformedFrame(state.rule.frame, m);
     var which = movingCorners(drag, corners.length) || corners.map(function (_, i) { return i; });
     var best = null, bestDistance = SNAP_REACH;
     which.forEach(function (i) {
-      var c = corners[i], g = gridPointNear(c, grid);
+      var c = corners[i], g = lattice.near(c);
       var d = distance(view.point(c), view.point(g));
       if (d < bestDistance) { best = [g[0] - c[0], g[1] - c[1]]; bestDistance = d; }
     });
@@ -1598,6 +1653,8 @@
     }
     gridButtons(el.gridRows, function (rows) { setGrid(rows, snapGridSize().cols); markEdited(); commit(); });
     gridButtons(el.gridCols, function (cols) { setGrid(snapGridSize().rows, cols); markEdited(); commit(); });
+    gridButtons(el.gridSide, function (side) { state.rule.grid.side = side; markEdited(); commit(); });
+    el.frameShape.querySelectorAll('[data-frame]').forEach(function (button) { button.addEventListener('click', function () { setFrame(button.dataset.frame); }); });
     el.toggleSnap.addEventListener('change', function () { state.snapGrid = el.toggleSnap.checked; renderEditor(); saveAddress(); });
     [['stretch', el.lockStretch], ['skew', el.lockSkew]].forEach(function (lock) {
       lock[1].addEventListener('click', function () { state.locks[lock[0]] = !state.locks[lock[0]]; saveLocks(); syncControls(); renderEditor(); });
@@ -1693,7 +1750,7 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','toggle-snap','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','grid-side','frame-shape','cols-field','rows-field','side-field','toggle-snap','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }

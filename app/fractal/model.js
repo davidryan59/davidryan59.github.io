@@ -505,7 +505,7 @@
 
   // grid is the editor's snap grid; it guides dragging and never moves a child.
   function baseRule(frame, letters) {
-    return { version: 2, frame: frame, grid: { rows: 2, cols: 2 }, letters: letters };
+    return { version: 2, frame: frame, grid: { rows: 2, cols: 2, side: 2 }, letters: letters };
   }
 
   function demos() {
@@ -513,6 +513,12 @@
       child('p1', squareGridMap({ row: 0, col: 0 }, 2, 2)),
       child('p1', squareGridMap({ row: 1, col: 0 }, 2, 2)),
       child('p1', squareGridMap({ row: 1, col: 1 }, 2, 2))
+    ] }]);
+    // The equilateral Sierpinski triangle: a half-size copy in each corner.
+    var gasket = baseRule('triangle', [{ id: 'p1', children: [
+      child('p1', [0.5, 0, 0, 0.5, 0.25, 0]),
+      child('p1', [0.5, 0, 0, 0.5, 0, TRI_H / 2]),
+      child('p1', [0.5, 0, 0, 0.5, 0.5, TRI_H / 2])
     ] }]);
     var linked = baseRule('square', [
       { id: 'p1', children: [
@@ -530,7 +536,7 @@
       child('p1', [0.36, -0.18, 0.18, 0.36, 0.56, 0.43]),
       child('p1', [-0.25, 0.08, 0.08, 0.25, 0.38, 0.71])
     ] }]);
-    return { sieve: sieve, linked: linked, free: free };
+    return { sieve: sieve, gasket: gasket, linked: linked, free: free };
   }
 
   // Parents carry internal ids, p1, p2 and so on. A parent's number on screen

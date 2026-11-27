@@ -41,6 +41,13 @@ assert.strictEqual(linked.status.name, 'Converges', 'linked rule converges');
 close(linked.dimension, Math.log((3 + Math.sqrt(5)) / 2) / Math.log(2), 1e-6, 'linked dimension');
 
 assert.strictEqual(M.status(demos.free).name, 'Converges', 'Free demo converges');
+
+const gasket = M.analyse(demos.gasket, 'p1', 8);
+assert.strictEqual(gasket.status.name, 'Converges', 'the gasket converges');
+close(gasket.dimension, Math.log(3) / Math.log(2), 1e-9, 'gasket dimension');
+assert.strictEqual(M.similarityDimension(demos.gasket).exact, 'log 3 / log 2', 'the gasket names log 3 / log 2');
+assert.strictEqual(gasket.overlap, false, 'the gasket has no overlap');
+close(gasket.hullArea, Math.sqrt(3) / 4, 0.01, 'the gasket hull is its triangle');
 const stretchedCell = M.squareGridMap({ row: 1, col: 2 }, 3, 5, 1, true, 2, 3);
 close(Math.abs(M.determinant(stretchedCell)), 2 / 5, 1e-9, 'rectangular square block area scale');
 
@@ -83,7 +90,7 @@ assert.strictEqual(M.similarityDimension(demos.free).exact, null, 'unequal ratio
 assert.strictEqual(M.analyse(dragon, 'p1', 7).overlap, false, 'the dragon has no overlap');
 
 // Each parent's disc holds every copy below it, so pruning by disc is safe.
-for (const [name, rule] of [['sieve', demos.sieve], ['linked', demos.linked], ['free', demos.free], ['dragon', dragon]]) {
+for (const [name, rule] of [['sieve', demos.sieve], ['gasket', demos.gasket], ['linked', demos.linked], ['free', demos.free], ['dragon', dragon]]) {
   const discs = M.coverDiscs(rule);
   assert(discs, name + ' has cover discs');
   for (const top of rule.letters) {
@@ -106,4 +113,4 @@ assert(largest < 0.01, 'the largest copy left is under 1% of the frame, not 6% a
 const paths = M.expand(demos.sieve, 'p1', 3, { maxMs: 0 }).map(item => item.path);
 assert.deepStrictEqual(paths.filter(path => path.startsWith('00')), ['000', '001', '002'], 'the children of one split stay in child order');
 
-console.log('Fractal model: 41 checks passed.');
+console.log('Fractal model: 46 checks passed.');

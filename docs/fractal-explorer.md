@@ -15,11 +15,12 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Report convergence, dimension, box count, convex hull, and overlap.
 - [x] Move, turn, scale, flip, stretch, and skew children.
 - [x] Snap children to an optional grid of 2 to 8 columns and rows.
+- [x] Switch the frame between square and triangle, with a triangular snap grid.
 - [x] List the children in drawing order, reorder them by drag, and edit
       exact values in a pop-up.
 - [x] Number the parents; add, duplicate, remove and reorder them.
 - [x] Choose each parent's colour from a swatch in the parent row.
-- [x] Open on the Sieve, with Linked pair and Free placement demos.
+- [x] Open on the Sieve, with Gasket, Linked pair and Free placement demos.
 - [x] Store edited rules in the address.
 - [x] Offer Fast, Balanced, Detailed, and editable calculation limits.
 - [x] Use the four-corner control layout and fit all six browser sizes.
@@ -39,9 +40,13 @@ x' = a x + c y + e
 y' = b x + d y + f
 ```
 
-The editor changes the coefficients directly. A square child
-uses the unit square. A triangle child uses the upright unit equilateral
-triangle. Each frame carries its parent's number with an underline beneath
+The editor changes the coefficients directly. The frame is one shape for the
+whole rule, `square` or `triangle`: the unit square, or the upright
+equilateral triangle of side 1 with its apex at (1/2, 0). Every parent and
+child draws in it. Frame, in Options, switches it and keeps every map, so the
+fractal stays the same and only the outlines change; the switch is one undo
+step. A triangle has no Flip V, because a top-to-bottom mirror would stand it
+on its point; Flip H and the turns cover its six symmetries. Each frame carries its parent's number with an underline beneath
 it, which fixes which side is down. The number uses Times, whose lining
 figures sit on the baseline; Georgia's old-style figures dropped onto the
 underline. In the editor, the child's letter at its top left fixes the
@@ -100,8 +105,13 @@ a double-click resets it. Each canvas redraws when its own box changes size,
 so dragging a panel line zooms the picture and never stretches it. The strip above the editor holds the view buttons
 on the left and the child buttons (add, duplicate and remove) on the right.
 
-Snap corners, in Options, draws the grid of Cols by Rows (2 to 8) across the
-editor. While a drag moves a corner within 6 pixels of a grid point, the
+Snap corners, in Options, draws the snap grid across the editor. The grid
+follows the frame: Cols by Rows (2 to 8 each) on a square, and Per side (2 to
+8) on a triangle, which cuts each side into that many pieces. The triangular
+lattice has lines parallel to the triangle's three sides. `snapLattice()`
+holds each grid as families of lines, n · p = offset + k × spacing, and finds
+the nearest lattice point. The rule stores the grid as `grid.rows`,
+`grid.cols` and `grid.side`. While a drag moves a corner within 6 pixels of a grid point, the
 corner snaps to it, and it lets go when the pointer moves on. A scale moves
 its corner along a line from the centre, so that corner snaps onto a grid
 line, preferring a grid point. A turn snaps by angle only. During a drag the editor and the
@@ -239,12 +249,14 @@ box count reads low for a solid shape with a rough edge (the Dragon reads
 
 ## Address and demos
 
-Unedited demos use short hashes: `#demo=sieve`, `#demo=linked`, and
-`#demo=free`. An edit replaces this with a URL-safe base-64 encoding of the
+Unedited demos use short hashes: `#demo=sieve`, `#demo=gasket`,
+`#demo=linked`, and `#demo=free`. An edit replaces this with a URL-safe base-64 encoding of the
 rule and view settings. Loading that address restores the complete design.
 
 The Sieve opens by default. It has three half-size upright
-copies and reports `log 3 / log 2`. Linked pair uses the child-count matrix
+copies and reports `log 3 / log 2`. Gasket is the equilateral Sierpinski
+triangle: a triangle frame with a half-size copy in each corner, also
+`log 3 / log 2`. Linked pair uses the child-count matrix
 `[[1,1],[1,2]]`.
 Free placement demonstrates continuous position, angle, scale, and a flip.
 

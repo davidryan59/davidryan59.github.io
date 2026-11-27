@@ -294,6 +294,27 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
 
   equal(await page.locator('#demo option[value^="blank"]').count(), 0, 'the blank square and triangle demos are gone');
 
+  // The frame is only a picture: switching it keeps every map.
+  await page.selectOption('#demo', 'gasket');
+  equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'the gasket is log 3 / log 2');
+  equal(await rows(), 3, 'the gasket has three children');
+  check(await page.locator('#flip-v').isDisabled(), 'a triangle has no Flip V');
+  await page.click('#toggle-menu');
+  equal(await page.locator('[data-frame].active').textContent(), 'Triangle', 'the gasket opens on a triangle frame');
+  check(await page.locator('#side-field').isVisible() && !(await page.locator('#cols-field').isVisible()), 'a triangle frame shows Per side, not Cols and Rows');
+  const tableBefore = await page.locator('#numbers-body').textContent();
+  await page.click('[data-frame="square"]');
+  equal(await page.locator('#numbers-body').textContent(), tableBefore, 'switching the frame keeps every map');
+  equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'and the same fractal');
+  check(await page.locator('#cols-field').isVisible() && !(await page.locator('#side-field').isVisible()), 'a square frame shows Cols and Rows');
+  check(!(await page.locator('#flip-v').isDisabled()), 'a square has Flip V');
+  await page.click('#undo');
+  equal(await page.locator('[data-frame].active').textContent(), 'Triangle', 'undo brings the triangle frame back');
+  await page.click('#grid-side button:text-is("4")');
+  check((await page.url()).includes('#rule='), 'Per side is an edit');
+  await page.click('#toggle-menu');
+  console.log('Switched frames on the gasket.');
+
   await page.selectOption('#demo', 'free');
   console.log('Opened Free demo.');
   await page.click('#toggle-menu');

@@ -57,6 +57,7 @@
         <div><span class="eyebrow">Rule</span><strong id="rule-name">Sierpinski sieve</strong></div>
         <select id="demo" aria-label="Open a demo">
           <option value="sieve">Sieve</option>
+          <option value="gasket">Gasket</option>
           <option value="linked">Linked pair</option>
           <option value="free">Free placement</option>
         </select>
@@ -149,8 +150,10 @@
         <div id="toggle-popover" class="toggle-popover" hidden>
           <div id="grid-fields" class="grid-fields">
             <div class="grid-head"><span class="popover-heading">Grid</span><label id="snap-field"><input id="toggle-snap" type="checkbox"> Snap corners</label></div>
+            <div class="grid-line"><span>Frame</span><div id="frame-shape" class="grid-buttons" role="group" aria-label="Frame shape"><button type="button" data-frame="square" title="Draw every parent and child as a square">Square</button><button type="button" data-frame="triangle" title="Draw every parent and child as a triangle">Triangle</button></div></div>
             <div class="grid-line" id="cols-field"><span>Cols</span><div id="grid-cols" class="grid-buttons" role="group" aria-label="Grid columns"></div></div>
-            <div class="grid-line"><span>Rows</span><div id="grid-rows" class="grid-buttons" role="group" aria-label="Grid rows"></div></div>
+            <div class="grid-line" id="rows-field"><span>Rows</span><div id="grid-rows" class="grid-buttons" role="group" aria-label="Grid rows"></div></div>
+            <div class="grid-line" id="side-field" hidden><span>Per side</span><div id="grid-side" class="grid-buttons" role="group" aria-label="Grid pieces per side"></div></div>
           </div>
           <div class="colour-field">
             <span class="popover-heading">Colour</span>
@@ -240,7 +243,8 @@
     </section>
     <details class="help">
       <summary>How to edit</summary>
-      <p>Children: + adds one. Drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew. Stretch and Skew lock those jobs. Snap corners in Options snaps corners to a grid.</p>
+      <p>Children: + adds one. Drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew. Stretch and Skew lock those jobs.</p>
+      <p>Options: Frame draws every parent and child as a square or a triangle, and keeps the fractal the same. Snap corners snaps corners to a grid: Cols by Rows on a square, Per side on a triangle.</p>
       <p>Editor view: drag empty space to pan, and use the wheel or a pinch to zoom. Fit shows every child again. Drag the line under the editor to change its height.</p>
       <p>Keys: 1–9 and 0 pick a child's parent, and Shift with a number shows that parent. R and T rotate, H and V flip, Backspace removes, ⌘D or Ctrl+D duplicates, Esc deselects.</p>
     </details>

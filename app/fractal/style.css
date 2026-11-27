@@ -209,7 +209,7 @@ tr.insert-after td { box-shadow: inset 0 -2px 0 var(--accent); }
 .grid-head { display: flex; justify-content: space-between; align-items: center; }
 .grid-fields .popover-heading { margin: 0; }
 .grid-fields label { display: flex; align-items: center; gap: 6px; }
-.grid-line { display: grid; grid-template-columns: 34px 1fr; align-items: center; color: #dfe5e3; font-size: .65rem; }
+.grid-line { display: grid; grid-template-columns: 46px 1fr; align-items: center; color: #dfe5e3; font-size: .65rem; }
 .grid-buttons { display: flex; gap: 3px; }
 .corner .grid-buttons button { flex: 1; min-width: 0; min-height: 26px; padding: 0; }
 .corner .grid-buttons button[hidden] { display: none; }
