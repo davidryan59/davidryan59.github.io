@@ -39,7 +39,7 @@
     return { stretch: false, skew: false };
   }
   function saveLocks() { try { localStorage.setItem('fractal-locks', JSON.stringify(state.locks)); } catch (error) {} }
-  // While a child or the Level slider is dragged, the main view draws at most
+  // While a child or the Iterations slider is dragged, the main view draws at most
   // this many copies, for this long, then draws in full on release.
   var DRAG_COPIES = 4000, DRAG_MS = 40;
   var PRESETS = {
@@ -80,15 +80,14 @@
   }
   // A parent's number is its position in the list, from 1.
   function label(id) { var index = state.rule.letters.findIndex(function (letter) { return letter.id === id; }); return String(index + 1); }
-  // Colour modes. Parent: each parent keeps its own colour. Top copy: each
-  // copy takes the colour of the top-level child it sits inside. Order: every
-  // copy is numbered in order, first child first at every level, and takes
-  // its place along a red, orange, yellow, green, cyan and blue scale. At each
-  // level a copy's share of the scale splits equally among its children.
-  // The default is Top copy for a one-parent rule and Parent for a linked
-  // rule; null means default.
-  var COLOUR_MODES = ['parent', 'top', 'order'];
-  function colourMode() { return state.colourMode || (state.rule.letters.length === 1 ? 'top' : 'parent'); }
+  // Colour modes. Order: every copy is numbered in order, first child first
+  // at every level, and takes its place along a red, orange, yellow, green,
+  // cyan and blue scale. At each level a copy's share of the scale splits
+  // equally among its children. Parent: each parent keeps its own colour. Top
+  // copy: each copy takes the colour of the top-level child it sits inside.
+  // The default is Order for every rule; null means default.
+  var COLOUR_MODES = ['order', 'parent', 'top'];
+  function colourMode() { return state.colourMode || 'order'; }
   // Old addresses and saved fractals held a true or false for Top copy.
   function readColourMode(value) {
     if (typeof value === 'boolean') return value ? 'top' : 'parent';
@@ -156,7 +155,7 @@
         var saved = decode(hash.slice(5));
         if (!validRule(saved.rule)) throw new Error('Invalid rule');
         state.rule = saved.rule; state.demo = null;
-        state.currentLetter = saved.current || state.rule.letters[0].id; state.depth = Math.max(1, Math.min(12, saved.depth || 7));
+        state.currentLetter = saved.current || state.rule.letters[0].id; state.depth = Math.max(0, Math.min(20, saved.depth == null ? 7 : saved.depth));
         state.showHull = saved.hull !== false; state.colourMode = readColourMode(saved.colour);
         if (saved.camera) state.camera = saved.camera;
         state.snapGrid = !!saved.snap;
@@ -1099,7 +1098,7 @@
     state.rule = M.clone(entry.rule); state.currentLetter = entry.current;
     if (!letterById(state.currentLetter)) state.currentLetter = state.rule.letters[0].id;
     state.selectedId = null; state.newLetter = null; state.focus = 'child';
-    state.depth = Math.max(1, Math.min(12, entry.level || state.depth));
+    state.depth = Math.max(0, Math.min(20, entry.level == null ? state.depth : entry.level));
     state.colourMode = readColourMode(entry.colourMode != null ? entry.colourMode : entry.colourByTopCopy);
     state.demo = null; state.savedName = entry.name; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null;
     el.saveName.value = entry.name; el.demo.value = ''; commit();

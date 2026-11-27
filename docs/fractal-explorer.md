@@ -144,19 +144,20 @@ move and leaves the rule unchanged.
 The iteration strip shows levels zero through four. The main view expands the
 selected starting letter to the chosen depth. It stops expanding after 60,000
 frames, so a large branching rule stays responsive. During a child drag or a
-Level drag it draws at most 4000 copies within 40 ms, then draws in full on
-release. Copies wholly off the canvas are not drawn, though the calculation
+Iterations drag it draws at most 4000 copies within 40 ms, then draws in full
+on release. Copies wholly off the canvas are not drawn, though the calculation
 still spends its copy budget on them.
 
 Converging rules share one fitted camera. Growing and cycling rules show the
 latest four levels together. The main view can show or hide its convex hull.
-Options has three colour modes. Parent gives each parent its own colour. Top
-copy colours each copy by the top-level child it sits inside. Order numbers
+Options has three colour modes: Order, Parent and Top copy. Order numbers
 every copy in order, first child first at every level, and colours it by its
 place on a scale from red (hue 0) through orange, yellow, green and cyan to
 blue (hue 225). At each level a copy's share of the scale splits equally
-among its children, and the copy takes the middle of its share. The default
-is Top copy for a one-parent rule and Parent for a linked rule. The mode
+among its children, and the copy takes the middle of its share. Parent gives
+each parent its own colour. Top copy colours each copy by the top-level child
+it sits inside. Order is the default for every rule, so adding or removing a
+parent never changes the mode. The mode
 travels in the address as `colour`; older addresses and saved fractals held
 true or false for Top copy, and still open.
 
@@ -199,7 +200,14 @@ Free placement demonstrates continuous position, angle, scale, and a flip.
 ## Calculation limits
 
 Every expansion stops at the first applicable limit. The stage names that
-limit beside its copy count. Minimum scale uses the affine map's largest
+limit beside its copy count. No limit is ever passed by work in the
+background: a high Iterations value with a copy limit of 25,000 builds at most
+25,000 copies. Calculation time covers working out the copies, not drawing
+them. Working out 25,000 copies takes about 5 ms, so Maximum copies is the
+limit that sets how long a frame takes to draw. Minimum iterations sets the
+fewest iterations before Minimum scale may stop a copy splitting. Analysis
+depth sets the iterations behind the readouts (box dimension, overlap and the
+hull) and does not change the drawing. Minimum scale uses the affine map's largest
 singular value, so the same limit works for any frame shape and for stretched
 copies.
 
@@ -220,7 +228,7 @@ settings Custom. Selecting a preset restores all seven values.
 
 The selectable ranges are 1,000 to 250,000 copies, minimum scales from 1/10
 to 1/1,000,000 or Unlimited, and calculation times from 25 to 2,000 ms.
-Iteration depth runs from 1 to 12. These limits and the selected view travel
+Iterations run from 0, the parent alone, to 20. These limits and the selected view travel
 with a shared address.
 
 ## Layout and input

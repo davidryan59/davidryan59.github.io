@@ -54,11 +54,18 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('[data-preset="fast"]');
   equal(await page.locator('#depth').inputValue(), '6', 'Fast preset depth');
   await page.click('[data-preset="balanced"]');
-  check(await page.locator('[data-colour="top"]').evaluate(button => button.classList.contains('active')), 'a one-parent rule colours by top copy');
-  await page.click('[data-colour="order"]');
+  equal(await page.locator('#depth').evaluate(input => input.min + '-' + input.max), '0-20', 'Iterations run from 0 to 20');
+  await page.locator('#depth').evaluate(input => { input.value = 0; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); });
+  check((await page.locator('#instance-count').textContent()).startsWith('1 copy'), '0 iterations draws the parent alone');
+  await page.locator('#depth').evaluate(input => { input.value = 20; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); });
+  check((await page.locator('#instance-count').textContent()).includes('limit'), '20 iterations stops at a limit');
+  await page.click('[data-preset="balanced"]');
+  check(await page.locator('[data-colour="order"]').evaluate(button => button.classList.contains('active')), 'Order is the default colour mode');
+  equal(await page.locator('[data-colour]').first().textContent(), 'Order', 'Order is the first colour button');
   equal(await page.locator('#palette-label').textContent(), 'Colour by order', 'Order colours by place in the order');
-  check((await page.url()).includes('#rule='), 'the colour mode goes in the address');
   await page.click('[data-colour="top"]');
+  check((await page.url()).includes('#rule='), 'the colour mode goes in the address');
+  await page.click('[data-colour="order"]');
   check(await page.locator('#toggle-stacking').isDisabled(), 'Stacking is greyed out in Free mode');
   await page.click('#toggle-menu');
 

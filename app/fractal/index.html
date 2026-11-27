@@ -144,7 +144,7 @@
       <canvas id="limit" tabindex="0" aria-label="Fractal limit view"></canvas>
 
       <div class="corner corner-tr">
-        <label class="level-field"><span>Level <output id="depth-value">7</output></span><input id="depth" type="range" min="1" max="12" value="7"></label>
+        <label class="level-field" title="How many times the rule is applied. 0 is the parent alone"><span>Iterations <output id="depth-value">7</output></span><input id="depth" type="range" min="0" max="20" value="7"></label>
         <button id="toggle-menu" class="disclosure" type="button" aria-expanded="false" aria-controls="toggle-popover">Options</button>
         <div id="toggle-popover" class="toggle-popover" hidden>
           <div id="grid-fields" class="grid-fields">
@@ -155,9 +155,9 @@
           <div class="colour-field">
             <span class="popover-heading">Colour</span>
             <div id="colour-mode" class="preset-row colour-modes" role="group" aria-label="Colour mode">
+              <button type="button" data-colour="order" title="Every copy in order, first red, last blue">Order</button>
               <button type="button" data-colour="parent" title="Each parent keeps its own colour">Parent</button>
               <button type="button" data-colour="top" title="Each copy takes the colour of the top-level child it sits inside">Top copy</button>
-              <button type="button" data-colour="order" title="Every copy in order, first red, last blue">Order</button>
             </div>
           </div>
           <div class="rule-toggles">
@@ -174,11 +174,11 @@
             </div>
             <details id="advanced-limits">
               <summary>Advanced</summary>
-              <label class="limit-row"><span>Minimum iterations <output id="min-depth-value">4</output></span><input id="min-depth" type="range" min="0" max="8" step="1" value="4"></label>
-              <label class="limit-row"><span>Maximum copies <output id="max-copies-value">60,000</output></span><input id="max-copies" type="range" min="0" max="8" step="1" value="5"></label>
-              <label class="limit-row"><span>Minimum scale <output id="min-scale-value">1/10,000</output></span><input id="min-scale" type="range" min="0" max="6" step="1" value="3"></label>
-              <label class="limit-row"><span>Calculation time <output id="max-time-value">250 ms</output></span><input id="max-time" type="range" min="0" max="8" step="1" value="4"></label>
-              <label class="limit-row"><span>Analysis depth <output id="analysis-depth-value">7</output></span><input id="analysis-depth" type="range" min="4" max="10" step="1" value="7"></label>
+              <label class="limit-row" title="Stop before the drawing holds more copies than this"><span>Maximum copies <output id="max-copies-value">60,000</output></span><input id="max-copies" type="range" min="0" max="8" step="1" value="5"></label>
+              <label class="limit-row" title="Stop splitting a copy once it is smaller than this, after the minimum iterations"><span>Minimum scale <output id="min-scale-value">1/10,000</output></span><input id="min-scale" type="range" min="0" max="6" step="1" value="3"></label>
+              <label class="limit-row" title="Stop working out copies after this long. Drawing them is not included"><span>Calculation time <output id="max-time-value">250 ms</output></span><input id="max-time" type="range" min="0" max="8" step="1" value="4"></label>
+              <label class="limit-row" title="Minimum scale cannot stop splitting before this many iterations"><span>Minimum iterations <output id="min-depth-value">4</output></span><input id="min-depth" type="range" min="0" max="8" step="1" value="4"></label>
+              <label class="limit-row" title="The iterations used for the readouts: box dimension, overlap and the hull. It does not change the drawing"><span>Analysis depth <output id="analysis-depth-value">7</output></span><input id="analysis-depth" type="range" min="4" max="10" step="1" value="7"></label>
               <label class="limit-select">Hull refinement<select id="hull-iterations"><option value="8">8 steps</option><option value="16">16 steps</option><option value="32" selected>32 steps</option><option value="64">64 steps</option></select></label>
             </details>
           </div>
