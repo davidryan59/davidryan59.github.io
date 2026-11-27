@@ -217,8 +217,11 @@ selected parent's colour and opens a picker: the 10 palette colours, a
 Custom colour input and Default. The choice is stored as `colour` on the
 parent, a six-digit hex value, so it travels in the address and in saved
 fractals, and each choice is one undo step. A parent with no `colour` takes
-the palette colour for its position, so it changes colour when reordered; a
-chosen colour stays with its parent. The colour always shows on the parent
+the default for its position: yellow, red, blue and green for parents 1 to
+4 (`#e9b44c`, `#dc6f82`, `#57a9d8`, `#7fc66c`), then the rest of the palette.
+Every parent keeps its colour when parents are reordered, added or removed:
+where the colour differs from the default for its new number, the app
+stores it as `colour` on the parent. The colour always shows on the parent
 and child buttons and in the children table. In Parent colour mode it also
 colours every view. Top copy colours each copy by the top-level child
 it sits inside. Order is the default for every rule, so adding or removing a

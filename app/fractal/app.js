@@ -66,9 +66,25 @@
     var letter = currentLetter();
     return letter && letter.children.find(function (child) { return child.id === state.selectedId; });
   }
-  // A parent's colour: its own, if chosen, or the palette colour for its
-  // position.
-  function defaultColour(index) { return PALETTE[(index < 0 ? 0 : index) % PALETTE.length]; }
+  // A parent's colour: its own, if chosen, or the default for its position.
+  // Parents 1 to 4 default to yellow, red, blue and green, then the rest of
+  // the palette in its own order.
+  var PARENT_DEFAULTS = ['#e9b44c', '#dc6f82', '#57a9d8', '#7fc66c'];
+  PARENT_DEFAULTS = PARENT_DEFAULTS.concat(PALETTE.filter(function (hex) { return PARENT_DEFAULTS.indexOf(hex) < 0; }));
+  function defaultColour(index) { return PARENT_DEFAULTS[(index < 0 ? 0 : index) % PARENT_DEFAULTS.length]; }
+  // Reordering, adding or removing parents renumbers them. Each parent keeps
+  // the colour it showed before: a colour that differs from the default for
+  // its new number is stored on it, and one that matches is dropped.
+  function keepColours(change) {
+    var before = {};
+    state.rule.letters.forEach(function (letter) { before[letter.id] = colour(letter.id); });
+    change();
+    state.rule.letters.forEach(function (letter, index) {
+      var hex = before[letter.id];
+      if (!hex) return;
+      if (hex === defaultColour(index)) delete letter.colour; else letter.colour = hex;
+    });
+  }
   function colour(id) {
     var index = state.rule.letters.findIndex(function (letter) { return letter.id === id; });
     var letter = state.rule.letters[index];
@@ -1089,7 +1105,7 @@
     var copy = { id: id, children: source.children.map(function (child) {
       var next = M.clone(child); next.id = newChildId(); if (child.letter === source.id) next.letter = id; return next;
     }) };
-    state.rule.letters.splice(index + 1, 0, copy);
+    keepColours(function () { state.rule.letters.splice(index + 1, 0, copy); });
     state.currentLetter = id; state.selectedId = null; state.focus = 'parent'; markEdited(); commit();
     notice('Parent ' + (index + 2) + ' is a copy of parent ' + (index + 1) + '.');
   }
@@ -1097,7 +1113,7 @@
   // Reordering renumbers the parents. Children point at parents by id, so
   // every child follows its parent to the new number.
   function moveLetter(from, to) {
-    var moved = state.rule.letters.splice(from, 1)[0]; state.rule.letters.splice(to, 0, moved);
+    keepColours(function () { var moved = state.rule.letters.splice(from, 1)[0]; state.rule.letters.splice(to, 0, moved); });
     markEdited(); commit();
   }
   function moveChild(from, to) {
@@ -1205,7 +1221,7 @@
     if (state.rule.letters.length < 2) return;
     var id = state.currentLetter, index = state.rule.letters.findIndex(function (letter) { return letter.id === id; }), lost = 0;
     if (index < 0) return;
-    state.rule.letters.splice(index, 1);
+    keepColours(function () { state.rule.letters.splice(index, 1); });
     state.rule.letters.forEach(function (letter) {
       var before = letter.children.length;
       letter.children = letter.children.filter(function (child) { return child.letter !== id; });

@@ -282,6 +282,11 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('#undo');
   equal(await tabs(), 3, 'undo restores the parent');
 
+  // Parents 1 to 3 default to yellow, red and blue, and each keeps its
+  // colour when dragged to a new number.
+  const tabColours = () => page.locator('#letter-tabs button').evaluateAll(buttons => buttons.map(button => button.style.getPropertyValue('--dot')));
+  const coloursBefore = await tabColours();
+  equal(coloursBefore.join(' '), '#e9b44c #dc6f82 #57a9d8', 'parents default to yellow, red and blue');
   // Drag parent 1 to the end. It keeps its two children under number 3.
   const tab1 = await page.locator('#letter-tabs button').first().boundingBox();
   const tab3 = await page.locator('#letter-tabs button').last().boundingBox();
@@ -292,6 +297,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.waitForTimeout(50);
   await page.locator('#letter-tabs button').last().click();
   equal(await rows(), 2, 'the moved parent keeps its children under its new number');
+  equal((await tabColours()).join(' '), [coloursBefore[1], coloursBefore[2], coloursBefore[0]].join(' '), 'each parent keeps its colour when reordered');
   console.log('Duplicated, removed and reordered parents.');
   // With several parents, the dice also pick each child's parent at random.
   const parentsSeen = new Set(), linkedRow = await firstRow(), linkedTab = await activeTab();
