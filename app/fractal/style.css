@@ -207,7 +207,8 @@ tr.insert-after td { box-shadow: inset 0 -2px 0 var(--accent); }
 .corner .grid-buttons button.active { color: #111419; background: var(--gold); }
 .toggle-popover select { min-height: 30px; padding: 0 6px; border: 1px solid rgba(255,255,255,.15); border-radius: 6px; color: #edf0ec; background: rgba(255,255,255,.08); font-size: .7rem; }
 .toggle-popover select:disabled { opacity: .45; }
-.toggle-popover .colour-toggle { display: flex; align-items: center; gap: 7px; }
+.colour-modes { grid-template-columns: repeat(3, 1fr); }
+.palette-key .order-key { width: 64px; height: 10px; border-radius: 5px; }
 .toggle-popover { max-height: calc(100cqh - 112px); overflow-y: auto; display: grid; gap: 11px; padding: 6px 4px 0; }
 .toggle-popover[hidden] { display: none; }
 .toggle-popover label { color: #dfe5e3; font-size: .65rem; text-transform: none; }

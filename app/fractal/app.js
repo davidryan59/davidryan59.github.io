@@ -61,7 +61,7 @@
     rule: M.clone(demos.sieve), demo: 'sieve', currentLetter: 'p1', selectedId: null, focus: 'child',
     brush: M.identity(), newLetter: null, snapGrid: false, locks: readLocks(), editorCamera: null,
     depth: 7, showHull: true, camera: { zoom: 1, x: 0, y: 0 }, dragging: false,
-    limits: Object.assign({}, PRESETS.balanced), preset: 'balanced', topColour: null,
+    limits: Object.assign({}, PRESETS.balanced), preset: 'balanced', colourMode: null,
     analysis: null, editorView: null, noticeTimer: null
   };
 
@@ -80,11 +80,47 @@
   }
   // A parent's number is its position in the list, from 1.
   function label(id) { var index = state.rule.letters.findIndex(function (letter) { return letter.id === id; }); return String(index + 1); }
-  // Colour by top-level copy: on by default for a one-letter rule, off for a
-  // linked rule, where each letter keeps its own colour. null means default.
-  function topColourOn() { return state.topColour == null ? state.rule.letters.length === 1 : state.topColour; }
+  // Colour modes. Parent: each parent keeps its own colour. Top copy: each
+  // copy takes the colour of the top-level child it sits inside. Order: every
+  // copy is numbered in order, first child first at every level, and takes
+  // its place along a red, orange, yellow, green, cyan and blue scale. At each
+  // level a copy's share of the scale splits equally among its children.
+  // The default is Top copy for a one-parent rule and Parent for a linked
+  // rule; null means default.
+  var COLOUR_MODES = ['parent', 'top', 'order'];
+  function colourMode() { return state.colourMode || (state.rule.letters.length === 1 ? 'top' : 'parent'); }
+  // Old addresses and saved fractals held a true or false for Top copy.
+  function readColourMode(value) {
+    if (typeof value === 'boolean') return value ? 'top' : 'parent';
+    return COLOUR_MODES.indexOf(value) >= 0 ? value : null;
+  }
+  function hslHex(h, s, l) {
+    var a = s * Math.min(l, 1 - l);
+    function part(n) { var k = (n + h / 30) % 12, v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return ('0' + Math.round(v * 255).toString(16)).slice(-2); }
+    return '#' + part(0) + part(8) + part(4);
+  }
+  // 256 steps from red (hue 0) to a mid blue (hue 225).
+  var ORDER_SCALE = []; for (var step = 0; step < 256; step++) ORDER_SCALE.push(hslHex(step / 255 * 225, .78, .56));
+  var orderLetters = {};
+  function buildOrder() {
+    orderLetters = {};
+    state.rule.letters.forEach(function (letter) { orderLetters[letter.id] = letter.children.map(function (child) { return child.letter; }); });
+  }
+  // The middle of a copy's share of the order, from 0 to 1. The path holds
+  // its child index at each level, from the parent the views start at.
+  function orderFraction(path) {
+    var letter = state.currentLetter, start = 0, width = 1;
+    for (var i = 0; i < path.length; i++) {
+      var kids = orderLetters[letter], j = parseInt(path[i], 36);
+      if (!kids || !kids.length || !(j < kids.length)) break;
+      start += width * j / kids.length; width /= kids.length; letter = kids[j];
+    }
+    return start + width / 2;
+  }
   function itemColour(item) {
-    if (topColourOn() && item.path) return PALETTE[parseInt(item.path[0], 36) % PALETTE.length];
+    var mode = colourMode();
+    if (mode === 'top' && item.path) return PALETTE[parseInt(item.path[0], 36) % PALETTE.length];
+    if (mode === 'order' && item.path != null) return ORDER_SCALE[Math.min(255, Math.floor(orderFraction(item.path) * 256))];
     return colour(item.letter);
   }
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -121,7 +157,7 @@
         if (!validRule(saved.rule)) throw new Error('Invalid rule');
         state.rule = saved.rule; state.demo = null;
         state.currentLetter = saved.current || state.rule.letters[0].id; state.depth = Math.max(1, Math.min(12, saved.depth || 7));
-        state.showHull = saved.hull !== false; state.topColour = typeof saved.colour === 'boolean' ? saved.colour : null;
+        state.showHull = saved.hull !== false; state.colourMode = readColourMode(saved.colour);
         if (saved.camera) state.camera = saved.camera;
         state.snapGrid = !!saved.snap;
         if (saved.limits) state.limits = sanitiseLimits(saved.limits);
@@ -136,11 +172,11 @@
 
   function saveAddress() {
     var hash;
-    if (state.demo && sameRule(state.rule, demos[state.demo]) && state.currentLetter === state.rule.letters[0].id && matchingPreset() === 'balanced' && state.showHull && !state.snapGrid && state.topColour == null && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
+    if (state.demo && sameRule(state.rule, demos[state.demo]) && state.currentLetter === state.rule.letters[0].id && matchingPreset() === 'balanced' && state.showHull && !state.snapGrid && state.colourMode == null && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
       hash = 'demo=' + state.demo;
     } else {
       hash = 'rule=' + encode({ rule: state.rule, current: state.currentLetter, depth: state.depth,
-        hull: state.showHull, camera: state.camera, limits: state.limits, snap: state.snapGrid || undefined, colour: state.topColour == null ? undefined : state.topColour });
+        hull: state.showHull, camera: state.camera, limits: state.limits, snap: state.snapGrid || undefined, colour: state.colourMode || undefined });
     }
     history.replaceState(null, '', location.pathname + location.search + '#' + hash);
   }
@@ -371,6 +407,7 @@
   }
 
   function renderIterations() {
+    buildOrder();
     document.querySelectorAll('#iteration-strip canvas').forEach(function (canvas) {
       var level = Number(canvas.dataset.level), info = prepareCanvas(canvas);
       info.ctx.fillStyle = '#11151b'; info.ctx.fillRect(0, 0, info.width, info.height);
@@ -406,6 +443,7 @@
   }
 
   function renderMain() {
+    buildOrder();
     var info = prepareCanvas(el.limit), ctx = info.ctx;
     ctx.fillStyle = css('--stage'); ctx.fillRect(0, 0, info.width, info.height);
     if (!currentLetter().children.length) {
@@ -450,6 +488,7 @@
   }
 
   function renderEditor() {
+    buildOrder();
     var info = prepareCanvas(el.ruleEditor), ctx = info.ctx;
     ctx.fillStyle = css('--paper'); ctx.fillRect(0, 0, info.width, info.height);
     // The editor keeps its view during a drag, so the frame stays under the pointer.
@@ -507,7 +546,14 @@
 
   function renderPalette() {
     el.paletteKey.innerHTML = '';
-    if (topColourOn()) {
+    var mode = colourMode();
+    if (mode === 'order') {
+      el.paletteLabel.textContent = 'Colour by order';
+      var bar = document.createElement('i'); bar.className = 'order-key'; bar.title = 'First copy red, last copy blue';
+      bar.style.background = 'linear-gradient(90deg, ' + [0, 51, 102, 153, 204, 255].map(function (i) { return ORDER_SCALE[i]; }).join(', ') + ')';
+      el.paletteKey.appendChild(bar); return;
+    }
+    if (mode === 'top') {
       el.paletteLabel.textContent = 'Colour by top-level copy';
       var start = letterById(state.currentLetter) || state.rule.letters[0];
       start.children.slice(0, PALETTE.length).forEach(function (child, index) { var dot = document.createElement('i'); dot.style.background = PALETTE[index]; dot.title = 'Copy ' + (index + 1); el.paletteKey.appendChild(dot); });
@@ -813,7 +859,7 @@
       var on = !!state.locks[lock[0]]; lock[1].setAttribute('aria-pressed', on ? 'true' : 'false');
       lock[1].title = on ? lock[2] + ' is locked: the edge handles cannot ' + lock[0] + '. Click to unlock.' : 'Lock ' + lock[0] + ': the edge handles stop ' + (lock[0] === 'skew' ? 'skewing' : 'stretching') + '.';
     });
-    el.toggleTopColour.checked = topColourOn();
+    el.colourMode.querySelectorAll('[data-colour]').forEach(function (button) { var on = button.dataset.colour === colourMode(); button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     el.toggleStacking.checked = !!state.rule.toggles.stacking; el.togglePerLetter.checked = !!state.rule.toggles.gridPerLetter;
     // Stacking and Grid per letter only mean something on a grid.
     var free = state.rule.mode === 'free';
@@ -859,21 +905,18 @@
     el.undo.disabled = historyIndex <= 0; el.redo.disabled = historyIndex >= undoStack.length - 1;
   }
 
-  // Rotate R turns clockwise, about the child's centre. A triangle turns by 120 degrees. Triangle mode has no Flip V,
-  // because it would turn an upright cell into a downward one.
+  // Rotate, Rotate R and the two flips act inside the child's own frame.
+  // Each is one of the frame's own symmetries (a quarter turn or a mirror of
+  // the unit square; a third of a turn or a mirror of the triangle), so the
+  // child's outline stays exactly where it was: a square stays that square,
+  // a 7 by 4 rectangle the same rectangle, a skewed child the same shape.
+  // Only the number and its underline turn or reverse inside it. On screen
+  // that is a true rotation only for a square or triangle child. Rotate R
+  // turns the number clockwise as it looks on screen, so on a flipped child
+  // it turns the other way in the child's own frame. Triangle mode has no
+  // Flip V, because it would turn an upright cell into a downward one.
   function frameCentre() { return state.rule.frame === 'triangle' ? [0.5, M.TRI_H * 2 / 3] : [.5, .5]; }
   function tidy(m) { return m.map(function (v) { var r = Math.round(v * 1e9) / 1e9; return Math.abs(v - r) < 1e-12 ? r : v; }); }
-  function screenOp(action, centre) {
-    var q = state.rule.frame === 'triangle' ? Math.PI * 2 / 3 : Math.PI / 2, c = Math.cos(q), s = Math.sin(q), l;
-    if (action === 'rotateRight') l = [c, s, -s, c];
-    else if (action === 'rotateLeft') l = [c, -s, s, c];
-    else if (action === 'flipH') l = [-1, 0, 0, 1];
-    else l = [1, 0, 0, -1];
-    return [l[0], l[1], l[2], l[3], centre[0] - l[0] * centre[0] - l[2] * centre[1], centre[1] - l[1] * centre[0] - l[3] * centre[1]];
-  }
-  // Rotate turns the child as it looks on screen. Flip H and Flip V mirror the
-  // child inside its own frame: the frame stays put, and the number, its
-  // underline and its dot reverse left to right, or top to bottom.
   var LOCAL_FLIP = { flipH: [-1, 0, 0, 1, 1, 0], flipV: [1, 0, 0, -1, 0, 1] };
   function orientMatrix(matrix, action) {
     if (LOCAL_FLIP[action]) {
@@ -881,7 +924,9 @@
       if (state.rule.frame === 'triangle' && action === 'flipV') flip = [1, 0, 0, -1, 0, M.TRI_H];
       return tidy(M.compose(matrix, flip));
     }
-    return tidy(M.compose(screenOp(action, M.apply(matrix, frameCentre())), matrix));
+    var q = state.rule.frame === 'triangle' ? Math.PI * 2 / 3 : Math.PI / 2, c = Math.cos(q), s = Math.sin(q);
+    var clockwise = (action === 'rotateRight') !== (M.determinant(matrix) < 0);
+    return tidy(M.compose(matrix, about(clockwise ? [c, s, -s, c] : [c, -s, s, c], frameCentre())));
   }
 
   function orient(action) {
@@ -1023,7 +1068,8 @@
   // Saved fractals. The library lives in this browser's local storage. A
   // .fractal.json file holds one or more fractals in the same shape:
   // { format: 'fractal-explorer', version: 1, fractals: [entry, ...] }, where
-  // an entry is { name, savedAt, rule, current, level, colourByTopCopy }.
+  // an entry is { name, savedAt, rule, current, level, colourMode }. An older
+  // entry may hold colourByTopCopy, true or false, in place of colourMode.
   // Version 2 numbers parents. The version 1 library is dropped unread.
   var LIBRARY_KEY = 'fractal-library-v2', OLD_LIBRARY_KEY = 'fractal-library', FILE_FORMAT = 'fractal-explorer', FILE_VERSION = 2;
   try { localStorage.removeItem(OLD_LIBRARY_KEY); } catch (error) {}
@@ -1038,7 +1084,7 @@
   function validEntry(entry) { return entry && typeof entry.name === 'string' && validRule(entry.rule); }
   function currentEntry(name) {
     return { name: name, savedAt: new Date().toISOString(), rule: M.clone(state.rule), current: state.currentLetter,
-      level: state.depth, colourByTopCopy: state.topColour };
+      level: state.depth, colourMode: state.colourMode };
   }
   function defaultName() { return state.savedName || (state.demo ? DEMO_NAMES[state.demo] : 'Fractal ' + (readLibrary().length + 1)); }
   function saveFractal() {
@@ -1054,7 +1100,7 @@
     if (!letterById(state.currentLetter)) state.currentLetter = state.rule.letters[0].id;
     state.selectedId = null; state.newLetter = null; state.focus = 'child';
     state.depth = Math.max(1, Math.min(12, entry.level || state.depth));
-    state.topColour = typeof entry.colourByTopCopy === 'boolean' ? entry.colourByTopCopy : null;
+    state.colourMode = readColourMode(entry.colourMode != null ? entry.colourMode : entry.colourByTopCopy);
     state.demo = null; state.savedName = entry.name; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null;
     el.saveName.value = entry.name; el.demo.value = ''; commit();
   }
@@ -1316,10 +1362,14 @@
     if (job === 'rotate') {
       var from = M.apply(m0, local[h.index]);
       var angle = Math.atan2(point[1] - c[1], point[0] - c[0]) - Math.atan2(from[1] - c[1], from[0] - c[0]);
-      if (free) {
-        var base = Math.atan2(m0[1], m0[0]), target = base + angle, snapped = Math.round(target / (Math.PI / 12)) * Math.PI / 12;
-        if (Math.abs(target - snapped) < .05) angle = snapped - base;
-      }
+      // Sticky angles: a square holds at 0, 90, 180 and 270 degrees, a
+      // triangle at every 60 (upright or upside down), within 4 degrees.
+      // Every 15 degrees holds more lightly, within 2.
+      var base = Math.atan2(m0[1], m0[0]), target = base + angle;
+      var strong = (state.rule.frame === 'triangle' ? 60 : 90) * Math.PI / 180, light = Math.PI / 12;
+      var held = Math.round(target / strong) * strong, near15 = Math.round(target / light) * light;
+      if (Math.abs(target - held) < 4 * Math.PI / 180) angle = held - base;
+      else if (Math.abs(target - near15) < 2 * Math.PI / 180) angle = near15 - base;
       var co = Math.cos(angle), si = Math.sin(angle);
       return M.compose(about([co, si, -si, co], c), m0);
     }
@@ -1354,6 +1404,13 @@
     } else {
       // Skew: the edge slides along itself; the fixed line stays put.
       var sk = dot([uu[0] - mid[0], uu[1] - mid[1]], en) / len;
+      // Zero skew is sticky. It is where the dragged edge stands square to
+      // the line from the fixed side's middle (a triangle: the fixed corner):
+      // a square child's sides meet at right angles again, and a triangle is
+      // symmetric about that line. The pull reaches 6 pixels on screen.
+      var A = [m0[0], m0[1], m0[2], m0[3]], Ad = [A[0] * dvec[0] + A[2] * dvec[1], A[1] * dvec[0] + A[3] * dvec[1]], Ae = [A[0] * en[0] + A[2] * en[1], A[1] * en[0] + A[3] * en[1]];
+      var ae2 = dot(Ae, Ae), square = -dot(Ad, Ae) / (len * ae2), pixels = len * Math.sqrt(ae2) * (state.editorView ? state.editorView.scale : 100);
+      if (Math.abs(sk - square) * pixels < 6) sk = square;
       l = [1 + sk * en[0] * dn[0], sk * en[1] * dn[0], sk * en[0] * dn[1], 1 + sk * en[1] * dn[1]];
     }
     return M.compose(m0, about(l, fixed));
@@ -1386,6 +1443,30 @@
     });
     return best == null ? m : M.compose(about([best, 0, 0, best], c), m);
   }
+  // A moved child sticks on each axis by itself. Its corners' x values
+  // stick to any x within SNAP_REACH pixels, and likewise y: the parent's
+  // corners, the other children's corners and, with Snap corners on, the
+  // grid lines. So a child lined up with an edge slides along that edge
+  // while the hand wobbles across it. Alt moves it freely.
+  function snapMove(drag, m) {
+    var frame = state.rule.frame, view = state.editorView, mine = M.transformedFrame(frame, m), targets = [[], []];
+    function add(p) { targets[0].push(p[0]); targets[1].push(p[1]); }
+    M.framePolygon(frame).forEach(add);
+    currentLetter().children.forEach(function (child) { if (child !== drag.child) M.transformedFrame(frame, child.matrix).forEach(add); });
+    if (state.snapGrid) {
+      var grid = gridFor(state.currentLetter);
+      mine.forEach(function (c) { add(gridPointNear(c, grid)); });
+    }
+    var out = m.slice();
+    [0, 1].forEach(function (axis) {
+      var best = null, reach = SNAP_REACH / view.scale;
+      mine.forEach(function (c) {
+        targets[axis].forEach(function (t) { var d = t - c[axis]; if (Math.abs(d) < reach) { reach = Math.abs(d); best = d; } });
+      });
+      if (best != null) out[4 + axis] += best;
+    });
+    return out;
+  }
   function snapToGrid(drag, point, m, shift) {
     if (!state.snapGrid || state.rule.mode !== 'free' || drag.job === 'rotate') return m;
     if (drag.job === 'scale' && !(shift && !state.locks.stretch)) return snapScale(drag, m);
@@ -1410,7 +1491,7 @@
       drag.job = edgeJob(drag, dx, dy);
     }
     var point = editorPoint(event), m = dragMatrix(drag, point, !state.snapGrid, event.shiftKey);
-    m = snapToGrid(drag, point, m, event.shiftKey);
+    m = drag.job === 'move' ? (event.altKey ? m : snapMove(drag, m)) : snapToGrid(drag, point, m, event.shiftKey);
     if (!m.every(Number.isFinite) || Math.abs(M.determinant(m)) < 1e-9) return;
     drag.moved = true; drag.child.matrix = m; markEdited(); renderEditor(); renderMain(); event.preventDefault();
   }
@@ -1533,7 +1614,7 @@
 
   function wireEvents() {
     el.demo.addEventListener('change', function () {
-      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.selectedId = null; state.focus = 'child'; state.brush = M.identity(); state.depth = PRESETS.balanced.depth; state.limits = sanitiseLimits(PRESETS.balanced); state.preset = 'balanced'; state.showHull = true; state.topColour = null; state.savedName = null; state.newLetter = null; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null; commit();
+      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.selectedId = null; state.focus = 'child'; state.brush = M.identity(); state.depth = PRESETS.balanced.depth; state.limits = sanitiseLimits(PRESETS.balanced); state.preset = 'balanced'; state.showHull = true; state.colourMode = null; state.savedName = null; state.newLetter = null; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null; commit();
     });
     el.addLetter.addEventListener('click', addLetter);
     el.removeLetter.addEventListener('click', removeLetter);
@@ -1576,7 +1657,9 @@
       var offset = editorOffset(event.clientX, event.clientY);
       zoomEditor(Math.exp(-event.deltaY * (event.ctrlKey ? .01 : .0015)), offset[0], offset[1]); event.preventDefault();
     }, { passive: false });
-    el.toggleTopColour.addEventListener('change', function () { state.topColour = el.toggleTopColour.checked; renderPalette(); renderEditor(); renderIterations(); renderMain(); saveAddress(); });
+    el.colourMode.querySelectorAll('[data-colour]').forEach(function (button) {
+      button.addEventListener('click', function () { state.colourMode = button.dataset.colour; syncControls(); renderEditor(); renderIterations(); renderMain(); saveAddress(); });
+    });
     el.depth.addEventListener('input', function () { state.depth = Number(el.depth.value); el.depthValue.textContent = state.depth; state.dragging = true; setCustom(); syncLimitControls(); renderMain(); });
     el.depth.addEventListener('change', function () { state.dragging = false; updateAnalysis(); renderReadouts(); renderMain(); saveAddress(); });
     [['stacking', el.toggleStacking], ['gridPerLetter', el.togglePerLetter]].forEach(function (pair) {
@@ -1648,11 +1731,22 @@
       var action = { r: 'rotateLeft', t: 'rotateRight', h: 'flipH', v: 'flipV' }[key];
       if (action) { event.preventDefault(); orient(action); }
     });
-    var observer = new ResizeObserver(function () { renderEditor(); renderIterations(); renderMain(); }); observer.observe(document.querySelector('.workspace'));
+    // Each canvas redraws when its own box changes size, as a panel line is
+    // dragged too, so the browser never stretches an old picture out of shape.
+    var resized = {}, frame = 0;
+    var observer = new ResizeObserver(function (entries) {
+      entries.forEach(function (entry) { resized[entry.target === el.ruleEditor ? 'editor' : entry.target === el.limit ? 'main' : 'strip'] = true; });
+      if (frame) return;
+      frame = requestAnimationFrame(function () {
+        frame = 0; var done = resized; resized = {};
+        if (done.editor) renderEditor(); if (done.strip) renderIterations(); if (done.main) renderMain();
+      });
+    });
+    [el.ruleEditor, el.limit, document.getElementById('iteration-strip')].forEach(function (target) { observer.observe(target); });
   }
 
   function collectElements() {
-    ['demo','rule-name','mode-row','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','cols-field','snap-field','toggle-snap','lock-row','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','toggle-top-colour','palette-label','depth','depth-value','toggle-menu','toggle-popover','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','mode-row','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','cols-field','snap-field','toggle-snap','lock-row','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','depth','depth-value','toggle-menu','toggle-popover','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }

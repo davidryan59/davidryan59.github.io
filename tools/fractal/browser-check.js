@@ -54,6 +54,11 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('[data-preset="fast"]');
   equal(await page.locator('#depth').inputValue(), '6', 'Fast preset depth');
   await page.click('[data-preset="balanced"]');
+  check(await page.locator('[data-colour="top"]').evaluate(button => button.classList.contains('active')), 'a one-parent rule colours by top copy');
+  await page.click('[data-colour="order"]');
+  equal(await page.locator('#palette-label').textContent(), 'Colour by order', 'Order colours by place in the order');
+  check((await page.url()).includes('#rule='), 'the colour mode goes in the address');
+  await page.click('[data-colour="top"]');
   check(await page.locator('#toggle-stacking').isDisabled(), 'Stacking is greyed out in Free mode');
   await page.click('#toggle-menu');
 
@@ -74,6 +79,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
 
   // Child A of the Sieve fills the top-left quarter, so its centre is
   // (0.25, 0.25), its turn corner (0.5, 0) and its scale corner (0.5, 0.5).
+  let cells;
   const centre = await editorPoint([0.25, 0.25]);
   await page.mouse.click(centre[0], centre[1]);
   equal(await selection(), 'A', 'a click selects the top-left child, A');
@@ -82,11 +88,30 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   // Turn: a press just outside the top-right corner grabs the turn knob.
   await drag([0.5, 0], [0.5, 0.5], { offset: [4, -4] });
   equal(await selection(), 'A', 'the handle drag kept the same child');
-  let cells = await cellsOf();
+  cells = await cellsOf();
   check(near(cells[5], 0.5) && near(cells[6], 90, 0.01), 'the turn corner turns a quarter turn about the centre: ' + cells.join(' '));
   check(near(cells[3], 0.5) && near(cells[4], 0), 'the turn kept the centre in place: ' + cells.join(' '));
   await page.click('#undo');
   equal(await firstRow(), beforeHandle, 'undo restores the child');
+
+  // A moved child sticks to edges: A's top edge lies on the parent's, so a
+  // sideways drag that wobbles 2 pixels down keeps y at 0.
+  {
+    const from = await editorPoint([0.25, 0.25]), to = await editorPoint([0.35, 0.25]);
+    await page.mouse.move(from[0], from[1]); await page.mouse.down();
+    await page.mouse.move(to[0], to[1] + 2, { steps: 6 }); await page.mouse.up();
+    await page.waitForTimeout(50);
+    cells = await cellsOf();
+    check(near(cells[3], 0.1, 0.02) && cells[4] === '0.000', 'a sideways drag stays on the top edge: ' + cells.join(' '));
+    await page.click('#undo');
+  }
+
+  // Turns are sticky at right angles: a drag to 93 degrees lands on 90.
+  const turned = [0.25 + Math.SQRT2 * 0.25 * Math.cos((45 + 3) * Math.PI / 180), 0.25 + Math.SQRT2 * 0.25 * Math.sin((45 + 3) * Math.PI / 180)];
+  await drag([0.5, 0], turned);
+  cells = await cellsOf();
+  equal(cells[6], '90.000', 'a turn near 90 degrees holds at 90');
+  await page.click('#undo');
 
   // Scale: the bottom-right corner scales about the centre.
   await drag([0.5, 0.5], [0.625, 0.625]);
@@ -102,11 +127,27 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   cells = await cellsOf();
   check(near(cells[3], 0.75) && near(cells[4], 0) && near(cells[5], 0) && near(cells[6], 0.5), 'across the edge stretches width only: ' + cells.join(' '));
   check(cells[4] === '0.000', 'zero shows three decimals');
+  // Rotate R turns the number inside the same rectangle: (x, y) goes to
+  // (1 - y, x) in the child's frame, so the 0.75 by 0.5 outline stays put.
+  await page.click('#rotate-right');
+  cells = await cellsOf();
+  check(near(cells[3], 0) && near(cells[4], 0.5) && near(cells[5], -0.75) && near(cells[6], 0) && near(cells[7], 0.75) && near(cells[8], 0),
+    'Rotate R keeps the rectangle in place: ' + cells.join(' '));
+  await page.click('#undo');
   await page.click('#undo');
   await drag([0.5, 0.25], [0.5, 0.4]);
   cells = await cellsOf();
   check(near(cells[3], 0.5) && Math.abs(Number(cells[4])) > 0.1 && near(cells[6], 0.5), 'along the edge skews: ' + cells.join(' '));
   await page.click('#undo');
+  // Zero skew is sticky: a skew dragged back to within a few pixels of
+  // square lands on square exactly.
+  const along = await editorPoint([0.5, 0.25]), back = await editorPoint([0.5, 0.4]);
+  await page.mouse.move(along[0], along[1]); await page.mouse.down();
+  await page.mouse.move(back[0], back[1], { steps: 6 });
+  await page.mouse.move(along[0] + 1, along[1] + 3, { steps: 6 }); await page.mouse.up();
+  await page.waitForTimeout(50);
+  equal(await page.locator('#numbers-head th').count(), 9, 'a skew dragged back near zero holds at zero');
+  if (!(await page.locator('#undo').isDisabled())) await page.click('#undo');
   // With Skew locked, an edge handle only stretches, whichever way it moves.
   await page.click('#lock-skew');
   equal(await page.locator('#lock-skew').getAttribute('aria-pressed'), 'true', 'Skew locks');
@@ -146,6 +187,9 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.mouse.move(line.x + line.width / 2, line.y + line.height / 2); await page.mouse.down();
   await page.mouse.move(line.x + line.width / 2, line.y + line.height / 2 + 60, { steps: 5 }); await page.mouse.up();
   check(Math.abs((await page.locator('#editor-wrap').boundingBox()).height - wrapBefore - 60) < 2, 'the line under the editor makes it taller');
+  await page.waitForTimeout(100);
+  const shape = await page.locator('#rule-editor').evaluate(canvas => { const r = canvas.getBoundingClientRect(); return [canvas.width / canvas.height, r.width / r.height]; });
+  check(Math.abs(shape[0] - shape[1]) < 0.01, 'the editor redraws at its new shape: ' + shape.join(' '));
   await page.locator('#divider-editor').dblclick();
   check(Math.abs((await page.locator('#editor-wrap').boundingBox()).height - wrapBefore) < 2, 'a double-click resets the editor height');
   console.log('Zoomed, panned and resized the editor.');

@@ -152,7 +152,14 @@
             <div class="grid-line"><span>Rows</span><div id="grid-rows" class="grid-buttons" role="group" aria-label="Grid rows"></div></div>
             <div class="grid-line" id="cols-field"><span>Cols</span><div id="grid-cols" class="grid-buttons" role="group" aria-label="Grid columns"></div></div>
           </div>
-          <label class="colour-toggle"><input id="toggle-top-colour" type="checkbox"> Colour by top-level copy</label>
+          <div class="colour-field">
+            <span class="popover-heading">Colour</span>
+            <div id="colour-mode" class="preset-row colour-modes" role="group" aria-label="Colour mode">
+              <button type="button" data-colour="parent" title="Each parent keeps its own colour">Parent</button>
+              <button type="button" data-colour="top" title="Each copy takes the colour of the top-level child it sits inside">Top copy</button>
+              <button type="button" data-colour="order" title="Every copy in order, first red, last blue">Order</button>
+            </div>
+          </div>
           <div class="rule-toggles">
             <label><input id="toggle-stacking" type="checkbox"> Stacking</label>
             <label><input id="toggle-per-letter" type="checkbox"> Grid per letter</label>

@@ -57,10 +57,15 @@ in Node. `tools/fractal/browser-check.js` checks the main interactions.
 ## Editing modes
 
 Free mode is the default. It draws child frames over a dashed parent. Drag
-inside a child to move it. The selected child has two corner knobs, on its
+inside a child to move it. A moved child sticks on each axis by itself: its
+corners' x values stick to any x within 6 pixels, and likewise y. The
+targets are the parent's corners, the other children's corners and, with
+Snap corners on, the grid lines. So a child lined up with an edge slides
+along it while the hand wobbles across it. Alt moves it freely. The selected child has two corner knobs, on its
 own corners, so they turn and flip with it. The top-right corner (a
 triangle: its top point) shows a circular arrow and turns the child about
-its centre, snapping to 15° steps. The bottom-right corner shows a
+its centre. A turn holds at 0°, 90°, 180° and 270° within 4° (a triangle:
+every 60°), and at other 15° steps within 2°. The bottom-right corner shows a
 two-headed arrow and scales the child about its centre, snapping to simple
 ratios such as 1/2 and 3/2. Shift on the scale corner stretches both ways in
 the child's own frame. The other corners have no handle.
@@ -68,7 +73,9 @@ the child's own frame. The other corners have no handle.
 Each edge has one bar-shaped handle at its middle, lying along the edge. The
 first 4 pixels of a drag pick its job, which then holds: across the edge
 stretches one way, with the opposite edge fixed (a triangle: the opposite
-corner), and along the edge skews it. The Stretch and Skew buttons under
+corner), and along the edge skews it. Zero skew holds within 6 pixels: the
+point where the dragged edge stands square to the line from the fixed side,
+so a square child's corners are right angles again. The Stretch and Skew buttons under
 Rotate L and Rotate R lock those jobs; a locked job loses its handles, and
 with both locked the edges have none. The locks are kept in the browser key
 `fractal-locks`. Together the handles reach every affine map: move, turn,
@@ -84,7 +91,8 @@ zoom or pan; from then the view holds still, so a far child does not shrink
 the rest, until Fit hands control back. Changing parent, mode or rule fits
 again. A click on empty space without a drag deselects. The line under the
 editor sets its height, kept with the panel widths in `fractal-panels`;
-a double-click resets it. The strip above the editor holds the view buttons
+a double-click resets it. Each canvas redraws when its own box changes size,
+so dragging a panel line zooms the picture and never stretches it. The strip above the editor holds the view buttons
 on the left and the child buttons (add, duplicate and remove) on the right.
 
 Snap corners, in Options, draws the grid of Rows by Cols (2 to 8) across the
@@ -103,9 +111,13 @@ Triangle mode divides an equilateral triangle into `N²` small triangles.
 Both upright and downward cells accept children. Rotate turns by 120°, and
 Flip V is disabled, since it would turn an upright cell into a downward one.
 
-Rotate L and Rotate R turn the child as it looks on screen, about its centre.
-Flip H and Flip V mirror the child inside its own frame: the frame stays put,
-and the number and underline reverse. Each child has a letter, A, B, C
+Rotate L, Rotate R, Flip H and Flip V act inside the child's own frame. Each
+is a symmetry of the frame (a quarter turn or mirror of the square; a third
+of a turn or mirror of the triangle), so the child's outline stays exactly in
+place, whether it is a square, a rectangle or a skewed shape. Only the number
+and underline turn or reverse inside it. Rotate R turns the number clockwise
+as seen on screen, so on a flipped child it turns the other way in the
+child's frame. Each child has a letter, A, B, C
 and on, from its place in its parent's list. The letter sits at the child's
 top left (a triangle: near its top) and relabels when the list is reordered. With no child selected they set the orientation of new children,
 shown in the preview beside the panel heading. A duplicate goes to the right
@@ -138,7 +150,15 @@ still spends its copy budget on them.
 
 Converging rules share one fitted camera. Growing and cycling rules show the
 latest four levels together. The main view can show or hide its convex hull.
-Colour follows the current letter.
+Options has three colour modes. Parent gives each parent its own colour. Top
+copy colours each copy by the top-level child it sits inside. Order numbers
+every copy in order, first child first at every level, and colours it by its
+place on a scale from red (hue 0) through orange, yellow, green and cyan to
+blue (hue 225). At each level a copy's share of the scale splits equally
+among its children, and the copy takes the middle of its share. The default
+is Top copy for a one-parent rule and Parent for a linked rule. The mode
+travels in the address as `colour`; older addresses and saved fractals held
+true or false for Top copy, and still open.
 
 ## Readouts
 
