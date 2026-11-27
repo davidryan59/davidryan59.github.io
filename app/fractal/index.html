@@ -30,7 +30,6 @@
   <a class="back" href="../../index.html">← David Ryan's builder page</a>
   <div class="title-block">
     <h1>Fractal Explorer</h1>
-    <p>Place the copies. Read the limit.</p>
   </div>
   <div class="top-actions">
     <button class="icon-button" id="undo" type="button" aria-label="Undo" title="Undo" disabled>
@@ -66,8 +65,13 @@
 
     <div class="letter-row">
       <div id="letter-tabs" class="letter-tabs" role="tablist" aria-label="Rule letters"></div>
-      <button id="add-letter" class="small-button" type="button" title="Add a letter">+ Letter</button>
-      <button id="remove-letter" class="small-button" type="button" title="Remove the selected letter">− Letter</button>
+      <button id="add-letter" class="small-button letter-step" type="button" title="Add a letter" aria-label="Add a letter">+</button>
+      <button id="remove-letter" class="small-button letter-step" type="button" title="Remove the selected letter" aria-label="Remove the selected letter">−</button>
+    </div>
+
+    <div class="child-row">
+      <span class="row-label" id="child-row-label">New copies</span>
+      <div id="child-letters" class="letter-tabs child-letters" role="group" aria-label="Letter for the selected or next copy"></div>
     </div>
 
     <div class="editor-wrap">
@@ -86,7 +90,6 @@
         <button id="remove-child" class="danger" type="button">Remove</button>
       </div>
       <div class="field-grid">
-        <label>Letter<select id="child-letter"></select></label>
         <label id="block-field">Block rows <input id="block-size" type="number" min="1" max="5" step="1" value="1"></label>
         <label id="block-cols-field">Block cols <input id="block-cols" type="number" min="1" max="5" step="1" value="1"></label>
       </div>
@@ -129,7 +132,7 @@
 
       <div class="corner corner-tr">
         <label class="level-field"><span>Level <output id="depth-value">7</output></span><input id="depth" type="range" min="1" max="12" value="7"></label>
-        <button id="toggle-menu" class="menu-button" type="button" aria-expanded="false">Options</button>
+        <button id="toggle-menu" class="disclosure" type="button" aria-expanded="false" aria-controls="toggle-popover">Options</button>
         <div id="toggle-popover" class="toggle-popover" hidden>
           <div id="grid-fields" class="grid-fields">
             <span class="popover-heading">Grid</span>
@@ -202,6 +205,21 @@
     <section class="share">
       <button id="copy-link" type="button">Copy this rule's link</button>
       <p>Every edit updates the page address.</p>
+    </section>
+    <section class="library" aria-labelledby="library-heading">
+      <h2 id="library-heading">Saved fractals</h2>
+      <div class="save-row">
+        <input id="save-name" type="text" maxlength="60" placeholder="Name" aria-label="Name for this fractal">
+        <button id="save-fractal" type="button">Save</button>
+      </div>
+      <ul id="library-list" class="library-list"></ul>
+      <p id="library-empty" class="library-note">Saved fractals stay in this browser.</p>
+      <div class="button-row file-row">
+        <button id="export-fractal" type="button" title="Download this fractal as a .fractal.json file">Export</button>
+        <button id="export-all" type="button" title="Download every saved fractal in one .fractal.json file">Export all</button>
+        <button id="import-fractal" type="button" title="Open a .fractal.json file">Import</button>
+      </div>
+      <input id="import-file" type="file" accept=".json,application/json" hidden>
     </section>
     <details class="help">
       <summary>How to edit</summary>

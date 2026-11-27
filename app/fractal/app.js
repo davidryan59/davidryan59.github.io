@@ -466,17 +466,44 @@
   }
 
   function renderLetterControls() {
-    el.letterTabs.innerHTML = ''; el.childLetter.innerHTML = ''; el.startLetter.innerHTML = '';
+    el.letterTabs.innerHTML = ''; el.childLetters.innerHTML = ''; el.startLetter.innerHTML = '';
     state.rule.letters.forEach(function (letter) {
       var button = document.createElement('button'); button.type = 'button'; button.className = 'letter-tab' + (letter.id === state.currentLetter ? ' active' : '');
       button.textContent = letter.id; button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', letter.id === state.currentLetter);
-      button.addEventListener('click', function () { state.currentLetter = letter.id; state.selectedId = null; syncControls(); renderEditor(); saveAddress(); });
+      button.addEventListener('click', function () { state.currentLetter = letter.id; state.selectedId = null; state.newLetter = null; syncControls(); renderEditor(); saveAddress(); });
       el.letterTabs.appendChild(button);
-      [el.childLetter, el.startLetter].forEach(function (select) { var option = document.createElement('option'); option.value = letter.id; option.textContent = letter.id; select.appendChild(option); });
+      var option = document.createElement('option'); option.value = letter.id; option.textContent = letter.id; el.startLetter.appendChild(option);
     });
     el.startLetter.value = state.startLetter;
+    renderChildLetters();
     el.removeLetter.disabled = state.rule.letters.length < 2;
     el.removeLetter.title = state.rule.letters.length < 2 ? 'A rule needs at least one letter' : 'Remove letter ' + state.currentLetter + ' and its copies';
+  }
+
+  // The child row: one button per letter. With a copy selected, a button
+  // relabels that copy. With none selected, it sets the letter that the next
+  // new copies take. Number keys 1 to 9 press the buttons in order.
+  function brushLetter() { return letterById(state.newLetter) ? state.newLetter : state.currentLetter; }
+  function renderChildLetters() {
+    var child = selectedChild(), active = child ? child.letter : brushLetter();
+    el.childLetters.innerHTML = '';
+    el.childRowLabel.textContent = child ? 'Selected copy' : 'New copies';
+    state.rule.letters.forEach(function (letter, index) {
+      var button = document.createElement('button'); button.type = 'button';
+      button.className = 'letter-tab' + (letter.id === active ? ' active' : '');
+      button.textContent = letter.id; button.style.setProperty('--dot', colour(letter.id));
+      button.setAttribute('aria-pressed', letter.id === active ? 'true' : 'false');
+      button.title = (child ? 'Make the selected copy ' : 'Make new copies ') + letter.id + (index < 9 ? ' (key ' + (index + 1) + ')' : '');
+      button.addEventListener('click', function () { pickChildLetter(letter.id); });
+      el.childLetters.appendChild(button);
+    });
+  }
+  function pickChildLetter(id) {
+    if (!letterById(id)) return;
+    state.newLetter = id;
+    var child = selectedChild();
+    if (child && child.letter !== id) { child.letter = id; markEdited(); commit(); return; }
+    renderChildLetters();
   }
 
   // Panel dividers: drag to resize the rule panel or the readout panel. The
@@ -575,10 +602,11 @@
 
   function syncSelection() {
     var child = selectedChild(), disabled = !child;
-    [el.turnChild, el.flipChild, el.removeChild, el.childLetter, el.blockSize, el.blockCols].forEach(function (control) { control.disabled = disabled; });
+    [el.turnChild, el.flipChild, el.removeChild, el.blockSize, el.blockCols].forEach(function (control) { control.disabled = disabled; });
+    renderChildLetters();
     el.selectionName.textContent = child ? child.letter + ' · ' + (currentLetter().children.indexOf(child) + 1) : 'None';
     if (child) {
-      el.childLetter.value = child.letter; el.blockSize.value = child.blockRows || child.block || 1; el.blockCols.value = child.blockCols || child.block || 1;
+      el.blockSize.value = child.blockRows || child.block || 1; el.blockCols.value = child.blockCols || child.block || 1;
     }
     var grid = state.rule.mode !== 'free';
     el.turnChild.hidden = false; el.flipChild.hidden = false;
@@ -587,7 +615,7 @@
   }
 
   function syncControls() {
-    el.ruleName.textContent = state.demo ? DEMO_NAMES[state.demo] : 'Custom rule';
+    el.ruleName.textContent = state.demo ? DEMO_NAMES[state.demo] : state.savedName || 'Custom rule';
     el.demo.value = state.demo || '';
     el.mode.value = state.rule.mode; el.depth.value = state.depth; el.depthValue.textContent = state.depth;
     var grid = gridFor(state.currentLetter); el.gridRows.value = grid.rows; el.gridCols.value = grid.cols;
@@ -623,10 +651,12 @@
   }
   function restore(index) {
     if (index < 0 || index >= undoStack.length) return;
-    historyIndex = index; var snap = undoStack[index];
+    historyIndex = index; var snap = undoStack[index], keep = state.selectedId;
     state.rule = M.clone(snap.rule); state.startLetter = snap.start; state.currentLetter = snap.current;
     state.demo = snap.demo; state.selectedId = snap.selected;
     if (!letterById(state.currentLetter)) state.currentLetter = state.rule.letters[0].id;
+    // Keep the copy the user has selected now, if it still exists.
+    if (keep && currentLetter().children.some(function (child) { return child.id === keep; })) state.selectedId = keep;
     restoring = true; commit(); restoring = false; syncHistoryButtons();
   }
   function undo() { restore(historyIndex - 1); }
@@ -657,6 +687,88 @@
     state.currentLetter = id; state.selectedId = null; markEdited(); commit();
   }
 
+  // Saved fractals. The library lives in this browser's local storage. A
+  // .fractal.json file holds one or more fractals in the same shape:
+  // { format: 'fractal-explorer', version: 1, fractals: [entry, ...] }, where
+  // an entry is { name, savedAt, rule, start, level, colourByTopCopy }.
+  var LIBRARY_KEY = 'fractal-library', FILE_FORMAT = 'fractal-explorer';
+  function readLibrary() {
+    try { var list = JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]'); return Array.isArray(list) ? list.filter(validEntry) : []; }
+    catch (error) { return []; }
+  }
+  function writeLibrary(list) {
+    try { localStorage.setItem(LIBRARY_KEY, JSON.stringify(list)); return true; }
+    catch (error) { notice('This browser is not keeping saved fractals. Use Export to keep a file.'); return false; }
+  }
+  function validEntry(entry) { return entry && typeof entry.name === 'string' && validRule(entry.rule); }
+  function currentEntry(name) {
+    return { name: name, savedAt: new Date().toISOString(), rule: M.clone(state.rule), start: state.startLetter,
+      level: state.depth, colourByTopCopy: state.topColour };
+  }
+  function defaultName() { return state.savedName || (state.demo ? DEMO_NAMES[state.demo] : 'Fractal ' + (readLibrary().length + 1)); }
+  function saveFractal() {
+    var name = el.saveName.value.trim() || defaultName(), list = readLibrary();
+    var index = list.findIndex(function (entry) { return entry.name === name; });
+    if (index >= 0) list[index] = currentEntry(name); else list.push(currentEntry(name));
+    if (!writeLibrary(list)) return;
+    state.savedName = name; el.saveName.value = name; renderLibrary(); syncControls();
+    notice((index >= 0 ? 'Updated “' : 'Saved “') + name + '”.');
+  }
+  function openEntry(entry) {
+    state.rule = M.clone(entry.rule); state.startLetter = entry.start;
+    if (!state.rule.letters.some(function (letter) { return letter.id === entry.start; })) state.startLetter = state.rule.letters[0].id;
+    state.currentLetter = state.startLetter; state.selectedId = null; state.newLetter = null;
+    state.depth = Math.max(1, Math.min(12, entry.level || state.depth));
+    state.topColour = typeof entry.colourByTopCopy === 'boolean' ? entry.colourByTopCopy : null;
+    state.demo = null; state.savedName = entry.name; state.camera = { zoom: 1, x: 0, y: 0 };
+    el.saveName.value = entry.name; el.demo.value = ''; commit();
+  }
+  function renderLibrary() {
+    var list = readLibrary();
+    el.libraryList.innerHTML = '';
+    list.forEach(function (entry) {
+      var item = document.createElement('li'), open = document.createElement('button'), remove = document.createElement('button');
+      open.type = 'button'; open.className = 'open-saved'; open.textContent = entry.name; open.title = 'Open “' + entry.name + '”';
+      open.addEventListener('click', function () { openEntry(entry); });
+      remove.type = 'button'; remove.className = 'delete-saved'; remove.textContent = '×'; remove.setAttribute('aria-label', 'Delete “' + entry.name + '”'); remove.title = 'Delete';
+      remove.addEventListener('click', function () {
+        if (!window.confirm('Delete “' + entry.name + '” from this browser?')) return;
+        writeLibrary(readLibrary().filter(function (other) { return other.name !== entry.name; })); renderLibrary();
+      });
+      item.appendChild(open); item.appendChild(remove); el.libraryList.appendChild(item);
+    });
+    el.libraryEmpty.textContent = list.length ? 'Saved in this browser. Export keeps a file.' : 'Nothing saved yet. Saved fractals stay in this browser.';
+    el.exportAll.disabled = !list.length;
+  }
+  function slug(name) { return (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'fractal'); }
+  function download(filename, entries) {
+    var text = JSON.stringify({ format: FILE_FORMAT, version: 1, fractals: entries }, null, 2);
+    var link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    link.download = filename; document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+  }
+  function exportFractal() { var name = el.saveName.value.trim() || defaultName(); download(slug(name) + '.fractal.json', [currentEntry(name)]); }
+  function exportAll() { var list = readLibrary(); if (list.length) download('fractal-library.fractal.json', list); }
+  function importFile(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try { data = JSON.parse(reader.result); } catch (error) { notice('That file is not valid JSON.'); return; }
+      var entries = data && data.format === FILE_FORMAT && Array.isArray(data.fractals) ? data.fractals.filter(validEntry) : [];
+      if (!entries.length) { notice('That file holds no Fractal Explorer fractals.'); return; }
+      var list = readLibrary();
+      entries.forEach(function (entry) {
+        var name = entry.name, n = 2;
+        while (list.some(function (other) { return other.name === name; })) name = entry.name + ' (' + n++ + ')';
+        list.push(Object.assign({}, entry, { name: name }));
+      });
+      writeLibrary(list); renderLibrary();
+      if (entries.length === 1) openEntry(list[list.length - 1]);
+      notice('Imported ' + entries.length + (entries.length === 1 ? ' fractal.' : ' fractals.'));
+    };
+    reader.readAsText(file);
+  }
+
   // Removing a letter also removes every copy of it inside the other letters.
   function removeLetter() {
     if (state.rule.letters.length < 2) return;
@@ -667,6 +779,7 @@
     if (state.rule.grid.perLetter) delete state.rule.grid.perLetter[id];
     state.currentLetter = state.rule.letters[Math.max(0, index - 1)].id;
     if (state.startLetter === id) state.startLetter = state.rule.letters[0].id;
+    if (state.newLetter === id) state.newLetter = null;
     state.selectedId = null; markEdited(); commit();
     notice('Removed letter ' + id + ' and its copies. Undo brings it back.');
   }
@@ -710,7 +823,7 @@
     }
     var occupied = letter.children.find(function (child) { return JSON.stringify(child.cell) === JSON.stringify(meta.cell); });
     if (occupied && !state.rule.toggles.stacking) { state.selectedId = occupied.id; syncControls(); renderEditor(); return; }
-    var newChild = M.child(state.currentLetter, map, meta); letter.children.push(newChild); state.selectedId = newChild.id; markEdited(); commit();
+    var newChild = M.child(brushLetter(), map, meta); letter.children.push(newChild); state.selectedId = newChild.id; markEdited(); commit();
   }
 
   function distance(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
@@ -816,10 +929,16 @@
 
   function wireEvents() {
     el.demo.addEventListener('change', function () {
-      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.startLetter = state.currentLetter; state.selectedId = null; state.depth = PRESETS.balanced.depth; state.limits = sanitiseLimits(PRESETS.balanced); state.preset = 'balanced'; state.showHull = true; state.topColour = null; state.camera = { zoom: 1, x: 0, y: 0 }; commit();
+      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.startLetter = state.currentLetter; state.selectedId = null; state.depth = PRESETS.balanced.depth; state.limits = sanitiseLimits(PRESETS.balanced); state.preset = 'balanced'; state.showHull = true; state.topColour = null; state.savedName = null; state.newLetter = null; state.camera = { zoom: 1, x: 0, y: 0 }; commit();
     });
     el.addLetter.addEventListener('click', addLetter);
     el.removeLetter.addEventListener('click', removeLetter);
+    el.saveFractal.addEventListener('click', saveFractal);
+    el.saveName.addEventListener('keydown', function (event) { if (event.key === 'Enter') saveFractal(); });
+    el.exportFractal.addEventListener('click', exportFractal); el.exportAll.addEventListener('click', exportAll);
+    el.importFractal.addEventListener('click', function () { el.importFile.value = ''; el.importFile.click(); });
+    el.importFile.addEventListener('change', function () { if (el.importFile.files[0]) importFile(el.importFile.files[0]); });
+    renderLibrary();
     el.undo.addEventListener('click', undo); el.redo.addEventListener('click', redo);
     var mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
     el.undo.title = 'Undo (' + (mac ? '⌘Z' : 'Ctrl+Z') + ')'; el.redo.title = 'Redo (' + (mac ? '⇧⌘Z' : 'Ctrl+Y') + ')';
@@ -840,7 +959,7 @@
         markEdited(); commit();
       });
     });
-    el.toggleMenu.addEventListener('click', function () { var open = el.togglePopover.hidden; el.togglePopover.hidden = !open; el.toggleMenu.setAttribute('aria-expanded', open); });
+    el.toggleMenu.addEventListener('click', function () { var open = el.togglePopover.hidden; el.togglePopover.hidden = !open; el.toggleMenu.setAttribute('aria-expanded', open); el.toggleMenu.parentNode.classList.toggle('open', open); });
     document.querySelectorAll('[data-preset]').forEach(function (button) {
       if (button.dataset.preset !== 'custom') button.addEventListener('click', function () { applyPreset(button.dataset.preset); });
     });
@@ -861,7 +980,6 @@
     el.hullIterations.addEventListener('change', function () { state.limits.hullIterations = Number(el.hullIterations.value); setCustom(); updateAnalysis(); syncLimitControls(); renderReadouts(); renderMain(); saveAddress(); });
     el.turnChild.addEventListener('click', function () { selectedAction('turn'); }); el.flipChild.addEventListener('click', function () { selectedAction('flip'); });
     el.removeChild.addEventListener('click', removeSelected);
-    el.childLetter.addEventListener('change', function () { var child = selectedChild(); if (!child) return; child.letter = el.childLetter.value; markEdited(); commit(); });
     el.blockSize.addEventListener('change', function () { var child = selectedChild(); if (!child) return; child.blockRows = Math.max(1, Number(el.blockSize.value)); if (!state.rule.toggles.stretch) child.blockCols = child.blockRows; markEdited(); commit(); });
     el.blockCols.addEventListener('change', function () { var child = selectedChild(); if (!child) return; child.blockCols = Math.max(1, Number(el.blockCols.value)); markEdited(); commit(); });
     el.ruleEditor.addEventListener('pointerdown', startEditorPointer); el.ruleEditor.addEventListener('pointermove', moveEditorPointer); el.ruleEditor.addEventListener('pointerup', endEditorPointer); el.ruleEditor.addEventListener('pointercancel', endEditorPointer);
@@ -883,6 +1001,11 @@
         return;
       }
       if (/INPUT|SELECT/.test(event.target.tagName)) return;
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && /^[1-9]$/.test(event.key)) {
+        var letter = state.rule.letters[Number(event.key) - 1];
+        if (letter) { pickChildLetter(letter.id); event.preventDefault(); }
+        return;
+      }
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedChild()) removeSelected();
       else if (event.key.toLowerCase() === 'r' && selectedChild()) selectedAction('turn');
       else if (event.key.toLowerCase() === 'f' && selectedChild()) selectedAction('flip');
@@ -891,7 +1014,7 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','letter-tabs','add-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','editor-hint','selection-name','turn-child','flip-child','remove-child','child-letter','block-field','block-size','block-cols-field','block-cols','numbers-kind','numbers-head','numbers-body','limit','main-stage','mode','start-letter','grid-fields','grid-rows','grid-cols','cols-field','toggle-top-colour','palette-label','depth','depth-value','toggle-menu','toggle-popover','toggle-stretch','toggle-blocks','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','letter-tabs','add-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','editor-hint','selection-name','turn-child','flip-child','remove-child','child-letters','child-row-label','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','block-field','block-size','block-cols-field','block-cols','numbers-kind','numbers-head','numbers-body','limit','main-stage','mode','start-letter','grid-fields','grid-rows','grid-cols','cols-field','toggle-top-colour','palette-label','depth','depth-value','toggle-menu','toggle-popover','toggle-stretch','toggle-blocks','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }
