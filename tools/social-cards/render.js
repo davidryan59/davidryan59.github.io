@@ -1,9 +1,14 @@
-/* Renders the site's social cards: the 1200 x 630 pictures that X,
+/* Renders the site's social cards: the 1200 x 630 pictures that Twitter,
    LinkedIn, WhatsApp and the like show when someone shares a page. Each
    page's og:image names one of them, in social/.
 
    Run from anywhere: node tools/social-cards/render.js [card ...]
-   With no arguments it renders every card. It needs Playwright and its
+   With no arguments it renders every card.
+
+   node tools/social-cards/render.js twitter-header renders David's 1500 x 500
+   Twitter profile header from twitter-header-layout.json into
+   tools/social-cards/renders/twitter-header.jpg, for him to upload. It is not a
+   share card, so a run with no arguments leaves it out. It needs Playwright and its
    Chromium (npm install playwright, then npx playwright install chromium),
    and a network connection: the builder card shows the live Cross and Wing
    site, and the audit cards read the five audited contracts' bytecode from a
@@ -31,6 +36,11 @@ const CARDS = ['builder', 'hat', 'spectre', 'hat-extended', 'krinkle', 'puzzle',
                'weth9', 'uniswap-v2', 'dai', 'permit2', 'cryptopunks', 'parfly', 'salary-loan', 'fractal'];
 // Cards drawn from their own words and diagram, with no picture from stage 1.
 const STANDALONE = ['parfly', 'salary-loan', 'fractal'];
+// Mosaics, each drawn from its layout file at that layout's size.
+const MONTAGES = { builder: 'builder-layout.json', 'twitter-header': 'twitter-header-layout.json' };
+// Pictures that are not share cards: where each goes, and its byte limit.
+// Twitter takes a header of up to 5 MB.
+const EXTRAS = { 'twitter-header': { dir: path.join(__dirname, 'renders'), maxBytes: 5 * 1024 * 1024 } };
 
 // The tiling views, as each tab's address bar holds them. The four tabs
 // with tile styles show Rich colours in Glow, each tile lit from its own
@@ -78,18 +88,23 @@ function serve() {
 }
 
 async function stageOne(browser, base, ids) {
-  // The builder card: the pictures its layout's tiles use, into montage/.
-  if (ids.includes('builder')) {
-    const layout = JSON.parse(fs.readFileSync(path.join(__dirname, 'builder-layout.json'), 'utf8'));
-    const want = layout.tiles.map(t => t.id).filter(id => id !== '__name');
-    if (layout.name.style === 'glass') want.push(layout.name.backdrop);
-    if (layout.name.style === 'photo') want.push('headshot');
-    const got = await capture(want, path.join(TMP, 'montage'), true);
-    const missing = want.filter(id => !got.some(m => m.id === id));
-    if (missing.length) throw new Error('builder-layout.json names unknown pictures: ' + missing.join(', '));
+  // The mosaics: the pictures their layouts' tiles use, into montage/.
+  const mosaics = ids.filter(id => id in MONTAGES);
+  if (mosaics.length) {
+    const want = [];
+    for (const id of mosaics) {
+      const layout = JSON.parse(fs.readFileSync(path.join(__dirname, MONTAGES[id]), 'utf8'));
+      want.push(...layout.tiles.map(t => t.id).filter(t => t !== '__name'));
+      if (layout.name.style === 'glass') want.push(layout.name.backdrop);
+      if (layout.name.style === 'photo') want.push('headshot');
+    }
+    const unique = [...new Set(want)];
+    const got = await capture(unique, path.join(TMP, 'montage'), true);
+    const missing = unique.filter(id => !got.some(m => m.id === id));
+    if (missing.length) throw new Error('a layout names unknown pictures: ' + missing.join(', '));
   }
   const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 2 });
-  for (const [name, view] of Object.entries(TILINGS)) {
+  if (ids.some(id => id in TILINGS)) for (const [name, view] of Object.entries(TILINGS)) {
     // WebGL sometimes loses its context on the first load and draws a blank
     // page, which is under 50 KB. Draw again, up to three times.
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -124,7 +139,7 @@ async function stageOne(browser, base, ids) {
     await board.close();
   }
   // A run that asks only for tiling cards needs nothing from the network.
-  if (ids.every(id => id in TILINGS || id === 'puzzle')) return;
+  if (ids.every(id => id in TILINGS || id in MONTAGES || id === 'puzzle')) return;
   const art = await browser.newContext({ viewport: { width: 400, height: 400 }, deviceScaleFactor: 2 });
   for (const [id, t] of Object.entries(FRACTALS)) {
     const page = await art.newPage();
@@ -147,9 +162,15 @@ async function stageOne(browser, base, ids) {
 }
 
 async function stageTwo(browser, base, ids) {
-  const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
   fs.mkdirSync(OUT, { recursive: true });
   for (const id of ids) {
+    const extra = EXTRAS[id] || { dir: OUT, maxBytes: MAX_BYTES };
+    let viewport = { width: 1200, height: 630 };
+    if (id in MONTAGES) {
+      const L = JSON.parse(fs.readFileSync(path.join(__dirname, MONTAGES[id]), 'utf8'));
+      viewport = { width: L.w || 1200, height: L.h || 630 };
+    }
+    const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
     const page = await ctx.newPage();
     await page.goto(base + '/tools/social-cards/cards.html?card=' + id);
     // A picture that failed to load gets one more try before the run stops.
@@ -161,12 +182,12 @@ async function stageTwo(browser, base, ids) {
       await page.reload();
     }
     let quality = 90, shot;
-    do { shot = await page.screenshot({ type: 'jpeg', quality }); quality -= 5; } while (shot.length > MAX_BYTES && quality >= 50);
-    fs.writeFileSync(path.join(OUT, id + '.jpg'), shot);
-    console.log('social/' + id + '.jpg', Math.round(shot.length / 1024) + ' KB, quality ' + (quality + 5));
-    await page.close();
+    do { shot = await page.screenshot({ type: 'jpeg', quality }); quality -= 5; } while (shot.length > extra.maxBytes && quality >= 50);
+    fs.mkdirSync(extra.dir, { recursive: true });
+    fs.writeFileSync(path.join(extra.dir, id + '.jpg'), shot);
+    console.log(path.relative(ROOT, path.join(extra.dir, id + '.jpg')), Math.round(shot.length / 1024) + ' KB, quality ' + (quality + 5));
+    await ctx.close();
   }
-  await ctx.close();
 }
 
 (async () => {

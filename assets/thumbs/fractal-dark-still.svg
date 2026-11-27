@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="A Sierpinski sieve with its top-left copy turned a quarter, at every level">
+  <rect width="120" height="120" fill="#10151d"/>
+  <defs>
+    <rect id="s0" x=".04" y=".04" width=".92" height=".92" rx=".04" fill="currentColor"/>
+    <g id="s1"><g transform="translate(0 0) scale(.5) rotate(90 .5 .5)"><use href="#s0"/></g><g transform="translate(0 .5) scale(.5) rotate(0 .5 .5)"><use href="#s0"/></g><g transform="translate(.5 .5) scale(.5) rotate(0 .5 .5)"><use href="#s0"/></g></g>
+    <g id="s2"><g transform="translate(0 0) scale(.5) rotate(90 .5 .5)"><use href="#s1"/></g><g transform="translate(0 .5) scale(.5) rotate(0 .5 .5)"><use href="#s1"/></g><g transform="translate(.5 .5) scale(.5) rotate(0 .5 .5)"><use href="#s1"/></g></g>
+    <g id="s3"><g transform="translate(0 0) scale(.5) rotate(90 .5 .5)"><use href="#s2"/></g><g transform="translate(0 .5) scale(.5) rotate(0 .5 .5)"><use href="#s2"/></g><g transform="translate(.5 .5) scale(.5) rotate(0 .5 .5)"><use href="#s2"/></g></g>
+    <g id="s4"><g transform="translate(0 0) scale(.5) rotate(90 .5 .5)"><use href="#s3"/></g><g transform="translate(0 .5) scale(.5) rotate(0 .5 .5)"><use href="#s3"/></g><g transform="translate(.5 .5) scale(.5) rotate(0 .5 .5)"><use href="#s3"/></g></g>
+  </defs>
+  <g transform="translate(12 12) scale(96)">
+    <g transform="translate(0 0) scale(.5) rotate(90 .5 .5)" color="#ffd84a"><use href="#s4"/></g>
+    <g transform="translate(0 .5) scale(.5) rotate(0 .5 .5)" color="#ff514d"><use href="#s4"/></g>
+    <g transform="translate(.5 .5) scale(.5) rotate(0 .5 .5)" color="#3f8cff"><use href="#s4"/></g>
+  </g>
+</svg>

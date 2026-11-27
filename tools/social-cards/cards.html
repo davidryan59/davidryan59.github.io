@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>Social cards</title>
-<!-- One social card at 1200 x 630, chosen by ?card=<id>. render.js opens
+<!-- One social card at 1200 x 630, chosen by ?card=<id>. The Twitter header,
+     ?card=twitter-header, is 1500 x 500. render.js opens
      this page for each card and saves a screenshot to social/<id>.jpg.
      Pictures that stage 1 of render.js draws are served under /__cards/.
      Every card keeps its words and its main picture inside the centre
@@ -242,13 +243,15 @@
       '<div class="panel">' + words('Fractal Explorer', 'Place turned, flipped and stretched copies. Read the limit.', 'drbuild.uk/fractal') + '</div></div>';
   }
 
-  // The builder page's mosaic, drawn by montage.js from builder-layout.json,
-  // which the montage designer writes. Stage 1 captures its pictures into
-  // /__cards/montage/, with a manifest naming each picture's file.
-  function builder() {
+  // A mosaic, drawn by montage.js from a layout file that the montage
+  // designer writes: builder-layout.json for the builder page's card, and
+  // twitter-header-layout.json for the 1500 x 500 Twitter profile header. Stage 1
+  // captures its pictures into /__cards/montage/, with a manifest naming
+  // each picture's file. The page takes the layout's size.
+  function mosaic(file) {
     var dir = SRC + 'montage/';
     return Promise.all([
-      fetch('builder-layout.json').then(function (r) { return r.json(); }),
+      fetch(file).then(function (r) { return r.json(); }),
       fetch(dir + 'manifest.js').then(function (r) { return r.text(); })
     ]).then(function (got) {
       var L = got[0], files = {};
@@ -256,7 +259,9 @@
       L.tiles = L.tiles.map(Montage.norm);
       var src = function (k) { return files[k] || null; };
       return Montage.sizes(Object.keys(files).map(function (k) { return { id: k, url: files[k] }; })).then(function (nat) {
-        return '<div class="card montage" style="background:' + L.bg + '">' +
+        var z = Montage.size(L);
+        document.body.style.width = z.w + 'px'; document.body.style.height = z.h + 'px';
+        return '<div class="card montage" style="width:' + z.w + 'px;height:' + z.h + 'px;background:' + L.bg + '">' +
           Montage.html(L, { src: src, nat: function (k) { return nat[k]; } }) + '</div>';
       });
     });
@@ -264,7 +269,8 @@
 
 
   var CARDS = {
-    builder: builder,
+    builder: function () { return mosaic('builder-layout.json'); },
+    'twitter-header': function () { return mosaic('twitter-header-layout.json'); },
     hat: function () { return tiling('hat', 'Hat tiling', 'The original aperiodic tile, which uses its mirror image'); },
     spectre: function () { return tiling('spectre', 'Spectre tiling', 'Tiles using only rotations, mirror image not required'); },
     'hat-extended': function () { return tiling('hat-extended', 'Hat tiling (extended)', 'Edge options on Hat make mirror image a separate tile'); },

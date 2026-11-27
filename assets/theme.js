@@ -23,11 +23,19 @@
     var btn = document.querySelector('.theme-toggle');
     if (!btn) return;
     btn.hidden = false;
+    // An animated thumbnail may name a still pair too, data-still-light and
+    // data-still-dark, for visitors who ask for reduced motion. Chrome ignores
+    // that setting inside an SVG shown as an image, so the page picks here.
+    var reducedMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
     function syncThumbnails() {
+      var still = !!(reducedMotion && reducedMotion.matches);
       document.querySelectorAll('img[data-theme-light][data-theme-dark]').forEach(function (image) {
-        image.src = root.dataset.theme === 'dark' ? image.dataset.themeDark : image.dataset.themeLight;
+        var dark = root.dataset.theme === 'dark';
+        var stillSrc = still && (dark ? image.dataset.stillDark : image.dataset.stillLight);
+        image.src = stillSrc || (dark ? image.dataset.themeDark : image.dataset.themeLight);
       });
     }
+    if (reducedMotion && reducedMotion.addEventListener) reducedMotion.addEventListener('change', syncThumbnails);
     function describe() {
       btn.title = 'Switch to ' + (root.dataset.theme === 'dark' ? 'light' : 'dark') + ' mode';
       btn.setAttribute('aria-label', btn.title);

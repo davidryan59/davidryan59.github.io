@@ -183,7 +183,7 @@ does not occur in the original 10,000. The page uses
 ### Business apps
 | Item | Link | Status |
 |---|---|---|
-| Northwind: Microsoft's Access sample database rebuilt for the browser, with 830 orders, customers, products, invoices and sales reports. Changes stay in each visitor's browser | [drbuild.uk/app/northwind/](https://drbuild.uk/app/northwind/) | Builder entry prepared locally on 2026-11-18, after Cross and Wing Publishing and before dice-to-seed. Static square thumbnail: `assets/thumbs/northwind.svg` |
+| Northwind: Microsoft's Access sample database rebuilt for the browser, with 830 orders, customers, products, invoices and sales reports. Changes stay in each visitor's browser | [drbuild.uk/app/northwind/](https://drbuild.uk/app/northwind/) | Builder entry prepared locally on 2026-11-18, after Cross and Wing Publishing and before dice-to-seed. Animated square thumbnail, light and dark: `assets/thumbs/northwind.svg` (2026-11-27) |
 
 ### Maths apps
 | Item | Link | Status |

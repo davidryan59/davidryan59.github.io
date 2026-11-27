@@ -3,12 +3,15 @@
    and montage-designer.html, which lays it out. builder-layout.json holds
    the card's layout, as the designer's Copy layout gives it.
 
-   A layout: { v: 2, cols, rows, gap, bg, name: { style, font, kicker,
+   A layout: { v: 2, w, h, cols, rows, gap, bg, name: { style, font, kicker,
    title, tag, site, backdrop }, tiles: [{ id, c, r, w, h, px, py, z, fit,
-   pad, bg }] }. The tile with id "__name" is the name block. */
+   pad, bg }] }. The tile with id "__name" is the name block. w and h give
+   the picture's size in pixels; a layout without them is a 1200 x 630 share
+   card. twitter-header-layout.json holds a 1500 x 500 Twitter profile header. */
 (function (root) {
   'use strict';
   var W = 1200, H = 630;
+  function size(L) { return { w: L.w || W, h: L.h || H }; }
 
   // A tile with every field filled in.
   function norm(t) {
@@ -16,7 +19,7 @@
              z: t.z || 1, fit: t.fit || 'cover', pad: t.pad || 0, bg: t.bg && t.bg !== '#17161c' ? t.bg : '' };
   }
   function geom(L) {
-    var cw = (W - L.gap * (L.cols - 1)) / L.cols, ch = (H - L.gap * (L.rows - 1)) / L.rows;
+    var z = size(L), cw = (z.w - L.gap * (L.cols - 1)) / L.cols, ch = (z.h - L.gap * (L.rows - 1)) / L.rows;
     return { cw: cw, ch: ch, sx: cw + L.gap, sy: ch + L.gap };
   }
   function rect(L, t, g) {
@@ -86,5 +89,5 @@
     })).then(function () { return nat; });
   }
 
-  root.Montage = { W: W, H: H, norm: norm, geom: geom, rect: rect, place: place, html: html, sizes: sizes, esc: esc };
+  root.Montage = { W: W, H: H, size: size, norm: norm, geom: geom, rect: rect, place: place, html: html, sizes: sizes, esc: esc };
 })(this);

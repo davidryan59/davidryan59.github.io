@@ -76,7 +76,11 @@ address, `davidryan59.github.io`, redirects there.
   `tools/social-cards/builder-layout.json`. To change it, run
   `node tools/social-cards/montage-candidates.js`, open
   `tools/social-cards/montage-designer.html`, lay out the tiles, and paste
-  the copied layout into that file.
+  the copied layout into that file. The same designer lays out David's
+  1500 × 500 Twitter profile header: pick "Twitter header" as the format, paste the
+  layout into `tools/social-cards/twitter-header-layout.json`, and run
+  `node tools/social-cards/render.js twitter-header`. It writes
+  `tools/social-cards/renders/twitter-header.jpg` for upload.
 - `redirects/` – one page for each short or old address, sending the visitor
   to the app's current address: `drbuild.uk/tiles`, and the first addresses of
   the apps.
