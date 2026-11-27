@@ -846,9 +846,6 @@
     el.selectionHeading.textContent = child ? 'Selected child' : 'New child';
     el.selectionName.textContent = child ? childName(children.indexOf(child)) : '';
     el.removeChild.disabled = !child; el.duplicateChild.disabled = !child;
-    var triangle = state.rule.frame === 'triangle';
-    el.flipV.disabled = triangle;
-    el.flipV.title = triangle ? 'A triangle has no top-to-bottom flip' : 'Flip top to bottom (V)';
     renderChildLetters(); renderBrushPreview();
   }
 
@@ -921,13 +918,21 @@
   // that is a true rotation only for a square or triangle child. Rotate R
   // turns the number clockwise as it looks on screen, so on a flipped child
   // it turns the other way in the child's own frame.
+  //
+  // A triangle's Flip V is the one move that leaves the outline: a
+  // top-to-bottom mirror has no place inside an upright triangle. So it
+  // mirrors the child across its own bottom edge, onto the other side of
+  // that edge, upside down. That edge is a grid line, so the child stays on
+  // the snap grid, and a second Flip V brings it back. For a new child (the
+  // brush) it mirrors about the centre instead, so + still adds the child
+  // where it would have gone.
   function frameCentre() { return state.rule.frame === 'triangle' ? [0.5, M.TRI_H * 2 / 3] : [.5, .5]; }
   function tidy(m) { return m.map(function (v) { var r = Math.round(v * 1e9) / 1e9; return Math.abs(v - r) < 1e-12 ? r : v; }); }
   var LOCAL_FLIP = { flipH: [-1, 0, 0, 1, 1, 0], flipV: [1, 0, 0, -1, 0, 1] };
-  function orientMatrix(matrix, action) {
+  function orientMatrix(matrix, action, brush) {
     if (LOCAL_FLIP[action]) {
       var flip = LOCAL_FLIP[action];
-      if (state.rule.frame === 'triangle' && action === 'flipV') flip = [1, 0, 0, -1, 0, M.TRI_H];
+      if (state.rule.frame === 'triangle' && action === 'flipV') flip = [1, 0, 0, -1, 0, 2 * (brush ? frameCentre()[1] : M.TRI_H)];
       return tidy(M.compose(matrix, flip));
     }
     var q = state.rule.frame === 'triangle' ? Math.PI * 2 / 3 : Math.PI / 2, c = Math.cos(q), s = Math.sin(q);
@@ -935,15 +940,41 @@
     return tidy(M.compose(matrix, about(clockwise ? [c, s, -s, c] : [c, -s, s, c], frameCentre())));
   }
 
-  // A triangle has no Flip V: a top-to-bottom mirror would stand it on its
-  // point, outside its own outline. Flip H and the turns cover its six
-  // symmetries.
   function orient(action) {
-    if (action === 'flipV' && state.rule.frame === 'triangle') return;
     var child = selectedChild();
-    if (!child) { state.brush = orientMatrix(state.brush, action); renderBrushPreview(); return; }
+    if (!child) { state.brush = orientMatrix(state.brush, action, true); renderBrushPreview(); return; }
     child.matrix = orientMatrix(child.matrix, action);
     markEdited(); commit();
+  }
+
+  // One grid cell's scale, across and down: 1/Cols by 1/Rows on a square
+  // (a rectangle when they differ), 1/Per side both ways on a triangle.
+  function gridCellSize() {
+    var grid = snapGridSize();
+    return state.rule.frame === 'triangle' ? [1 / grid.side, 1 / grid.side] : [1 / grid.cols, 1 / grid.rows];
+  }
+  // The centres of the grid's cells inside the frame, in reading order. A
+  // triangle with k pieces per side has k² cells: upright ones, and between
+  // them upside-down ones. New children take the cells that match the
+  // preview, upright or upside down; a cell's map keeps the frame's centre
+  // on the cell's centre, so the preview's turn and flip carry over.
+  function gridCellCentres() {
+    var grid = snapGridSize(), out = [], row, col;
+    if (state.rule.frame !== 'triangle') {
+      for (row = 0; row < grid.rows; row++) for (col = 0; col < grid.cols; col++) out.push([(col + .5) / grid.cols, (row + .5) / grid.rows]);
+      return out;
+    }
+    var k = grid.side, h = M.TRI_H, centre = frameCentre(), apex = M.apply(state.brush, M.framePolygon('triangle')[0]);
+    var down = apex[1] > centre[1] + 1e-9;
+    for (row = 0; row < k; row++) {
+      // Row r holds lattice points (i, j) with i + j = r, left to right.
+      for (var j = 0; j <= row; j++) {
+        var i = row - j, p = [.5 + (j - i) / (2 * k), h * row / k];
+        if (!down && row <= k - 1) out.push([p[0], p[1] + 2 * h / (3 * k)]);
+        if (down && row <= k - 2) out.push([p[0], p[1] + 4 * h / (3 * k)]);
+      }
+    }
+    return out;
   }
 
   function newChildId() { return Math.random().toString(36).slice(2, 9); }
@@ -965,11 +996,19 @@
     return best;
   }
 
-  // + adds a half-size child in the middle, or in the first free
-  // corner, with the number and orientation shown in the preview.
+  // + adds a child with the number and orientation shown in the preview.
+  // With Snap corners on, it fills one grid cell: the first free cell in
+  // reading order, top row first. Without, it is half size, in the middle
+  // or the first free corner. A duplicate keeps its original's size.
   function addFreeChild() {
-    var c = frameCentre(), spots = [c].concat(M.framePolygon(state.rule.frame).map(function (v) { return [c[0] + (v[0] - c[0]) / 2, c[1] + (v[1] - c[1]) / 2]; }));
-    var candidates = spots.map(function (p) { return tidy(M.compose([.5, 0, 0, .5, p[0] - .5 * c[0], p[1] - .5 * c[1]], state.brush)); });
+    var c = frameCentre(), candidates;
+    if (state.snapGrid) {
+      var size = gridCellSize();
+      candidates = gridCellCentres().map(function (p) { return tidy(M.compose([size[0], 0, 0, size[1], p[0] - size[0] * c[0], p[1] - size[1] * c[1]], state.brush)); });
+    } else {
+      var spots = [c].concat(M.framePolygon(state.rule.frame).map(function (v) { return [c[0] + (v[0] - c[0]) / 2, c[1] + (v[1] - c[1]) / 2]; }));
+      candidates = spots.map(function (p) { return tidy(M.compose([.5, 0, 0, .5, p[0] - .5 * c[0], p[1] - .5 * c[1]], state.brush)); });
+    }
     var child = M.child(brushLetter(), firstFree(candidates));
     currentLetter().children.push(child); state.selectedId = child.id; state.focus = 'child'; markEdited(); commit();
   }

@@ -45,8 +45,11 @@ whole rule, `square` or `triangle`: the unit square, or the upright
 equilateral triangle of side 1 with its apex at (1/2, 0). Every parent and
 child draws in it. Frame, in Options, switches it and keeps every map, so the
 fractal stays the same and only the outlines change; the switch is one undo
-step. A triangle has no Flip V, because a top-to-bottom mirror would stand it
-on its point; Flip H and the turns cover its six symmetries. Each frame carries its parent's number with an underline beneath
+step. A triangle's Flip V mirrors the child across its own bottom edge, so
+it lands upside down on the other side of that edge. The edge is a grid line,
+so the child stays on the snap grid, and a second Flip V brings it back. With
+no child selected, Flip V turns the new-child preview upside down about its
+centre, so + still places the child where it would have gone. Each frame carries its parent's number with an underline beneath
 it, which fixes which side is down. The number uses Times, whose lining
 figures sit on the baseline; Georgia's old-style figures dropped onto the
 underline. In the editor, the child's letter at its top left fixes the
@@ -115,8 +118,13 @@ the nearest lattice point. The rule stores the grid as `grid.rows`,
 corner snaps to it, and it lets go when the pointer moves on. A scale moves
 its corner along a line from the centre, so that corner snaps onto a grid
 line, preferring a grid point. A turn snaps by angle only. During a drag the editor and the
-main view keep their scale, and refit on release. The + button adds a
-half-size child in the centre, or in the first free corner.
+main view keep their scale, and refit on release. With Snap corners on,
+the + button adds a child one grid cell in size, in the first free cell in
+reading order: 1/Cols by 1/Rows on a square, and 1/Per side on a triangle.
+On a triangle it takes an upright cell, or an upside-down one when the
+preview is upside down. With Snap corners off, + adds a half-size child in
+the centre, or in the first free corner. A duplicate keeps its original's
+size.
 
 Rotate L, Rotate R, Flip H and Flip V act inside the child's own frame. Each
 is a symmetry of the frame (a quarter turn or mirror of the square; a third

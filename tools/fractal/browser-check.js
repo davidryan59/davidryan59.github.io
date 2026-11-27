@@ -298,7 +298,14 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.selectOption('#demo', 'gasket');
   equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'the gasket is log 3 / log 2');
   equal(await rows(), 3, 'the gasket has three children');
-  check(await page.locator('#flip-v').isDisabled(), 'a triangle has no Flip V');
+  // Flip V mirrors a triangle child across its own bottom edge: A drops
+  // into the gasket's middle hole, upside down, and a second press undoes it.
+  await page.locator('#numbers-body tr').first().click();
+  await page.click('#flip-v');
+  check((await page.locator('#numbers-body tr').first().textContent()).includes('0.8660.500'), 'Flip V mirrors A across its bottom edge: ' + await page.locator('#numbers-body tr').first().textContent());
+  await page.click('#flip-v');
+  check((await page.locator('#numbers-body tr').first().textContent()).includes('0.2500.0000.500'), 'a second Flip V brings A back');
+  await page.selectOption('#demo', 'gasket');
   await page.click('#toggle-menu');
   equal(await page.locator('[data-frame].active').textContent(), 'Triangle', 'the gasket opens on a triangle frame');
   check(await page.locator('#side-field').isVisible() && !(await page.locator('#cols-field').isVisible()), 'a triangle frame shows Per side, not Cols and Rows');
@@ -307,13 +314,28 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   equal(await page.locator('#numbers-body').textContent(), tableBefore, 'switching the frame keeps every map');
   equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'and the same fractal');
   check(await page.locator('#cols-field').isVisible() && !(await page.locator('#side-field').isVisible()), 'a square frame shows Cols and Rows');
-  check(!(await page.locator('#flip-v').isDisabled()), 'a square has Flip V');
   await page.click('#undo');
   equal(await page.locator('[data-frame].active').textContent(), 'Triangle', 'undo brings the triangle frame back');
   await page.click('#grid-side button:text-is("4")');
   check((await page.url()).includes('#rule='), 'Per side is an edit');
   await page.click('#toggle-menu');
   console.log('Switched frames on the gasket.');
+
+  // With Snap corners on, + fills one grid cell: the first free one that
+  // matches the preview, upright or upside down.
+  await page.selectOption('#demo', 'gasket');
+  await page.click('#toggle-menu');
+  if (!(await page.locator('#toggle-snap').isChecked())) await page.check('#toggle-snap');
+  await page.click('#grid-side button:text-is("2")');
+  await page.click('#toggle-menu');
+  await page.click('#flip-v');
+  await page.click('#add-child');
+  equal(await rows(), 4, '+ adds a fourth child to the gasket');
+  check((await page.locator('#numbers-body tr').last().textContent()).includes('0.2500.8660.500'), 'an upside-down new child fills the middle cell: ' + await page.locator('#numbers-body tr').last().textContent());
+  await page.selectOption('#demo', 'sieve');
+  await page.click('#add-child');
+  check((await page.locator('#numbers-body tr').last().textContent()).includes('0.5000.0000.500'), 'a new child fills the free top-right cell: ' + await page.locator('#numbers-body tr').last().textContent());
+  console.log('Added children one grid cell in size.');
 
   await page.selectOption('#demo', 'free');
   console.log('Opened Free demo.');
