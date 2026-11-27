@@ -14,8 +14,8 @@ assert.deepStrictEqual(M.apply(M.compose([2, 0, 0, 2, 1, 1], [0.5, 0, 0, 0.5, 1,
 
 const squareCells = demos.sieve.letters[0].children.map(c => c.cell.row + ':' + c.cell.col);
 assert.deepStrictEqual(squareCells, ['0:0', '1:0', '1:1'], 'Sieve cells');
-assert.strictEqual(M.enumerate(demos.sieve, 'F', 4).length, 81, 'Sieve level 4 count');
-const capped = M.expand(demos.sieve, 'F', 9, { maxInstances: 1000, maxMs: 1000, minDepth: 0, minScale: 0 });
+assert.strictEqual(M.enumerate(demos.sieve, 'p1', 4).length, 81, 'Sieve level 4 count');
+const capped = M.expand(demos.sieve, 'p1', 9, { maxInstances: 1000, maxMs: 1000, minDepth: 0, minScale: 0 });
 assert(capped.length <= 1000 && capped.length >= 998, 'adaptive expansion fills up to the copy cap');
 assert.strictEqual(capped.stoppedBy, 'copies', 'copy cap reports its reason');
 const cappedLevels = new Set(capped.map(item => item.level));
@@ -24,18 +24,18 @@ assert(cappedLevels.has(6) && cappedLevels.has(7), 'a capped level keeps its uns
 // capped result covers all 3^7 level-7 positions.
 assert.strictEqual(capped.reduce((sum, item) => sum + (item.level === 6 ? 3 : 1), 0), 2187, 'capped result covers the whole sieve');
 assert.strictEqual(capped.stoppedBy, 'copies', 'adaptive expansion names copy cap');
-const scaleStopped = M.expand(demos.sieve, 'F', 9, { maxInstances: 60000, maxMs: 1000, minDepth: 2, minScale: 0.1 });
+const scaleStopped = M.expand(demos.sieve, 'p1', 9, { maxInstances: 60000, maxMs: 1000, minDepth: 2, minScale: 0.1 });
 assert.strictEqual(scaleStopped.length, 81, 'scale cutoff retains terminal copies');
 assert.strictEqual(scaleStopped.stoppedBy, 'scale', 'adaptive expansion names scale cutoff');
 
-const sieve = M.analyse(demos.sieve, 'F', 8);
+const sieve = M.analyse(demos.sieve, 'p1', 8);
 assert.strictEqual(sieve.status.name, 'Converges', 'Sieve converges');
 close(sieve.dimension, Math.log(3) / Math.log(2), 1e-7, 'Sieve dimension');
 assert.strictEqual(sieve.exactDimension, 'log 3 / log 2', 'Sieve exact dimension');
 close(sieve.hullArea, 0.5, 0.02, 'Sieve hull area');
 assert.strictEqual(sieve.overlap, false, 'Sieve has no overlap');
 
-const linked = M.analyse(demos.linked, 'F', 8);
+const linked = M.analyse(demos.linked, 'p1', 8);
 assert.strictEqual(linked.status.name, 'Converges', 'linked rule converges');
 close(linked.dimension, Math.log((3 + Math.sqrt(5)) / 2) / Math.log(2), 1e-6, 'linked dimension');
 
@@ -52,15 +52,33 @@ const stretchedCell = M.squareGridMap({ row: 1, col: 2 }, 3, 5, 1, true, 2, 3);
 close(Math.abs(M.determinant(stretchedCell)), 2 / 5, 1e-9, 'rectangular square block area scale');
 
 const growing = M.clone(demos.sieve);
-growing.letters[0].children = [M.child('F', [1.1, 0, 0, 1.1, 0, 0])];
+growing.letters[0].children = [M.child('p1', [1.1, 0, 0, 1.1, 0, 0])];
 assert.strictEqual(M.status(growing).name, 'Grows', 'expanding loop grows');
 
 const cycling = M.clone(demos.sieve);
-cycling.letters[0].children = [M.child('F', [0, 1, -1, 0, 1, 0])];
+cycling.letters[0].children = [M.child('p1', [0, 1, -1, 0, 1, 0])];
 assert.strictEqual(M.status(cycling).name, 'Cycles', 'same-size turn cycles');
 
+// Status uses eigenvalues and singular values of the linear parts. A skew
+// whose eigenvalues are 1 and 0.5 cycles; 1.5 and 0.5 grows; a strong skew
+// with eigenvalue 0.9 is Unclear, because its singular value exceeds one.
+const single = m => { const r = M.clone(demos.sieve); r.letters[0].children = [M.child('p1', m)]; return M.status(r).name; };
+assert.strictEqual(single([1, 0, 0.5, 0.5, 0, 0]), 'Cycles', 'skew with eigenvalue 1 cycles');
+assert.strictEqual(single([1.5, 0, 0, 0.5, 0, 0]), 'Grows', 'stretch 1.5 by 0.5 grows');
+assert.strictEqual(single([1, 0, 0, 0.5, 0, 0]), 'Cycles', 'stretch 1 by 0.5 cycles');
+assert.strictEqual(single([0.9, 0, 2, 0.9, 0, 0]), 'Unclear', 'strong skew is unclear');
+assert.strictEqual(single([0.6, 0, 0.3, 0.6, 0, 0]), 'Converges', 'mild skew converges');
+const loop = M.clone(demos.linked);
+loop.letters[0].children = [M.child('p2', [2, 0, 0, 2, 0, 0])];
+loop.letters[1].children = [M.child('p1', [0.5, 0, 0, 0.5, 0, 0])];
+assert.strictEqual(M.status(loop).name, 'Cycles', 'a grow-then-shrink loop of size one cycles');
+const ends = M.clone(demos.linked);
+ends.letters[0].children = [M.child('p2', [0.5, 0, 0, 0.5, 0, 0])]; ends.letters[1].children = [];
+assert.strictEqual(M.status(ends).name, 'Converges', 'a rule that ends converges');
+assert.strictEqual(M.nextId(demos.linked), 'p3', 'next parent id');
+
 const overlap = M.clone(demos.sieve);
-overlap.letters[0].children.push(M.child('F', overlap.letters[0].children[0].matrix.slice()));
+overlap.letters[0].children.push(M.child('p1', overlap.letters[0].children[0].matrix.slice()));
 assert.strictEqual(M.directOverlap(overlap), true, 'coincident children overlap');
 
-console.log('Fractal model: 28 checks passed.');
+console.log('Fractal model: 36 checks passed.');

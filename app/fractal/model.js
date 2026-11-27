@@ -7,7 +7,6 @@
 
   var EPS = 1e-9;
   var TRI_H = Math.sqrt(3) / 2;
-  var LETTERS = ['F', 'R', 'P', 'G', 'J', 'L', 'Q', 'A·', 'B·', 'C·'];
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function identity() { return [1, 0, 0, 1, 0, 0]; }
@@ -327,39 +326,55 @@
     return (lo + hi) / 2;
   }
 
-  function cycleProducts(rule) {
-    var ids = rule.letters.map(function (l) { return l.id; }), products = [];
-    ids.forEach(function (start) {
-      function visit(letterId, matrix, visited, depth) {
-        var letter = rule.letters.find(function (l) { return l.id === letterId; });
-        if (!letter || depth > ids.length) return;
-        letter.children.forEach(function (child) {
-          var product = compose(matrix, child.matrix);
-          if (child.letter === start) products.push(product);
-          else if (!visited[child.letter]) {
-            var next = Object.assign({}, visited); next[child.letter] = true;
-            visit(child.letter, product, next, depth + 1);
-          }
-        });
+  // The largest |eigenvalue| of a map's linear part.
+  function eigenRadius(m) {
+    var tr = m[0] + m[3], det = m[0] * m[3] - m[1] * m[2], disc = tr * tr / 4 - det;
+    if (disc >= 0) { var root = Math.sqrt(disc); return Math.max(Math.abs(tr / 2 + root), Math.abs(tr / 2 - root)); }
+    return Math.sqrt(Math.abs(det));
+  }
+
+  // Status follows the joint spectral radius of the linear parts along every
+  // chain of children. A loop's largest eigenvalue, per level, is a lower
+  // bound. The largest singular value over all chains of one length, per
+  // level, is an upper bound. A single map's singular value can exceed one
+  // while its eigenvalues stay below one (a strong skew), so neither number
+  // alone decides. Translations never affect convergence.
+  function growthBounds(rule, options) {
+    options = options || {};
+    var maxLength = options.maxLength || 10, cap = options.cap || 20000;
+    var frontier = [], lower = 0, upper = Infinity, finite = false, length;
+    rule.letters.forEach(function (letter) { frontier.push({ start: letter.id, letter: letter.id, m: identity() }); });
+    for (length = 1; length <= maxLength; length++) {
+      var next = [], levelMax = 0;
+      for (var i = 0; i < frontier.length; i++) {
+        var parent = rule.letters.find(function (l) { return l.id === frontier[i].letter; });
+        if (!parent) continue;
+        for (var j = 0; j < parent.children.length; j++) {
+          var child = parent.children[j], m = compose(frontier[i].m, child.matrix);
+          m = [m[0], m[1], m[2], m[3], 0, 0];
+          levelMax = Math.max(levelMax, singularValues(m)[0]);
+          if (child.letter === frontier[i].start) lower = Math.max(lower, Math.pow(eigenRadius(m), 1 / length));
+          next.push({ start: frontier[i].start, letter: child.letter, m: m });
+        }
       }
-      var seen = {}; seen[start] = true;
-      visit(start, identity(), seen, 1);
-    });
-    return products;
+      if (!next.length) { finite = true; break; }
+      upper = Math.min(upper, Math.pow(levelMax, 1 / length));
+      if (next.length > cap) break;
+      frontier = next;
+    }
+    return { lower: lower, upper: upper, finite: finite };
   }
 
   function status(rule) {
-    var cycles = cycleProducts(rule);
-    if (!cycles.length) return { name: 'Converges', detail: 'The linked rule ends after finitely many levels.' };
-    var max = 0, min = Infinity, anisotropic = false;
-    cycles.forEach(function (m) {
-      var sv = singularValues(m); max = Math.max(max, sv[0]); min = Math.min(min, sv[0]);
-      if (sv[0] > 1 + 1e-6 && sv[1] < 1 - 1e-6) anisotropic = true;
-    });
-    if (anisotropic && rule.toggles && rule.toggles.stretch) return { name: 'Unclear', detail: 'Some chains stretch one direction and shrink another.' };
-    if (max > 1 + 1e-6) return { name: 'Grows', detail: 'A loop expands by up to ' + max.toFixed(3) + '×.' };
-    if (max >= 1 - 1e-6) return { name: 'Cycles', detail: 'A loop returns at the same size.' };
-    return { name: 'Converges', detail: 'Every loop shrinks; the largest factor is ' + max.toFixed(3) + '.' };
+    var g = growthBounds(rule);
+    if (g.finite) return { name: 'Converges', detail: 'The linked rule ends after finitely many levels.', lower: 0, upper: 0 };
+    var out;
+    if (g.lower > 1 + 1e-6) out = { name: 'Grows', detail: 'A loop grows by about ' + g.lower.toFixed(3) + '× per level, so there is no limit shape.' };
+    else if (g.upper < 1 - 1e-9) out = { name: 'Converges', detail: 'Every chain shrinks. The slowest shrinks by about ' + g.lower.toFixed(3) + '× per level.' };
+    else if (g.lower >= 1 - 1e-6) out = { name: 'Cycles', detail: 'A loop returns at the same size, so copies never shrink to points.' };
+    else out = { name: 'Unclear', detail: 'Loops shrink by about ' + g.lower.toFixed(3) + '× per level, but some chains stretch first. Deeper levels decide.' };
+    out.lower = g.lower; out.upper = g.upper;
+    return out;
   }
 
   function bounds(points) {
@@ -459,52 +474,53 @@
 
   function baseRule(frame, mode, letters) {
     return {
-      version: 1, frame: frame, mode: mode, grid: { rows: 2, cols: 2, perLetter: {} },
+      version: 2, frame: frame, mode: mode, grid: { rows: 2, cols: 2, perLetter: {} },
       toggles: { stretch: false, blocks: false, stacking: false, gridPerLetter: false },
       letters: letters
     };
   }
 
   function demos() {
-    var sieve = baseRule('square', 'square', [{ id: 'F', children: [
-      child('F', squareGridMap({ row: 0, col: 0 }, 2, 2), { cell: { row: 0, col: 0 }, turn: 0, flip: false, block: 1 }),
-      child('F', squareGridMap({ row: 1, col: 0 }, 2, 2), { cell: { row: 1, col: 0 }, turn: 0, flip: false, block: 1 }),
-      child('F', squareGridMap({ row: 1, col: 1 }, 2, 2), { cell: { row: 1, col: 1 }, turn: 0, flip: false, block: 1 })
+    var sieve = baseRule('square', 'free', [{ id: 'p1', children: [
+      child('p1', squareGridMap({ row: 0, col: 0 }, 2, 2), { cell: { row: 0, col: 0 }, turn: 0, flip: false, block: 1 }),
+      child('p1', squareGridMap({ row: 1, col: 0 }, 2, 2), { cell: { row: 1, col: 0 }, turn: 0, flip: false, block: 1 }),
+      child('p1', squareGridMap({ row: 1, col: 1 }, 2, 2), { cell: { row: 1, col: 1 }, turn: 0, flip: false, block: 1 })
     ] }]);
-    var linked = baseRule('square', 'square', [
-      { id: 'F', children: [
-        child('F', squareGridMap({ row: 1, col: 0 }, 2, 2), { cell: { row: 1, col: 0 }, turn: 0, flip: false, block: 1 }),
-        child('R', squareGridMap({ row: 1, col: 1 }, 2, 2), { cell: { row: 1, col: 1 }, turn: 0, flip: false, block: 1 })
+    var linked = baseRule('square', 'free', [
+      { id: 'p1', children: [
+        child('p1', squareGridMap({ row: 1, col: 0 }, 2, 2), { cell: { row: 1, col: 0 }, turn: 0, flip: false, block: 1 }),
+        child('p2', squareGridMap({ row: 1, col: 1 }, 2, 2), { cell: { row: 1, col: 1 }, turn: 0, flip: false, block: 1 })
       ] },
-      { id: 'R', children: [
-        child('F', squareGridMap({ row: 0, col: 0 }, 2, 2, 1), { cell: { row: 0, col: 0 }, turn: 1, flip: false, block: 1 }),
-        child('R', squareGridMap({ row: 1, col: 0 }, 2, 2, 3), { cell: { row: 1, col: 0 }, turn: 3, flip: false, block: 1 }),
-        child('R', squareGridMap({ row: 1, col: 1 }, 2, 2, 2), { cell: { row: 1, col: 1 }, turn: 2, flip: false, block: 1 })
+      { id: 'p2', children: [
+        child('p1', squareGridMap({ row: 0, col: 0 }, 2, 2, 1), { cell: { row: 0, col: 0 }, turn: 1, flip: false, block: 1 }),
+        child('p2', squareGridMap({ row: 1, col: 0 }, 2, 2, 3), { cell: { row: 1, col: 0 }, turn: 3, flip: false, block: 1 }),
+        child('p2', squareGridMap({ row: 1, col: 1 }, 2, 2, 2), { cell: { row: 1, col: 1 }, turn: 2, flip: false, block: 1 })
       ] }
     ]);
-    var free = baseRule('square', 'free', [{ id: 'F', children: [
-      child('F', [0.64, 0.22, -0.22, 0.64, 0.18, -0.03]),
-      child('F', [0.36, -0.18, 0.18, 0.36, 0.56, 0.43]),
-      child('F', [-0.25, 0.08, 0.08, 0.25, 0.38, 0.71])
+    var free = baseRule('square', 'free', [{ id: 'p1', children: [
+      child('p1', [0.64, 0.22, -0.22, 0.64, 0.18, -0.03]),
+      child('p1', [0.36, -0.18, 0.18, 0.36, 0.56, 0.43]),
+      child('p1', [-0.25, 0.08, 0.08, 0.25, 0.38, 0.71])
     ] }]);
     return { sieve: sieve, linked: linked, free: free };
   }
 
-  function nextLetter(rule) {
-    for (var i = 0; i < LETTERS.length; i++) if (!rule.letters.some(function (l) { return l.id === LETTERS[i]; })) return LETTERS[i];
-    return 'X' + (rule.letters.length + 1);
+  // Parents carry internal ids, p1, p2 and so on. A parent's number on screen
+  // is its position in the list, so reordering never rewrites references.
+  function nextId(rule) {
+    for (var i = 1; ; i++) if (!rule.letters.some(function (l) { return l.id === 'p' + i; })) return 'p' + i;
   }
 
   return {
-    EPS: EPS, TRI_H: TRI_H, LETTERS: LETTERS, clone: clone, identity: identity,
+    EPS: EPS, TRI_H: TRI_H, clone: clone, identity: identity,
     compose: compose, apply: apply, determinant: determinant, singularValues: singularValues,
     isSimilarity: isSimilarity, framePolygon: framePolygon, transformedFrame: transformedFrame,
     squareOrientation: squareOrientation, squareGridMap: squareGridMap,
     triangleCells: triangleCells, triangleGridMap: triangleGridMap, affineFromTriangles: affineFromTriangles,
     polygonArea: polygonArea, convexHull: convexHull, intersectionArea: intersectionArea,
     enumerate: enumerate, expand: expand, spectralRadius: spectralRadius, similarityDimension: similarityDimension,
-    affinityDimension: affinityDimension, status: status, bounds: bounds, boxDimension: boxDimension,
+    affinityDimension: affinityDimension, status: status, growthBounds: growthBounds, eigenRadius: eigenRadius, bounds: bounds, boxDimension: boxDimension,
     analyse: analyse, directOverlap: directOverlap, attractorHulls: attractorHulls, child: child, baseRule: baseRule,
-    demos: demos, nextLetter: nextLetter
+    demos: demos, nextId: nextId
   };
 });

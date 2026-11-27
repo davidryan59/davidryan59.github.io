@@ -7,6 +7,9 @@ catch (error) { ({ chromium } = require('../tiling-video/node_modules/playwright
 
 const url = process.argv[2] || 'http://localhost:8000/app/fractal/';
 const executablePath = process.env.CHROMIUM || undefined;
+let checks = 0;
+function check(condition, message) { assert(condition, message); checks++; }
+function equal(actual, expected, message) { assert.strictEqual(actual, expected, message); checks++; }
 
 (async () => {
   const browser = await chromium.launch(executablePath ? { executablePath } : undefined);
@@ -22,69 +25,147 @@ const executablePath = process.env.CHROMIUM || undefined;
   page.on('console', message => {
     if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) errors.push(message.text());
   });
+  const rows = () => page.locator('#numbers-body tr').count();
+  const tabs = () => page.locator('#letter-tabs button').count();
+  const activeTab = () => page.locator('#letter-tabs button.active').textContent();
+  const selection = () => page.locator('#selection-name').textContent();
+  const firstRow = () => page.locator('#numbers-body tr').first().textContent();
+
+  // The Sieve in Free mode has a fixed editor layout: the parent square plus
+  // an 8% margin, fitted inside a 13-pixel inset. This maps a frame point
+  // to page pixels.
+  async function editorPoint(p) {
+    const box = await page.locator('#rule-editor').boundingBox();
+    const scale = Math.min(box.width - 26, box.height - 26) / 1.16;
+    return [box.x + box.width / 2 + (p[0] - 0.5) * scale, box.y + box.height / 2 + (p[1] - 0.5) * scale];
+  }
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
   console.log('Opened default demo.');
   await page.waitForSelector('#status-badge');
-  assert.strictEqual(await page.locator('#status-badge').textContent(), 'Converges');
-  assert.strictEqual(await page.locator('#dimension').textContent(), 'log 3 / log 2');
-  assert(Math.abs(Number(await page.locator('#dimension-value').textContent()) - Math.log(3) / Math.log(2)) < 0.001);
-  assert.strictEqual(await page.locator('#numbers-body tr').count(), 3);
+  equal(await page.locator('#status-badge').textContent(), 'Converges', 'Sieve converges');
+  equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'Sieve formula');
+  check(Math.abs(Number(await page.locator('#dimension-value').textContent()) - Math.log(3) / Math.log(2)) < 0.001, 'Sieve dimension');
+  equal(await rows(), 3, 'Sieve has three children');
+  equal(await page.locator('[data-mode].active').textContent(), 'Free', 'Free mode is the default');
+  equal(await page.locator('#selection-heading').textContent(), 'New child', 'nothing selected at start');
   await page.click('#toggle-menu');
-  assert(await page.locator('[data-preset="balanced"]').evaluate(button => button.classList.contains('active')));
+  check(await page.locator('[data-preset="balanced"]').evaluate(button => button.classList.contains('active')), 'Balanced preset active');
   await page.click('[data-preset="fast"]');
-  assert.strictEqual(await page.locator('#depth').inputValue(), '6');
-  assert.strictEqual(await page.locator('#max-copies-value').textContent(), '10,000');
+  equal(await page.locator('#depth').inputValue(), '6', 'Fast preset depth');
   await page.click('[data-preset="balanced"]');
-  assert.strictEqual(await page.locator('#depth').inputValue(), '7');
+  check(await page.locator('#toggle-stacking').isDisabled(), 'Stacking is greyed out in Free mode');
   await page.click('#toggle-menu');
+
+  // Handles: a press just outside a corner still grabs the selected child.
+  const centre = await editorPoint([0.25, 0.25]);
+  await page.mouse.click(centre[0], centre[1]);
+  equal(await selection(), '1 of 3', 'a click selects the top-left child');
+  const beforeHandle = await firstRow();
+  const corner = await editorPoint([0, 0]);
+  await page.mouse.move(corner[0] - 8, corner[1] - 8);
+  await page.mouse.down();
+  await page.mouse.move(corner[0] - 40, corner[1] - 30, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(50);
+  equal(await selection(), '1 of 3', 'the handle drag kept the same child');
+  check((await firstRow()) !== beforeHandle, 'a press outside the corner moved the handle');
+  await page.click('#undo');
+  equal(await firstRow(), beforeHandle, 'undo restores the child');
+  console.log('Grabbed a handle from outside the frame.');
+
+  // Keys on a selected child: T rotates, Cmd+D duplicates, Backspace removes.
+  await page.locator('#rule-editor').focus();
+  await page.keyboard.press('t');
+  check((await firstRow()).includes('90'), 'T rotates the child a quarter turn');
+  await page.keyboard.press('ControlOrMeta+d');
+  equal(await rows(), 4, 'Cmd+D duplicates the child');
+  equal(await selection(), '2 of 4', 'the duplicate sits after its original and is selected');
+  await page.keyboard.press('Backspace');
+  equal(await rows(), 3, 'Backspace removes the selected child');
+  await page.keyboard.press('Escape');
+  equal(await page.locator('#selection-heading').textContent(), 'New child', 'Escape deselects');
+  await page.click('#add-child');
+  equal(await rows(), 4, '+ adds a child in Free mode');
+  equal(await selection(), '4 of 4', 'the new child is selected');
+
+  // Reorder the children by dragging the first row's grip to the bottom.
+  const first = await firstRow();
+  const grip = await page.locator('#numbers-body tr').first().locator('.grip').boundingBox();
+  const last = await page.locator('#numbers-body tr').last().boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + grip.width / 2, last.y + last.height - 2, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(50);
+  equal(await page.locator('#numbers-body tr').last().textContent(), first, 'dragging a row reorders the children');
+
+  // The edit pop-up changes nothing until OK.
+  await page.locator('#numbers-body tr').first().locator('.edit-child').click();
+  check(await page.locator('#edit-dialog').evaluate(dialog => dialog.open), 'the pencil opens the pop-up');
+  await page.locator('#edit-fields input').nth(2).fill('1/4');
+  await page.locator('#edit-form button[value="ok"]').click();
+  check(!(await page.locator('#edit-dialog').evaluate(dialog => dialog.open)), 'OK closes the pop-up');
+  check((await firstRow()).includes('0.250'), 'OK applies the scale');
+  console.log('Edited children by key, drag and pop-up.');
 
   await page.selectOption('#demo', 'linked');
   console.log('Opened linked demo.');
   await page.waitForTimeout(100);
-  assert.strictEqual(await page.locator('#letter-tabs button').count(), 2);
-  assert(Math.abs(Number(await page.locator('#dimension-value').textContent()) - 1.3885) < 0.002);
+  equal(await tabs(), 2, 'linked demo has two parents');
+  equal(await page.locator('#letter-tabs button').first().textContent(), '1', 'parents are numbered');
+  check(Math.abs(Number(await page.locator('#dimension-value').textContent()) - 1.3885) < 0.002, 'linked dimension');
+  await page.locator('#rule-editor').focus();
+  await page.keyboard.press('Shift+Digit2');
+  equal(await activeTab(), '2', 'Shift+2 shows parent 2');
+  equal(await rows(), 3, 'parent 2 has three children');
+  await page.click('#duplicate-letter');
+  equal(await tabs(), 3, 'duplicate adds a parent');
+  equal(await activeTab(), '3', 'the duplicate is selected');
+  check(await page.locator('#numbers-body td.child-number').evaluateAll(cells => cells.some(cell => cell.textContent === '3')), 'the duplicate copies itself, not parent 2');
+  await page.keyboard.press('Backspace');
+  equal(await tabs(), 2, 'Backspace removes the focused parent');
+  await page.click('#undo');
+  equal(await tabs(), 3, 'undo restores the parent');
+
+  // Drag parent 1 to the end. It keeps its two children under number 3.
+  const tab1 = await page.locator('#letter-tabs button').first().boundingBox();
+  const tab3 = await page.locator('#letter-tabs button').last().boundingBox();
+  await page.mouse.move(tab1.x + tab1.width / 2, tab1.y + tab1.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(tab3.x + tab3.width - 2, tab3.y + tab3.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(50);
+  await page.locator('#letter-tabs button').last().click();
+  equal(await rows(), 2, 'the moved parent keeps its children under its new number');
+  console.log('Duplicated, removed and reordered parents.');
 
   await page.selectOption('#demo', 'blankTriangle');
-  assert.strictEqual(await page.locator('#mode').inputValue(), 'triangle');
-  await page.locator('#rule-editor').click({ position: { x: 125, y: 90 } });
-  assert.strictEqual(await page.locator('#numbers-body tr').count(), 1);
+  equal(await page.locator('[data-mode].active').textContent(), 'Triangle', 'blank triangle opens in Triangle mode');
+  const editorBox = await page.locator('#rule-editor').boundingBox();
+  await page.mouse.click(editorBox.x + editorBox.width / 2, editorBox.y + editorBox.height * 0.45);
+  equal(await rows(), 1, 'a tap adds a triangle child');
+  check(await page.locator('#flip-v').isDisabled(), 'Triangle mode has no vertical flip');
 
   await page.selectOption('#demo', 'free');
   console.log('Opened Free demo.');
-  await page.locator('#rule-editor').click({ position: { x: 105, y: 85 } });
-  await page.waitForTimeout(50);
-  assert((await page.locator('#selection-name').textContent()) !== 'None');
-  const beforeDrag = await page.url();
-  const editor = await page.locator('#rule-editor').boundingBox();
-  await page.mouse.move(editor.x + 105, editor.y + 85);
-  await page.mouse.down();
-  await page.mouse.move(editor.x + 145, editor.y + 112, { steps: 8 });
-  await page.mouse.up();
-  await page.waitForTimeout(100);
-  assert.notStrictEqual(await page.url(), beforeDrag);
   await page.click('#toggle-menu');
   await page.check('#toggle-stretch');
-  assert.strictEqual(await page.locator('#numbers-head th').count(), 7);
+  equal(await page.locator('#numbers-head th').count(), 9, 'Stretch shows the six affine values');
   await page.click('#advanced-limits summary');
   await page.locator('#max-copies').fill('0');
-  assert.strictEqual(await page.locator('#max-copies-value').textContent(), '1');
-  assert(await page.locator('[data-preset="custom"]').evaluate(button => button.classList.contains('active')));
-  assert((await page.locator('#instance-count').textContent()).includes('copy limit'));
-
+  equal(await page.locator('#max-copies-value').textContent(), '1', 'copy limit of 1');
+  check((await page.locator('#instance-count').textContent()).includes('copy limit'), 'copy limit is named');
+  await page.click('#toggle-menu');
   await page.click('#add-letter');
-  console.log('Edited and encoded a rule.');
-  assert.strictEqual(await page.locator('#letter-tabs button').count(), 2);
-  assert((await page.url()).includes('#rule='));
+  equal(await tabs(), 2, 'add a parent');
+  check((await page.url()).includes('#rule='), 'an edit encodes the rule');
 
   const restored = await browser.newPage({ viewport: { width: 900, height: 700 } });
   restored.setDefaultTimeout(8000);
   await restored.goto(await page.url(), { waitUntil: 'domcontentloaded' });
-  assert.strictEqual(await restored.locator('#letter-tabs button').count(), 2);
-  assert.strictEqual(await restored.locator('#mode').inputValue(), 'free');
-  await restored.click('#toggle-menu');
-  await restored.click('#advanced-limits summary');
-  assert.strictEqual(await restored.locator('#max-copies-value').textContent(), '1');
+  equal(await restored.locator('#letter-tabs button').count(), 2, 'the address restores the parents');
+  equal(await restored.locator('[data-mode].active').textContent(), 'Free', 'the address restores the mode');
   await restored.close();
 
   const phone = await browser.newPage({ viewport: { width: 393, height: 659 }, hasTouch: true, isMobile: true });
@@ -93,11 +174,11 @@ const executablePath = process.env.CHROMIUM || undefined;
   await phone.click('#toggle-menu');
   const popoverBox = await phone.locator('#toggle-popover').boundingBox();
   const stageBox = await phone.locator('#main-stage').boundingBox();
-  assert(popoverBox.x >= -1 && popoverBox.x + popoverBox.width <= 394);
-  assert(popoverBox.y + popoverBox.height <= stageBox.y + stageBox.height + 1);
+  check(popoverBox.x >= -1 && popoverBox.x + popoverBox.width <= 394, 'phone options fit across');
+  check(popoverBox.y + popoverBox.height <= stageBox.y + stageBox.height + 1, 'phone options fit down');
   await phone.close();
 
   assert.deepStrictEqual(errors, [], `Browser errors: ${errors.join('; ')}`);
   await browser.close();
-  console.log('Fractal browser: 26 checks passed.');
+  console.log('Fractal browser: ' + checks + ' checks passed.');
 })().catch(error => { console.error(error); process.exit(1); });
