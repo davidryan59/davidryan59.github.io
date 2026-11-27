@@ -68,7 +68,7 @@ const executablePath = process.env.CHROMIUM || undefined;
   assert.strictEqual(await page.locator('#numbers-head th').count(), 7);
   await page.click('#advanced-limits summary');
   await page.locator('#max-copies').fill('0');
-  assert.strictEqual(await page.locator('#max-copies-value').textContent(), '1,000');
+  assert.strictEqual(await page.locator('#max-copies-value').textContent(), '1');
   assert(await page.locator('[data-preset="custom"]').evaluate(button => button.classList.contains('active')));
   assert((await page.locator('#instance-count').textContent()).includes('copy limit'));
 
@@ -84,7 +84,7 @@ const executablePath = process.env.CHROMIUM || undefined;
   assert.strictEqual(await restored.locator('#mode').inputValue(), 'free');
   await restored.click('#toggle-menu');
   await restored.click('#advanced-limits summary');
-  assert.strictEqual(await restored.locator('#max-copies-value').textContent(), '1,000');
+  assert.strictEqual(await restored.locator('#max-copies-value').textContent(), '1');
   await restored.close();
 
   const phone = await browser.newPage({ viewport: { width: 393, height: 659 }, hasTouch: true, isMobile: true });

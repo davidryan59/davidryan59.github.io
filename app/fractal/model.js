@@ -224,6 +224,13 @@
       for (var i = 0; i < frontier.length; i++) {
         var parent = rule.letters.find(function (letter) { return letter.id === frontier[i].letter; });
         if (!parent || !parent.children.length) { terminal.push(frontier[i]); continue; }
+        // A limit stops the expansion between parents. The parents not yet
+        // split stay whole, so the result mixes level n - 1 and level n and
+        // nothing vanishes. Copies counts the frames that will be drawn.
+        var drawn = terminal.length + next.length + (frontier.length - i);
+        if (drawn - 1 + parent.children.length > maxInstances) stoppedBy = 'copies';
+        else if (maxMs && Date.now() - started >= maxMs) stoppedBy = 'time';
+        if (stoppedBy) { result = terminal.concat(next, frontier.slice(i)); break; }
         for (var j = 0; j < parent.children.length; j++) {
           var child = parent.children[j];
           var item = { letter: child.letter, matrix: compose(frontier[i].matrix, child.matrix),
@@ -231,12 +238,9 @@
           var scale = singularValues(item.matrix)[0];
           if (level + 1 >= minDepth && minScale && scale < minScale) terminal.push(item);
           else next.push(item);
-          if (terminal.length + next.length >= maxInstances) { stoppedBy = 'copies'; break; }
-          if (maxMs && Date.now() - started >= maxMs) { stoppedBy = 'time'; break; }
         }
-        if (stoppedBy) break;
       }
-      if (stoppedBy) { result = terminal.concat(next); break; }
+      if (stoppedBy) break;
       frontier = next;
       if (!frontier.length) { result = terminal; break; }
       if (level === depth - 1) result = terminal.concat(frontier);
@@ -418,8 +422,14 @@
 
   function analyse(rule, start, depth, options) {
     options = options || {};
-    var stat = status(rule), leaves = enumerate(rule, start, depth || 7,
-      { maxInstances: options.maxInstances || 60000, maxMs: options.maxMs || 0 });
+    // Analyse the deepest level that fits the limits. A cut-off level holds
+    // only its first branches, which would skew the box count and the bounds.
+    var stat = status(rule), level = depth || 7, leaves;
+    for (;;) {
+      leaves = enumerate(rule, start, level, { maxInstances: options.maxInstances || 60000, maxMs: options.maxMs || 0 });
+      if (!leaves.clipped || level <= 1) break;
+      level--;
+    }
     var points = [], samples = [];
     leaves.forEach(function (item) {
       transformedFrame(rule.frame, item.matrix).forEach(function (p) { points.push(p); });
@@ -437,7 +447,9 @@
       status: stat, dimension: formula, exactDimension: sim && sim.exact,
       dimensionKind: sim ? 'Similarity' : 'Affinity estimate', boxDimension: box,
       hull: hull, hullArea: polygonArea(hull), overlap: overlap, instances: leaves.length,
-      clipped: !!leaves.clipped, bounds: bounds(points)
+      clipped: !!leaves.clipped, level: level,
+      // The limit's hull contains the whole fractal, so it frames the camera.
+      bounds: limitHull && limitHull.length ? bounds(limitHull) : bounds(points)
     };
   }
 

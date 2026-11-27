@@ -16,7 +16,13 @@ const squareCells = demos.sieve.letters[0].children.map(c => c.cell.row + ':' + 
 assert.deepStrictEqual(squareCells, ['0:0', '1:0', '1:1'], 'Sieve cells');
 assert.strictEqual(M.enumerate(demos.sieve, 'F', 4).length, 81, 'Sieve level 4 count');
 const capped = M.expand(demos.sieve, 'F', 9, { maxInstances: 1000, maxMs: 1000, minDepth: 0, minScale: 0 });
-assert.strictEqual(capped.length, 1000, 'adaptive expansion respects copy cap');
+assert(capped.length <= 1000 && capped.length >= 998, 'adaptive expansion fills up to the copy cap');
+assert.strictEqual(capped.stoppedBy, 'copies', 'copy cap reports its reason');
+const cappedLevels = new Set(capped.map(item => item.level));
+assert(cappedLevels.has(6) && cappedLevels.has(7), 'a capped level keeps its unsplit parents beside their split siblings');
+// Nothing vanishes: each level-6 parent counts as its 3 level-7 children, so the
+// capped result covers all 3^7 level-7 positions.
+assert.strictEqual(capped.reduce((sum, item) => sum + (item.level === 6 ? 3 : 1), 0), 2187, 'capped result covers the whole sieve');
 assert.strictEqual(capped.stoppedBy, 'copies', 'adaptive expansion names copy cap');
 const scaleStopped = M.expand(demos.sieve, 'F', 9, { maxInstances: 60000, maxMs: 1000, minDepth: 2, minScale: 0.1 });
 assert.strictEqual(scaleStopped.length, 81, 'scale cutoff retains terminal copies');

@@ -33,6 +33,12 @@
     <p>Place the copies. Read the limit.</p>
   </div>
   <div class="top-actions">
+    <button class="icon-button" id="undo" type="button" aria-label="Undo" title="Undo" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+    </button>
+    <button class="icon-button" id="redo" type="button" aria-label="Redo" title="Redo" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+    </button>
     <button class="theme-toggle icon-button" type="button" hidden>
       <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.7v2.1M12 19.2v2.1M21.3 12h-2.1M4.8 12H2.7M18.6 5.4 17.1 6.9M6.9 17.1l-1.5 1.5M18.6 18.6l-1.5-1.5M6.9 6.9 5.4 5.4"/></svg>
       <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.5A8.6 8.6 0 0 1 9.5 3.6a8.6 8.6 0 1 0 10.9 10.9z"/></svg>
@@ -44,6 +50,8 @@
 </header>
 
 <main class="workspace">
+  <div class="divider divider-left" id="divider-left" role="separator" aria-orientation="vertical" aria-label="Resize the rule panel" tabindex="0"></div>
+  <div class="divider divider-right" id="divider-right" role="separator" aria-orientation="vertical" aria-label="Resize the readout panel" tabindex="0"></div>
   <aside class="editor-panel panel" aria-label="Rule editor">
     <div class="panel-head">
       <div><span class="eyebrow">Rule</span><strong id="rule-name">Sierpinski sieve</strong></div>
@@ -58,7 +66,8 @@
 
     <div class="letter-row">
       <div id="letter-tabs" class="letter-tabs" role="tablist" aria-label="Rule letters"></div>
-      <button id="add-letter" class="small-button" type="button">+ Letter</button>
+      <button id="add-letter" class="small-button" type="button" title="Add a letter">+ Letter</button>
+      <button id="remove-letter" class="small-button" type="button" title="Remove the selected letter">− Letter</button>
     </div>
 
     <div class="editor-wrap">
@@ -119,13 +128,15 @@
       </div>
 
       <div class="corner corner-tr">
-        <div class="grid-fields">
-          <label><span>Rows</span><input id="grid-rows" type="number" min="2" max="5" value="2"></label>
-          <label id="cols-field"><span>Cols</span><input id="grid-cols" type="number" min="2" max="5" value="2"></label>
-          <label><span>Level</span><input id="depth" type="range" min="1" max="12" value="7"><output id="depth-value">7</output></label>
-        </div>
-        <button id="toggle-menu" class="menu-button" type="button" aria-expanded="false">Rule options</button>
+        <label class="level-field"><span>Level <output id="depth-value">7</output></span><input id="depth" type="range" min="1" max="12" value="7"></label>
+        <button id="toggle-menu" class="menu-button" type="button" aria-expanded="false">Options</button>
         <div id="toggle-popover" class="toggle-popover" hidden>
+          <div id="grid-fields" class="grid-fields">
+            <span class="popover-heading">Grid</span>
+            <label>Rows <select id="grid-rows"><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+            <label id="cols-field">Cols <select id="grid-cols"><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+          </div>
+          <label class="colour-toggle"><input id="toggle-top-colour" type="checkbox"> Colour by top-level copy</label>
           <div class="rule-toggles">
             <label><input id="toggle-stretch" type="checkbox"> Stretch</label>
             <label><input id="toggle-blocks" type="checkbox"> Blocks</label>
@@ -154,7 +165,7 @@
       </div>
 
       <div class="corner corner-bl">
-        <span>Colour by letter</span>
+        <span id="palette-label">Colour by letter</span>
         <div id="palette-key" class="palette-key"></div>
       </div>
 

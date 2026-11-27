@@ -14,19 +14,41 @@
   var demos = M.demos();
   demos.blankSquare = M.baseRule('square', 'square', [{ id: 'F', children: [] }]);
   demos.blankTriangle = M.baseRule('triangle', 'triangle', [{ id: 'F', children: [] }]);
-  var COPY_VALUES = [1000, 2500, 5000, 10000, 25000, 60000, 120000, 180000, 250000];
-  var SCALE_VALUES = [0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1];
-  var TIME_VALUES = [25, 50, 100, 150, 250, 500, 1000, 1500, 2000];
+  // Slider stops: every whole number from 1 to 10, then round numbers in each
+  // decade (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6 and 8 times ten to a power). Round
+  // numbers come first, even where that bends the log spacing a little.
+  var ROUND = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8];
+  function logStops(top) {
+    var out = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    for (var decade = 10; decade < top; decade *= 10) {
+      ROUND.forEach(function (m) { var value = Math.round(m * decade); if (value > out[out.length - 1] && value <= top) out.push(value); });
+    }
+    if (out[out.length - 1] !== top) out.push(top);
+    return out;
+  }
+  var COPY_VALUES = logStops(500000);
+  // Minimum scale runs from 1/1 to 1/1,000,000, then Unlimited (0).
+  var SCALE_VALUES = logStops(1000000).map(function (d) { return 1 / d; }).concat([0]);
+  var TIME_VALUES = logStops(2000);
+  // Separate thousands only from 10,000 up: 1000 and 9999, then 10,000.
+  function count(n) { return Math.abs(n) >= 10000 ? Math.round(n).toLocaleString('en-GB') : String(Math.round(n)); }
   var PRESETS = {
     fast: { depth: 6, minDepth: 3, maxInstances: 10000, minScale: 1e-3, maxMs: 100, analysisDepth: 5, hullIterations: 16 },
-    balanced: { depth: 7, minDepth: 4, maxInstances: 60000, minScale: 1e-4, maxMs: 250, analysisDepth: 7, hullIterations: 32 },
+    balanced: { depth: 7, minDepth: 4, maxInstances: 25000, minScale: 1 / 2500, maxMs: 250, analysisDepth: 7, hullIterations: 32 },
     detailed: { depth: 10, minDepth: 5, maxInstances: 120000, minScale: 0, maxMs: 1000, analysisDepth: 9, hullIterations: 64 }
   };
+  // Snap each preset onto the slider stops, so a preset always matches a stop.
+  Object.keys(PRESETS).forEach(function (key) {
+    var preset = PRESETS[key];
+    preset.maxInstances = nearest(preset.maxInstances, COPY_VALUES);
+    preset.minScale = nearest(preset.minScale, SCALE_VALUES);
+    preset.maxMs = nearest(preset.maxMs, TIME_VALUES);
+  });
   var el = {};
   var state = {
     rule: M.clone(demos.sieve), demo: 'sieve', currentLetter: 'F', startLetter: 'F', selectedId: null,
     depth: 7, showHull: true, camera: { zoom: 1, x: 0, y: 0 }, dragging: false,
-    limits: Object.assign({}, PRESETS.balanced), preset: 'balanced',
+    limits: Object.assign({}, PRESETS.balanced), preset: 'balanced', topColour: null,
     analysis: null, editorView: null, noticeTimer: null
   };
 
@@ -40,6 +62,13 @@
   function colour(id) {
     var index = state.rule.letters.findIndex(function (letter) { return letter.id === id; });
     return PALETTE[(index < 0 ? 0 : index) % PALETTE.length];
+  }
+  // Colour by top-level copy: on by default for a one-letter rule, off for a
+  // linked rule, where each letter keeps its own colour. null means default.
+  function topColourOn() { return state.topColour == null ? state.rule.letters.length === 1 : state.topColour; }
+  function itemColour(item) {
+    if (topColourOn() && item.path) return PALETTE[parseInt(item.path[0], 36) % PALETTE.length];
+    return colour(item.letter);
   }
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
   function allChildren() { return state.rule.letters.reduce(function (out, letter) { return out.concat(letter.children); }, []); }
@@ -75,7 +104,7 @@
         if (!validRule(saved.rule)) throw new Error('Invalid rule');
         state.rule = saved.rule; state.demo = null; state.startLetter = saved.start || state.rule.letters[0].id;
         state.currentLetter = saved.current || state.startLetter; state.depth = Math.max(1, Math.min(12, saved.depth || 7));
-        state.showHull = saved.hull !== false;
+        state.showHull = saved.hull !== false; state.topColour = typeof saved.colour === 'boolean' ? saved.colour : null;
         if (saved.camera) state.camera = saved.camera;
         if (saved.limits) state.limits = sanitiseLimits(saved.limits);
         state.preset = matchingPreset();
@@ -90,11 +119,11 @@
 
   function saveAddress() {
     var hash;
-    if (state.demo && sameRule(state.rule, demos[state.demo]) && matchingPreset() === 'balanced' && state.showHull && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
+    if (state.demo && sameRule(state.rule, demos[state.demo]) && matchingPreset() === 'balanced' && state.showHull && state.topColour == null && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
       hash = 'demo=' + state.demo;
     } else {
       hash = 'rule=' + encode({ rule: state.rule, start: state.startLetter, current: state.currentLetter, depth: state.depth,
-        hull: state.showHull, camera: state.camera, limits: state.limits });
+        hull: state.showHull, camera: state.camera, limits: state.limits, colour: state.topColour == null ? undefined : state.topColour });
     }
     history.replaceState(null, '', location.pathname + location.search + '#' + hash);
   }
@@ -150,7 +179,13 @@
 
   function setGrid(rows, cols) {
     rows = Math.max(2, Math.min(5, Math.round(rows || 2)));
-    cols = state.rule.toggles.stretch ? Math.max(2, Math.min(5, Math.round(cols || rows))) : rows;
+    cols = Math.max(2, Math.min(5, Math.round(cols || rows)));
+    if (state.rule.mode === 'triangle') cols = rows;
+    // Unequal rows and cols make rectangular copies, which is a Stretch rule.
+    if (cols !== rows && !state.rule.toggles.stretch) {
+      state.rule.toggles.stretch = true;
+      notice('Stretch is now on: a ' + rows + ' by ' + cols + ' grid makes rectangular copies.');
+    }
     if (state.rule.toggles.gridPerLetter) state.rule.grid.perLetter[state.currentLetter] = { rows: rows, cols: cols };
     else { state.rule.grid.rows = rows; state.rule.grid.cols = cols; }
     rebuildGridChildren();
@@ -268,12 +303,12 @@
     var edge = Math.sqrt(Math.abs(M.polygonArea(framePixels))), fillSmall = edge < (options.letterThreshold || 10);
     ctx.save(); ctx.globalAlpha = options.alpha == null ? 1 : options.alpha;
     path(ctx, framePixels);
-    if (fillSmall || options.fill) { ctx.fillStyle = colour(item.letter); ctx.fill(); }
-    else { ctx.fillStyle = colour(item.letter) + '28'; ctx.fill(); }
-    ctx.strokeStyle = options.stroke || colour(item.letter); ctx.lineWidth = options.lineWidth || 1; ctx.stroke();
+    if (fillSmall || options.fill) { ctx.fillStyle = itemColour(item); ctx.fill(); }
+    else { ctx.fillStyle = itemColour(item) + '28'; ctx.fill(); }
+    ctx.strokeStyle = options.stroke || itemColour(item); ctx.lineWidth = options.lineWidth || 1; ctx.stroke();
     if (!fillSmall && options.letters !== false) {
       ctx.transform(scale * matrix[0], scale * matrix[1], scale * matrix[2], scale * matrix[3], tx + scale * matrix[4], ty + scale * matrix[5]);
-      ctx.fillStyle = colour(item.letter); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = itemColour(item); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = '600 .42px Georgia, serif';
       var centre = state.rule.frame === 'triangle' ? [0.5, M.TRI_H * .63] : [0.5, .53];
       ctx.fillText(item.letter, centre[0], centre[1]);
@@ -291,7 +326,8 @@
     document.querySelectorAll('#iteration-strip canvas').forEach(function (canvas) {
       var level = Number(canvas.dataset.level), info = prepareCanvas(canvas);
       info.ctx.fillStyle = '#11151b'; info.ctx.fillRect(0, 0, info.width, info.height);
-      var instances = level ? M.enumerate(state.rule, state.startLetter, level, 12000) : [{ letter: state.startLetter, matrix: M.identity() }];
+      // expand keeps unsplit parents at the copy cap, so a big rule still shows whole.
+      var instances = level ? M.expand(state.rule, state.startLetter, level, { maxInstances: 12000, maxMs: 0 }) : [{ letter: state.startLetter, matrix: M.identity() }];
       if (!instances.length) return;
       var view = makeView(info.width, info.height, instancesBounds(instances, state.rule.frame), 12, null);
       instances.forEach(function (item) { drawInstance(info.ctx, item, view, { letterThreshold: 7, lineWidth: .7 }); });
@@ -334,7 +370,7 @@
     });
     if (state.showHull && state.analysis && state.analysis.status.name === 'Converges') drawHull(ctx, state.analysis.hull, view);
     var reason = { copies: 'copy limit', time: 'time limit', scale: 'scale limit', iterations: 'iteration limit' }[instances.stoppedBy];
-    el.instanceCount.textContent = instances.length.toLocaleString() + (instances.length === 1 ? ' copy' : ' copies') + (reason ? ' · ' + reason : '');
+    el.instanceCount.textContent = count(instances.length) + (instances.length === 1 ? ' copy' : ' copies') + (reason ? ' · ' + reason : '');
   }
 
   function editorBounds() {
@@ -376,9 +412,9 @@
     var parent = M.framePolygon(state.rule.frame).map(view.point, view);
     path(ctx, parent); ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1.2; ctx.setLineDash(state.rule.mode === 'free' ? [6, 5] : []); ctx.stroke(); ctx.setLineDash([]);
     if (state.rule.mode !== 'free') drawEditorGrid(ctx, view);
-    currentLetter().children.forEach(function (child) {
-      var selected = child.id === state.selectedId;
-      drawInstance(ctx, { letter: child.letter, matrix: child.matrix }, view, { letterThreshold: 5, lineWidth: selected ? 2.6 : 1.2, stroke: selected ? '#ffffff' : colour(child.letter), alpha: selected ? 1 : .83 });
+    currentLetter().children.forEach(function (child, index) {
+      var selected = child.id === state.selectedId, item = { letter: child.letter, matrix: child.matrix, path: index.toString(36) };
+      drawInstance(ctx, item, view, { letterThreshold: 5, lineWidth: selected ? 2.6 : 1.2, stroke: selected ? '#ffffff' : itemColour(item), alpha: selected ? 1 : .83 });
       if (selected && state.rule.mode === 'free') drawHandles(ctx, child, view);
     });
   }
@@ -392,16 +428,16 @@
 
   function scaleLabel(value) {
     if (!value) return 'Unlimited';
-    return '1/' + Math.round(1 / value).toLocaleString();
+    return '1/' + count(1 / value);
   }
 
   function syncLimitControls() {
     state.preset = matchingPreset();
     document.querySelectorAll('[data-preset]').forEach(function (button) { button.classList.toggle('active', button.dataset.preset === state.preset); });
     el.minDepth.value = state.limits.minDepth; el.minDepthValue.textContent = state.limits.minDepth;
-    el.maxCopies.value = COPY_VALUES.indexOf(state.limits.maxInstances); el.maxCopiesValue.textContent = state.limits.maxInstances.toLocaleString();
+    el.maxCopies.value = COPY_VALUES.indexOf(state.limits.maxInstances); el.maxCopiesValue.textContent = count(state.limits.maxInstances);
     el.minScale.value = SCALE_VALUES.indexOf(state.limits.minScale); el.minScaleValue.textContent = scaleLabel(state.limits.minScale);
-    el.maxTime.value = TIME_VALUES.indexOf(state.limits.maxMs); el.maxTimeValue.textContent = state.limits.maxMs.toLocaleString() + ' ms';
+    el.maxTime.value = TIME_VALUES.indexOf(state.limits.maxMs); el.maxTimeValue.textContent = count(state.limits.maxMs) + ' ms';
     el.analysisDepth.value = state.limits.analysisDepth; el.analysisDepthValue.textContent = state.limits.analysisDepth;
     el.hullIterations.value = state.limits.hullIterations;
   }
@@ -419,6 +455,13 @@
 
   function renderPalette() {
     el.paletteKey.innerHTML = '';
+    if (topColourOn()) {
+      el.paletteLabel.textContent = 'Colour by top-level copy';
+      var start = letterById(state.startLetter) || state.rule.letters[0];
+      start.children.slice(0, PALETTE.length).forEach(function (child, index) { var dot = document.createElement('i'); dot.style.background = PALETTE[index]; dot.title = 'Copy ' + (index + 1); el.paletteKey.appendChild(dot); });
+      return;
+    }
+    el.paletteLabel.textContent = 'Colour by letter';
     state.rule.letters.forEach(function (letter) { var dot = document.createElement('i'); dot.style.background = colour(letter.id); dot.title = letter.id; el.paletteKey.appendChild(dot); });
   }
 
@@ -432,6 +475,49 @@
       [el.childLetter, el.startLetter].forEach(function (select) { var option = document.createElement('option'); option.value = letter.id; option.textContent = letter.id; select.appendChild(option); });
     });
     el.startLetter.value = state.startLetter;
+    el.removeLetter.disabled = state.rule.letters.length < 2;
+    el.removeLetter.title = state.rule.letters.length < 2 ? 'A rule needs at least one letter' : 'Remove letter ' + state.currentLetter + ' and its copies';
+  }
+
+  // Panel dividers: drag to resize the rule panel or the readout panel. The
+  // widths are a per-viewer preference, kept in local storage when allowed.
+  function wireDividers() {
+    var workspace = document.querySelector('.workspace');
+    try {
+      var saved = JSON.parse(localStorage.getItem('fractal-panels') || 'null');
+      if (saved && saved.left) workspace.style.setProperty('--left-w', saved.left + 'px');
+      if (saved && saved.right) workspace.style.setProperty('--right-w', saved.right + 'px');
+    } catch (error) {}
+    [['left', el.dividerLeft], ['right', el.dividerRight]].forEach(function (pair) {
+      var side = pair[0], handle = pair[1];
+      function width(name) { return parseFloat(getComputedStyle(workspace).getPropertyValue(name)) || 0; }
+      function set(px) {
+        var rect = workspace.getBoundingClientRect(), other = width(side === 'left' ? '--right-w' : '--left-w');
+        px = Math.max(180, Math.min(px, 560, rect.width - other - 320));
+        workspace.style.setProperty(side === 'left' ? '--left-w' : '--right-w', Math.round(px) + 'px');
+      }
+      function save() {
+        try { localStorage.setItem('fractal-panels', JSON.stringify({ left: width('--left-w'), right: width('--right-w') })); } catch (error) {}
+      }
+      handle.addEventListener('pointerdown', function (event) {
+        handle.setPointerCapture(event.pointerId); handle.classList.add('dragging'); event.preventDefault();
+      });
+      handle.addEventListener('pointermove', function (event) {
+        if (!handle.classList.contains('dragging')) return;
+        var rect = workspace.getBoundingClientRect();
+        set(side === 'left' ? event.clientX - rect.left : rect.right - event.clientX);
+      });
+      function end() { if (handle.classList.contains('dragging')) { handle.classList.remove('dragging'); save(); } }
+      handle.addEventListener('pointerup', end); handle.addEventListener('pointercancel', end);
+      handle.addEventListener('dblclick', function () {
+        workspace.style.removeProperty(side === 'left' ? '--left-w' : '--right-w'); save();
+      });
+      handle.addEventListener('keydown', function (event) {
+        var step = event.key === 'ArrowLeft' ? -16 : event.key === 'ArrowRight' ? 16 : 0;
+        if (!step) return;
+        event.preventDefault(); set(width(side === 'left' ? '--left-w' : '--right-w') + (side === 'left' ? step : -step)); save();
+      });
+    });
   }
 
   function childValues(child) {
@@ -505,8 +591,8 @@
     el.demo.value = state.demo || '';
     el.mode.value = state.rule.mode; el.depth.value = state.depth; el.depthValue.textContent = state.depth;
     var grid = gridFor(state.currentLetter); el.gridRows.value = grid.rows; el.gridCols.value = grid.cols;
-    el.gridRows.disabled = state.rule.mode === 'free'; el.gridCols.disabled = state.rule.mode === 'free' || !state.rule.toggles.stretch || state.rule.mode === 'triangle';
-    el.colsField.hidden = state.rule.mode === 'triangle' || !state.rule.toggles.stretch;
+    el.gridFields.hidden = state.rule.mode === 'free'; el.colsField.hidden = state.rule.mode === 'triangle';
+    el.toggleTopColour.checked = topColourOn();
     el.toggleStretch.checked = !!state.rule.toggles.stretch; el.toggleBlocks.checked = !!state.rule.toggles.blocks;
     el.toggleStacking.checked = !!state.rule.toggles.stacking; el.togglePerLetter.checked = !!state.rule.toggles.gridPerLetter;
     el.toggleBlocks.disabled = state.rule.mode === 'free'; el.toggleStacking.disabled = state.rule.mode === 'free'; el.togglePerLetter.disabled = state.rule.mode === 'free';
@@ -517,6 +603,37 @@
 
   function commit() {
     rebuildGridChildren(); updateAnalysis(); syncControls(); renderReadouts(); renderEditor(); renderIterations(); renderMain(); saveAddress();
+    record();
+  }
+
+  // Undo and redo: every committed change to the rule is one step. Level,
+  // limits and the camera are view settings, so they are not steps.
+  var undoStack = [], historyIndex = -1, restoring = false;
+  function snapshot() {
+    return { rule: M.clone(state.rule), start: state.startLetter, current: state.currentLetter, demo: state.demo, selected: state.selectedId };
+  }
+  function ruleKey(snap) { return JSON.stringify([snap.rule, snap.start]); }
+  function record() {
+    if (restoring) return;
+    var snap = snapshot();
+    if (historyIndex >= 0 && ruleKey(undoStack[historyIndex]) === ruleKey(snap)) { undoStack[historyIndex] = snap; syncHistoryButtons(); return; }
+    undoStack = undoStack.slice(0, historyIndex + 1); undoStack.push(snap);
+    if (undoStack.length > 200) undoStack.shift();
+    historyIndex = undoStack.length - 1; syncHistoryButtons();
+  }
+  function restore(index) {
+    if (index < 0 || index >= undoStack.length) return;
+    historyIndex = index; var snap = undoStack[index];
+    state.rule = M.clone(snap.rule); state.startLetter = snap.start; state.currentLetter = snap.current;
+    state.demo = snap.demo; state.selectedId = snap.selected;
+    if (!letterById(state.currentLetter)) state.currentLetter = state.rule.letters[0].id;
+    restoring = true; commit(); restoring = false; syncHistoryButtons();
+  }
+  function undo() { restore(historyIndex - 1); }
+  function redo() { restore(historyIndex + 1); }
+  function syncHistoryButtons() {
+    if (!el.undo) return;
+    el.undo.disabled = historyIndex <= 0; el.redo.disabled = historyIndex >= undoStack.length - 1;
   }
 
   function selectedAction(action) {
@@ -538,6 +655,20 @@
     var id = M.nextLetter(state.rule); state.rule.letters.push({ id: id, children: [] });
     if (state.rule.toggles.gridPerLetter) state.rule.grid.perLetter[id] = { rows: state.rule.grid.rows, cols: state.rule.grid.cols };
     state.currentLetter = id; state.selectedId = null; markEdited(); commit();
+  }
+
+  // Removing a letter also removes every copy of it inside the other letters.
+  function removeLetter() {
+    if (state.rule.letters.length < 2) return;
+    var id = state.currentLetter, index = state.rule.letters.findIndex(function (letter) { return letter.id === id; });
+    if (index < 0) return;
+    state.rule.letters.splice(index, 1);
+    state.rule.letters.forEach(function (letter) { letter.children = letter.children.filter(function (child) { return child.letter !== id; }); });
+    if (state.rule.grid.perLetter) delete state.rule.grid.perLetter[id];
+    state.currentLetter = state.rule.letters[Math.max(0, index - 1)].id;
+    if (state.startLetter === id) state.startLetter = state.rule.letters[0].id;
+    state.selectedId = null; markEdited(); commit();
+    notice('Removed letter ' + id + ' and its copies. Undo brings it back.');
   }
 
   function removeSelected() {
@@ -662,7 +793,7 @@
     var ids = Object.keys(state.mainPointers);
     if (ids.length === 2 && state.mainPinch) {
       var a = state.mainPointers[ids[0]], b = state.mainPointers[ids[1]], centre = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-      state.camera.zoom = Math.max(.1, Math.min(20, state.mainPinch.zoom * distance(a, b) / Math.max(1, state.mainPinch.distance)));
+      state.camera.zoom = Math.max(.05, Math.min(20, state.mainPinch.zoom * distance(a, b) / Math.max(1, state.mainPinch.distance)));
       state.camera.x = state.mainPinch.x + centre[0] - state.mainPinch.centre[0]; state.camera.y = state.mainPinch.y + centre[1] - state.mainPinch.centre[1];
     } else if (state.mainDrag && state.mainDrag.pointer === event.pointerId) {
       state.camera.x = state.mainDrag.panX + event.clientX - state.mainDrag.x; state.camera.y = state.mainDrag.panY + event.clientY - state.mainDrag.y;
@@ -678,20 +809,28 @@
     } else { state.mainDrag = null; el.limit.classList.remove('dragging'); saveAddress(); }
   }
   function zoom(factor, x, y) {
-    state.camera.zoom = Math.max(.1, Math.min(20, state.camera.zoom * factor));
+    state.camera.zoom = Math.max(.05, Math.min(20, state.camera.zoom * factor));
     if (x != null) { state.camera.x = (state.camera.x - x) * factor + x; state.camera.y = (state.camera.y - y) * factor + y; }
     renderMain(); saveAddress();
   }
 
   function wireEvents() {
     el.demo.addEventListener('change', function () {
-      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.startLetter = state.currentLetter; state.selectedId = null; state.depth = PRESETS.balanced.depth; state.limits = sanitiseLimits(PRESETS.balanced); state.preset = 'balanced'; state.showHull = true; state.camera = { zoom: 1, x: 0, y: 0 }; commit();
+      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.startLetter = state.currentLetter; state.selectedId = null; state.depth = PRESETS.balanced.depth; state.limits = sanitiseLimits(PRESETS.balanced); state.preset = 'balanced'; state.showHull = true; state.topColour = null; state.camera = { zoom: 1, x: 0, y: 0 }; commit();
     });
     el.addLetter.addEventListener('click', addLetter);
+    el.removeLetter.addEventListener('click', removeLetter);
+    el.undo.addEventListener('click', undo); el.redo.addEventListener('click', redo);
+    var mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+    el.undo.title = 'Undo (' + (mac ? '⌘Z' : 'Ctrl+Z') + ')'; el.redo.title = 'Redo (' + (mac ? '⇧⌘Z' : 'Ctrl+Y') + ')';
+    wireDividers();
     el.mode.addEventListener('change', function () { if (!changeMode(el.mode.value)) el.mode.value = state.rule.mode; });
     el.startLetter.addEventListener('change', function () { state.startLetter = el.startLetter.value; updateAnalysis(); renderReadouts(); renderIterations(); renderMain(); saveAddress(); });
-    el.gridRows.addEventListener('change', function () { setGrid(Number(el.gridRows.value), Number(el.gridCols.value)); markEdited(); commit(); });
+    // Without Stretch the grid stays square, so Rows carries Cols with it.
+    // Choosing a different Cols is what makes a rectangular, Stretch grid.
+    el.gridRows.addEventListener('change', function () { var rows = Number(el.gridRows.value); setGrid(rows, state.rule.toggles.stretch ? Number(el.gridCols.value) : rows); markEdited(); commit(); });
     el.gridCols.addEventListener('change', function () { setGrid(Number(el.gridRows.value), Number(el.gridCols.value)); markEdited(); commit(); });
+    el.toggleTopColour.addEventListener('change', function () { state.topColour = el.toggleTopColour.checked; renderPalette(); renderEditor(); renderIterations(); renderMain(); saveAddress(); });
     el.depth.addEventListener('input', function () { state.depth = Number(el.depth.value); el.depthValue.textContent = state.depth; state.dragging = true; setCustom(); syncLimitControls(); renderMain(); });
     el.depth.addEventListener('change', function () { state.dragging = false; updateAnalysis(); renderReadouts(); renderMain(); saveAddress(); });
     [['stretch', el.toggleStretch], ['blocks', el.toggleBlocks], ['stacking', el.toggleStacking], ['gridPerLetter', el.togglePerLetter]].forEach(function (pair) {
@@ -715,9 +854,9 @@
       });
     }
     bindLimit(el.minDepth, function () { state.limits.minDepth = Number(el.minDepth.value); }, function () { el.minDepthValue.textContent = state.limits.minDepth; }, false);
-    bindLimit(el.maxCopies, function () { state.limits.maxInstances = COPY_VALUES[Number(el.maxCopies.value)]; }, function () { el.maxCopiesValue.textContent = state.limits.maxInstances.toLocaleString(); }, true);
+    bindLimit(el.maxCopies, function () { state.limits.maxInstances = COPY_VALUES[Number(el.maxCopies.value)]; }, function () { el.maxCopiesValue.textContent = count(state.limits.maxInstances); }, true);
     bindLimit(el.minScale, function () { state.limits.minScale = SCALE_VALUES[Number(el.minScale.value)]; }, function () { el.minScaleValue.textContent = scaleLabel(state.limits.minScale); }, false);
-    bindLimit(el.maxTime, function () { state.limits.maxMs = TIME_VALUES[Number(el.maxTime.value)]; }, function () { el.maxTimeValue.textContent = state.limits.maxMs.toLocaleString() + ' ms'; }, false);
+    bindLimit(el.maxTime, function () { state.limits.maxMs = TIME_VALUES[Number(el.maxTime.value)]; }, function () { el.maxTimeValue.textContent = count(state.limits.maxMs) + ' ms'; }, false);
     bindLimit(el.analysisDepth, function () { state.limits.analysisDepth = Number(el.analysisDepth.value); }, function () { el.analysisDepthValue.textContent = state.limits.analysisDepth; }, true);
     el.hullIterations.addEventListener('change', function () { state.limits.hullIterations = Number(el.hullIterations.value); setCustom(); updateAnalysis(); syncLimitControls(); renderReadouts(); renderMain(); saveAddress(); });
     el.turnChild.addEventListener('click', function () { selectedAction('turn'); }); el.flipChild.addEventListener('click', function () { selectedAction('flip'); });
@@ -734,6 +873,15 @@
     el.copyLink.addEventListener('click', function () { navigator.clipboard.writeText(location.href).then(function () { notice('Link copied.'); }, function () { notice('Copy the address from your browser.'); }); });
     el.fullscreen.addEventListener('click', function () { var doc = document, target = document.documentElement; var request = target.requestFullscreen || target.webkitRequestFullscreen; if (request) Promise.resolve(request.call(target)).catch(function () {}); el.fullscreen.blur(); });
     document.addEventListener('keydown', function (event) {
+      // Cmd+Z or Ctrl+Z undoes; adding Shift, or Ctrl+Y, redoes. A text or
+      // number box keeps its own undo while it has focus.
+      var target = event.target, typing = target.tagName === 'TEXTAREA' || (target.tagName === 'INPUT' && !/range|checkbox|radio|button/.test(target.type));
+      var key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && !typing && (key === 'z' || key === 'y')) {
+        event.preventDefault();
+        if (key === 'y' || event.shiftKey) redo(); else undo();
+        return;
+      }
       if (/INPUT|SELECT/.test(event.target.tagName)) return;
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedChild()) removeSelected();
       else if (event.key.toLowerCase() === 'r' && selectedChild()) selectedAction('turn');
@@ -743,13 +891,14 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','letter-tabs','add-letter','rule-editor','editor-hint','selection-name','turn-child','flip-child','remove-child','child-letter','block-field','block-size','block-cols-field','block-cols','numbers-kind','numbers-head','numbers-body','limit','main-stage','mode','start-letter','grid-rows','grid-cols','cols-field','depth','depth-value','toggle-menu','toggle-popover','toggle-stretch','toggle-blocks','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','letter-tabs','add-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','editor-hint','selection-name','turn-child','flip-child','remove-child','child-letter','block-field','block-size','block-cols-field','block-cols','numbers-kind','numbers-head','numbers-body','limit','main-stage','mode','start-letter','grid-fields','grid-rows','grid-cols','cols-field','toggle-top-colour','palette-label','depth','depth-value','toggle-menu','toggle-popover','toggle-stretch','toggle-blocks','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }
 
   function init() {
     collectElements();
+    el.maxCopies.max = COPY_VALUES.length - 1; el.minScale.max = SCALE_VALUES.length - 1; el.maxTime.max = TIME_VALUES.length - 1;
     var custom = document.createElement('option'); custom.value = ''; custom.textContent = 'Custom rule'; el.demo.appendChild(custom);
     loadAddress(); Theme.wireThemeToggle();
     var fullscreenEnabled = document.fullscreenEnabled || document.webkitFullscreenEnabled; el.fullscreen.hidden = !fullscreenEnabled;
