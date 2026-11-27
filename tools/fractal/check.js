@@ -103,4 +103,14 @@ for (const [name, rule] of [['sieve', demos.sieve], ['linked', demos.linked], ['
 const expanding = M.clone(demos.sieve); expanding.letters[0].children[0].matrix = [1.1, 0, 0, 1.1, 0, 0];
 assert.strictEqual(M.coverDiscs(expanding), null, 'a growing copy has no cover discs');
 
-console.log('Fractal model: 50 checks passed.');
+// One large and one small child: the largest copy splits first, so the
+// slow-shrinking branch reaches the same fine size as the rest.
+const lopsided = M.clone(demos.sieve);
+lopsided.letters[0].children = [M.child('p1', [0, 1, -2 / 3, 0, 2 / 3, 0]), M.child('p1', [0, .5, 1 / 3, 0, 2 / 3, .5])];
+const even = M.expand(lopsided, 'p1', 32, { maxInstances: 20000, maxMs: 0, minScale: 0 });
+const largest = Math.max.apply(null, even.map(item => M.singularValues(item.matrix)[0]));
+assert(largest < 0.01, 'the largest copy left is under 1% of the frame, not 6% as level by level');
+const paths = M.expand(demos.sieve, 'p1', 3, { maxMs: 0 }).map(item => item.path);
+assert.deepStrictEqual(paths, paths.slice().sort(), 'copies come out in child order, depth first');
+
+console.log('Fractal model: 52 checks passed.');

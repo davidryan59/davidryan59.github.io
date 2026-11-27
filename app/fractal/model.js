@@ -209,46 +209,75 @@
     return current;
   }
 
+  // Expands a parent, splitting the largest copy first. A copy's size is
+  // its largest singular value, sorted into bands about 9% wide. Within a
+  // band copies split in the order they were made, so a rule whose copies
+  // all shrink alike expands level by level.
+  // A copy does not split past `depth` iterations, nor below `minScale` once
+  // it is `minDepth` deep. The copy limit stops all splitting before the
+  // drawing would hold more than `maxInstances` copies, and the time limit
+  // stops it after `maxMs`. A copy left unsplit is drawn whole, so nothing
+  // vanishes, and the copies left are all of a similar size: a rule with one
+  // large and one small child spends its copies where they show.
+  //
+  // Splitting order is not drawing order. The result lists copies in child
+  // order, depth first: all of child A's branch, then child B's, at every
+  // level. So the children list still decides which copy sits on top.
   function expand(rule, start, depth, options) {
     options = options || {};
     var maxInstances = options.maxInstances || 60000;
     var maxMs = options.maxMs == null ? 250 : options.maxMs;
     var minScale = options.minScale || 0;
     var minDepth = Math.max(0, options.minDepth || 0);
-    var started = Date.now(), terminal = [];
-    var frontier = [{ letter: start || rule.letters[0].id, matrix: identity(), path: '', level: 0 }];
-    var result = [], stoppedBy = null;
-    for (var level = 0; level < depth && frontier.length; level++) {
-      var next = [];
-      for (var i = 0; i < frontier.length; i++) {
-        var parent = rule.letters.find(function (letter) { return letter.id === frontier[i].letter; });
-        if (!parent || !parent.children.length) { terminal.push(frontier[i]); continue; }
-        // A limit stops the expansion between parents. The parents not yet
-        // split stay whole, so the result mixes level n - 1 and level n and
-        // nothing vanishes. Copies counts the frames that will be drawn.
-        var drawn = terminal.length + next.length + (frontier.length - i);
-        if (drawn - 1 + parent.children.length > maxInstances) stoppedBy = 'copies';
-        else if (maxMs && Date.now() - started >= maxMs) stoppedBy = 'time';
-        if (stoppedBy) { result = terminal.concat(next, frontier.slice(i)); break; }
-        for (var j = 0; j < parent.children.length; j++) {
-          var child = parent.children[j];
-          var item = { letter: child.letter, matrix: compose(frontier[i].matrix, child.matrix),
-            path: frontier[i].path + j.toString(36), level: level + 1 };
-          // A branch wholly off screen is dropped: not drawn, not counted.
-          if (options.cull && options.cull(item)) continue;
-          var scale = singularValues(item.matrix)[0];
-          if (level + 1 >= minDepth && minScale && scale < minScale) terminal.push(item);
-          else next.push(item);
-        }
-      }
-      if (stoppedBy) break;
-      frontier = next;
-      if (!frontier.length) { result = terminal; break; }
-      if (level === depth - 1) result = terminal.concat(frontier);
+    var cull = options.cull, started = Date.now(), byId = {};
+    rule.letters.forEach(function (letter) { byId[letter.id] = letter; });
+    // Every copy made goes in one list. A split copy records where its
+    // children start in that list and how many there are.
+    var root = { letter: start || rule.letters[0].id, matrix: identity(), path: '', level: 0, scale: 1, k0: -1, kn: 0 }, all = [root];
+    // A bucket queue: copies sorted into size bands an eighth of a power of
+    // two wide, largest band first, first in first out within a band. This
+    // is near enough largest-first, and far cheaper than a full sort.
+    var BANDS = 8, buckets = [], heads = [], low = 0, offset = 64 * BANDS;
+    function band(scale) { return Math.max(0, Math.min(400 * BANDS, offset + Math.floor(-Math.log2(Math.max(scale, 1e-300)) * BANDS))); }
+    function push(node) {
+      var b = band(node.scale);
+      if (!buckets[b]) { buckets[b] = []; heads[b] = 0; }
+      buckets[b].push(node); if (b < low) low = b;
     }
-    if (!result.length) result = terminal.concat(frontier);
-    if (!stoppedBy && minScale && terminal.some(function (item) { return item.level < depth; })) stoppedBy = 'scale';
-    result.stoppedBy = stoppedBy || (depth <= minDepth ? null : 'iterations');
+    function peek() {
+      while (low < buckets.length) { var q = buckets[low]; if (q && heads[low] < q.length) return q[heads[low]]; low++; }
+      return null;
+    }
+    function pop() { heads[low]++; }
+    var count = 1, stoppedBy = null, hitDepth = false, hitScale = false, splits = 0, node;
+    low = band(1); push(root);
+    while ((node = peek())) {
+      var parent = byId[node.letter];
+      if (!parent || !parent.children.length) { pop(); continue; }
+      if (node.level >= depth) { pop(); hitDepth = true; continue; }
+      if (minScale && node.level >= minDepth && node.scale < minScale) { pop(); hitScale = true; continue; }
+      if (maxMs && (++splits & 63) === 0 && Date.now() - started >= maxMs) { stoppedBy = 'time'; break; }
+      var first = all.length;
+      for (var j = 0; j < parent.children.length; j++) {
+        var child = parent.children[j];
+        var kid = { letter: child.letter, matrix: compose(node.matrix, child.matrix), path: node.path + j.toString(36), level: node.level + 1, scale: 0, k0: -1, kn: 0 };
+        // A branch wholly off screen is dropped: not drawn, not counted.
+        if (cull && cull(kid)) continue;
+        kid.scale = singularValues(kid.matrix)[0]; all.push(kid);
+      }
+      var made = all.length - first;
+      if (count - 1 + made > maxInstances) { all.length = first; stoppedBy = 'copies'; break; }
+      pop(); node.k0 = first; node.kn = made; count += made - 1;
+      for (j = first; j < all.length; j++) push(all[j]);
+    }
+    // Collect the unsplit copies in child order.
+    var result = [], stack = [root];
+    while (stack.length) {
+      var next = stack.pop();
+      if (next.k0 >= 0) { for (var k = next.k0 + next.kn - 1; k >= next.k0; k--) stack.push(all[k]); }
+      else result.push(next);
+    }
+    result.stoppedBy = stoppedBy || (hitScale ? 'scale' : hitDepth && depth > minDepth ? 'iterations' : null);
     result.targetDepth = depth;
     return result;
   }

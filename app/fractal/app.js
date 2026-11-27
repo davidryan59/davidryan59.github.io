@@ -35,9 +35,11 @@
     return { stretch: false, skew: false };
   }
   function saveLocks() { try { localStorage.setItem('fractal-locks', JSON.stringify(state.locks)); } catch (error) {} }
-  // While a child or the Iterations slider is dragged, the main view draws at most
-  // this many copies, for this long, then draws in full on release.
-  var DRAG_COPIES = 4000, DRAG_MS = 40;
+  // While a child or the Iterations slider is dragged, the main view draws
+  // within this time, at most this many copies, then draws in full on
+  // release. 12 ms keeps a drag at 60 frames a second with the editor drawn
+  // too: about 30,000 Dragon copies, where 4000 was the old fixed cap.
+  var DRAG_COPIES = 200000, DRAG_MS = 12;
   var PRESETS = {
     fast: { depth: 6, minDepth: 3, maxInstances: 10000, minScale: 1e-3, maxMs: 100, analysisDepth: 5, hullIterations: 16 },
     balanced: { depth: 7, minDepth: 4, maxInstances: 25000, minScale: 1 / 2500, maxMs: 250, analysisDepth: 7, hullIterations: 32 },
@@ -70,9 +72,13 @@
     var letter = currentLetter();
     return letter && letter.children.find(function (child) { return child.id === state.selectedId; });
   }
+  // A parent's colour: its own, if chosen, or the palette colour for its
+  // position.
+  function defaultColour(index) { return PALETTE[(index < 0 ? 0 : index) % PALETTE.length]; }
   function colour(id) {
     var index = state.rule.letters.findIndex(function (letter) { return letter.id === id; });
-    return PALETTE[(index < 0 ? 0 : index) % PALETTE.length];
+    var letter = state.rule.letters[index];
+    return letter && letter.colour || defaultColour(index);
   }
   // A parent's number is its position in the list, from 1.
   function label(id) { var index = state.rule.letters.findIndex(function (letter) { return letter.id === id; }); return String(index + 1); }
@@ -138,7 +144,8 @@
   function validRule(rule) {
     return rule && rule.version === 2 && ['square', 'triangle'].indexOf(rule.frame) >= 0 &&
       ['square', 'triangle', 'free'].indexOf(rule.mode) >= 0 && Array.isArray(rule.letters) && rule.letters.length &&
-      rule.letters.every(function (letter) { return typeof letter.id === 'string' && Array.isArray(letter.children) && letter.children.every(function (child) {
+      rule.letters.every(function (letter) { return typeof letter.id === 'string' && Array.isArray(letter.children) &&
+        (letter.colour == null || /^#[0-9a-f]{6}$/i.test(letter.colour)) && letter.children.every(function (child) {
         return typeof child.letter === 'string' && Array.isArray(child.matrix) && child.matrix.length === 6 && child.matrix.every(Number.isFinite);
       }); });
   }
@@ -152,7 +159,7 @@
         var saved = decode(hash.slice(5));
         if (!validRule(saved.rule)) throw new Error('Invalid rule');
         state.rule = saved.rule; state.demo = null;
-        state.currentLetter = saved.current || state.rule.letters[0].id; state.depth = Math.max(0, Math.min(20, saved.depth == null ? 7 : saved.depth));
+        state.currentLetter = saved.current || state.rule.letters[0].id; state.depth = Math.max(0, Math.min(32, saved.depth == null ? 7 : saved.depth));
         state.showHull = saved.hull !== false; state.colourMode = readColourMode(saved.colour);
         if (saved.camera) state.camera = saved.camera;
         state.snapGrid = !!saved.snap;
@@ -469,15 +476,16 @@
   // The time limit covers a whole frame: working out the copies and drawing
   // them. Drawing takes most of it, and its cost is known only afterwards, so
   // each frame measures its time per copy and the next frame turns the time
-  // limit into a copy limit. The first frame assumes 1 µs a copy. Only full
-  // frames teach the estimate: a drag frame stops at shallower levels, where
-  // larger copies cost more each to fill.
-  var msPerCopy = .001;
-  function timeCopies(ms) { return Math.max(1, Math.floor(ms / msPerCopy)); }
+  // limit into a copy limit. Drag frames and full frames keep separate
+  // estimates: a drag frame stops at shallower levels, where larger copies
+  // cost more each to fill. The first frames assume 1 and 2 µs a copy.
+  var msPerCopy = { full: .001, drag: .002 };
+  function frameKind() { return state.dragging ? 'drag' : 'full'; }
+  function timeCopies(ms) { return Math.max(1, Math.floor(ms / msPerCopy[frameKind()])); }
   function measureFrame(copies, ms) {
     if (copies < 200) return;
-    var cost = Math.max(.0002, ms / copies);
-    msPerCopy = msPerCopy * .5 + cost * .5;
+    var kind = frameKind(), cost = Math.max(.0001, ms / copies);
+    msPerCopy[kind] = msPerCopy[kind] * .5 + cost * .5;
   }
 
   function mainInstances(cull) {
@@ -546,7 +554,7 @@
     drawBatch(ctx, instances, view, { letterThreshold: 8, lineWidth: .65, clip: [info.width, info.height],
       alphaFor: function (item) { return item.level == null ? .93 : .22 + .18 * item.level; } });
     if (state.showHull && state.analysis && state.analysis.status.name === 'Converges' && !state.editorDrag) drawHull(ctx, state.analysis.hull, view);
-    if (!state.dragging) measureFrame(instances.length, performance.now() - started);
+    measureFrame(instances.length, performance.now() - started);
     var reason = { copies: 'copy limit', time: 'time limit', scale: 'scale limit', iterations: 'iteration limit' }[instances.stoppedBy];
     el.instanceCount.textContent = count(instances.length) + (instances.length === 1 ? ' copy' : ' copies') + (reason ? ' · ' + reason : '');
   }
@@ -668,6 +676,9 @@
     });
     renderChildLetters();
     var only = state.rule.letters.length < 2, number = label(state.currentLetter);
+    el.parentColour.style.setProperty('--dot', colour(state.currentLetter));
+    el.parentColour.title = 'Colour of parent ' + number; el.parentColour.setAttribute('aria-label', 'Choose the colour of parent ' + number);
+    if (!el.colourPicker.hidden) renderColourPicker();
     el.removeLetter.disabled = only;
     el.removeLetter.title = only ? 'A rule needs at least one parent' : 'Remove parent ' + number + ' and the children that use it (Backspace)';
     el.duplicateLetter.title = 'Duplicate parent ' + number + ' (' + modKey() + 'D)';
@@ -1121,6 +1132,35 @@
 
   // A duplicate parent goes straight after its original. Its children that
   // copied the original now copy the duplicate, so it stands alone.
+  // The colour picker for the selected parent. A swatch or Default is one
+  // undo step. The custom picker previews as it moves and commits when it
+  // closes.
+  function renderColourPicker() {
+    var index = state.rule.letters.indexOf(currentLetter()), now = colour(state.currentLetter);
+    el.colourSwatches.innerHTML = '';
+    PALETTE.forEach(function (hex) {
+      var button = document.createElement('button'); button.type = 'button'; button.style.setProperty('--dot', hex);
+      button.setAttribute('aria-label', hex); button.title = hex; button.setAttribute('aria-pressed', hex === now ? 'true' : 'false');
+      button.addEventListener('click', function () { setParentColour(hex, true); });
+      el.colourSwatches.appendChild(button);
+    });
+    el.colourCustom.value = now;
+    el.colourDefault.disabled = !currentLetter().colour;
+    el.colourDefault.title = 'Back to ' + defaultColour(index);
+  }
+  function setParentColour(hex, record) {
+    var letter = currentLetter(), index = state.rule.letters.indexOf(letter);
+    hex = String(hex).toLowerCase();
+    if (!hex || hex === defaultColour(index)) delete letter.colour; else letter.colour = hex;
+    markEdited();
+    if (record) commit(); else { renderLetterControls(); renderPalette(); renderEditor(); renderIterations(); renderMain(); }
+  }
+  function toggleColourPicker(open) {
+    if (open == null) open = el.colourPicker.hidden;
+    el.colourPicker.hidden = !open; el.parentColour.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) { renderColourPicker(); var first = el.colourSwatches.querySelector('[aria-pressed="true"]') || el.colourSwatches.firstChild; if (first) first.focus(); }
+  }
+
   function duplicateLetter() {
     var source = currentLetter(), id = M.nextId(state.rule), index = state.rule.letters.indexOf(source);
     var copy = { id: id, children: source.children.map(function (child) {
@@ -1188,7 +1228,7 @@
     state.rule = M.clone(entry.rule); state.currentLetter = entry.current;
     if (!letterById(state.currentLetter)) state.currentLetter = state.rule.letters[0].id;
     state.selectedId = null; state.newLetter = null; state.focus = 'child';
-    state.depth = Math.max(0, Math.min(20, entry.level == null ? state.depth : entry.level));
+    state.depth = Math.max(0, Math.min(32, entry.level == null ? state.depth : entry.level));
     state.colourMode = readColourMode(entry.colourMode != null ? entry.colourMode : entry.colourByTopCopy);
     state.demo = null; state.savedName = entry.name; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null;
     el.saveName.value = entry.name; el.demo.value = ''; commit();
@@ -1582,13 +1622,22 @@
     var point = editorPoint(event), m = dragMatrix(drag, point, !state.snapGrid, event.shiftKey);
     m = drag.job === 'move' ? (event.altKey ? m : snapMove(drag, m)) : snapToGrid(drag, point, m, event.shiftKey);
     if (!m.every(Number.isFinite) || Math.abs(M.determinant(m)) < 1e-9) return;
-    drag.moved = true; drag.child.matrix = m; markEdited(); renderEditor(); renderMain(); event.preventDefault();
+    drag.moved = true; drag.child.matrix = m; markEdited(); scheduleDragFrame(); event.preventDefault();
+  }
+
+  // A mouse can send pointer moves faster than the screen redraws. Each
+  // screen frame draws the latest position once.
+  var dragFrame = 0;
+  function scheduleDragFrame() {
+    if (dragFrame) return;
+    dragFrame = requestAnimationFrame(function () { dragFrame = 0; if (state.editorDrag) { renderEditor(); renderMain(); } });
   }
 
   function endEditorPointer(event) {
     if (endPan(event)) return;
     if (!state.editorDrag || state.editorDrag.pointer !== event.pointerId) return;
     var moved = state.editorDrag.moved; state.editorDrag = null; state.dragging = false;
+    if (dragFrame) { cancelAnimationFrame(dragFrame); dragFrame = 0; }
     if (moved) commit(); else { renderEditor(); renderMain(); }
   }
 
@@ -1719,6 +1768,14 @@
     el.editDialog.addEventListener('close', function () { state.editing = null; });
     el.saveFractal.addEventListener('click', saveFractal);
     el.saveName.addEventListener('keydown', function (event) { if (event.key === 'Enter') saveFractal(); });
+    el.parentColour.addEventListener('click', function () { toggleColourPicker(); });
+    el.colourDefault.addEventListener('click', function () { setParentColour(defaultColour(state.rule.letters.indexOf(currentLetter())), true); });
+    el.colourCustom.addEventListener('input', function () { setParentColour(el.colourCustom.value, false); });
+    el.colourCustom.addEventListener('change', function () { setParentColour(el.colourCustom.value, true); });
+    el.colourPicker.addEventListener('keydown', function (event) { if (event.key === 'Escape') { event.stopPropagation(); toggleColourPicker(false); el.parentColour.focus(); } });
+    document.addEventListener('pointerdown', function (event) {
+      if (!el.colourPicker.hidden && !el.colourPicker.contains(event.target) && !el.parentColour.contains(event.target)) toggleColourPicker(false);
+    });
     el.exportFractal.addEventListener('click', exportFractal); el.exportAll.addEventListener('click', exportAll);
     el.importFractal.addEventListener('click', function () { el.importFile.value = ''; el.importFile.click(); });
     el.importFile.addEventListener('change', function () { if (el.importFile.files[0]) importFile(el.importFile.files[0]); });
@@ -1835,7 +1892,7 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','mode-row','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','cols-field','snap-field','toggle-snap','lock-row','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','dimension-label','build-version','depth','depth-value','toggle-menu','toggle-popover','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','mode-row','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','cols-field','snap-field','toggle-snap','lock-row','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','build-version','depth','depth-value','toggle-menu','toggle-popover','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }

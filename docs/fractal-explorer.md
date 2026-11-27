@@ -23,6 +23,7 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] List the children in drawing order, reorder them by drag, and edit
       exact values in a pop-up.
 - [x] Number the parents; add, duplicate, remove and reorder them.
+- [x] Choose each parent's colour from a swatch in the parent row.
 - [x] Open on the Sieve in Free mode, with Linked pair and Free placement demos.
 - [ ] Resize square-grid children across cells by dragging their corners.
 - [x] Store edited rules in the address.
@@ -100,7 +101,7 @@ a double-click resets it. Each canvas redraws when its own box changes size,
 so dragging a panel line zooms the picture and never stretches it. The strip above the editor holds the view buttons
 on the left and the child buttons (add, duplicate and remove) on the right.
 
-Snap corners, in Options, draws the grid of Rows by Cols (2 to 8) across the
+Snap corners, in Options, draws the grid of Cols by Rows (2 to 8) across the
 editor. While a drag moves a corner within 6 pixels of a grid point, the
 corner snaps to it, and it lets go when the pointer moves on. A scale moves
 its corner along a line from the centre, so that corner snaps onto a grid
@@ -146,11 +147,28 @@ move and leaves the rule unchanged.
 
 ## Rendering
 
+`expand()` splits the largest copy first. A copy's size is its largest
+singular value, sorted into bands 2^(1/8) wide (about 9%) in a bucket queue;
+within a band copies split first in, first out, so a rule whose copies all
+shrink alike still expands level by level. When a limit stops the splitting,
+the copies left are all of a similar size. Level by level, a rule with one
+large and one small child ran out of copies while its slow branch was still
+large: 200,000 copies left one copy at 2.6% of the frame beside copies of
+1/5,000,000. Largest first, the same 200,000 copies all lie between 0.016%
+and 0.15%. Splitting order is not drawing order: the copies come out depth
+first in child order, all of child A's branch, then child B's, so the
+children list still decides which copy sits on top. Every copy made sits in
+one list, and a split copy records where its children start, so the result
+needs no sort. 200,000 copies take about 80 ms to work out.
+
 The iteration strip shows levels zero through four. The main view expands the
 selected starting letter to the chosen depth. It stops expanding after 60,000
 frames, so a large branching rule stays responsive. During a child drag or a
-Iterations drag it draws at most 4000 copies within 40 ms, then draws in full
-on release.
+Iterations drag it draws within 12 ms a frame, at most 200,000 copies, then
+draws in full on release. Drag frames learn their own time per copy, apart
+from full frames. Pointer moves are merged so each screen frame draws once.
+In Chrome on an M-series Mac a drag holds 60 frames a second with about
+30,000 Dragon copies or 43,000 Sieve copies, against a fixed 4000 before.
 
 `drawBatch()` draws the main view and the iteration strip. Copies of one
 colour and opacity share one `Path2D`, so the canvas fills and strokes each
@@ -178,7 +196,15 @@ every copy in order, first child first at every level, and colours it by its
 place on a scale from red (hue 0) through orange, yellow, green and cyan to
 blue (hue 225). At each level a copy's share of the scale splits equally
 among its children, and the copy takes the middle of its share. Parent gives
-each parent its own colour. Top copy colours each copy by the top-level child
+each parent its own colour. A round swatch after the parent numbers shows the
+selected parent's colour and opens a picker: the 10 palette colours, a
+Custom colour input and Default. The choice is stored as `colour` on the
+parent, a six-digit hex value, so it travels in the address and in saved
+fractals, and each choice is one undo step. A parent with no `colour` takes
+the palette colour for its position, so it changes colour when reordered; a
+chosen colour stays with its parent. The colour always shows on the parent
+and child buttons and in the children table. In Parent colour mode it also
+colours every view. Top copy colours each copy by the top-level child
 it sits inside. Order is the default for every rule, so adding or removing a
 parent never changes the mode. The mode
 travels in the address as `colour`; older addresses and saved fractals held
@@ -270,7 +296,7 @@ settings Custom. Selecting a preset restores all seven values.
 
 The selectable ranges are 1 to 500,000 copies, minimum scales from 1/1 to
 1/1,000,000 or Unlimited, and frame times from 1 to 2000 ms.
-Iterations run from 0, the parent alone, to 20. These limits and the selected view travel
+Iterations run from 0, the parent alone, to 32. These limits and the selected view travel
 with a shared address.
 
 ## Layout and input

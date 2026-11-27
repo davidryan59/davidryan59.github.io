@@ -70,9 +70,17 @@
 
       <div class="letter-row">
         <div id="letter-tabs" class="letter-tabs" role="tablist" aria-label="Parents"></div>
+        <button id="parent-colour" class="small-button letter-step icon-step colour-step" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="colour-picker"><span class="swatch"></span></button>
         <button id="add-letter" class="small-button letter-step" type="button" title="Add a parent" aria-label="Add a parent">+</button>
         <button id="duplicate-letter" class="small-button letter-step icon-step" type="button" aria-label="Duplicate this parent"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
         <button id="remove-letter" class="small-button letter-step icon-step danger" type="button" title="Remove this parent" aria-label="Remove this parent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5.5M14 11v5.5"/></svg></button>
+      </div>
+      <div id="colour-picker" class="colour-picker" role="dialog" aria-label="Parent colour" hidden>
+        <div id="colour-swatches" class="colour-swatches"></div>
+        <div class="colour-foot">
+          <label>Custom <input id="colour-custom" type="color"></label>
+          <button id="colour-default" type="button">Default</button>
+        </div>
       </div>
     </div>
 
@@ -142,13 +150,13 @@
       <canvas id="limit" tabindex="0" aria-label="Fractal limit view"></canvas>
 
       <div class="corner corner-tr">
-        <label class="level-field" title="How many times the rule is applied. 0 is the parent alone"><span>Iterations <output id="depth-value">7</output></span><input id="depth" type="range" min="0" max="20" value="7"></label>
+        <label class="level-field" title="How many times the rule is applied. 0 is the parent alone"><span>Iterations <output id="depth-value">7</output></span><input id="depth" type="range" min="0" max="32" value="7"></label>
         <button id="toggle-menu" class="disclosure" type="button" aria-expanded="false" aria-controls="toggle-popover">Options</button>
         <div id="toggle-popover" class="toggle-popover" hidden>
           <div id="grid-fields" class="grid-fields">
             <div class="grid-head"><span class="popover-heading">Grid</span><label id="snap-field"><input id="toggle-snap" type="checkbox"> Snap corners</label></div>
-            <div class="grid-line"><span>Rows</span><div id="grid-rows" class="grid-buttons" role="group" aria-label="Grid rows"></div></div>
             <div class="grid-line" id="cols-field"><span>Cols</span><div id="grid-cols" class="grid-buttons" role="group" aria-label="Grid columns"></div></div>
+            <div class="grid-line"><span>Rows</span><div id="grid-rows" class="grid-buttons" role="group" aria-label="Grid rows"></div></div>
           </div>
           <div class="colour-field">
             <span class="popover-heading">Colour</span>
