@@ -134,7 +134,8 @@ and underline turn or reverse inside it. Rotate R turns the number clockwise
 as seen on screen, so on a flipped child it turns the other way in the
 child's frame. Each child has a letter, A, B, C
 and on, from its place in its parent's list. The letter sits at the child's
-top left (a triangle: near its top) and relabels when the list is reordered. With no child selected they set the orientation of new children,
+top left (a triangle: its bottom-left corner, off the centre line, so Flip H
+shows) and relabels when the list is reordered. With no child selected they set the orientation of new children,
 shown in the preview beside the panel heading. A duplicate goes to the right
 of its original, or else above, left or below, whichever is free first. A duplicated parent goes after the original, and
 its children that copied the original copy the duplicate. Removing a parent

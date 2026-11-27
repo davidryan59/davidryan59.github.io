@@ -361,8 +361,9 @@
 
   // The orientation mark: the parent's number with an underline beneath it.
   // The underline shows which side is down. In the editor, the child's own
-  // letter, A, B, C and on, sits at its top left (a triangle: near its top),
-  // so it turns and flips with the child. The letter is the child's place in
+  // letter, A, B, C and on, sits at its top left (a triangle: its bottom-left
+  // corner, off the centre line, so Flip H shows), so it turns and flips with
+  // the child. The letter is the child's place in
   // its parent's list. The number uses a serif with lining figures, so every
   // digit sits on the baseline and clears the underline.
   var MARK_FONT = '"Times New Roman", Times, serif';
@@ -378,7 +379,9 @@
     var half = Math.max(.09, ctx.measureText(text).width / 2), under = baseline + size * .13;
     ctx.lineWidth = size * .07; ctx.beginPath(); ctx.moveTo(centre[0] - half, under); ctx.lineTo(centre[0] + half, under); ctx.stroke();
     if (name) {
-      var spot = tri ? [0.5, M.TRI_H * .3] : [.15, .14];
+      // A triangle's letter sits 0.19 in from the bottom-left corner, along
+      // the line to the centre, which clears both edges and the number.
+      var spot = tri ? [.19 * M.TRI_H, M.TRI_H - .095] : [.15, .14];
       ctx.textBaseline = 'middle';
       ctx.font = '700 ' + (tri ? .13 : .16) + 'px ui-sans-serif, system-ui, sans-serif';
       ctx.fillText(name, spot[0], spot[1]);
