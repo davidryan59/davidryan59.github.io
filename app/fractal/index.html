@@ -74,13 +74,26 @@
         <div id="letter-tabs" class="letter-tabs" role="tablist" aria-label="Parents"></div>
         <button id="add-letter" class="small-button letter-step" type="button" title="Add a parent" aria-label="Add a parent">+</button>
         <button id="duplicate-letter" class="small-button letter-step icon-step" type="button" aria-label="Duplicate this parent"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
-        <button id="remove-letter" class="small-button letter-step" type="button" title="Remove this parent" aria-label="Remove this parent">−</button>
+        <button id="remove-letter" class="small-button letter-step icon-step danger" type="button" title="Remove this parent" aria-label="Remove this parent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5.5M14 11v5.5"/></svg></button>
       </div>
     </div>
 
-    <div class="editor-wrap">
+    <div class="editor-wrap" id="editor-wrap">
+      <div class="editor-tools">
+        <div class="editor-zoom" role="group" aria-label="Editor view">
+          <button id="editor-zoom-out" type="button" title="Zoom the editor out (or use the wheel)" aria-label="Zoom the editor out"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5M8 10.5h5"/></svg></button>
+          <button id="editor-fit" type="button" title="Fit the editor to every child" aria-label="Fit the editor to every child"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg></button>
+          <button id="editor-zoom-in" type="button" title="Zoom the editor in (or use the wheel)" aria-label="Zoom the editor in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5M10.5 8v5M8 10.5h5"/></svg></button>
+        </div>
+        <div class="editor-children" role="group" aria-label="Children">
+          <button id="add-child" type="button" title="Add a child" aria-label="Add a child"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button id="duplicate-child" type="button" aria-label="Duplicate the child"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+          <button id="remove-child" class="danger" type="button" title="Remove the child (Backspace)" aria-label="Remove the child" aria-keyshortcuts="Backspace Delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5.5M14 11v5.5"/></svg></button>
+        </div>
+      </div>
       <canvas id="rule-editor" tabindex="0" aria-label="Edit the selected parent's children"></canvas>
     </div>
+    <div class="divider-editor" id="divider-editor" role="separator" aria-orientation="horizontal" aria-label="Resize the editor" tabindex="0"></div>
 
     <section class="selection" aria-labelledby="selection-heading">
       <div class="section-heading">
@@ -95,10 +108,9 @@
         <button id="flip-h" type="button" title="Flip left to right (H)" aria-keyshortcuts="H">Flip <u>H</u></button>
         <button id="flip-v" type="button" title="Flip top to bottom (V)" aria-keyshortcuts="V">Flip <u>V</u></button>
       </div>
-      <div class="button-row edit-row">
-        <button id="add-child" class="icon-text" type="button" title="Add a child" aria-label="Add a child">+</button>
-        <button id="duplicate-child" class="icon-text" type="button" aria-label="Duplicate the child"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
-        <button id="remove-child" class="danger" type="button" title="Remove the child (Backspace)" aria-keyshortcuts="Backspace Delete">Remove</button>
+      <div id="lock-row" class="button-row orient-row lock-row" role="group" aria-label="Locks for the edge handles">
+        <button id="lock-stretch" type="button" aria-pressed="false"><svg class="lock-open" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/></svg><svg class="lock-shut" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Stretch</button>
+        <button id="lock-skew" type="button" aria-pressed="false"><svg class="lock-open" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/></svg><svg class="lock-shut" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Skew</button>
       </div>
     </section>
 
@@ -136,13 +148,12 @@
         <button id="toggle-menu" class="disclosure" type="button" aria-expanded="false" aria-controls="toggle-popover">Options</button>
         <div id="toggle-popover" class="toggle-popover" hidden>
           <div id="grid-fields" class="grid-fields">
-            <span class="popover-heading">Grid</span>
-            <label>Rows <select id="grid-rows"><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
-            <label id="cols-field">Cols <select id="grid-cols"><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+            <div class="grid-head"><span class="popover-heading">Grid</span><label id="snap-field"><input id="toggle-snap" type="checkbox"> Snap corners</label></div>
+            <div class="grid-line"><span>Rows</span><div id="grid-rows" class="grid-buttons" role="group" aria-label="Grid rows"></div></div>
+            <div class="grid-line" id="cols-field"><span>Cols</span><div id="grid-cols" class="grid-buttons" role="group" aria-label="Grid columns"></div></div>
           </div>
           <label class="colour-toggle"><input id="toggle-top-colour" type="checkbox"> Colour by top-level copy</label>
           <div class="rule-toggles">
-            <label><input id="toggle-stretch" type="checkbox"> Stretch</label>
             <label><input id="toggle-stacking" type="checkbox"> Stacking</label>
             <label><input id="toggle-per-letter" type="checkbox"> Grid per letter</label>
           </div>
@@ -215,15 +226,16 @@
       <ul id="library-list" class="library-list"></ul>
       <p id="library-empty" class="library-note">Saved fractals stay in this browser.</p>
       <div class="button-row file-row">
+        <button id="import-fractal" type="button" title="Open a .fractal.json file">Import</button>
         <button id="export-fractal" type="button" title="Download this fractal as a .fractal.json file">Export</button>
         <button id="export-all" type="button" title="Download every saved fractal in one .fractal.json file">Export all</button>
-        <button id="import-fractal" type="button" title="Open a .fractal.json file">Import</button>
       </div>
       <input id="import-file" type="file" accept=".json,application/json" hidden>
     </section>
     <details class="help">
       <summary>How to edit</summary>
-      <p>Free mode: drag a child to move it. Drag a corner to turn and scale it. With Stretch on, drag a side handle to stretch or skew it.</p>
+      <p>Free mode: drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew. Stretch and Skew lock those jobs. Snap corners in Options snaps corners to a grid.</p>
+      <p>Editor view: drag empty space to pan, and use the wheel or a pinch to zoom. Fit shows every child again. Drag the line under the editor to change its height.</p>
       <p>Grid modes: tap a cell to add a child.</p>
       <p>Keys: 1–9 and 0 pick a child's parent, and Shift with a number shows that parent. R and T rotate, H and V flip, Backspace removes, ⌘D or Ctrl+D duplicates, Esc deselects.</p>
     </details>

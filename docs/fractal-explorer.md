@@ -43,10 +43,11 @@ y' = b x + d y + f
 This one representation serves every mode. Grid modes make exact rational
 coefficients. Free mode changes the coefficients directly. A square child
 uses the unit square. A triangle child uses the upright unit equilateral
-triangle. Each frame carries its parent's number, an underline beneath it,
-and a dot near the bottom-right corner. The underline fixes which side is
-down and the dot fixes which end, so all eight square placements differ even
-for a symmetric number. The rule format is version 2; version 1 rules, which
+triangle. Each frame carries its parent's number with an underline beneath
+it, which fixes which side is down. The number uses Times, whose lining
+figures sit on the baseline; Georgia's old-style figures dropped onto the
+underline. In the editor, the child's letter at its top left fixes the
+orientation. The rule format is version 2; version 1 rules, which
 used letters, are not read.
 
 The pure model is in `app/fractal/model.js`. The browser controller and canvas
@@ -56,25 +57,57 @@ in Node. `tools/fractal/browser-check.js` checks the main interactions.
 ## Editing modes
 
 Free mode is the default. It draws child frames over a dashed parent. Drag
-inside a child to move it. Drag a corner to turn and scale it about the
-opposite corner (a triangle: about the opposite edge's midpoint). When Stretch
-is on, drag a side handle to move that edge; the corner after it stays fixed,
-and three corners decide the new affine map. Handles catch the pointer within
-14 pixels, inside or outside the frame. A press tries the selected child's
-handles first, then takes the topmost child. During a drag the editor and the
+inside a child to move it. The selected child has two corner knobs, on its
+own corners, so they turn and flip with it. The top-right corner (a
+triangle: its top point) shows a circular arrow and turns the child about
+its centre, snapping to 15° steps. The bottom-right corner shows a
+two-headed arrow and scales the child about its centre, snapping to simple
+ratios such as 1/2 and 3/2. Shift on the scale corner stretches both ways in
+the child's own frame. The other corners have no handle.
+
+Each edge has one bar-shaped handle at its middle, lying along the edge. The
+first 4 pixels of a drag pick its job, which then holds: across the edge
+stretches one way, with the opposite edge fixed (a triangle: the opposite
+corner), and along the edge skews it. The Stretch and Skew buttons under
+Rotate L and Rotate R lock those jobs; a locked job loses its handles, and
+with both locked the edges have none. The locks are kept in the browser key
+`fractal-locks`. Together the handles reach every affine map: move, turn,
+scale, stretch and skew. The knobs catch the pointer within 11 pixels and
+the edge bars within 8, or less on a small child. A press on the selected
+child or its handles keeps it, even under another child; otherwise a press
+takes the topmost child.
+
+The editor zooms and pans. A drag on empty space pans it, the wheel or a
+two-finger pinch zooms about the pointer, and the magnifier buttons zoom
+about the centre. The editor fits its children on its own until the first
+zoom or pan; from then the view holds still, so a far child does not shrink
+the rest, until Fit hands control back. Changing parent, mode or rule fits
+again. A click on empty space without a drag deselects. The line under the
+editor sets its height, kept with the panel widths in `fractal-panels`;
+a double-click resets it. The strip above the editor holds the view buttons
+on the left and the child buttons (add, duplicate and remove) on the right.
+
+Snap corners, in Options, draws the grid of Rows by Cols (2 to 8) across the
+editor. While a drag moves a corner within 6 pixels of a grid point, the
+corner snaps to it, and it lets go when the pointer moves on. A scale moves
+its corner along a line from the centre, so that corner snaps onto a grid
+line, preferring a grid point. A turn snaps by angle only. During a drag the editor and the
 main view keep their scale, and refit on release. The + button adds a
 half-size child in the centre, or in the first free corner.
 
 Square mode divides a parent's frame into rows and columns. A tap adds one
-child. Another tap selects the top child in that cell. Stretch permits
-rectangular grids. Stacking lets a tap add another child to an occupied cell.
+child. Another tap selects the top child in that cell. Unequal Rows and Cols
+make rectangular copies; there is no separate Stretch switch. Stacking lets a tap add another child to an occupied cell.
 
 Triangle mode divides an equilateral triangle into `N²` small triangles.
 Both upright and downward cells accept children. Rotate turns by 120°, and
 Flip V is disabled, since it would turn an upright cell into a downward one.
 
-Rotate L, Rotate R, Flip H and Flip V act as the child looks on screen, about
-its centre. With no child selected they set the orientation of new children,
+Rotate L and Rotate R turn the child as it looks on screen, about its centre.
+Flip H and Flip V mirror the child inside its own frame: the frame stays put,
+and the number and underline reverse. Each child has a letter, A, B, C
+and on, from its place in its parent's list. The letter sits at the child's
+top left (a triangle: near its top) and relabels when the list is reordered. With no child selected they set the orientation of new children,
 shown in the preview beside the panel heading. A duplicate goes to the right
 of its original, or else above, left or below, whichever is free first; in a
 grid, the nearest free cell. A duplicated parent goes after the original, and
@@ -84,7 +117,11 @@ removes every child that copied it.
 The children list shows each child in drawing order: the first is drawn at
 the back. Its grip reorders by drag. In Free mode the pencil opens a pop-up
 that accepts decimals and the forms `1/3`, `sqrt(2)/2`, and `√2/2`, and
-applies them on OK as one undo step.
+applies them on OK as one undo step. Free mode lists x, y, scale, angle and
+flip while every child of the parent is a similarity, and the six affine
+values once one is stretched or skewed. Real values show three decimals,
+0.000 included, right-aligned in tabular figures so the points line up.
+Names, parent numbers and whole numbers are centred.
 
 A grid rule always moves to Free mode. A Free rule moves back only when every
 map lies exactly on the requested grid. The mode control explains a refused
@@ -94,8 +131,10 @@ move and leaves the rule unchanged.
 
 The iteration strip shows levels zero through four. The main view expands the
 selected starting letter to the chosen depth. It stops expanding after 60,000
-frames, so a large branching rule stays responsive. During a pointer drag it
-uses two fewer levels, then restores the complete view on release.
+frames, so a large branching rule stays responsive. During a child drag or a
+Level drag it draws at most 4000 copies within 40 ms, then draws in full on
+release. Copies wholly off the canvas are not drawn, though the calculation
+still spends its copy budget on them.
 
 Converging rules share one fitted camera. Growing and cycling rules show the
 latest four levels together. The main view can show or hide its convex hull.

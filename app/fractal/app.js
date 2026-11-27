@@ -32,6 +32,16 @@
   var TIME_VALUES = logStops(2000);
   // Separate thousands only from 10,000 up: 1000 and 9999, then 10,000.
   function count(n) { return Math.abs(n) >= 10000 ? Math.round(n).toLocaleString('en-GB') : String(Math.round(n)); }
+  // The Stretch and Skew locks are a per-viewer preference, kept in local
+  // storage when allowed. A locked job loses its edge handles.
+  function readLocks() {
+    try { var saved = JSON.parse(localStorage.getItem('fractal-locks') || 'null'); if (saved) return { stretch: !!saved.stretch, skew: !!saved.skew }; } catch (error) {}
+    return { stretch: false, skew: false };
+  }
+  function saveLocks() { try { localStorage.setItem('fractal-locks', JSON.stringify(state.locks)); } catch (error) {} }
+  // While a child or the Level slider is dragged, the main view draws at most
+  // this many copies, for this long, then draws in full on release.
+  var DRAG_COPIES = 4000, DRAG_MS = 40;
   var PRESETS = {
     fast: { depth: 6, minDepth: 3, maxInstances: 10000, minScale: 1e-3, maxMs: 100, analysisDepth: 5, hullIterations: 16 },
     balanced: { depth: 7, minDepth: 4, maxInstances: 25000, minScale: 1 / 2500, maxMs: 250, analysisDepth: 7, hullIterations: 32 },
@@ -49,7 +59,7 @@
     // currentLetter is the parent being edited, and also the one the views draw.
     // focus says what Backspace and Cmd+D act on: a 'child' or the 'parent'.
     rule: M.clone(demos.sieve), demo: 'sieve', currentLetter: 'p1', selectedId: null, focus: 'child',
-    brush: M.identity(), newLetter: null,
+    brush: M.identity(), newLetter: null, snapGrid: false, locks: readLocks(), editorCamera: null,
     depth: 7, showHull: true, camera: { zoom: 1, x: 0, y: 0 }, dragging: false,
     limits: Object.assign({}, PRESETS.balanced), preset: 'balanced', topColour: null,
     analysis: null, editorView: null, noticeTimer: null
@@ -113,6 +123,7 @@
         state.currentLetter = saved.current || state.rule.letters[0].id; state.depth = Math.max(1, Math.min(12, saved.depth || 7));
         state.showHull = saved.hull !== false; state.topColour = typeof saved.colour === 'boolean' ? saved.colour : null;
         if (saved.camera) state.camera = saved.camera;
+        state.snapGrid = !!saved.snap;
         if (saved.limits) state.limits = sanitiseLimits(saved.limits);
         state.preset = matchingPreset();
       }
@@ -125,11 +136,11 @@
 
   function saveAddress() {
     var hash;
-    if (state.demo && sameRule(state.rule, demos[state.demo]) && state.currentLetter === state.rule.letters[0].id && matchingPreset() === 'balanced' && state.showHull && state.topColour == null && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
+    if (state.demo && sameRule(state.rule, demos[state.demo]) && state.currentLetter === state.rule.letters[0].id && matchingPreset() === 'balanced' && state.showHull && !state.snapGrid && state.topColour == null && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
       hash = 'demo=' + state.demo;
     } else {
       hash = 'rule=' + encode({ rule: state.rule, current: state.currentLetter, depth: state.depth,
-        hull: state.showHull, camera: state.camera, limits: state.limits, colour: state.topColour == null ? undefined : state.topColour });
+        hull: state.showHull, camera: state.camera, limits: state.limits, snap: state.snapGrid || undefined, colour: state.topColour == null ? undefined : state.topColour });
     }
     history.replaceState(null, '', location.pathname + location.search + '#' + hash);
   }
@@ -184,14 +195,14 @@
   }
 
   function setGrid(rows, cols) {
-    rows = Math.max(2, Math.min(5, Math.round(rows || 2)));
-    cols = Math.max(2, Math.min(5, Math.round(cols || rows)));
+    var top = state.rule.mode === 'triangle' ? 5 : 8;
+    rows = Math.max(2, Math.min(top, Math.round(rows || 2)));
+    cols = Math.max(2, Math.min(top, Math.round(cols || rows)));
     if (state.rule.mode === 'triangle') cols = rows;
-    // Unequal rows and cols make rectangular copies, which is a Stretch rule.
-    if (cols !== rows && !state.rule.toggles.stretch) {
-      state.rule.toggles.stretch = true;
-      notice('Stretch is now on: a ' + rows + ' by ' + cols + ' grid makes rectangular copies.');
-    }
+    // In Square mode, unequal rows and cols make rectangular copies, which is
+    // a Stretch rule. In Free mode the grid only guides snapping.
+    // Square mode has no Stretch switch: the grid's shape decides it.
+    if (state.rule.mode === 'square') state.rule.toggles.stretch = cols !== rows;
     if (state.rule.toggles.gridPerLetter) state.rule.grid.perLetter[state.currentLetter] = { rows: rows, cols: cols };
     else { state.rule.grid.rows = rows; state.rule.grid.cols = cols; }
     rebuildGridChildren();
@@ -254,7 +265,7 @@
 
   function changeMode(mode) {
     if (mode === state.rule.mode) return true;
-    if (mode === 'free') { state.rule.mode = 'free'; state.selectedId = null; markEdited(); commit(); return true; }
+    if (mode === 'free') { state.rule.mode = 'free'; state.selectedId = null; state.editorCamera = null; markEdited(); commit(); return true; }
     var targetFrame = mode;
     if (state.rule.frame !== targetFrame && allChildren().length) {
       notice('This rule does not fit a ' + targetFrame + ' grid. Remove its children first, or keep it in Free mode.'); return false;
@@ -270,7 +281,7 @@
     });
     if (!ok) { notice('At least one child does not lie exactly on that grid. Free mode has kept the rule unchanged.'); return false; }
     placements.forEach(function (pair) { Object.assign(pair[0], pair[1]); });
-    state.rule.mode = mode; state.selectedId = null; markEdited(); commit(); return true;
+    state.rule.mode = mode; state.selectedId = null; state.editorCamera = null; markEdited(); commit(); return true;
   }
 
   function prepareCanvas(canvas) {
@@ -303,9 +314,18 @@
     ctx.beginPath(); points.forEach(function (p, i) { if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); }); ctx.closePath();
   }
 
+  function offCanvas(points, size) {
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < points.length; i++) {
+      var p = points[i]; if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0]; if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1];
+    }
+    return maxX < -2 || maxY < -2 || minX > size[0] + 2 || minY > size[1] + 2;
+  }
   function drawInstance(ctx, item, view, options) {
     var matrix = item.matrix, scale = view.scale, tx = view.x, ty = view.y;
     var local = M.framePolygon(state.rule.frame), framePixels = M.transformedFrame(state.rule.frame, matrix).map(view.point, view);
+    // A copy wholly off the canvas is skipped. The copies are still counted.
+    if (options.clip && offCanvas(framePixels, options.clip)) return;
     var edge = Math.sqrt(Math.abs(M.polygonArea(framePixels))), fillSmall = edge < (options.letterThreshold || 10);
     ctx.save(); ctx.globalAlpha = options.alpha == null ? 1 : options.alpha;
     path(ctx, framePixels);
@@ -314,25 +334,35 @@
     ctx.strokeStyle = options.stroke || itemColour(item); ctx.lineWidth = options.lineWidth || 1; ctx.stroke();
     if (!fillSmall && options.letters !== false) {
       ctx.transform(scale * matrix[0], scale * matrix[1], scale * matrix[2], scale * matrix[3], tx + scale * matrix[4], ty + scale * matrix[5]);
-      drawMark(ctx, item.letter, itemColour(item), state.rule.frame);
+      drawMark(ctx, item.letter, itemColour(item), state.rule.frame, options.childName);
     }
     ctx.restore();
   }
 
-  // The orientation mark: the parent's number, an underline beneath it, and
-  // a dot near the bottom-right corner. The underline shows which side is
-  // down and the dot shows which end of it, so all eight square placements
-  // (four turns, each flipped or not) look different, even for 0, 8 or 69.
-  function drawMark(ctx, letterId, fill, frame) {
+  // The orientation mark: the parent's number with an underline beneath it.
+  // The underline shows which side is down. In the editor, the child's own
+  // letter, A, B, C and on, sits at its top left (a triangle: near its top),
+  // so it turns and flips with the child. The letter is the child's place in
+  // its parent's list. The number uses a serif with lining figures, so every
+  // digit sits on the baseline and clears the underline.
+  var MARK_FONT = '"Times New Roman", Times, serif';
+  function childName(index) { return index < 26 ? String.fromCharCode(65 + index) : 'Z' + (index - 25); }
+  function drawMark(ctx, letterId, fill, frame, name) {
     var tri = frame === 'triangle', text = label(letterId);
     var centre = tri ? [0.5, M.TRI_H * .6] : [0.5, .48], size = tri ? .34 : .42;
-    ctx.fillStyle = fill; ctx.strokeStyle = fill; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = '600 ' + size + 'px Georgia, serif';
-    ctx.fillText(text, centre[0], centre[1]);
-    var half = Math.max(.09, ctx.measureText(text).width / 2), under = centre[1] + size * .44;
+    ctx.fillStyle = fill; ctx.strokeStyle = fill; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = '600 ' + size + 'px ' + MARK_FONT;
+    // Lining digits stand about 0.66 em tall, so this centres them.
+    var baseline = centre[1] + size * .33;
+    ctx.fillText(text, centre[0], baseline);
+    var half = Math.max(.09, ctx.measureText(text).width / 2), under = baseline + size * .13;
     ctx.lineWidth = size * .07; ctx.beginPath(); ctx.moveTo(centre[0] - half, under); ctx.lineTo(centre[0] + half, under); ctx.stroke();
-    var poly = M.framePolygon(frame), corner = poly[tri ? 1 : 2], mid = tri ? [0.5, M.TRI_H * 2 / 3] : [.5, .5], pull = tri ? .2 : .16;
-    ctx.beginPath(); ctx.arc(corner[0] + (mid[0] - corner[0]) * pull, corner[1] + (mid[1] - corner[1]) * pull, .035, 0, Math.PI * 2); ctx.fill();
+    if (name) {
+      var spot = tri ? [0.5, M.TRI_H * .3] : [.15, .14];
+      ctx.textBaseline = 'middle';
+      ctx.font = '700 ' + (tri ? .13 : .16) + 'px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillText(name, spot[0], spot[1]);
+    }
   }
 
   function drawHull(ctx, hull, view) {
@@ -356,18 +386,18 @@
   function growing() { return !!state.analysis && /^(Grows|Cycles)$/.test(state.analysis.status.name); }
 
   function mainInstances() {
-    var depth = Math.max(0, state.depth - (state.dragging ? 2 : 0));
-    var options = { maxInstances: state.limits.maxInstances, maxMs: state.limits.maxMs,
+    var depth = state.depth, cap = state.dragging ? Math.min(DRAG_COPIES, state.limits.maxInstances) : state.limits.maxInstances;
+    var options = { maxInstances: cap, maxMs: state.dragging ? Math.min(DRAG_MS, state.limits.maxMs) : state.limits.maxMs,
       minScale: state.limits.minScale, minDepth: Math.min(state.limits.minDepth, depth) };
     if (growing()) {
       var combined = [], reason = null;
       for (var level = Math.max(0, Math.min(depth, 4) - 3); level <= Math.min(depth, 4); level++) {
-        var remaining = Math.max(1, state.limits.maxInstances - combined.length);
+        var remaining = Math.max(1, cap - combined.length);
         var levelOptions = Object.assign({}, options, { maxInstances: remaining, minDepth: Math.min(options.minDepth, level) });
         var items = level ? M.expand(state.rule, state.currentLetter, level, levelOptions) : [{ letter: state.currentLetter, matrix: M.identity(), level: 0 }];
         reason = items.stoppedBy || reason;
         items.forEach(function (item) { item.level = level; combined.push(item); });
-        if (combined.length >= state.limits.maxInstances) { reason = 'copies'; break; }
+        if (combined.length >= cap) { reason = 'copies'; break; }
       }
       combined.stoppedBy = reason || 'iterations';
       return combined;
@@ -379,7 +409,7 @@
     var info = prepareCanvas(el.limit), ctx = info.ctx;
     ctx.fillStyle = css('--stage'); ctx.fillRect(0, 0, info.width, info.height);
     if (!currentLetter().children.length) {
-      ctx.fillStyle = '#89939d'; ctx.textAlign = 'center'; ctx.font = '14px Georgia, serif';
+      ctx.fillStyle = '#89939d'; ctx.textAlign = 'center'; ctx.font = '14px ' + MARK_FONT;
       ctx.fillText('Parent ' + label(state.currentLetter) + ' has no children yet.', info.width / 2, info.height / 2);
       el.instanceCount.textContent = ''; return;
     }
@@ -392,7 +422,7 @@
     var view = makeView(info.width, info.height, b, 42, state.camera);
     instances.forEach(function (item) {
       var alpha = item.level == null ? .93 : .22 + .18 * item.level;
-      drawInstance(ctx, item, view, { letterThreshold: 8, lineWidth: .65, alpha: alpha });
+      drawInstance(ctx, item, view, { letterThreshold: 8, lineWidth: .65, alpha: alpha, clip: [info.width, info.height] });
     });
     if (state.showHull && state.analysis && state.analysis.status.name === 'Converges' && !state.editorDrag) drawHull(ctx, state.analysis.hull, view);
     var reason = { copies: 'copy limit', time: 'time limit', scale: 'scale limit', iterations: 'iteration limit' }[instances.stoppedBy];
@@ -419,29 +449,21 @@
     }
   }
 
-  function drawHandles(ctx, child, view) {
-    var corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view);
-    ctx.fillStyle = '#fff'; ctx.strokeStyle = css('--accent'); ctx.lineWidth = 1.4;
-    corners.forEach(function (p) { ctx.beginPath(); ctx.arc(p[0], p[1], 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
-    if (state.rule.toggles.stretch) {
-      for (var i = 0; i < corners.length; i++) {
-        var q = corners[(i + 1) % corners.length], p = corners[i], mid = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
-        ctx.fillStyle = css('--cyan'); ctx.fillRect(mid[0] - 3.5, mid[1] - 3.5, 7, 7);
-      }
-    }
-  }
-
   function renderEditor() {
     var info = prepareCanvas(el.ruleEditor), ctx = info.ctx;
     ctx.fillStyle = css('--paper'); ctx.fillRect(0, 0, info.width, info.height);
     // The editor keeps its view during a drag, so the frame stays under the pointer.
-    var view = state.editorDrag && state.editorView ? state.editorView : makeView(info.width, info.height, editorBounds(), 13, null); state.editorView = view;
+    // With a zoom or pan in force, the editor's camera sets the view instead.
+    var cam = state.editorCamera;
+    var view = state.editorDrag && state.editorView ? state.editorView : makeView(info.width, info.height, cam ? cam.bounds : editorBounds(), 13, cam); state.editorView = view;
+    el.editorFit.disabled = !cam;
     var parent = M.framePolygon(state.rule.frame).map(view.point, view);
     path(ctx, parent); ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1.2; ctx.setLineDash(state.rule.mode === 'free' ? [6, 5] : []); ctx.stroke(); ctx.setLineDash([]);
     if (state.rule.mode !== 'free') drawEditorGrid(ctx, view);
+    else if (state.snapGrid) drawSnapGrid(ctx, view, info.width, info.height);
     currentLetter().children.forEach(function (child, index) {
       var selected = child.id === state.selectedId, item = { letter: child.letter, matrix: child.matrix, path: index.toString(36) };
-      drawInstance(ctx, item, view, { letterThreshold: 5, lineWidth: selected ? 2.6 : 1.2, stroke: selected ? '#ffffff' : itemColour(item), alpha: selected ? 1 : .83 });
+      drawInstance(ctx, item, view, { letterThreshold: 5, lineWidth: selected ? 2.6 : 1.2, stroke: selected ? '#ffffff' : itemColour(item), alpha: selected ? 1 : .83, childName: childName(index) });
     });
     // Handles go on top of every child, so a covered child can still be resized.
     var chosen = selectedChild();
@@ -453,6 +475,7 @@
       { maxInstances: state.limits.maxInstances, hullIterations: state.limits.hullIterations, maxMs: state.limits.maxMs });
   }
 
+  function fixed3(value) { var text = Math.abs(value) < .0005 ? '0.000' : value.toFixed(3); return text.replace('-', '−'); }
   function formatNumber(value, digits) { return value == null || !isFinite(value) ? '—' : Number(value).toFixed(digits == null ? 3 : digits).replace(/\.000$/, ''); }
 
   function scaleLabel(value) {
@@ -517,7 +540,7 @@
 
   function selectParent(id) {
     if (!letterById(id)) return;
-    state.currentLetter = id; state.selectedId = null; state.focus = 'parent';
+    state.currentLetter = id; state.selectedId = null; state.focus = 'parent'; state.editorCamera = null;
     updateAnalysis(); syncControls(); renderReadouts(); renderEditor(); renderIterations(); renderMain(); saveAddress();
   }
 
@@ -552,7 +575,7 @@
     var info = prepareCanvas(el.brushPreview), ctx = info.ctx, child = selectedChild();
     var matrix = child ? child.matrix : state.brush, letter = child ? child.letter : brushLetter();
     var points = M.transformedFrame(state.rule.frame, matrix), view = makeView(info.width, info.height, M.bounds(points), 4, null);
-    drawInstance(ctx, { letter: letter, matrix: matrix }, view, { letterThreshold: 0, lineWidth: 1.2, alpha: 1 });
+    drawInstance(ctx, { letter: letter, matrix: matrix }, view, { letterThreshold: 0, lineWidth: 1.2, alpha: 1, childName: child ? childName(currentLetter().children.indexOf(child)) : null });
   }
 
   // Sortable lists: press an item (or its grip), drag past 6 pixels, then
@@ -594,22 +617,45 @@
   // Panel dividers: drag to resize the rule panel or the readout panel. The
   // widths are a per-viewer preference, kept in local storage when allowed.
   function wireDividers() {
-    var workspace = document.querySelector('.workspace');
+    var workspace = document.querySelector('.workspace'), panel = document.querySelector('.editor-panel');
     try {
       var saved = JSON.parse(localStorage.getItem('fractal-panels') || 'null');
       if (saved && saved.left) workspace.style.setProperty('--left-w', saved.left + 'px');
       if (saved && saved.right) workspace.style.setProperty('--right-w', saved.right + 'px');
+      if (saved && saved.editor) panel.style.setProperty('--editor-h', saved.editor + 'px');
     } catch (error) {}
+    function width(name) { return parseFloat(getComputedStyle(workspace).getPropertyValue(name)) || 0; }
+    function save() {
+      try {
+        localStorage.setItem('fractal-panels', JSON.stringify({ left: width('--left-w'), right: width('--right-w'),
+          editor: parseFloat(panel.style.getPropertyValue('--editor-h')) || undefined }));
+      } catch (error) {}
+    }
+    // The line under the editor sets the editor's height.
+    var line = el.dividerEditor, start = null;
+    function setHeight(px) {
+      px = Math.max(140, Math.min(px, 760, window.innerHeight - 160));
+      panel.style.setProperty('--editor-h', Math.round(px) + 'px');
+    }
+    line.addEventListener('pointerdown', function (event) {
+      start = { y: event.clientY, h: el.editorWrap.getBoundingClientRect().height };
+      line.setPointerCapture(event.pointerId); line.classList.add('dragging'); event.preventDefault();
+    });
+    line.addEventListener('pointermove', function (event) { if (start) setHeight(start.h + event.clientY - start.y); });
+    function endLine() { if (start) { start = null; line.classList.remove('dragging'); save(); } }
+    line.addEventListener('pointerup', endLine); line.addEventListener('pointercancel', endLine);
+    line.addEventListener('dblclick', function () { panel.style.removeProperty('--editor-h'); save(); });
+    line.addEventListener('keydown', function (event) {
+      var step = event.key === 'ArrowUp' ? -16 : event.key === 'ArrowDown' ? 16 : 0;
+      if (!step) return;
+      event.preventDefault(); setHeight(el.editorWrap.getBoundingClientRect().height + step); save();
+    });
     [['left', el.dividerLeft], ['right', el.dividerRight]].forEach(function (pair) {
       var side = pair[0], handle = pair[1];
-      function width(name) { return parseFloat(getComputedStyle(workspace).getPropertyValue(name)) || 0; }
       function set(px) {
         var rect = workspace.getBoundingClientRect(), other = width(side === 'left' ? '--right-w' : '--left-w');
         px = Math.max(180, Math.min(px, 560, rect.width - other - 320));
         workspace.style.setProperty(side === 'left' ? '--left-w' : '--right-w', Math.round(px) + 'px');
-      }
-      function save() {
-        try { localStorage.setItem('fractal-panels', JSON.stringify({ left: width('--left-w'), right: width('--right-w') })); } catch (error) {}
       }
       handle.addEventListener('pointerdown', function (event) {
         handle.setPointerCapture(event.pointerId); handle.classList.add('dragging'); event.preventDefault();
@@ -638,15 +684,21 @@
       if (state.rule.mode === 'square') return [child.cell.row + 1, child.cell.col + 1, child.turn || 0, child.flip ? 1 : 0];
       return [child.cell.i, child.cell.j, child.cell.down ? 'down' : 'up', child.turn || 0, child.flip ? 1 : 0];
     }
-    if (state.rule.toggles.stretch) return [m[0], m[1], m[2], m[3], m[4], m[5]];
+    if (affineTable()) return [m[0], m[1], m[2], m[3], m[4], m[5]];
     var sv = M.singularValues(m), angle = Math.atan2(m[1], m[0]) * 180 / Math.PI;
     return [m[4], m[5], (sv[0] + sv[1]) / 2, angle, M.determinant(m) < 0 ? 1 : 0];
   }
 
+  // Free mode lists x, y, scale, angle and flip while every child of this
+  // parent is a similarity. Once one is stretched or skewed, it lists the
+  // six affine values instead.
+  function affineTable() {
+    return state.rule.mode === 'free' && currentLetter().children.some(function (child) { return !M.isSimilarity(child.matrix, 1e-6); });
+  }
   function tableHeaders() {
     if (state.rule.mode === 'square') return ['Parent', 'Row', 'Col', 'Turn', 'Flip'];
     if (state.rule.mode === 'triangle') return ['Parent', 'i', 'j', 'Point', 'Turn', 'Flip'];
-    if (state.rule.toggles.stretch) return ['Parent', 'a', 'b', 'c', 'd', 'x', 'y'];
+    if (affineTable()) return ['Parent', 'm₁₁', 'm₂₁', 'm₁₂', 'm₂₂', 'x', 'y'];
     return ['Parent', 'x', 'y', 'Scale', 'Angle', 'Flip'];
   }
 
@@ -655,19 +707,26 @@
   // reorder. In Free mode the pencil opens a pop-up to set exact values.
   function renderNumbers() {
     var headers = tableHeaders(), free = state.rule.mode === 'free';
-    el.numbersHead.innerHTML = '<th aria-label="Reorder"></th>' + headers.map(function (h) { return '<th>' + h + '</th>'; }).join('') + (free ? '<th aria-label="Edit"></th>' : '');
+    function header(index) { return headers[index + 1]; }
+    el.numbersHead.innerHTML = '<th aria-label="Reorder"></th><th class="whole">Child</th>' + headers.map(function (h, i) {
+      return '<th class="' + (i === 0 || h === 'Flip' || !free ? 'whole' : 'real') + '">' + h + '</th>'; }).join('') + (free ? '<th aria-label="Edit"></th>' : '');
     el.numbersBody.innerHTML = '';
     el.numbersKind.textContent = 'back to front';
     currentLetter().children.forEach(function (child, index) {
       var row = document.createElement('tr'); if (child.id === state.selectedId) row.className = 'selected';
       var grip = document.createElement('td'); grip.className = 'grip'; grip.textContent = '⠿'; grip.title = 'Drag to reorder'; row.appendChild(grip);
+      var own = document.createElement('td'); own.className = 'child-name'; own.textContent = childName(index); row.appendChild(own);
       var first = document.createElement('td'); first.className = 'child-number'; first.textContent = label(child.letter); first.style.setProperty('--dot', colour(child.letter)); row.appendChild(first);
-      childValues(child).forEach(function (value) {
-        var cell = document.createElement('td'); cell.textContent = typeof value === 'number' ? formatNumber(value, 3) : value; row.appendChild(cell);
+      childValues(child).forEach(function (value, column) {
+        // Real values show three decimals, 0.000 too, so the points line up.
+        // Whole-number fields (cells, turns, flips) stay whole and centred.
+        var cell = document.createElement('td'), whole = typeof value !== 'number' || header(column) === 'Flip' || state.rule.mode !== 'free';
+        cell.className = whole ? 'whole' : 'real';
+        cell.textContent = whole ? value : fixed3(value); row.appendChild(cell);
       });
       if (free) {
         var editCell = document.createElement('td'), edit = document.createElement('button');
-        edit.type = 'button'; edit.className = 'edit-child'; edit.setAttribute('aria-label', 'Edit child ' + (index + 1)); edit.title = 'Edit values';
+        edit.type = 'button'; edit.className = 'edit-child'; edit.setAttribute('aria-label', 'Edit child ' + childName(index)); edit.title = 'Edit values';
         edit.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>';
         edit.addEventListener('click', function (event) { event.stopPropagation(); openEditDialog(child); });
         editCell.appendChild(edit); row.appendChild(editCell);
@@ -692,8 +751,8 @@
   function openEditDialog(child) {
     if (state.rule.mode !== 'free') return;
     state.editing = child.id; state.selectedId = child.id; state.focus = 'child'; syncControls(); renderEditor();
-    var headers = tableHeaders().slice(1), values = childValues(child), stretch = !!state.rule.toggles.stretch;
-    el.editTitle.textContent = 'Child ' + (currentLetter().children.indexOf(child) + 1) + ' (copy of parent ' + label(child.letter) + ')';
+    var headers = tableHeaders().slice(1), values = childValues(child), stretch = affineTable();
+    el.editTitle.textContent = 'Child ' + childName(currentLetter().children.indexOf(child)) + ' (copy of parent ' + label(child.letter) + ')';
     el.editFields.innerHTML = '';
     headers.forEach(function (name, index) {
       var field = document.createElement('label'), input = document.createElement('input');
@@ -715,7 +774,7 @@
       values[Number(input.dataset.index)] = value;
     });
     if (bad) return false;
-    if (state.rule.toggles.stretch) child.matrix = values.slice(0, 6);
+    if (affineTable()) child.matrix = values.slice(0, 6);
     else {
       var x = values[0], y = values[1], scale = Math.max(.001, Math.abs(values[2])), angle = values[3] * Math.PI / 180, flip = !!values[4];
       var rotation = [scale * Math.cos(angle), scale * Math.sin(angle), -scale * Math.sin(angle), scale * Math.cos(angle), x, y];
@@ -727,7 +786,7 @@
   function syncSelection() {
     var child = selectedChild(), free = state.rule.mode === 'free', children = currentLetter().children;
     el.selectionHeading.textContent = child ? 'Selected child' : 'New child';
-    el.selectionName.textContent = child ? (children.indexOf(child) + 1) + ' of ' + children.length : '';
+    el.selectionName.textContent = child ? childName(children.indexOf(child)) : '';
     el.removeChild.disabled = !child; el.duplicateChild.disabled = !child;
     el.addChild.hidden = !free;
     el.flipV.disabled = state.rule.mode === 'triangle';
@@ -740,10 +799,21 @@
     el.demo.value = state.demo || '';
     el.modeRow.querySelectorAll('[data-mode]').forEach(function (button) { var on = button.dataset.mode === state.rule.mode; button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     el.depth.value = state.depth; el.depthValue.textContent = state.depth;
-    var grid = gridFor(state.currentLetter); el.gridRows.value = grid.rows; el.gridCols.value = grid.cols;
-    el.gridFields.hidden = state.rule.mode === 'free'; el.colsField.hidden = state.rule.mode === 'triangle';
+    var grid = gridFor(state.currentLetter), freeMode = state.rule.mode === 'free', top = freeMode || state.rule.mode === 'square' ? 8 : 5;
+    [[el.gridRows, grid.rows], [el.gridCols, grid.cols]].forEach(function (pair) {
+      pair[0].querySelectorAll('button').forEach(function (button) {
+        var n = Number(button.textContent); button.hidden = n > top;
+        button.classList.toggle('active', n === pair[1]); button.setAttribute('aria-pressed', n === pair[1] ? 'true' : 'false');
+      });
+    });
+    el.snapField.hidden = !freeMode; el.toggleSnap.checked = !!state.snapGrid;
+    el.colsField.hidden = state.rule.mode === 'triangle';
+    el.lockRow.hidden = !freeMode;
+    [['stretch', el.lockStretch, 'Stretch'], ['skew', el.lockSkew, 'Skew']].forEach(function (lock) {
+      var on = !!state.locks[lock[0]]; lock[1].setAttribute('aria-pressed', on ? 'true' : 'false');
+      lock[1].title = on ? lock[2] + ' is locked: the edge handles cannot ' + lock[0] + '. Click to unlock.' : 'Lock ' + lock[0] + ': the edge handles stop ' + (lock[0] === 'skew' ? 'skewing' : 'stretching') + '.';
+    });
     el.toggleTopColour.checked = topColourOn();
-    el.toggleStretch.checked = !!state.rule.toggles.stretch;
     el.toggleStacking.checked = !!state.rule.toggles.stacking; el.togglePerLetter.checked = !!state.rule.toggles.gridPerLetter;
     // Stacking and Grid per letter only mean something on a grid.
     var free = state.rule.mode === 'free';
@@ -789,9 +859,7 @@
     el.undo.disabled = historyIndex <= 0; el.redo.disabled = historyIndex >= undoStack.length - 1;
   }
 
-  // Rotate and flip act as the child looks on screen, about its centre.
-  // Rotate R turns clockwise. Flip H mirrors left to right, Flip V top to
-  // bottom. A triangle turns by 120 degrees. Triangle mode has no Flip V,
+  // Rotate R turns clockwise, about the child's centre. A triangle turns by 120 degrees. Triangle mode has no Flip V,
   // because it would turn an upright cell into a downward one.
   function frameCentre() { return state.rule.frame === 'triangle' ? [0.5, M.TRI_H * 2 / 3] : [.5, .5]; }
   function tidy(m) { return m.map(function (v) { var r = Math.round(v * 1e9) / 1e9; return Math.abs(v - r) < 1e-12 ? r : v; }); }
@@ -803,7 +871,18 @@
     else l = [1, 0, 0, -1];
     return [l[0], l[1], l[2], l[3], centre[0] - l[0] * centre[0] - l[2] * centre[1], centre[1] - l[1] * centre[0] - l[3] * centre[1]];
   }
-  function orientMatrix(matrix, action) { return tidy(M.compose(screenOp(action, M.apply(matrix, frameCentre())), matrix)); }
+  // Rotate turns the child as it looks on screen. Flip H and Flip V mirror the
+  // child inside its own frame: the frame stays put, and the number, its
+  // underline and its dot reverse left to right, or top to bottom.
+  var LOCAL_FLIP = { flipH: [-1, 0, 0, 1, 1, 0], flipV: [1, 0, 0, -1, 0, 1] };
+  function orientMatrix(matrix, action) {
+    if (LOCAL_FLIP[action]) {
+      var flip = LOCAL_FLIP[action];
+      if (state.rule.frame === 'triangle' && action === 'flipV') flip = [1, 0, 0, -1, 0, M.TRI_H];
+      return tidy(M.compose(matrix, flip));
+    }
+    return tidy(M.compose(screenOp(action, M.apply(matrix, frameCentre())), matrix));
+  }
 
   function orient(action) {
     if (action === 'flipV' && state.rule.mode === 'triangle') return;
@@ -813,7 +892,7 @@
       // A grid child keeps its cell and changes its placement in it.
       var t = child.turn || 0;
       if (action === 'rotateRight') t += 1; else if (action === 'rotateLeft') t += 3;
-      else { t = action === 'flipH' ? 4 - t : 6 - t; child.flip = !child.flip; }
+      else { if (action === 'flipV') t += 2; child.flip = !child.flip; }
       child.turn = t % 4;
     } else if (state.rule.mode === 'triangle') {
       var placed = trianglePlacement(orientMatrix(child.matrix, action), gridFor(state.currentLetter).rows);
@@ -976,7 +1055,7 @@
     state.selectedId = null; state.newLetter = null; state.focus = 'child';
     state.depth = Math.max(1, Math.min(12, entry.level || state.depth));
     state.topColour = typeof entry.colourByTopCopy === 'boolean' ? entry.colourByTopCopy : null;
-    state.demo = null; state.savedName = entry.name; state.camera = { zoom: 1, x: 0, y: 0 };
+    state.demo = null; state.savedName = entry.name; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null;
     el.saveName.value = entry.name; el.demo.value = ''; commit();
   }
   function renderLibrary() {
@@ -1088,81 +1167,330 @@
   }
 
   function distance(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
-  var HANDLE_REACH = 14;
+  function dot(a, b) { return a[0] * b[0] + a[1] * b[1]; }
+
+  // Handles in Free mode. The child's own top-right corner turns it and its
+  // bottom-right corner scales it, both about the child's centre (a
+  // triangle: its top point turns and its bottom-right point scales). They
+  // are the child's own corners, so they move with it as it turns or flips.
+  // Shift on the scale corner stretches both ways. Each edge has one handle
+  // at its middle. The first few pixels of a drag pick its job: across the
+  // edge stretches, along the edge skews, and the job holds for that drag.
+  // The Stretch and Skew locks remove those jobs. Each handle catches the
+  // pointer a little beyond its drawn size, less on a small child.
+  var KNOB = 7.5, KNOB_REACH = 11, EDGE_REACH = 8, JOB_PIXELS = 4;
+  function cornerRoles() { return state.rule.frame === 'triangle' ? { rotate: 0, scale: 1 } : { rotate: 1, scale: 2 }; }
+  function edgesOn() { return !(state.locks.stretch && state.locks.skew); }
+  function shortestEdge(corners) {
+    var shortest = Infinity;
+    for (var i = 0; i < corners.length; i++) shortest = Math.min(shortest, distance(corners[i], corners[(i + 1) % corners.length]));
+    return shortest;
+  }
+  function edgePoints(corners) {
+    return corners.map(function (p, i) { var q = corners[(i + 1) % corners.length]; return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; });
+  }
+  function drawSnapGrid(ctx, view, width, height) {
+    var grid = gridFor(state.currentLetter), x0 = -view.x / view.scale, x1 = (width - view.x) / view.scale, y0 = -view.y / view.scale, y1 = (height - view.y) / view.scale, i;
+    // Far out, the grid would be a grey wash, so it thins to every nth line.
+    var stepX = Math.max(1, Math.ceil(4 * grid.cols / view.scale)), stepY = Math.max(1, Math.ceil(4 * grid.rows / view.scale));
+    ctx.strokeStyle = css('--line'); ctx.lineWidth = 1; ctx.globalAlpha = .7;
+    for (i = Math.ceil(x0 * grid.cols / stepX) * stepX; i <= x1 * grid.cols; i += stepX) { var a = view.point([i / grid.cols, y0]), b = view.point([i / grid.cols, y1]); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+    for (i = Math.ceil(y0 * grid.rows / stepY) * stepY; i <= y1 * grid.rows; i += stepY) { var c = view.point([x0, i / grid.rows]), d = view.point([x1, i / grid.rows]); ctx.beginPath(); ctx.moveTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+
+  function knob(ctx, p) {
+    ctx.beginPath(); ctx.arc(p[0], p[1], KNOB, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = css('--accent'); ctx.lineWidth = 1.4; ctx.stroke();
+  }
+  function arrowHead(ctx, tip, dir, size) {
+    var n = [-dir[1], dir[0]];
+    ctx.beginPath(); ctx.moveTo(tip[0], tip[1]);
+    ctx.lineTo(tip[0] - dir[0] * size + n[0] * size * .7, tip[1] - dir[1] * size + n[1] * size * .7);
+    ctx.lineTo(tip[0] - dir[0] * size - n[0] * size * .7, tip[1] - dir[1] * size - n[1] * size * .7);
+    ctx.closePath(); ctx.fill();
+  }
+  // The turn knob: a circular arrow, three quarters of a turn.
+  function drawRotateKnob(ctx, p) {
+    knob(ctx, p);
+    var r = 3.9, from = -Math.PI * .35, to = Math.PI * 1.15, ink = css('--accent');
+    ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(p[0], p[1], r, from, to); ctx.stroke();
+    arrowHead(ctx, [p[0] + r * Math.cos(to) - Math.sin(to) * 1.6, p[1] + r * Math.sin(to) + Math.cos(to) * 1.6], [-Math.sin(to), Math.cos(to)], 2.6);
+  }
+  // The scale knob: a two-headed arrow that points away from the centre.
+  function drawScaleKnob(ctx, p, centre) {
+    knob(ctx, p);
+    var d = [p[0] - centre[0], p[1] - centre[1]], len = Math.hypot(d[0], d[1]) || 1, ink = css('--accent');
+    d = [d[0] / len, d[1] / len];
+    ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(p[0] - d[0] * 2.4, p[1] - d[1] * 2.4); ctx.lineTo(p[0] + d[0] * 2.4, p[1] + d[1] * 2.4); ctx.stroke();
+    arrowHead(ctx, [p[0] + d[0] * 4.6, p[1] + d[1] * 4.6], d, 2.6);
+    arrowHead(ctx, [p[0] - d[0] * 4.6, p[1] - d[1] * 4.6], [-d[0], -d[1]], 2.6);
+  }
+  // An edge handle: a short bar that lies along its edge.
+  function drawEdgeHandle(ctx, p, q) {
+    var mid = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+    ctx.save(); ctx.translate(mid[0], mid[1]); ctx.rotate(Math.atan2(q[1] - p[1], q[0] - p[0]));
+    ctx.beginPath(); ctx.moveTo(-5, -3); ctx.lineTo(5, -3); ctx.arc(5, 0, 3, -Math.PI / 2, Math.PI / 2); ctx.lineTo(-5, 3); ctx.arc(-5, 0, 3, Math.PI / 2, Math.PI * 1.5); ctx.closePath();
+    ctx.fillStyle = css('--cyan'); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.restore();
+  }
+  function drawHandles(ctx, child, view) {
+    var corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view), roles = cornerRoles();
+    var centre = view.point(M.apply(child.matrix, frameCentre()));
+    if (edgesOn()) corners.forEach(function (p, i) { drawEdgeHandle(ctx, p, corners[(i + 1) % corners.length]); });
+    drawScaleKnob(ctx, corners[roles.scale], centre);
+    drawRotateKnob(ctx, corners[roles.rotate]);
+  }
+
   function handleAt(point, child) {
-    var view = state.editorView, pointer = view.point(point), cornersWorld = M.transformedFrame(state.rule.frame, child.matrix), corners = cornersWorld.map(view.point, view);
-    // A handle catches the pointer within HANDLE_REACH pixels on any side,
-    // inside or outside the frame. The nearest handle wins.
-    var best = null, bestDistance = HANDLE_REACH;
-    for (var i = 0; i < corners.length; i++) {
-      var dc = distance(pointer, corners[i]);
-      if (dc < bestDistance) { best = { type: 'corner', index: i, corners: cornersWorld }; bestDistance = dc; }
-      if (!state.rule.toggles.stretch) continue;
-      var q = corners[(i + 1) % corners.length], mid = [(corners[i][0] + q[0]) / 2, (corners[i][1] + q[1]) / 2], ds = distance(pointer, mid);
-      if (ds < bestDistance) { best = { type: 'side', index: i, corners: cornersWorld }; bestDistance = ds; }
+    var view = state.editorView, pointer = view.point(point), corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view);
+    var roles = cornerRoles(), shortest = shortestEdge(corners), best = null, bestDistance = Infinity;
+    function consider(type, index, at, reach) {
+      var d = distance(pointer, at); if (d < reach && d < bestDistance) { best = { type: type, index: index }; bestDistance = d; }
     }
+    var knobReach = Math.max(4, Math.min(KNOB_REACH, shortest / 3));
+    consider('rotate', roles.rotate, corners[roles.rotate], knobReach);
+    consider('scale', roles.scale, corners[roles.scale], knobReach);
+    if (edgesOn()) edgePoints(corners).forEach(function (mid, i) { consider('edge', i, mid, Math.max(3, Math.min(EDGE_REACH, shortest / 4))); });
     return best;
   }
 
-  function snapCorner(anchor, pointer, originalLength) {
-    var dx = pointer[0] - anchor[0], dy = pointer[1] - anchor[1], length = Math.hypot(dx, dy), angle = Math.atan2(dy, dx);
-    var snappedAngle = Math.round(angle / (Math.PI / 12)) * Math.PI / 12;
-    if (Math.abs(angle - snappedAngle) < .035) angle = snappedAngle;
-    var ratio = length / Math.max(M.EPS, originalLength), simple = [1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 2];
-    simple.forEach(function (candidate) { if (Math.abs(ratio - candidate) < .025) ratio = candidate; });
-    length = originalLength * ratio; return [anchor[0] + Math.cos(angle) * length, anchor[1] + Math.sin(angle) * length];
-  }
-
-  // A press first tries the selected child's handles, which sit above every
-  // child. Otherwise it takes the topmost child under the pointer.
+  // A press on the selected child, or on one of its handles, keeps that
+  // child, even where another child lies on top. Otherwise a press takes
+  // the topmost child under the pointer. A press on empty space pans the
+  // editor, and a click there without a drag deselects.
   function startEditorPointer(event) {
-    var point = editorPoint(event);
+    if (state.editorDrag) return;
+    var point = editorPoint(event), pointers = state.editorPointers || (state.editorPointers = {});
+    if (Object.keys(pointers).length) { startPan(event, false); return; }
     state.focus = 'child';
     if (state.rule.mode !== 'free') {
       var cellHit = findChildAt(point);
-      if (cellHit) { state.selectedId = cellHit.id; syncControls(); renderEditor(); } else addGridChild(point);
+      if (cellHit) { state.selectedId = cellHit.id; syncControls(); renderEditor(); }
+      else if (pointInPolygon(point, M.framePolygon(state.rule.frame))) addGridChild(point);
+      else startPan(event, false);
       return;
     }
-    var current = selectedChild(), handle = current ? handleAt(point, current) : null, hit = handle ? current : findChildAt(point);
-    if (!hit) { state.selectedId = null; syncControls(); renderEditor(); return; }
+    var current = selectedChild(), handle = current ? handleAt(point, current) : null, hit;
+    if (handle) hit = current;
+    else if (current && pointInPolygon(point, M.transformedFrame(state.rule.frame, current.matrix))) hit = current;
+    else hit = findChildAt(point);
+    if (!hit) { startPan(event, true); return; }
     state.selectedId = hit.id; syncControls(); renderEditor();
-    state.editorDrag = { pointer: event.pointerId, child: hit, start: point, matrix: hit.matrix.slice(), handle: handle, mainBounds: state.lastMainBounds, moved: false };
+    var job = !handle ? 'move' : handle.type !== 'edge' ? handle.type : state.locks.stretch ? 'skew' : state.locks.skew ? 'stretch' : null;
+    state.editorDrag = { pointer: event.pointerId, child: hit, start: point, pixel: [event.clientX, event.clientY], matrix: hit.matrix.slice(),
+      handle: handle, job: job, mainBounds: state.lastMainBounds, moved: false };
     state.dragging = true; el.ruleEditor.setPointerCapture(event.pointerId); event.preventDefault();
   }
 
-  function moveEditorPointer(event) {
-    var drag = state.editorDrag; if (!drag || drag.pointer !== event.pointerId) return;
-    var point = editorPoint(event), m = drag.matrix.slice();
-    if (!drag.handle) { m[4] += point[0] - drag.start[0]; m[5] += point[1] - drag.start[1]; }
-    else if (drag.handle.type === 'corner') {
-      var corners = drag.handle.corners, original = corners[drag.handle.index], anchor;
-      if (corners.length === 3) {
-        var others = corners.filter(function (_, index) { return index !== drag.handle.index; });
-        anchor = [(others[0][0] + others[1][0]) / 2, (others[0][1] + others[1][1]) / 2];
-      } else anchor = corners[(drag.handle.index + 2) % 4];
-      point = snapCorner(anchor, point, distance(anchor, original));
-      var vx = original[0] - anchor[0], vy = original[1] - anchor[1], wx = point[0] - anchor[0], wy = point[1] - anchor[1], den = vx * vx + vy * vy;
-      var a = (vx * wx + vy * wy) / den, b = (vx * wy - vy * wx) / den;
-      var around = [a, b, -b, a, anchor[0] - a * anchor[0] + b * anchor[1], anchor[1] - b * anchor[0] - a * anchor[1]];
-      m = M.compose(around, m);
-    } else {
-      // A side handle moves its edge and keeps the corner after it fixed.
-      // For a square that keeps the whole opposite edge fixed, so the copy
-      // stretches or skews. Three corners decide any affine map.
-      var local = M.framePolygon(state.rule.frame), n = local.length, k = drag.handle.index, world = drag.handle.corners;
-      var a0 = world[k], a1 = world[(k + 1) % n], edgeMid = [(a0[0] + a1[0]) / 2, (a0[1] + a1[1]) / 2];
-      var dx = point[0] - edgeMid[0], dy = point[1] - edgeMid[1];
-      m = M.affineFromTriangles([local[k], local[(k + 1) % n], local[(k + 2) % n]],
-        [[a0[0] + dx, a0[1] + dy], [a1[0] + dx, a1[1] + dy], world[(k + 2) % n]]);
-      if (!m.every(Number.isFinite) || Math.abs(M.determinant(m)) < 1e-6) return;
+  function invert(m) {
+    var det = M.determinant(m), a = m[3] / det, b = -m[1] / det, c = -m[2] / det, d = m[0] / det;
+    return [a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])];
+  }
+  // A linear map about a point, in whichever coordinates the point is in.
+  function about(l, p) { return [l[0], l[1], l[2], l[3], p[0] - l[0] * p[0] - l[2] * p[1], p[1] - l[1] * p[0] - l[3] * p[1]]; }
+  function clampScale(s) { return Math.abs(s) < .02 ? (s < 0 ? -.02 : .02) : s; }
+  var SIMPLE_RATIOS = [1/4, 1/3, 1/2, 2/3, 3/4, 1, 4/3, 3/2, 2, 3, 4];
+  function snapRatio(ratio) {
+    SIMPLE_RATIOS.forEach(function (candidate) { if (Math.abs(ratio / candidate - 1) < .025) ratio = candidate; });
+    return ratio;
+  }
+
+  // An edge drag picks stretch or skew from its first few pixels: across
+  // the edge stretches, along it skews.
+  function edgeJob(drag, dx, dy) {
+    var corners = M.transformedFrame(state.rule.frame, drag.matrix), k = drag.handle.index;
+    var p = corners[k], q = corners[(k + 1) % corners.length], e = [q[0] - p[0], q[1] - p[1]], len = Math.hypot(e[0], e[1]) || 1;
+    var along = Math.abs(dx * e[0] + dy * e[1]) / len, across = Math.abs(dx * e[1] - dy * e[0]) / len;
+    return along > across ? 'skew' : 'stretch';
+  }
+
+  // The new map for a drag, from the pointer's place in the editor. With
+  // free set, a turn snaps to 15 degrees and a scale to simple ratios.
+  function dragMatrix(drag, point, free, shift) {
+    var m0 = drag.matrix, h = drag.handle, local = M.framePolygon(state.rule.frame), n = local.length, job = drag.job;
+    if (job === 'move') { var t = m0.slice(); t[4] += point[0] - drag.start[0]; t[5] += point[1] - drag.start[1]; return t; }
+    var cl = frameCentre(), c = M.apply(m0, cl);
+    if (job === 'rotate') {
+      var from = M.apply(m0, local[h.index]);
+      var angle = Math.atan2(point[1] - c[1], point[0] - c[0]) - Math.atan2(from[1] - c[1], from[0] - c[0]);
+      if (free) {
+        var base = Math.atan2(m0[1], m0[0]), target = base + angle, snapped = Math.round(target / (Math.PI / 12)) * Math.PI / 12;
+        if (Math.abs(target - snapped) < .05) angle = snapped - base;
+      }
+      var co = Math.cos(angle), si = Math.sin(angle);
+      return M.compose(about([co, si, -si, co], c), m0);
     }
+    if (job === 'scale') {
+      var q = local[h.index];
+      if (shift && !state.locks.stretch) {
+        // Shift: stretch both ways in the child's own frame, about its centre.
+        var u = M.apply(invert(m0), point);
+        var sx = Math.abs(q[0] - cl[0]) < 1e-9 ? 1 : clampScale((u[0] - cl[0]) / (q[0] - cl[0]));
+        var sy = Math.abs(q[1] - cl[1]) < 1e-9 ? 1 : clampScale((u[1] - cl[1]) / (q[1] - cl[1]));
+        return M.compose(m0, about([sx, 0, 0, sy], cl));
+      }
+      var corner = M.apply(m0, q), v = [corner[0] - c[0], corner[1] - c[1]];
+      var s = Math.max(.02, dot(v, [point[0] - c[0], point[1] - c[1]]) / dot(v, v));
+      if (free) s = snapRatio(s);
+      return M.compose(about([s, 0, 0, s], c), m0);
+    }
+    // Edges. The fixed line is the opposite edge (a triangle: the opposite
+    // corner). d runs from it to this edge's middle, and e runs along the edge.
+    var k = h.index, uu = M.apply(invert(m0), point);
+    var p0 = local[k], p1 = local[(k + 1) % n], mid = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2];
+    var fixed = n === 3 ? local[(k + 2) % 3] : [(local[(k + 2) % 4][0] + local[(k + 3) % 4][0]) / 2, (local[(k + 2) % 4][1] + local[(k + 3) % 4][1]) / 2];
+    var dvec = [mid[0] - fixed[0], mid[1] - fixed[1]], len = Math.hypot(dvec[0], dvec[1]), dn = [dvec[0] / len, dvec[1] / len];
+    var en = [p1[0] - p0[0], p1[1] - p0[1]], elen = Math.hypot(en[0], en[1]); en = [en[0] / elen, en[1] / elen];
+    var rel = [uu[0] - fixed[0], uu[1] - fixed[1]], l;
+    if (job === 'stretch') {
+      // Stretch one way: only the distance from the fixed line changes.
+      var ratio = clampScale(dot(rel, dn) / len);
+      if (free) ratio = snapRatio(ratio);
+      var f = ratio - 1;
+      l = [1 + f * dn[0] * dn[0], f * dn[1] * dn[0], f * dn[0] * dn[1], 1 + f * dn[1] * dn[1]];
+    } else {
+      // Skew: the edge slides along itself; the fixed line stays put.
+      var sk = dot([uu[0] - mid[0], uu[1] - mid[1]], en) / len;
+      l = [1 + sk * en[0] * dn[0], sk * en[1] * dn[0], sk * en[0] * dn[1], 1 + sk * en[1] * dn[1]];
+    }
+    return M.compose(m0, about(l, fixed));
+  }
+
+  // Snap grid: in Free mode, a corner that a drag moves snaps to a grid point
+  // within SNAP_REACH pixels, and lets go once the pointer moves on. A turn
+  // snaps by angle instead. A scale about the centre moves its corner along
+  // a line, so that corner snaps onto a grid line, a grid point first.
+  var SNAP_REACH = 6;
+  function movingCorners(drag, n) {
+    if (drag.job === 'move') return null;
+    if (drag.job === 'scale') return [drag.handle.index];
+    return [drag.handle.index, (drag.handle.index + 1) % n];
+  }
+  function gridPointNear(c, grid) { return [Math.round(c[0] * grid.cols) / grid.cols, Math.round(c[1] * grid.rows) / grid.rows]; }
+  function snapScale(drag, m) {
+    var grid = gridFor(state.currentLetter), view = state.editorView, c = M.apply(m, frameCentre());
+    var corner = M.apply(m, M.framePolygon(state.rule.frame)[drag.handle.index]), v = [corner[0] - c[0], corner[1] - c[1]];
+    var best = null, bestScore = Infinity;
+    [[0, grid.cols], [1, grid.rows]].forEach(function (pair) {
+      var axis = pair[0], cells = pair[1];
+      if (Math.abs(v[axis]) < 1e-9) return;
+      var t = (Math.round(corner[axis] * cells) / cells - c[axis]) / v[axis];
+      if (t <= 0) return;
+      var moved = [c[0] + v[0] * t, c[1] + v[1] * t];
+      if (distance(view.point(moved), view.point(corner)) > SNAP_REACH) return;
+      var score = distance(view.point(moved), view.point(gridPointNear(moved, grid)));
+      if (score < bestScore) { best = t; bestScore = score; }
+    });
+    return best == null ? m : M.compose(about([best, 0, 0, best], c), m);
+  }
+  function snapToGrid(drag, point, m, shift) {
+    if (!state.snapGrid || state.rule.mode !== 'free' || drag.job === 'rotate') return m;
+    if (drag.job === 'scale' && !(shift && !state.locks.stretch)) return snapScale(drag, m);
+    var grid = gridFor(state.currentLetter), view = state.editorView, corners = M.transformedFrame(state.rule.frame, m);
+    var which = movingCorners(drag, corners.length) || corners.map(function (_, i) { return i; });
+    var best = null, bestDistance = SNAP_REACH;
+    which.forEach(function (i) {
+      var c = corners[i], g = gridPointNear(c, grid);
+      var d = distance(view.point(c), view.point(g));
+      if (d < bestDistance) { best = [g[0] - c[0], g[1] - c[1]]; bestDistance = d; }
+    });
+    if (!best) return m;
+    return dragMatrix(drag, [point[0] + best[0], point[1] + best[1]], false, shift);
+  }
+
+  function moveEditorPointer(event) {
+    if (movePan(event)) return;
+    var drag = state.editorDrag; if (!drag || drag.pointer !== event.pointerId) return;
+    if (!drag.job) {
+      var dx = event.clientX - drag.pixel[0], dy = event.clientY - drag.pixel[1];
+      if (Math.hypot(dx, dy) < JOB_PIXELS) return;
+      drag.job = edgeJob(drag, dx, dy);
+    }
+    var point = editorPoint(event), m = dragMatrix(drag, point, !state.snapGrid, event.shiftKey);
+    m = snapToGrid(drag, point, m, event.shiftKey);
+    if (!m.every(Number.isFinite) || Math.abs(M.determinant(m)) < 1e-9) return;
     drag.moved = true; drag.child.matrix = m; markEdited(); renderEditor(); renderMain(); event.preventDefault();
   }
 
   function endEditorPointer(event) {
+    if (endPan(event)) return;
     if (!state.editorDrag || state.editorDrag.pointer !== event.pointerId) return;
     var moved = state.editorDrag.moved; state.editorDrag = null; state.dragging = false;
     if (moved) commit(); else { renderEditor(); renderMain(); }
+  }
+
+  // Editor zoom and pan. The editor fits its children on its own until the
+  // viewer zooms or pans. Then the view holds still, so a child dragged far
+  // away does not shrink the rest, until Fit hands control back.
+  function editorCamera() {
+    if (!state.editorCamera) state.editorCamera = { bounds: editorBounds(), zoom: 1, x: 0, y: 0 };
+    return state.editorCamera;
+  }
+  function fitEditor() { state.editorCamera = null; renderEditor(); }
+  // x and y are the pointer's offset from the canvas centre.
+  function zoomEditor(factor, x, y) {
+    var cam = editorCamera(), next = Math.max(.1, Math.min(40, cam.zoom * factor));
+    factor = next / cam.zoom; cam.zoom = next;
+    if (x != null) { cam.x = (cam.x - x) * factor + x; cam.y = (cam.y - y) * factor + y; }
+    else { cam.x *= factor; cam.y *= factor; }
+    renderEditor();
+  }
+  function editorOffset(clientX, clientY) {
+    var rect = el.ruleEditor.getBoundingClientRect();
+    return [clientX - rect.left - rect.width / 2, clientY - rect.top - rect.height / 2];
+  }
+  function startPan(event, deselect) {
+    var pointers = state.editorPointers || (state.editorPointers = {});
+    pointers[event.pointerId] = [event.clientX, event.clientY];
+    var ids = Object.keys(pointers);
+    if (ids.length === 2) {
+      var a = pointers[ids[0]], b = pointers[ids[1]], cam = editorCamera();
+      state.editorPinch = { distance: Math.max(1, distance(a, b)), centre: editorOffset((a[0] + b[0]) / 2, (a[1] + b[1]) / 2), zoom: cam.zoom, x: cam.x, y: cam.y };
+      state.editorPan = null;
+    } else if (ids.length === 1) {
+      state.editorPan = { pointer: event.pointerId, x: event.clientX, y: event.clientY, moved: false, deselect: deselect };
+    }
+    el.ruleEditor.setPointerCapture(event.pointerId); event.preventDefault();
+  }
+  function movePan(event) {
+    var pointers = state.editorPointers;
+    if (!pointers || !pointers[event.pointerId]) return false;
+    pointers[event.pointerId] = [event.clientX, event.clientY];
+    var ids = Object.keys(pointers), cam;
+    if (ids.length === 2 && state.editorPinch) {
+      var pinch = state.editorPinch, a = pointers[ids[0]], b = pointers[ids[1]], centre = editorOffset((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      cam = editorCamera(); cam.zoom = Math.max(.1, Math.min(40, pinch.zoom * distance(a, b) / pinch.distance));
+      var f = cam.zoom / pinch.zoom;
+      cam.x = (pinch.x - pinch.centre[0]) * f + centre[0]; cam.y = (pinch.y - pinch.centre[1]) * f + centre[1];
+      renderEditor();
+    } else if (state.editorPan && state.editorPan.pointer === event.pointerId) {
+      var pan = state.editorPan, dx = event.clientX - pan.x, dy = event.clientY - pan.y;
+      if (!pan.moved && Math.hypot(dx, dy) < 3) return true;
+      if (!pan.moved) { cam = editorCamera(); pan.moved = true; pan.camX = cam.x; pan.camY = cam.y; el.ruleEditor.classList.add('panning'); }
+      cam = editorCamera(); cam.x = pan.camX + dx; cam.y = pan.camY + dy; renderEditor();
+    }
+    event.preventDefault(); return true;
+  }
+  function endPan(event) {
+    var pointers = state.editorPointers;
+    if (!pointers || !pointers[event.pointerId]) return false;
+    var pan = state.editorPan;
+    delete pointers[event.pointerId]; state.editorPinch = null;
+    var ids = Object.keys(pointers);
+    if (ids.length === 1) {
+      // One finger stays down after a pinch: it carries on panning.
+      var rest = pointers[ids[0]], cam = editorCamera();
+      state.editorPan = { pointer: Number(ids[0]), x: rest[0], y: rest[1], moved: true, camX: cam.x, camY: cam.y };
+    } else {
+      state.editorPan = null; el.ruleEditor.classList.remove('panning');
+      if (pan && pan.pointer === event.pointerId && !pan.moved && pan.deselect && event.type === 'pointerup') {
+        state.selectedId = null; syncControls(); renderEditor();
+      }
+    }
+    return true;
   }
 
   function startMainPointer(event) {
@@ -1205,7 +1533,7 @@
 
   function wireEvents() {
     el.demo.addEventListener('change', function () {
-      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.selectedId = null; state.focus = 'child'; state.brush = M.identity(); state.depth = PRESETS.balanced.depth; state.limits = sanitiseLimits(PRESETS.balanced); state.preset = 'balanced'; state.showHull = true; state.topColour = null; state.savedName = null; state.newLetter = null; state.camera = { zoom: 1, x: 0, y: 0 }; commit();
+      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.selectedId = null; state.focus = 'child'; state.brush = M.identity(); state.depth = PRESETS.balanced.depth; state.limits = sanitiseLimits(PRESETS.balanced); state.preset = 'balanced'; state.showHull = true; state.topColour = null; state.savedName = null; state.newLetter = null; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null; commit();
     });
     el.addLetter.addEventListener('click', addLetter);
     el.removeLetter.addEventListener('click', removeLetter);
@@ -1230,15 +1558,30 @@
     wireDividers();
     // Without Stretch the grid stays square, so Rows carries Cols with it.
     // Choosing a different Cols is what makes a rectangular, Stretch grid.
-    el.gridRows.addEventListener('change', function () { var rows = Number(el.gridRows.value); setGrid(rows, state.rule.toggles.stretch ? Number(el.gridCols.value) : rows); markEdited(); commit(); });
-    el.gridCols.addEventListener('change', function () { setGrid(Number(el.gridRows.value), Number(el.gridCols.value)); markEdited(); commit(); });
+    function gridButtons(container, onPick) {
+      for (var n = 2; n <= 8; n++) { var b = document.createElement('button'); b.type = 'button'; b.textContent = n; container.appendChild(b); }
+      container.addEventListener('click', function (event) { var b = event.target.closest('button'); if (b) onPick(Number(b.textContent)); });
+    }
+    gridButtons(el.gridRows, function (rows) { var grid = gridFor(state.currentLetter); setGrid(rows, state.rule.toggles.stretch || state.rule.mode === 'free' ? grid.cols : rows); markEdited(); commit(); });
+    gridButtons(el.gridCols, function (cols) { setGrid(gridFor(state.currentLetter).rows, cols); markEdited(); commit(); });
+    el.toggleSnap.addEventListener('change', function () { state.snapGrid = el.toggleSnap.checked; renderEditor(); saveAddress(); });
+    [['stretch', el.lockStretch], ['skew', el.lockSkew]].forEach(function (lock) {
+      lock[1].addEventListener('click', function () { state.locks[lock[0]] = !state.locks[lock[0]]; saveLocks(); syncControls(); renderEditor(); });
+    });
+    el.editorZoomIn.addEventListener('click', function () { zoomEditor(1.25); });
+    el.editorZoomOut.addEventListener('click', function () { zoomEditor(.8); });
+    el.editorFit.addEventListener('click', fitEditor);
+    el.ruleEditor.addEventListener('wheel', function (event) {
+      // A trackpad pinch arrives as a wheel event with Ctrl held.
+      var offset = editorOffset(event.clientX, event.clientY);
+      zoomEditor(Math.exp(-event.deltaY * (event.ctrlKey ? .01 : .0015)), offset[0], offset[1]); event.preventDefault();
+    }, { passive: false });
     el.toggleTopColour.addEventListener('change', function () { state.topColour = el.toggleTopColour.checked; renderPalette(); renderEditor(); renderIterations(); renderMain(); saveAddress(); });
     el.depth.addEventListener('input', function () { state.depth = Number(el.depth.value); el.depthValue.textContent = state.depth; state.dragging = true; setCustom(); syncLimitControls(); renderMain(); });
     el.depth.addEventListener('change', function () { state.dragging = false; updateAnalysis(); renderReadouts(); renderMain(); saveAddress(); });
-    [['stretch', el.toggleStretch], ['stacking', el.toggleStacking], ['gridPerLetter', el.togglePerLetter]].forEach(function (pair) {
+    [['stacking', el.toggleStacking], ['gridPerLetter', el.togglePerLetter]].forEach(function (pair) {
       pair[1].addEventListener('change', function () {
         state.rule.toggles[pair[0]] = pair[1].checked;
-        if (pair[0] === 'stretch' && !pair[1].checked) state.rule.grid.cols = state.rule.grid.rows;
         markEdited(); commit();
       });
     });
@@ -1309,7 +1652,7 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','mode-row','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','cols-field','toggle-top-colour','palette-label','depth','depth-value','toggle-menu','toggle-popover','toggle-stretch','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','mode-row','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','cols-field','snap-field','toggle-snap','lock-row','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','toggle-top-colour','palette-label','depth','depth-value','toggle-menu','toggle-popover','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }

@@ -57,22 +57,98 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check(await page.locator('#toggle-stacking').isDisabled(), 'Stacking is greyed out in Free mode');
   await page.click('#toggle-menu');
 
-  // Handles: a press just outside a corner still grabs the selected child.
+  // Drag between two editor points, in frame units.
+  async function drag(from, to, options) {
+    const a = await editorPoint(from), b = await editorPoint(to);
+    const offset = (options && options.offset) || [0, 0];
+    await page.mouse.move(a[0] + offset[0], a[1] + offset[1]);
+    if (options && options.shift) await page.keyboard.down('Shift');
+    await page.mouse.down();
+    await page.mouse.move(b[0], b[1], { steps: 8 });
+    await page.mouse.up();
+    if (options && options.shift) await page.keyboard.up('Shift');
+    await page.waitForTimeout(50);
+  }
+  const cellsOf = async () => (await page.locator('#numbers-body tr').first().locator('td').allTextContents()).map(text => text.replace('−', '-'));
+  const near = (text, value, tolerance) => Math.abs(Number(text) - value) < (tolerance || 0.01);
+
+  // Child A of the Sieve fills the top-left quarter, so its centre is
+  // (0.25, 0.25), its turn corner (0.5, 0) and its scale corner (0.5, 0.5).
   const centre = await editorPoint([0.25, 0.25]);
   await page.mouse.click(centre[0], centre[1]);
-  equal(await selection(), '1 of 3', 'a click selects the top-left child');
+  equal(await selection(), 'A', 'a click selects the top-left child, A');
   const beforeHandle = await firstRow();
-  const corner = await editorPoint([0, 0]);
-  await page.mouse.move(corner[0] - 8, corner[1] - 8);
-  await page.mouse.down();
-  await page.mouse.move(corner[0] - 40, corner[1] - 30, { steps: 6 });
-  await page.mouse.up();
-  await page.waitForTimeout(50);
-  equal(await selection(), '1 of 3', 'the handle drag kept the same child');
-  check((await firstRow()) !== beforeHandle, 'a press outside the corner moved the handle');
+
+  // Turn: a press just outside the top-right corner grabs the turn knob.
+  await drag([0.5, 0], [0.5, 0.5], { offset: [4, -4] });
+  equal(await selection(), 'A', 'the handle drag kept the same child');
+  let cells = await cellsOf();
+  check(near(cells[5], 0.5) && near(cells[6], 90, 0.01), 'the turn corner turns a quarter turn about the centre: ' + cells.join(' '));
+  check(near(cells[3], 0.5) && near(cells[4], 0), 'the turn kept the centre in place: ' + cells.join(' '));
   await page.click('#undo');
   equal(await firstRow(), beforeHandle, 'undo restores the child');
-  console.log('Grabbed a handle from outside the frame.');
+
+  // Scale: the bottom-right corner scales about the centre.
+  await drag([0.5, 0.5], [0.625, 0.625]);
+  cells = await cellsOf();
+  check(near(cells[5], 0.75) && near(cells[6], 0), 'the scale corner scales by 3/2: ' + cells.join(' '));
+  check(near(cells[3], -0.125) && near(cells[4], -0.125), 'the scale kept the centre in place: ' + cells.join(' '));
+  await page.click('#undo');
+  console.log('Turned and scaled a child about its centre.');
+
+  // Edges: across the right edge stretches, and along it skews.
+  await drag([0.5, 0.25], [0.75, 0.25]);
+  equal(await page.locator('#numbers-head th').count(), 10, 'a stretched child shows the six affine values');
+  cells = await cellsOf();
+  check(near(cells[3], 0.75) && near(cells[4], 0) && near(cells[5], 0) && near(cells[6], 0.5), 'across the edge stretches width only: ' + cells.join(' '));
+  check(cells[4] === '0.000', 'zero shows three decimals');
+  await page.click('#undo');
+  await drag([0.5, 0.25], [0.5, 0.4]);
+  cells = await cellsOf();
+  check(near(cells[3], 0.5) && Math.abs(Number(cells[4])) > 0.1 && near(cells[6], 0.5), 'along the edge skews: ' + cells.join(' '));
+  await page.click('#undo');
+  // With Skew locked, an edge handle only stretches, whichever way it moves.
+  await page.click('#lock-skew');
+  equal(await page.locator('#lock-skew').getAttribute('aria-pressed'), 'true', 'Skew locks');
+  await drag([0.5, 0.25], [0.5, 0.4]);
+  cells = await cellsOf();
+  check(cells.length === 9 || near(cells[4], 0), 'with Skew locked, the edge only stretches: ' + cells.join(' '));
+  if (!(await page.locator('#undo').isDisabled())) await page.click('#undo');
+  await page.click('#lock-stretch');
+  const lockedBefore = await firstRow();
+  await drag([0.47, 0.25], [0.57, 0.25]);
+  const lockedAfter = await firstRow(); check(lockedAfter !== lockedBefore && (await page.locator('#numbers-head th').count()) === 9, 'with both locked, an edge press moves the child: ' + lockedBefore + ' / ' + lockedAfter + ' / ' + await selection());
+  await page.click('#undo');
+  await page.click('#lock-stretch'); await page.click('#lock-skew');
+  console.log('Stretched, skewed and locked the edges.');
+
+  // Editor view: the wheel zooms, empty space pans, and Fit restores.
+  const editorCanvas = await page.locator('#rule-editor').boundingBox();
+  check(await page.locator('#editor-fit').isDisabled(), 'Fit is greyed out while the editor fits itself');
+  await page.mouse.move(editorCanvas.x + editorCanvas.width / 2, editorCanvas.y + editorCanvas.height / 2);
+  await page.mouse.wheel(0, -300);
+  check(!(await page.locator('#editor-fit').isDisabled()), 'the wheel zooms the editor');
+  await page.click('#editor-fit');
+  const corner2 = await editorPoint([1.07, 1.07]);
+  await page.mouse.move(corner2[0], corner2[1]); await page.mouse.down();
+  await page.mouse.move(corner2[0] - 30, corner2[1] - 20, { steps: 5 }); await page.mouse.up();
+  check(!(await page.locator('#editor-fit').isDisabled()), 'a drag on empty space pans the editor');
+  equal(await selection(), 'A', 'a pan keeps the selection');
+  await page.click('#editor-fit');
+  const away = await editorPoint([1.07, 1.07]);
+  await page.mouse.click(away[0], away[1]);
+  equal(await page.locator('#selection-heading').textContent(), 'New child', 'a click on empty space deselects');
+  await page.mouse.click(centre[0], centre[1]);
+
+  // The line under the editor sets its height, and a double-click resets it.
+  const wrapBefore = (await page.locator('#editor-wrap').boundingBox()).height;
+  const line = await page.locator('#divider-editor').boundingBox();
+  await page.mouse.move(line.x + line.width / 2, line.y + line.height / 2); await page.mouse.down();
+  await page.mouse.move(line.x + line.width / 2, line.y + line.height / 2 + 60, { steps: 5 }); await page.mouse.up();
+  check(Math.abs((await page.locator('#editor-wrap').boundingBox()).height - wrapBefore - 60) < 2, 'the line under the editor makes it taller');
+  await page.locator('#divider-editor').dblclick();
+  check(Math.abs((await page.locator('#editor-wrap').boundingBox()).height - wrapBefore) < 2, 'a double-click resets the editor height');
+  console.log('Zoomed, panned and resized the editor.');
 
   // Keys on a selected child: T rotates, Cmd+D duplicates, Backspace removes.
   await page.locator('#rule-editor').focus();
@@ -80,14 +156,14 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check((await firstRow()).includes('90'), 'T rotates the child a quarter turn');
   await page.keyboard.press('ControlOrMeta+d');
   equal(await rows(), 4, 'Cmd+D duplicates the child');
-  equal(await selection(), '2 of 4', 'the duplicate sits after its original and is selected');
+  equal(await selection(), 'B', 'the duplicate sits after its original as B and is selected');
   await page.keyboard.press('Backspace');
   equal(await rows(), 3, 'Backspace removes the selected child');
   await page.keyboard.press('Escape');
   equal(await page.locator('#selection-heading').textContent(), 'New child', 'Escape deselects');
   await page.click('#add-child');
   equal(await rows(), 4, '+ adds a child in Free mode');
-  equal(await selection(), '4 of 4', 'the new child is selected');
+  equal(await selection(), 'D', 'the new child is selected');
 
   // Reorder the children by dragging the first row's grip to the bottom.
   const first = await firstRow();
@@ -98,7 +174,8 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.mouse.move(grip.x + grip.width / 2, last.y + last.height - 2, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(50);
-  equal(await page.locator('#numbers-body tr').last().textContent(), first, 'dragging a row reorders the children');
+  equal((await page.locator('#numbers-body tr').last().textContent()).slice(2), first.slice(2), 'dragging a row reorders the children');
+  equal((await page.locator('#numbers-body tr').last().textContent()).slice(1, 2), 'D', 'the moved child is relabelled D');
 
   // The edit pop-up changes nothing until OK.
   await page.locator('#numbers-body tr').first().locator('.edit-child').click();
@@ -150,8 +227,8 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.selectOption('#demo', 'free');
   console.log('Opened Free demo.');
   await page.click('#toggle-menu');
-  await page.check('#toggle-stretch');
-  equal(await page.locator('#numbers-head th').count(), 9, 'Stretch shows the six affine values');
+  equal(await page.locator('#toggle-stretch').count(), 0, 'Options has no Stretch switch');
+  equal(await page.locator('#numbers-head th').count(), 9, 'similar children show x, y, scale, angle and flip');
   await page.click('#advanced-limits summary');
   await page.locator('#max-copies').fill('0');
   equal(await page.locator('#max-copies-value').textContent(), '1', 'copy limit of 1');
