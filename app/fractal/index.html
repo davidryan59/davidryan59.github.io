@@ -62,12 +62,6 @@
         </select>
       </div>
 
-      <div id="mode-row" class="mode-row" role="group" aria-label="Mode">
-        <button type="button" data-mode="free">Free</button>
-        <button type="button" data-mode="square" aria-disabled="true" title="Coming soon">Square</button>
-        <button type="button" data-mode="triangle" aria-disabled="true" title="Coming soon">Triangle</button>
-      </div>
-
       <div class="letter-row">
         <div id="letter-tabs" class="letter-tabs" role="tablist" aria-label="Parents"></div>
         <button id="parent-colour" class="small-button letter-step icon-step colour-step" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="colour-picker"><span class="swatch"></span></button>
@@ -166,10 +160,6 @@
               <button type="button" data-colour="top" title="Each copy takes the colour of the top-level child it sits inside">Top copy</button>
             </div>
           </div>
-          <div class="rule-toggles">
-            <label><input id="toggle-stacking" type="checkbox"> Stacking</label>
-            <label><input id="toggle-per-letter" type="checkbox"> Grid per letter</label>
-          </div>
           <div class="limits">
             <span class="popover-heading">Calculation limits</span>
             <div class="preset-row" role="group" aria-label="Calculation preset">
@@ -207,7 +197,7 @@
       </div>
 
       <div id="notice" class="notice" role="status" hidden></div>
-      <div class="stage-caption"><span id="instance-count">0 frames</span><span id="build-version"></span></div>
+      <div class="stage-caption"><span id="instance-count">0 frames</span></div>
     </div>
   </section>
 
@@ -250,9 +240,8 @@
     </section>
     <details class="help">
       <summary>How to edit</summary>
-      <p>Free mode: drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew. Stretch and Skew lock those jobs. Snap corners in Options snaps corners to a grid.</p>
+      <p>Children: + adds one. Drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew. Stretch and Skew lock those jobs. Snap corners in Options snaps corners to a grid.</p>
       <p>Editor view: drag empty space to pan, and use the wheel or a pinch to zoom. Fit shows every child again. Drag the line under the editor to change its height.</p>
-      <p>Grid modes: tap a cell to add a child.</p>
       <p>Keys: 1–9 and 0 pick a child's parent, and Shift with a number shows that parent. R and T rotate, H and V flip, Backspace removes, ⌘D or Ctrl+D duplicates, Esc deselects.</p>
     </details>
   </aside>

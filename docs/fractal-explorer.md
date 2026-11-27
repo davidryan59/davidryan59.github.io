@@ -13,29 +13,22 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Represent any number of linked parents as sets of affine maps.
 - [x] Draw levels zero to four and a deeper limit view.
 - [x] Report convergence, dimension, box count, convex hull, and overlap.
-- [x] Edit exact square grids from 2 by 2 to 5 by 5.
-- [x] Edit subdivided equilateral-triangle grids.
-- [ ] Finish Square and Triangle modes. Until then their buttons are greyed
-      out with a "Coming soon" tooltip, and the blank square and blank
-      triangle demos are gone. A saved rule in either mode still opens.
-- [x] Move, turn, scale, flip, stretch, and skew children in Free mode.
-- [x] Support Stretch, Stacking, and Grid per letter.
+- [x] Move, turn, scale, flip, stretch, and skew children.
+- [x] Snap children to an optional grid of 2 to 8 columns and rows.
 - [x] List the children in drawing order, reorder them by drag, and edit
       exact values in a pop-up.
 - [x] Number the parents; add, duplicate, remove and reorder them.
 - [x] Choose each parent's colour from a swatch in the parent row.
-- [x] Open on the Sieve in Free mode, with Linked pair and Free placement demos.
-- [ ] Resize square-grid children across cells by dragging their corners.
+- [x] Open on the Sieve, with Linked pair and Free placement demos.
 - [x] Store edited rules in the address.
 - [x] Offer Fast, Balanced, Detailed, and editable calculation limits.
 - [x] Use the four-corner control layout and fit all six browser sizes.
 - [x] Add the builder-page entry and `/fractal` short address.
 - [x] Draw copies in colour batches and skip branches wholly off screen.
-- [x] Show the version marker at the stage's bottom right.
 
 ## Rule model
 
-A rule has a frame shape, an editing mode, a list of parents, and a list of
+A rule has a frame shape, a snap grid, a list of parents, and a list of
 children for each parent. Each parent has an internal id (`p1`, `p2` and so
 on). The number on screen is the parent's position in the list, so reordering
 renumbers the parents without rewriting any reference. Each child names the
@@ -46,8 +39,7 @@ x' = a x + c y + e
 y' = b x + d y + f
 ```
 
-This one representation serves every mode. Grid modes make exact rational
-coefficients. Free mode changes the coefficients directly. A square child
+The editor changes the coefficients directly. A square child
 uses the unit square. A triangle child uses the upright unit equilateral
 triangle. Each frame carries its parent's number with an underline beneath
 it, which fixes which side is down. The number uses Times, whose lining
@@ -56,13 +48,20 @@ underline. In the editor, the child's letter at its top left fixes the
 orientation. The rule format is version 2; version 1 rules, which
 used letters, are not read.
 
+Until 2026-11-27 the app also had Square and Triangle grid modes, where a tap
+placed a child in a cell. They were never finished and were removed, because
+Free mode with the snap grid covers grid layouts. Rules saved then carry
+`mode`, `toggles` (Stretch, Blocks, Stacking and Grid per letter), a
+per-parent grid and cell placements on each child. `normaliseRule()` drops
+those fields on load. The maps alone define the rule, so it draws the same.
+
 The pure model is in `app/fractal/model.js`. The browser controller and canvas
 views are in `app/fractal/app.js`. `tools/fractal/check.js` runs model checks
 in Node. `tools/fractal/browser-check.js` checks the main interactions.
 
-## Editing modes
+## Editing
 
-Free mode is the default. It draws child frames over a dashed parent. Drag
+The editor draws child frames over a dashed parent. Drag
 inside a child to move it. A moved child sticks on each axis by itself: its
 corners' x values stick to any x within 6 pixels, and likewise y. The
 targets are the parent's corners, the other children's corners and, with
@@ -94,7 +93,7 @@ The editor zooms and pans. A drag on empty space pans it, the wheel or a
 two-finger pinch zooms about the pointer, and the magnifier buttons zoom
 about the centre. The editor fits its children on its own until the first
 zoom or pan; from then the view holds still, so a far child does not shrink
-the rest, until Fit hands control back. Changing parent, mode or rule fits
+the rest, until Fit hands control back. Changing parent or rule fits
 again. A click on empty space without a drag deselects. The line under the
 editor sets its height, kept with the panel widths in `fractal-panels`;
 a double-click resets it. Each canvas redraws when its own box changes size,
@@ -109,14 +108,6 @@ line, preferring a grid point. A turn snaps by angle only. During a drag the edi
 main view keep their scale, and refit on release. The + button adds a
 half-size child in the centre, or in the first free corner.
 
-Square mode divides a parent's frame into rows and columns. A tap adds one
-child. Another tap selects the top child in that cell. Unequal Rows and Cols
-make rectangular copies; there is no separate Stretch switch. Stacking lets a tap add another child to an occupied cell.
-
-Triangle mode divides an equilateral triangle into `N²` small triangles.
-Both upright and downward cells accept children. Rotate turns by 120°, and
-Flip V is disabled, since it would turn an upright cell into a downward one.
-
 Rotate L, Rotate R, Flip H and Flip V act inside the child's own frame. Each
 is a symmetry of the frame (a quarter turn or mirror of the square; a third
 of a turn or mirror of the triangle), so the child's outline stays exactly in
@@ -127,23 +118,18 @@ child's frame. Each child has a letter, A, B, C
 and on, from its place in its parent's list. The letter sits at the child's
 top left (a triangle: near its top) and relabels when the list is reordered. With no child selected they set the orientation of new children,
 shown in the preview beside the panel heading. A duplicate goes to the right
-of its original, or else above, left or below, whichever is free first; in a
-grid, the nearest free cell. A duplicated parent goes after the original, and
+of its original, or else above, left or below, whichever is free first. A duplicated parent goes after the original, and
 its children that copied the original copy the duplicate. Removing a parent
 removes every child that copied it.
 
 The children list shows each child in drawing order: the first is drawn at
-the back. Its grip reorders by drag. In Free mode the pencil opens a pop-up
+the back. Its grip reorders by drag. The pencil opens a pop-up
 that accepts decimals and the forms `1/3`, `sqrt(2)/2`, and `√2/2`, and
-applies them on OK as one undo step. Free mode lists x, y, scale, angle and
+applies them on OK as one undo step. The list shows x, y, scale, angle and
 flip while every child of the parent is a similarity, and the six affine
 values once one is stretched or skewed. Real values show three decimals,
 0.000 included, right-aligned in tabular figures so the points line up.
 Names, parent numbers and whole numbers are centred.
-
-A grid rule always moves to Free mode. A Free rule moves back only when every
-map lies exactly on the requested grid. The mode control explains a refused
-move and leaves the rule unchanged.
 
 ## Rendering
 
@@ -257,7 +243,7 @@ Unedited demos use short hashes: `#demo=sieve`, `#demo=linked`, and
 `#demo=free`. An edit replaces this with a URL-safe base-64 encoding of the
 rule and view settings. Loading that address restores the complete design.
 
-The Sieve opens by default, in Free mode. It has three half-size upright
+The Sieve opens by default. It has three half-size upright
 copies and reports `log 3 / log 2`. Linked pair uses the child-count matrix
 `[[1,1],[1,2]]`.
 Free placement demonstrates continuous position, angle, scale, and a flip.
@@ -305,8 +291,7 @@ with a shared address.
 
 ## Layout and input
 
-The left panel holds the rule name and demos, the Free, Square and Triangle
-buttons, the parent row, the frame editor, the child panel and the children
+The left panel holds the rule name and demos, the parent row, the frame editor, the child panel and the children
 list. Readouts and saved fractals sit at the right. The iteration strip and
 limit fill the centre, with three corner groups: levels, grid and toggles;
 colour; and camera. The views draw the parent selected in the parent row.
@@ -324,17 +309,6 @@ On an upright touch screen, the editor and readouts become horizontally
 scrolling cards below the limit. On a short sideways touch screen, the editor
 becomes a narrow right rail. Every canvas uses Pointer Events. The full-screen
 button appears only where the browser supports it.
-
-## Version marker
-
-The stage's bottom right shows `v{X.Y.Z} ({hash})`, such as `v1.0.0 (b5ce)`.
-The site has no build step, so nothing can write the hash into the page.
-On drbuild.uk, `showVersion()` reads the latest commit that changed
-`app/fractal` from GitHub's public API, once per visit, and keeps it in
-session storage. A local copy shows `(local)`, and a failed request shows
-`(?)`. Raise `APP_VERSION` in `app.js` before each deploy. The hash names the
-last commit to change the app, which is the one GitHub Pages serves once the
-deploy finishes.
 
 ## Later
 

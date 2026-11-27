@@ -143,11 +143,24 @@
 
   function validRule(rule) {
     return rule && rule.version === 2 && ['square', 'triangle'].indexOf(rule.frame) >= 0 &&
-      ['square', 'triangle', 'free'].indexOf(rule.mode) >= 0 && Array.isArray(rule.letters) && rule.letters.length &&
+      Array.isArray(rule.letters) && rule.letters.length &&
       rule.letters.every(function (letter) { return typeof letter.id === 'string' && Array.isArray(letter.children) &&
         (letter.colour == null || /^#[0-9a-f]{6}$/i.test(letter.colour)) && letter.children.every(function (child) {
         return typeof child.letter === 'string' && Array.isArray(child.matrix) && child.matrix.length === 6 && child.matrix.every(Number.isFinite);
       }); });
+  }
+
+  // Free is the only mode. Rules saved while Square and Triangle modes
+  // existed carry a mode, toggles, a per-parent grid and cell placements on
+  // each child. The maps alone define the rule, so those fields are dropped.
+  function normaliseRule(rule) {
+    rule = M.clone(rule);
+    delete rule.mode; delete rule.toggles;
+    rule.grid = { rows: rule.grid && rule.grid.rows || 2, cols: rule.grid && rule.grid.cols || 2 };
+    rule.letters.forEach(function (letter) { letter.children.forEach(function (child) {
+      ['cell', 'turn', 'flip', 'block', 'blockRows', 'blockCols'].forEach(function (key) { delete child[key]; });
+    }); });
+    return rule;
   }
 
   function loadAddress() {
@@ -158,7 +171,7 @@
       } else if (hash.indexOf('rule=') === 0) {
         var saved = decode(hash.slice(5));
         if (!validRule(saved.rule)) throw new Error('Invalid rule');
-        state.rule = saved.rule; state.demo = null;
+        state.rule = normaliseRule(saved.rule); state.demo = null;
         state.currentLetter = saved.current || state.rule.letters[0].id; state.depth = Math.max(0, Math.min(32, saved.depth == null ? 7 : saved.depth));
         state.showHull = saved.hull !== false; state.colourMode = readColourMode(saved.colour);
         if (saved.camera) state.camera = saved.camera;
@@ -227,104 +240,13 @@
     state.noticeTimer = setTimeout(function () { el.notice.hidden = true; }, 3200);
   }
 
-  function gridFor(letterId) {
-    var own = state.rule.grid.perLetter && state.rule.grid.perLetter[letterId];
-    if (state.rule.toggles.gridPerLetter && own) return own;
-    return { rows: state.rule.grid.rows, cols: state.rule.grid.cols };
-  }
+  // The snap grid, shared by every parent.
+  function snapGridSize() { return { rows: state.rule.grid.rows, cols: state.rule.grid.cols }; }
 
   function setGrid(rows, cols) {
-    var top = state.rule.mode === 'triangle' ? 5 : 8;
-    rows = Math.max(2, Math.min(top, Math.round(rows || 2)));
-    cols = Math.max(2, Math.min(top, Math.round(cols || rows)));
-    if (state.rule.mode === 'triangle') cols = rows;
-    // In Square mode, unequal rows and cols make rectangular copies, which is
-    // a Stretch rule. In Free mode the grid only guides snapping.
-    // Square mode has no Stretch switch: the grid's shape decides it.
-    if (state.rule.mode === 'square') state.rule.toggles.stretch = cols !== rows;
-    if (state.rule.toggles.gridPerLetter) state.rule.grid.perLetter[state.currentLetter] = { rows: rows, cols: cols };
-    else { state.rule.grid.rows = rows; state.rule.grid.cols = cols; }
-    rebuildGridChildren();
-  }
-
-  function rebuildGridChildren() {
-    if (state.rule.mode === 'free') return;
-    state.rule.letters.forEach(function (letter) {
-      var grid = gridFor(letter.id);
-      letter.children.forEach(function (child) {
-        if (!child.cell) return;
-        var br = Math.max(1, child.blockRows || child.block || 1);
-        var bc = Math.max(1, child.blockCols || child.block || 1);
-        if (!state.rule.toggles.blocks) br = bc = 1;
-        if (state.rule.mode === 'square') {
-          br = Math.min(br, grid.rows - child.cell.row); bc = Math.min(bc, grid.cols - child.cell.col);
-          if (!state.rule.toggles.stretch) br = bc = Math.min(br, bc);
-          child.blockRows = br; child.blockCols = bc;
-          child.matrix = M.squareGridMap(child.cell, grid.rows, grid.cols, child.turn || 0, child.flip, br, state.rule.toggles.stretch ? bc : br);
-        }
-        else {
-          var cell = M.triangleCells(grid.rows).find(function (item) { return item.i === child.cell.i && item.j === child.cell.j && item.down === child.cell.down; });
-          if (cell) {
-            br = Math.min(br, cell.down ? Math.floor((grid.rows - cell.i - cell.j) / 2) : grid.rows - cell.i - cell.j);
-            child.blockRows = child.blockCols = Math.max(1, br);
-            child.matrix = M.triangleGridMap(cell, child.turn || 0, child.flip, child.blockRows);
-          }
-        }
-      });
-    });
-  }
-
-  function matrixClose(a, b) { return a.every(function (x, i) { return Math.abs(x - b[i]) < 1e-7; }); }
-
-  function squarePlacement(matrix, rows, cols) {
-    for (var row = 0; row < rows; row++) for (var col = 0; col < cols; col++) {
-      for (var br = 1; br <= rows - row; br++) for (var bc = 1; bc <= cols - col; bc++) {
-        if (!state.rule.toggles.blocks && (br !== 1 || bc !== 1)) continue;
-        if (!state.rule.toggles.stretch && bc !== br) continue;
-        for (var turn = 0; turn < 4; turn++) for (var flip = 0; flip < 2; flip++) {
-          if (matrixClose(matrix, M.squareGridMap({ row: row, col: col }, rows, cols, turn, !!flip, br, bc)))
-            return { cell: { row: row, col: col }, turn: turn, flip: !!flip, blockRows: br, blockCols: bc };
-        }
-      }
-    }
-    return null;
-  }
-
-  function trianglePlacement(matrix, n) {
-    var cells = M.triangleCells(n);
-    for (var i = 0; i < cells.length; i++) for (var block = 1; block <= n; block++) {
-      if (!state.rule.toggles.blocks && block !== 1) continue;
-      for (var turn = 0; turn < 3; turn++) for (var flip = 0; flip < 2; flip++) {
-        if (matrixClose(matrix, M.triangleGridMap(cells[i], turn, !!flip, block)))
-          return { cell: { i: cells[i].i, j: cells[i].j, down: cells[i].down }, turn: turn, flip: !!flip, blockRows: block, blockCols: block };
-      }
-    }
-    return null;
-  }
-
-  // Square and Triangle are greyed out until they are finished. A saved rule
-  // in either mode still opens and draws.
-  var MODES_READY = { free: true };
-  function changeMode(mode) {
-    if (mode === state.rule.mode) return true;
-    if (!MODES_READY[mode]) { notice('Square and Triangle modes are coming soon. Free mode with Snap corners covers grid layouts.'); return false; }
-    if (mode === 'free') { state.rule.mode = 'free'; state.selectedId = null; state.editorCamera = null; markEdited(); commit(); return true; }
-    var targetFrame = mode;
-    if (state.rule.frame !== targetFrame && allChildren().length) {
-      notice('This rule does not fit a ' + targetFrame + ' grid. Remove its children first, or keep it in Free mode.'); return false;
-    }
-    if (state.rule.frame !== targetFrame) { state.rule.frame = targetFrame; state.brush = M.identity(); }
-    var placements = [], ok = true;
-    state.rule.letters.forEach(function (letter) {
-      var grid = gridFor(letter.id);
-      letter.children.forEach(function (child) {
-        var placement = mode === 'square' ? squarePlacement(child.matrix, grid.rows, grid.cols) : trianglePlacement(child.matrix, grid.rows);
-        if (!placement) ok = false; placements.push([child, placement]);
-      });
-    });
-    if (!ok) { notice('At least one child does not lie exactly on that grid. Free mode has kept the rule unchanged.'); return false; }
-    placements.forEach(function (pair) { Object.assign(pair[0], pair[1]); });
-    state.rule.mode = mode; state.selectedId = null; state.editorCamera = null; markEdited(); commit(); return true;
+    // The grid only guides snapping; it never moves a child.
+    state.rule.grid.rows = Math.max(2, Math.min(8, Math.round(rows || 2)));
+    state.rule.grid.cols = Math.max(2, Math.min(8, Math.round(cols || rows)));
   }
 
   function prepareCanvas(canvas) {
@@ -561,22 +483,11 @@
 
   function editorBounds() {
     var points = M.framePolygon(state.rule.frame).slice();
-    if (state.rule.mode === 'free') currentLetter().children.forEach(function (child) {
+    currentLetter().children.forEach(function (child) {
       M.transformedFrame(state.rule.frame, child.matrix).forEach(function (p) { points.push(p); });
     });
     var b = M.bounds(points), pad = Math.max(b.maxX - b.minX, b.maxY - b.minY) * .08;
     return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
-  }
-
-  function drawEditorGrid(ctx, view) {
-    var grid = gridFor(state.currentLetter), i;
-    ctx.strokeStyle = css('--line'); ctx.lineWidth = 1;
-    if (state.rule.mode === 'square') {
-      for (i = 0; i <= grid.cols; i++) { var a = view.point([i / grid.cols, 0]), b = view.point([i / grid.cols, 1]); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
-      for (i = 0; i <= grid.rows; i++) { var c = view.point([0, i / grid.rows]), d = view.point([1, i / grid.rows]); ctx.beginPath(); ctx.moveTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.stroke(); }
-    } else if (state.rule.mode === 'triangle') {
-      M.triangleCells(grid.rows).forEach(function (cell) { path(ctx, cell.vertices.map(view.point, view)); ctx.stroke(); });
-    }
   }
 
   function renderEditor() {
@@ -589,16 +500,15 @@
     var view = state.editorDrag && state.editorView ? state.editorView : makeView(info.width, info.height, cam ? cam.bounds : editorBounds(), 13, cam); state.editorView = view;
     el.editorFit.disabled = !cam;
     var parent = M.framePolygon(state.rule.frame).map(view.point, view);
-    path(ctx, parent); ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1.2; ctx.setLineDash(state.rule.mode === 'free' ? [6, 5] : []); ctx.stroke(); ctx.setLineDash([]);
-    if (state.rule.mode !== 'free') drawEditorGrid(ctx, view);
-    else if (state.snapGrid) drawSnapGrid(ctx, view, info.width, info.height);
+    path(ctx, parent); ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1.2; ctx.setLineDash([6, 5]); ctx.stroke(); ctx.setLineDash([]);
+    if (state.snapGrid) drawSnapGrid(ctx, view, info.width, info.height);
     currentLetter().children.forEach(function (child, index) {
       var selected = child.id === state.selectedId, item = { letter: child.letter, matrix: child.matrix, path: index.toString(36) };
       drawInstance(ctx, item, view, { letterThreshold: 5, lineWidth: selected ? 2.6 : 1.2, stroke: selected ? '#ffffff' : itemColour(item), alpha: selected ? 1 : .83, childName: childName(index) });
     });
     // Handles go on top of every child, so a covered child can still be resized.
     var chosen = selectedChild();
-    if (chosen && state.rule.mode === 'free') drawHandles(ctx, chosen, view);
+    if (chosen) drawHandles(ctx, chosen, view);
   }
 
   function updateAnalysis() {
@@ -826,36 +736,30 @@
 
   function childValues(child) {
     var m = child.matrix;
-    if (state.rule.mode !== 'free') {
-      if (state.rule.mode === 'square') return [child.cell.row + 1, child.cell.col + 1, child.turn || 0, child.flip ? 1 : 0];
-      return [child.cell.i, child.cell.j, child.cell.down ? 'down' : 'up', child.turn || 0, child.flip ? 1 : 0];
-    }
     if (affineTable()) return [m[0], m[1], m[2], m[3], m[4], m[5]];
     var sv = M.singularValues(m), angle = Math.atan2(m[1], m[0]) * 180 / Math.PI;
     return [m[4], m[5], (sv[0] + sv[1]) / 2, angle, M.determinant(m) < 0 ? 1 : 0];
   }
 
-  // Free mode lists x, y, scale, angle and flip while every child of this
+  // The table lists x, y, scale, angle and flip while every child of this
   // parent is a similarity. Once one is stretched or skewed, it lists the
   // six affine values instead.
   function affineTable() {
-    return state.rule.mode === 'free' && currentLetter().children.some(function (child) { return !M.isSimilarity(child.matrix, 1e-6); });
+    return currentLetter().children.some(function (child) { return !M.isSimilarity(child.matrix, 1e-6); });
   }
   function tableHeaders() {
-    if (state.rule.mode === 'square') return ['Parent', 'Row', 'Col', 'Turn', 'Flip'];
-    if (state.rule.mode === 'triangle') return ['Parent', 'i', 'j', 'Point', 'Turn', 'Flip'];
     if (affineTable()) return ['Parent', 'm₁₁', 'm₂₁', 'm₁₂', 'm₂₂', 'x', 'y'];
     return ['Parent', 'x', 'y', 'Scale', 'Angle', 'Flip'];
   }
 
   // The children list, in drawing order: the first child is drawn first, so
   // it sits at the back, and the last sits in front. Drag a row's grip to
-  // reorder. In Free mode the pencil opens a pop-up to set exact values.
+  // reorder. The pencil opens a pop-up to set exact values.
   function renderNumbers() {
-    var headers = tableHeaders(), free = state.rule.mode === 'free';
+    var headers = tableHeaders();
     function header(index) { return headers[index + 1]; }
     el.numbersHead.innerHTML = '<th aria-label="Reorder"></th><th class="whole">Child</th>' + headers.map(function (h, i) {
-      return '<th class="' + (i === 0 || h === 'Flip' || !free ? 'whole' : 'real') + '">' + h + '</th>'; }).join('') + (free ? '<th aria-label="Edit"></th>' : '');
+      return '<th class="' + (i === 0 || h === 'Flip' ? 'whole' : 'real') + '">' + h + '</th>'; }).join('') + '<th aria-label="Edit"></th>';
     el.numbersBody.innerHTML = '';
     el.numbersKind.textContent = 'back to front';
     currentLetter().children.forEach(function (child, index) {
@@ -865,18 +769,16 @@
       var first = document.createElement('td'); first.className = 'child-number'; first.textContent = label(child.letter); first.style.setProperty('--dot', colour(child.letter)); row.appendChild(first);
       childValues(child).forEach(function (value, column) {
         // Real values show three decimals, 0.000 too, so the points line up.
-        // Whole-number fields (cells, turns, flips) stay whole and centred.
-        var cell = document.createElement('td'), whole = typeof value !== 'number' || header(column) === 'Flip' || state.rule.mode !== 'free';
+        // Flip stays a whole number, centred.
+        var cell = document.createElement('td'), whole = typeof value !== 'number' || header(column) === 'Flip';
         cell.className = whole ? 'whole' : 'real';
         cell.textContent = whole ? value : fixed3(value); row.appendChild(cell);
       });
-      if (free) {
-        var editCell = document.createElement('td'), edit = document.createElement('button');
+      var editCell = document.createElement('td'), edit = document.createElement('button');
         edit.type = 'button'; edit.className = 'edit-child'; edit.setAttribute('aria-label', 'Edit child ' + childName(index)); edit.title = 'Edit values';
         edit.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>';
         edit.addEventListener('click', function (event) { event.stopPropagation(); openEditDialog(child); });
-        editCell.appendChild(edit); row.appendChild(editCell);
-      }
+      editCell.appendChild(edit); row.appendChild(editCell);
       row.addEventListener('click', function () {
         if (el.numbersBody.suppressClick) return;
         state.selectedId = child.id; state.focus = 'child'; syncControls(); renderEditor();
@@ -895,7 +797,6 @@
 
   // The edit pop-up changes nothing until OK, and OK is one undo step.
   function openEditDialog(child) {
-    if (state.rule.mode !== 'free') return;
     state.editing = child.id; state.selectedId = child.id; state.focus = 'child'; syncControls(); renderEditor();
     var headers = tableHeaders().slice(1), values = childValues(child), stretch = affineTable();
     el.editTitle.textContent = 'Child ' + childName(currentLetter().children.indexOf(child)) + ' (copy of parent ' + label(child.letter) + ')';
@@ -930,46 +831,36 @@
   }
 
   function syncSelection() {
-    var child = selectedChild(), free = state.rule.mode === 'free', children = currentLetter().children;
+    var child = selectedChild(), children = currentLetter().children;
     el.selectionHeading.textContent = child ? 'Selected child' : 'New child';
     el.selectionName.textContent = child ? childName(children.indexOf(child)) : '';
     el.removeChild.disabled = !child; el.duplicateChild.disabled = !child;
-    el.addChild.hidden = !free;
-    el.flipV.disabled = state.rule.mode === 'triangle';
-    el.flipV.title = state.rule.mode === 'triangle' ? 'Triangle mode has no vertical flip' : 'Flip top to bottom (V)';
     renderChildLetters(); renderBrushPreview();
   }
 
   function syncControls() {
     el.ruleName.textContent = state.demo ? DEMO_NAMES[state.demo] : state.savedName || 'Custom rule';
     el.demo.value = state.demo || '';
-    el.modeRow.querySelectorAll('[data-mode]').forEach(function (button) { var on = button.dataset.mode === state.rule.mode; button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     el.depth.value = state.depth; el.depthValue.textContent = state.depth;
-    var grid = gridFor(state.currentLetter), freeMode = state.rule.mode === 'free', top = freeMode || state.rule.mode === 'square' ? 8 : 5;
+    var grid = snapGridSize();
     [[el.gridRows, grid.rows], [el.gridCols, grid.cols]].forEach(function (pair) {
       pair[0].querySelectorAll('button').forEach(function (button) {
-        var n = Number(button.textContent); button.hidden = n > top;
+        var n = Number(button.textContent);
         button.classList.toggle('active', n === pair[1]); button.setAttribute('aria-pressed', n === pair[1] ? 'true' : 'false');
       });
     });
-    el.snapField.hidden = !freeMode; el.toggleSnap.checked = !!state.snapGrid;
-    el.colsField.hidden = state.rule.mode === 'triangle';
-    el.lockRow.hidden = !freeMode;
+    el.toggleSnap.checked = !!state.snapGrid;
     [['stretch', el.lockStretch, 'Stretch'], ['skew', el.lockSkew, 'Skew']].forEach(function (lock) {
       var on = !!state.locks[lock[0]]; lock[1].setAttribute('aria-pressed', on ? 'true' : 'false');
       lock[1].title = on ? lock[2] + ' is locked: the edge handles cannot ' + lock[0] + '. Click to unlock.' : 'Lock ' + lock[0] + ': the edge handles stop ' + (lock[0] === 'skew' ? 'skewing' : 'stretching') + '.';
     });
     el.colourMode.querySelectorAll('[data-colour]').forEach(function (button) { var on = button.dataset.colour === colourMode(); button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    el.toggleStacking.checked = !!state.rule.toggles.stacking; el.togglePerLetter.checked = !!state.rule.toggles.gridPerLetter;
-    // Stacking and Grid per letter only mean something on a grid.
-    var free = state.rule.mode === 'free';
-    [el.toggleStacking, el.togglePerLetter].forEach(function (input) { input.disabled = free; input.parentNode.title = free ? 'Square and Triangle modes only' : ''; });
     el.toggleHull.setAttribute('aria-pressed', state.showHull ? 'true' : 'false');
     syncLimitControls(); renderLetterControls(); syncSelection(); renderNumbers(); renderPalette();
   }
 
   function commit() {
-    rebuildGridChildren(); updateAnalysis(); syncControls(); renderReadouts(); renderEditor(); renderIterations(); renderMain(); saveAddress();
+    updateAnalysis(); syncControls(); renderReadouts(); renderEditor(); renderIterations(); renderMain(); saveAddress();
     record();
   }
 
@@ -1013,8 +904,7 @@
   // Only the number and its underline turn or reverse inside it. On screen
   // that is a true rotation only for a square or triangle child. Rotate R
   // turns the number clockwise as it looks on screen, so on a flipped child
-  // it turns the other way in the child's own frame. Triangle mode has no
-  // Flip V, because it would turn an upright cell into a downward one.
+  // it turns the other way in the child's own frame.
   function frameCentre() { return state.rule.frame === 'triangle' ? [0.5, M.TRI_H * 2 / 3] : [.5, .5]; }
   function tidy(m) { return m.map(function (v) { var r = Math.round(v * 1e9) / 1e9; return Math.abs(v - r) < 1e-12 ? r : v; }); }
   var LOCAL_FLIP = { flipH: [-1, 0, 0, 1, 1, 0], flipV: [1, 0, 0, -1, 0, 1] };
@@ -1030,29 +920,10 @@
   }
 
   function orient(action) {
-    if (action === 'flipV' && state.rule.mode === 'triangle') return;
     var child = selectedChild();
     if (!child) { state.brush = orientMatrix(state.brush, action); renderBrushPreview(); return; }
-    if (state.rule.mode === 'square') {
-      // A grid child keeps its cell and changes its placement in it.
-      var t = child.turn || 0;
-      if (action === 'rotateRight') t += 1; else if (action === 'rotateLeft') t += 3;
-      else { if (action === 'flipV') t += 2; child.flip = !child.flip; }
-      child.turn = t % 4;
-    } else if (state.rule.mode === 'triangle') {
-      var placed = trianglePlacement(orientMatrix(child.matrix, action), gridFor(state.currentLetter).rows);
-      if (placed) Object.assign(child, placed);
-    } else child.matrix = orientMatrix(child.matrix, action);
+    child.matrix = orientMatrix(child.matrix, action);
     markEdited(); commit();
-  }
-
-  // The orientation of new children, as a grid placement.
-  function brushPlacement() {
-    for (var turn = 0; turn < 4; turn++) for (var flip = 0; flip < 2; flip++) {
-      var m = state.rule.frame === 'triangle' ? (turn < 3 ? M.triangleGridMap(M.triangleCells(1)[0], turn, !!flip, 1) : null) : M.squareOrientation(turn, !!flip);
-      if (m && matrixClose(m, state.brush)) return { turn: turn, flip: !!flip };
-    }
-    return { turn: 0, flip: false };
   }
 
   function newChildId() { return Math.random().toString(36).slice(2, 9); }
@@ -1074,10 +945,9 @@
     return best;
   }
 
-  // Free mode: + adds a half-size child in the middle, or in the first free
+  // + adds a half-size child in the middle, or in the first free
   // corner, with the number and orientation shown in the preview.
   function addFreeChild() {
-    if (state.rule.mode !== 'free') return;
     var c = frameCentre(), spots = [c].concat(M.framePolygon(state.rule.frame).map(function (v) { return [c[0] + (v[0] - c[0]) / 2, c[1] + (v[1] - c[1]) / 2]; }));
     var candidates = spots.map(function (p) { return tidy(M.compose([.5, 0, 0, .5, p[0] - .5 * c[0], p[1] - .5 * c[1]], state.brush)); });
     var child = M.child(brushLetter(), firstFree(candidates));
@@ -1085,48 +955,17 @@
   }
 
   // A duplicate goes beside its original: to the right, or else above, to
-  // the left or below, whichever is free first. In a grid it takes the
-  // nearest free cell, in the same order.
+  // the left or below, whichever is free first.
   function duplicateChild() {
     var source = selectedChild(); if (!source) return;
     var letter = currentLetter(), copy = M.clone(source); copy.id = newChildId();
-    if (state.rule.mode === 'free') {
-      var b = M.bounds(M.transformedFrame(state.rule.frame, source.matrix)), w = b.maxX - b.minX, h = b.maxY - b.minY;
-      copy.matrix = firstFree([[w, 0], [0, -h], [-w, 0], [0, h]].map(function (d) { var m = source.matrix.slice(); m[4] += d[0]; m[5] += d[1]; return m; }), source);
-    } else {
-      var cell = nearestFreeCell(source);
-      if (!cell) { notice('Every cell near this child is taken.'); return; }
-      copy.cell = cell;
-    }
+    var b = M.bounds(M.transformedFrame(state.rule.frame, source.matrix)), w = b.maxX - b.minX, h = b.maxY - b.minY;
+    copy.matrix = firstFree([[w, 0], [0, -h], [-w, 0], [0, h]].map(function (d) { var m = source.matrix.slice(); m[4] += d[0]; m[5] += d[1]; return m; }), source);
     letter.children.splice(letter.children.indexOf(source) + 1, 0, copy);
     state.selectedId = copy.id; state.focus = 'child'; markEdited(); commit();
   }
-  function nearestFreeCell(source) {
-    var grid = gridFor(state.currentLetter), taken = {}, cells = [], from;
-    currentLetter().children.forEach(function (child) { if (child.cell) taken[JSON.stringify(child.cell)] = true; });
-    if (state.rule.mode === 'square') {
-      for (var row = 0; row < grid.rows; row++) for (var col = 0; col < grid.cols; col++) cells.push({ cell: { row: row, col: col }, at: [col, row] });
-      from = [source.cell.col, source.cell.row];
-    } else {
-      M.triangleCells(grid.rows).forEach(function (t) {
-        var c = [(t.vertices[0][0] + t.vertices[1][0] + t.vertices[2][0]) / 3 * grid.rows, (t.vertices[0][1] + t.vertices[1][1] + t.vertices[2][1]) / 3 * grid.rows];
-        cells.push({ cell: { i: t.i, j: t.j, down: t.down }, at: c, down: t.down });
-        if (t.i === source.cell.i && t.j === source.cell.j && t.down === source.cell.down) from = c;
-      });
-    }
-    function rank(item) {
-      var dx = item.at[0] - from[0], dy = item.at[1] - from[1], flat = Math.abs(dy) < .5, upright = Math.abs(dx) < .5;
-      var side = dx > 0 && flat ? 0 : dy < 0 && upright ? 1 : dx < 0 && flat ? 2 : dy > 0 && upright ? 3 : 4;
-      return [item.down === source.cell.down ? 0 : 1, Math.round(Math.hypot(dx, dy) * 100), side];
-    }
-    var free = cells.filter(function (item) { return !taken[JSON.stringify(item.cell)]; });
-    free.sort(function (a, b) { var ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1] || ra[2] - rb[2]; });
-    return free.length ? free[0].cell : null;
-  }
-
   function addLetter() {
     var id = M.nextId(state.rule); state.rule.letters.push({ id: id, children: [] });
-    if (state.rule.toggles.gridPerLetter) state.rule.grid.perLetter[id] = { rows: state.rule.grid.rows, cols: state.rule.grid.cols };
     state.currentLetter = id; state.selectedId = null; state.focus = 'parent'; markEdited(); commit();
   }
 
@@ -1167,8 +1006,6 @@
       var next = M.clone(child); next.id = newChildId(); if (child.letter === source.id) next.letter = id; return next;
     }) };
     state.rule.letters.splice(index + 1, 0, copy);
-    var own = state.rule.grid.perLetter && state.rule.grid.perLetter[source.id];
-    if (own) state.rule.grid.perLetter[id] = M.clone(own);
     state.currentLetter = id; state.selectedId = null; state.focus = 'parent'; markEdited(); commit();
     notice('Parent ' + (index + 2) + ' is a copy of parent ' + (index + 1) + '.');
   }
@@ -1225,7 +1062,7 @@
     notice((index >= 0 ? 'Updated “' : 'Saved “') + name + '”.');
   }
   function openEntry(entry) {
-    state.rule = M.clone(entry.rule); state.currentLetter = entry.current;
+    state.rule = normaliseRule(entry.rule); state.currentLetter = entry.current;
     if (!letterById(state.currentLetter)) state.currentLetter = state.rule.letters[0].id;
     state.selectedId = null; state.newLetter = null; state.focus = 'child';
     state.depth = Math.max(0, Math.min(32, entry.level == null ? state.depth : entry.level));
@@ -1290,7 +1127,6 @@
       letter.children = letter.children.filter(function (child) { return child.letter !== id; });
       lost += before - letter.children.length;
     });
-    if (state.rule.grid.perLetter) delete state.rule.grid.perLetter[id];
     state.currentLetter = state.rule.letters[Math.max(0, index - 1)].id;
     if (state.newLetter === id) state.newLetter = null;
     state.selectedId = null; state.focus = 'parent'; markEdited(); commit();
@@ -1322,29 +1158,10 @@
     return null;
   }
 
-  function addGridChild(point) {
-    var letter = currentLetter(), grid = gridFor(letter.id), meta, map;
-    if (state.rule.mode === 'square') {
-      if (point[0] < 0 || point[0] > 1 || point[1] < 0 || point[1] > 1) return;
-      var row = Math.min(grid.rows - 1, Math.floor(point[1] * grid.rows)), col = Math.min(grid.cols - 1, Math.floor(point[0] * grid.cols));
-      var brushed = brushPlacement();
-      meta = { cell: { row: row, col: col }, turn: brushed.turn, flip: brushed.flip, blockRows: 1, blockCols: 1 };
-      map = M.squareGridMap(meta.cell, grid.rows, grid.cols, meta.turn, meta.flip);
-    } else {
-      var cell = M.triangleCells(grid.rows).find(function (item) { return pointInPolygon(point, item.vertices); }); if (!cell) return;
-      var tb = brushPlacement();
-      meta = { cell: { i: cell.i, j: cell.j, down: cell.down }, turn: tb.turn, flip: tb.flip, blockRows: 1, blockCols: 1 };
-      map = M.triangleGridMap(cell, meta.turn, meta.flip, 1);
-    }
-    var occupied = letter.children.find(function (child) { return JSON.stringify(child.cell) === JSON.stringify(meta.cell); });
-    if (occupied && !state.rule.toggles.stacking) { state.selectedId = occupied.id; state.focus = 'child'; syncControls(); renderEditor(); return; }
-    var newChild = M.child(brushLetter(), map, meta); letter.children.push(newChild); state.selectedId = newChild.id; state.focus = 'child'; markEdited(); commit();
-  }
-
   function distance(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
   function dot(a, b) { return a[0] * b[0] + a[1] * b[1]; }
 
-  // Handles in Free mode. The child's own top-right corner turns it and its
+  // Handles. The child's own top-right corner turns it and its
   // bottom-right corner scales it, both about the child's centre (a
   // triangle: its top point turns and its bottom-right point scales). They
   // are the child's own corners, so they move with it as it turns or flips.
@@ -1365,7 +1182,7 @@
     return corners.map(function (p, i) { var q = corners[(i + 1) % corners.length]; return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; });
   }
   function drawSnapGrid(ctx, view, width, height) {
-    var grid = gridFor(state.currentLetter), x0 = -view.x / view.scale, x1 = (width - view.x) / view.scale, y0 = -view.y / view.scale, y1 = (height - view.y) / view.scale, i;
+    var grid = snapGridSize(), x0 = -view.x / view.scale, x1 = (width - view.x) / view.scale, y0 = -view.y / view.scale, y1 = (height - view.y) / view.scale, i;
     // Far out, the grid would be a grey wash, so it thins to every nth line.
     var stepX = Math.max(1, Math.ceil(4 * grid.cols / view.scale)), stepY = Math.max(1, Math.ceil(4 * grid.rows / view.scale));
     ctx.strokeStyle = css('--line'); ctx.lineWidth = 1; ctx.globalAlpha = .7;
@@ -1441,13 +1258,6 @@
     var point = editorPoint(event), pointers = state.editorPointers || (state.editorPointers = {});
     if (Object.keys(pointers).length) { startPan(event, false); return; }
     state.focus = 'child';
-    if (state.rule.mode !== 'free') {
-      var cellHit = findChildAt(point);
-      if (cellHit) { state.selectedId = cellHit.id; syncControls(); renderEditor(); }
-      else if (pointInPolygon(point, M.framePolygon(state.rule.frame))) addGridChild(point);
-      else startPan(event, false);
-      return;
-    }
     var current = selectedChild(), handle = current ? handleAt(point, current) : null, hit;
     if (handle) hit = current;
     else if (current && pointInPolygon(point, M.transformedFrame(state.rule.frame, current.matrix))) hit = current;
@@ -1545,7 +1355,7 @@
     return M.compose(m0, about(l, fixed));
   }
 
-  // Snap grid: in Free mode, a corner that a drag moves snaps to a grid point
+  // Snap grid: a corner that a drag moves snaps to a grid point
   // within SNAP_REACH pixels, and lets go once the pointer moves on. A turn
   // snaps by angle instead. A scale about the centre moves its corner along
   // a line, so that corner snaps onto a grid line, a grid point first.
@@ -1557,7 +1367,7 @@
   }
   function gridPointNear(c, grid) { return [Math.round(c[0] * grid.cols) / grid.cols, Math.round(c[1] * grid.rows) / grid.rows]; }
   function snapScale(drag, m) {
-    var grid = gridFor(state.currentLetter), view = state.editorView, c = M.apply(m, frameCentre());
+    var grid = snapGridSize(), view = state.editorView, c = M.apply(m, frameCentre());
     var corner = M.apply(m, M.framePolygon(state.rule.frame)[drag.handle.index]), v = [corner[0] - c[0], corner[1] - c[1]];
     var best = null, bestScore = Infinity;
     [[0, grid.cols], [1, grid.rows]].forEach(function (pair) {
@@ -1583,7 +1393,7 @@
     M.framePolygon(frame).forEach(add);
     currentLetter().children.forEach(function (child) { if (child !== drag.child) M.transformedFrame(frame, child.matrix).forEach(add); });
     if (state.snapGrid) {
-      var grid = gridFor(state.currentLetter);
+      var grid = snapGridSize();
       mine.forEach(function (c) { add(gridPointNear(c, grid)); });
     }
     var out = m.slice();
@@ -1597,9 +1407,9 @@
     return out;
   }
   function snapToGrid(drag, point, m, shift) {
-    if (!state.snapGrid || state.rule.mode !== 'free' || drag.job === 'rotate') return m;
+    if (!state.snapGrid || drag.job === 'rotate') return m;
     if (drag.job === 'scale' && !(shift && !state.locks.stretch)) return snapScale(drag, m);
-    var grid = gridFor(state.currentLetter), view = state.editorView, corners = M.transformedFrame(state.rule.frame, m);
+    var grid = snapGridSize(), view = state.editorView, corners = M.transformedFrame(state.rule.frame, m);
     var which = movingCorners(drag, corners.length) || corners.map(function (_, i) { return i; });
     var best = null, bestDistance = SNAP_REACH;
     which.forEach(function (i) {
@@ -1759,7 +1569,6 @@
     el.duplicateLetter.addEventListener('click', duplicateLetter);
     makeSortable(el.letterTabs, '.letter-tab', null, 'x', moveLetter);
     makeSortable(el.numbersBody, 'tr', '.grip', 'y', moveChild);
-    el.modeRow.querySelectorAll('[data-mode]').forEach(function (button) { button.addEventListener('click', function () { changeMode(button.dataset.mode); }); });
     el.editForm.addEventListener('submit', function (event) {
       var ok = event.submitter && event.submitter.value === 'ok';
       if (ok && !applyEditDialog()) { event.preventDefault(); notice('Use a number, a fraction such as 1/3, or a root such as √2/2.'); return; }
@@ -1783,14 +1592,12 @@
     el.undo.addEventListener('click', undo); el.redo.addEventListener('click', redo);
     el.undo.title = 'Undo (' + modKey() + 'Z)'; el.redo.title = 'Redo (' + (MAC ? '⇧⌘Z' : 'Ctrl+Y') + ')';
     wireDividers();
-    // Without Stretch the grid stays square, so Rows carries Cols with it.
-    // Choosing a different Cols is what makes a rectangular, Stretch grid.
     function gridButtons(container, onPick) {
       for (var n = 2; n <= 8; n++) { var b = document.createElement('button'); b.type = 'button'; b.textContent = n; container.appendChild(b); }
       container.addEventListener('click', function (event) { var b = event.target.closest('button'); if (b) onPick(Number(b.textContent)); });
     }
-    gridButtons(el.gridRows, function (rows) { var grid = gridFor(state.currentLetter); setGrid(rows, state.rule.toggles.stretch || state.rule.mode === 'free' ? grid.cols : rows); markEdited(); commit(); });
-    gridButtons(el.gridCols, function (cols) { setGrid(gridFor(state.currentLetter).rows, cols); markEdited(); commit(); });
+    gridButtons(el.gridRows, function (rows) { setGrid(rows, snapGridSize().cols); markEdited(); commit(); });
+    gridButtons(el.gridCols, function (cols) { setGrid(snapGridSize().rows, cols); markEdited(); commit(); });
     el.toggleSnap.addEventListener('change', function () { state.snapGrid = el.toggleSnap.checked; renderEditor(); saveAddress(); });
     [['stretch', el.lockStretch], ['skew', el.lockSkew]].forEach(function (lock) {
       lock[1].addEventListener('click', function () { state.locks[lock[0]] = !state.locks[lock[0]]; saveLocks(); syncControls(); renderEditor(); });
@@ -1808,12 +1615,6 @@
     });
     el.depth.addEventListener('input', function () { state.depth = Number(el.depth.value); el.depthValue.textContent = state.depth; state.dragging = true; setCustom(); syncLimitControls(); renderMain(); });
     el.depth.addEventListener('change', function () { state.dragging = false; updateAnalysis(); renderReadouts(); renderMain(); saveAddress(); });
-    [['stacking', el.toggleStacking], ['gridPerLetter', el.togglePerLetter]].forEach(function (pair) {
-      pair[1].addEventListener('change', function () {
-        state.rule.toggles[pair[0]] = pair[1].checked;
-        markEdited(); commit();
-      });
-    });
     el.toggleMenu.addEventListener('click', function () { var open = el.togglePopover.hidden; el.togglePopover.hidden = !open; el.toggleMenu.setAttribute('aria-expanded', open); el.toggleMenu.parentNode.classList.toggle('open', open); });
     document.querySelectorAll('[data-preset]').forEach(function (button) {
       if (button.dataset.preset !== 'custom') button.addEventListener('click', function () { applyPreset(button.dataset.preset); });
@@ -1892,32 +1693,13 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','mode-row','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','cols-field','snap-field','toggle-snap','lock-row','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','build-version','depth','depth-value','toggle-menu','toggle-popover','toggle-stacking','toggle-per-letter','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','toggle-snap','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }
 
-  // The version marker, v{X.Y.Z} ({hash}). This is a static site with no
-  // build step, so the hash is the first four characters of the latest
-  // commit that changed this app, read from GitHub's public API once per
-  // visit. A local copy shows "local". Raise APP_VERSION before each deploy.
-  var APP_VERSION = 'v1.0.0';
-  function showVersion() {
-    var show = function (hash) { el.buildVersion.textContent = APP_VERSION + ' (' + hash + ')'; };
-    if (!/(^|\.)drbuild\.uk$|github\.io$/.test(location.hostname)) { show('local'); return; }
-    try { var kept = sessionStorage.getItem('fractal-build'); if (kept) { show(kept); return; } } catch (error) {}
-    show('…');
-    fetch('https://api.github.com/repos/davidryan59/davidryan59.github.io/commits?path=app/fractal&per_page=1')
-      .then(function (response) { return response.ok ? response.json() : Promise.reject(); })
-      .then(function (list) {
-        var hash = list && list[0] && list[0].sha ? list[0].sha.slice(0, 4) : '?'; show(hash);
-        try { sessionStorage.setItem('fractal-build', hash); } catch (error) {}
-      })
-      .catch(function () { show('?'); });
-  }
-
   function init() {
-    collectElements(); showVersion();
+    collectElements();
     el.maxCopies.max = COPY_VALUES.length - 1; el.minScale.max = SCALE_VALUES.length - 1; el.maxTime.max = TIME_VALUES.length - 1;
     var custom = document.createElement('option'); custom.value = ''; custom.textContent = 'Custom rule'; el.demo.appendChild(custom);
     loadAddress(); Theme.wireThemeToggle();

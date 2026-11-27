@@ -67,59 +67,6 @@
     return compose(box, squareOrientation(turn || 0, !!flip));
   }
 
-  function trianglePoint(i, j, n) {
-    return [0.5 + (j - i) / (2 * n), TRI_H * (i + j) / n];
-  }
-
-  function triangleCells(n) {
-    var cells = [], i, j;
-    for (i = 0; i < n; i++) {
-      for (j = 0; j < n - i; j++) {
-        cells.push({ i: i, j: j, n: n, down: false, vertices: [
-          trianglePoint(i, j, n), trianglePoint(i, j + 1, n), trianglePoint(i + 1, j, n)
-        ] });
-        if (i + j <= n - 2) cells.push({ i: i, j: j, n: n, down: true, vertices: [
-          trianglePoint(i, j + 1, n), trianglePoint(i + 1, j + 1, n), trianglePoint(i + 1, j, n)
-        ] });
-      }
-    }
-    return cells;
-  }
-
-  function affineFromTriangles(source, target) {
-    var sx1 = source[1][0] - source[0][0], sy1 = source[1][1] - source[0][1];
-    var sx2 = source[2][0] - source[0][0], sy2 = source[2][1] - source[0][1];
-    var tx1 = target[1][0] - target[0][0], ty1 = target[1][1] - target[0][1];
-    var tx2 = target[2][0] - target[0][0], ty2 = target[2][1] - target[0][1];
-    var det = sx1 * sy2 - sx2 * sy1;
-    var ia = sy2 / det, ib = -sy1 / det, ic = -sx2 / det, id = sx1 / det;
-    var a = tx1 * ia + tx2 * ib, c = tx1 * ic + tx2 * id;
-    var b = ty1 * ia + ty2 * ib, d = ty1 * ic + ty2 * id;
-    return [a, b, c, d, target[0][0] - a * source[0][0] - c * source[0][1],
-      target[0][1] - b * source[0][0] - d * source[0][1]];
-  }
-
-  function triangleGridMap(cell, turn, flip, block) {
-    var source = framePolygon('triangle');
-    var target = cell.vertices.map(function (p) { return p.slice(); });
-    var scale = Math.max(1, block || 1);
-    if (scale > 1 && cell.n) {
-      target = cell.down ? [
-        trianglePoint(cell.i, cell.j + scale, cell.n),
-        trianglePoint(cell.i + scale, cell.j + scale, cell.n),
-        trianglePoint(cell.i + scale, cell.j, cell.n)
-      ] : [
-        trianglePoint(cell.i, cell.j, cell.n),
-        trianglePoint(cell.i, cell.j + scale, cell.n),
-        trianglePoint(cell.i + scale, cell.j, cell.n)
-      ];
-    }
-    var order = [0, 1, 2], t = ((turn || 0) % 3 + 3) % 3;
-    order = order.map(function (_, k) { return (k + t) % 3; });
-    if (flip) order = [order[0], order[2], order[1]];
-    return affineFromTriangles(source, order.map(function (k) { return target[k]; }));
-  }
-
   function polygonArea(poly) {
     var sum = 0;
     for (var i = 0; i < poly.length; i++) {
@@ -556,32 +503,29 @@
     return Object.assign({ id: Math.random().toString(36).slice(2, 9), letter: letter, matrix: matrix }, extra || {});
   }
 
-  function baseRule(frame, mode, letters) {
-    return {
-      version: 2, frame: frame, mode: mode, grid: { rows: 2, cols: 2, perLetter: {} },
-      toggles: { stretch: false, blocks: false, stacking: false, gridPerLetter: false },
-      letters: letters
-    };
+  // grid is the editor's snap grid; it guides dragging and never moves a child.
+  function baseRule(frame, letters) {
+    return { version: 2, frame: frame, grid: { rows: 2, cols: 2 }, letters: letters };
   }
 
   function demos() {
-    var sieve = baseRule('square', 'free', [{ id: 'p1', children: [
-      child('p1', squareGridMap({ row: 0, col: 0 }, 2, 2), { cell: { row: 0, col: 0 }, turn: 0, flip: false, block: 1 }),
-      child('p1', squareGridMap({ row: 1, col: 0 }, 2, 2), { cell: { row: 1, col: 0 }, turn: 0, flip: false, block: 1 }),
-      child('p1', squareGridMap({ row: 1, col: 1 }, 2, 2), { cell: { row: 1, col: 1 }, turn: 0, flip: false, block: 1 })
+    var sieve = baseRule('square', [{ id: 'p1', children: [
+      child('p1', squareGridMap({ row: 0, col: 0 }, 2, 2)),
+      child('p1', squareGridMap({ row: 1, col: 0 }, 2, 2)),
+      child('p1', squareGridMap({ row: 1, col: 1 }, 2, 2))
     ] }]);
-    var linked = baseRule('square', 'free', [
+    var linked = baseRule('square', [
       { id: 'p1', children: [
-        child('p1', squareGridMap({ row: 1, col: 0 }, 2, 2), { cell: { row: 1, col: 0 }, turn: 0, flip: false, block: 1 }),
-        child('p2', squareGridMap({ row: 1, col: 1 }, 2, 2), { cell: { row: 1, col: 1 }, turn: 0, flip: false, block: 1 })
+        child('p1', squareGridMap({ row: 1, col: 0 }, 2, 2)),
+        child('p2', squareGridMap({ row: 1, col: 1 }, 2, 2))
       ] },
       { id: 'p2', children: [
-        child('p1', squareGridMap({ row: 0, col: 0 }, 2, 2, 1), { cell: { row: 0, col: 0 }, turn: 1, flip: false, block: 1 }),
-        child('p2', squareGridMap({ row: 1, col: 0 }, 2, 2, 3), { cell: { row: 1, col: 0 }, turn: 3, flip: false, block: 1 }),
-        child('p2', squareGridMap({ row: 1, col: 1 }, 2, 2, 2), { cell: { row: 1, col: 1 }, turn: 2, flip: false, block: 1 })
+        child('p1', squareGridMap({ row: 0, col: 0 }, 2, 2, 1)),
+        child('p2', squareGridMap({ row: 1, col: 0 }, 2, 2, 3)),
+        child('p2', squareGridMap({ row: 1, col: 1 }, 2, 2, 2))
       ] }
     ]);
-    var free = baseRule('square', 'free', [{ id: 'p1', children: [
+    var free = baseRule('square', [{ id: 'p1', children: [
       child('p1', [0.64, 0.22, -0.22, 0.64, 0.18, -0.03]),
       child('p1', [0.36, -0.18, 0.18, 0.36, 0.56, 0.43]),
       child('p1', [-0.25, 0.08, 0.08, 0.25, 0.38, 0.71])
@@ -600,7 +544,6 @@
     compose: compose, apply: apply, determinant: determinant, singularValues: singularValues,
     isSimilarity: isSimilarity, framePolygon: framePolygon, transformedFrame: transformedFrame,
     squareOrientation: squareOrientation, squareGridMap: squareGridMap,
-    triangleCells: triangleCells, triangleGridMap: triangleGridMap, affineFromTriangles: affineFromTriangles,
     polygonArea: polygonArea, convexHull: convexHull, intersectionArea: intersectionArea,
     enumerate: enumerate, expand: expand, spectralRadius: spectralRadius, similarityDimension: similarityDimension,
     affinityDimension: affinityDimension, status: status, growthBounds: growthBounds, eigenRadius: eigenRadius, bounds: bounds, boxDimension: boxDimension,

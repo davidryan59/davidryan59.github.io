@@ -46,10 +46,9 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   equal(await page.locator('#status-badge').textContent(), 'Converges', 'Sieve converges');
   equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'Sieve formula');
   check(/^\d\.\d\d$/.test(await page.locator('#box-dimension').textContent()), 'box count shows two decimals');
-  equal(await page.locator('#build-version').textContent(), 'v1.0.0 (local)', 'a local copy shows its version as local');
   check(Math.abs(Number(await page.locator('#dimension-value').textContent()) - Math.log(3) / Math.log(2)) < 0.001, 'Sieve dimension');
   equal(await rows(), 3, 'Sieve has three children');
-  equal(await page.locator('[data-mode].active').textContent(), 'Free', 'Free mode is the default');
+  equal(await page.locator('#mode-row, [data-mode]').count(), 0, 'Free is the only mode, so there is no mode row');
   equal(await page.locator('#selection-heading').textContent(), 'New child', 'nothing selected at start');
   await page.click('#toggle-menu');
   check(await page.locator('[data-preset="balanced"]').evaluate(button => button.classList.contains('active')), 'Balanced preset active');
@@ -74,7 +73,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('[data-colour="top"]');
   check((await page.url()).includes('#rule='), 'the colour mode goes in the address');
   await page.click('[data-colour="order"]');
-  check(await page.locator('#toggle-stacking').isDisabled(), 'Stacking is greyed out in Free mode');
+  equal(await page.locator('#toggle-stacking, #toggle-per-letter').count(), 0, 'Stacking and Grid per letter are gone');
   await page.click('#toggle-menu');
 
   // Drag between two editor points, in frame units.
@@ -294,11 +293,6 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   console.log('Duplicated, removed and reordered parents.');
 
   equal(await page.locator('#demo option[value^="blank"]').count(), 0, 'the blank square and triangle demos are gone');
-  equal(await page.locator('[data-mode="triangle"]').getAttribute('title'), 'Coming soon', 'Triangle says coming soon');
-  await page.click('[data-mode="triangle"]', { force: true });
-  equal(await page.locator('[data-mode].active').textContent(), 'Free', 'greyed Triangle leaves the rule in Free mode');
-  await page.click('[data-mode="square"]', { force: true });
-  equal(await page.locator('[data-mode].active').textContent(), 'Free', 'greyed Square leaves the rule in Free mode');
 
   await page.selectOption('#demo', 'free');
   console.log('Opened Free demo.');
@@ -319,8 +313,22 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   restored.setDefaultTimeout(8000);
   await restored.goto(await page.url(), { waitUntil: 'domcontentloaded' });
   equal(await restored.locator('#letter-tabs button').count(), 2, 'the address restores the parents');
-  equal(await restored.locator('[data-mode].active').textContent(), 'Free', 'the address restores the mode');
   await restored.close();
+
+  // An address saved while Square mode existed still opens, as a Free rule.
+  const oldRule = { version: 2, frame: 'square', mode: 'square', grid: { rows: 2, cols: 2, perLetter: {} },
+    toggles: { stretch: false, blocks: false, stacking: false, gridPerLetter: false },
+    letters: [{ id: 'p1', children: [
+      { id: 'a', letter: 'p1', matrix: [0.5, 0, 0, 0.5, 0, 0], cell: { row: 0, col: 0 }, turn: 0, flip: false, block: 1 },
+      { id: 'b', letter: 'p1', matrix: [0.5, 0, 0, 0.5, 0.5, 0.5], cell: { row: 1, col: 1 }, turn: 0, flip: false, block: 1 }
+    ] }] };
+  const old = await browser.newPage({ viewport: { width: 900, height: 700 } });
+  old.setDefaultTimeout(8000);
+  await old.goto(url.split('#')[0] + '#rule=' + Buffer.from(JSON.stringify({ rule: oldRule })).toString('base64url'), { waitUntil: 'domcontentloaded' });
+  equal(await old.locator('#numbers-body tr').count(), 2, 'an old Square-mode address opens with its children');
+  equal(await old.locator('#numbers-body .edit-child').count(), 2, 'its children edit as Free children');
+  check(!Buffer.from(old.url().split('#rule=')[1] || '', 'base64url').toString().includes('"mode"'), 'the rewritten address drops the mode');
+  await old.close();
 
   const phone = await browser.newPage({ viewport: { width: 393, height: 659 }, hasTouch: true, isMobile: true });
   phone.setDefaultTimeout(8000);
