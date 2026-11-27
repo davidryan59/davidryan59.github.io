@@ -166,8 +166,8 @@ about 30 to 45 ms against 20 to 30 ms level by level, and drawing them
 takes several times longer, so a frame costs about 10% more.
 
 The iteration strip shows levels zero through four. The main view expands the
-selected starting letter to the chosen depth. It stops expanding after 60,000
-frames, so a large branching rule stays responsive. During a child drag or a
+selected parent to the chosen depth, unless Maximum copies, Minimum scale or
+Frame time stops it first, so a large branching rule stays responsive. During a child drag or a
 Iterations drag it draws within 12 ms a frame, at most 200,000 copies, then
 draws in full on release. Drag frames learn their own time per copy, apart
 from full frames. Pointer moves are merged so each screen frame draws once.
