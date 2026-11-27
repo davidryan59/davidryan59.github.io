@@ -17,7 +17,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   page.setDefaultTimeout(8000);
   await page.route('**/*', route => {
     const target = new URL(route.request().url());
-    if (target.hostname === '127.0.0.1' || target.hostname === 'localhost') route.continue();
+    if (target.protocol === 'file:' || target.hostname === '127.0.0.1' || target.hostname === 'localhost') route.continue();
     else route.abort();
   });
   const errors = [];
@@ -61,11 +61,9 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.locator('#depth').evaluate(input => { input.value = 32; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); });
   check((await page.locator('#instance-count').textContent()).includes('limit'), '32 iterations stops at a limit');
   const slide = (id, end) => page.locator(id).evaluate((input, end) => { input.value = end === 'max' ? input.max : input.min; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); }, end);
-  await page.click('#advanced-limits summary');
   await slide('#max-copies', 'max'); await slide('#min-scale', 'max'); await slide('#max-time', 'min');
   await slide('#max-time', 'min');
   check((await page.locator('#instance-count').textContent()).includes('time limit'), 'a low frame time stops the drawing');
-  await page.click('#advanced-limits summary');
   await page.click('[data-preset="balanced"]');
   check(await page.locator('[data-colour="order"]').evaluate(button => button.classList.contains('active')), 'Order is the default colour mode');
   equal(await page.locator('[data-colour]').first().textContent(), 'Order', 'Order is the first colour button');
@@ -147,6 +145,23 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   cells = await cellsOf();
   check(near(cells[3], 0) && near(cells[4], 0.5) && near(cells[5], -0.75) && near(cells[6], 0) && near(cells[7], 0.75) && near(cells[8], 0),
     'Rotate R keeps the rectangle in place: ' + cells.join(' '));
+  // The dice reorient each child inside its own outline. Shift-click turns
+  // only, so the determinant keeps its sign. One Undo reverses a randomise.
+  const outline = c => [[0, 0], [1, 0], [0, 1], [1, 1]].map(([x, y]) => [c[3] * x + c[5] * y + c[7], c[4] * x + c[6] * y + c[8]].map(v => Math.round(v * 1000) / 1000 + 0).join(',')).sort().join(' ');
+  const det = c => Math.sign(c[3] * c[6] - c[4] * c[5]);
+  const diceStart = (await cellsOf()).map(Number), turnedRow = await firstRow();
+  for (const [button, shift] of [['#randomise-parent', false], ['#randomise-parent', true], ['#randomise-all', false], ['#randomise-all', true]]) {
+    for (let i = 0; i < 6; i++) {
+      await page.click(button, shift ? { modifiers: ['Shift'] } : undefined);
+      const after = (await cellsOf()).map(Number);
+      equal(outline(after), outline(diceStart), button + ' keeps the outline in place');
+      if (shift) equal(det(after), det(diceStart), button + ' with Shift does not flip');
+      await page.click('#undo');
+      equal(await firstRow(), turnedRow, 'one Undo reverses ' + button);
+    }
+  }
+  check(/8 orientations/.test(await page.locator('#randomise-parent').getAttribute('title')), 'the dice tooltip explains the square choices');
+  console.log('Randomised orientations.');
   await page.click('#undo');
   await page.click('#undo');
   await drag([0.5, 0.25], [0.5, 0.4]);
@@ -162,20 +177,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.waitForTimeout(50);
   equal(await page.locator('#numbers-head th').count(), 9, 'a skew dragged back near zero holds at zero');
   if (!(await page.locator('#undo').isDisabled())) await page.click('#undo');
-  // With Skew locked, an edge handle only stretches, whichever way it moves.
-  await page.click('#lock-skew');
-  equal(await page.locator('#lock-skew').getAttribute('aria-pressed'), 'true', 'Skew locks');
-  await drag([0.5, 0.25], [0.5, 0.4]);
-  cells = await cellsOf();
-  check(cells.length === 9 || near(cells[4], 0), 'with Skew locked, the edge only stretches: ' + cells.join(' '));
-  if (!(await page.locator('#undo').isDisabled())) await page.click('#undo');
-  await page.click('#lock-stretch');
-  const lockedBefore = await firstRow();
-  await drag([0.47, 0.25], [0.57, 0.25]);
-  const lockedAfter = await firstRow(); check(lockedAfter !== lockedBefore && (await page.locator('#numbers-head th').count()) === 9, 'with both locked, an edge press moves the child: ' + lockedBefore + ' / ' + lockedAfter + ' / ' + await selection());
-  await page.click('#undo');
-  await page.click('#lock-stretch'); await page.click('#lock-skew');
-  console.log('Stretched, skewed and locked the edges.');
+  console.log('Stretched and skewed the edges.');
 
   // Editor view: the wheel zooms, empty space pans, and Fit restores.
   const editorCanvas = await page.locator('#rule-editor').boundingBox();
@@ -291,6 +293,18 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.locator('#letter-tabs button').last().click();
   equal(await rows(), 2, 'the moved parent keeps its children under its new number');
   console.log('Duplicated, removed and reordered parents.');
+  // With several parents, the dice also pick each child's parent at random.
+  const parentsSeen = new Set(), linkedRow = await firstRow(), linkedTab = await activeTab();
+  for (let i = 0; i < 12; i++) {
+    await page.click('#randomise-all');
+    (await page.locator('#numbers-body td.child-number').allTextContents()).forEach(text => parentsSeen.add(text));
+    await page.click('#undo');
+  }
+  // Undo also returns to the parent edited when the step was saved.
+  await page.locator('#letter-tabs button', { hasText: linkedTab }).click();
+  equal(await firstRow(), linkedRow, 'Undo reverses each linked roll');
+  check(parentsSeen.size >= 2, 'the dice pick children\'s parents at random: ' + [...parentsSeen].join(' '));
+  console.log('Randomised parents.');
 
   equal(await page.locator('#demo option[value^="blank"]').count(), 0, 'the blank square and triangle demos are gone');
 
@@ -342,7 +356,8 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('#toggle-menu');
   equal(await page.locator('#toggle-stretch').count(), 0, 'Options has no Stretch switch');
   equal(await page.locator('#numbers-head th').count(), 9, 'similar children show x, y, scale, angle and flip');
-  await page.click('#advanced-limits summary');
+  check(await page.locator('#max-copies').isVisible(), 'Options shows the copy limit without a fold');
+  check(!(await page.locator('#min-depth').isVisible()), 'Advanced folds away Minimum iterations');
   await page.locator('#max-copies').fill('0');
   equal(await page.locator('#max-copies-value').textContent(), '1', 'copy limit of 1');
   check((await page.locator('#instance-count').textContent()).includes('copy limit'), 'copy limit is named');

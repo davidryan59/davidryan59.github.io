@@ -29,13 +29,6 @@
   var TIME_VALUES = logStops(2000);
   // Separate thousands only from 10,000 up: 1000 and 9999, then 10,000.
   function count(n) { return Math.abs(n) >= 10000 ? Math.round(n).toLocaleString('en-GB') : String(Math.round(n)); }
-  // The Stretch and Skew locks are a per-viewer preference, kept in local
-  // storage when allowed. A locked job loses its edge handles.
-  function readLocks() {
-    try { var saved = JSON.parse(localStorage.getItem('fractal-locks') || 'null'); if (saved) return { stretch: !!saved.stretch, skew: !!saved.skew }; } catch (error) {}
-    return { stretch: false, skew: false };
-  }
-  function saveLocks() { try { localStorage.setItem('fractal-locks', JSON.stringify(state.locks)); } catch (error) {} }
   // While a child or the Iterations slider is dragged, the main view draws
   // within this time, at most this many copies, then draws in full on
   // release. 12 ms keeps a drag at 60 frames a second with the editor drawn
@@ -58,7 +51,7 @@
     // currentLetter is the parent being edited, and also the one the views draw.
     // focus says what Backspace and Cmd+D act on: a 'child' or the 'parent'.
     rule: M.clone(demos.sieve), demo: 'sieve', currentLetter: 'p1', selectedId: null, focus: 'child',
-    brush: M.identity(), newLetter: null, snapGrid: false, locks: readLocks(), editorCamera: null,
+    brush: M.identity(), newLetter: null, snapGrid: false, editorCamera: null,
     depth: 7, showHull: true, camera: { zoom: 1, x: 0, y: 0 }, dragging: false,
     limits: Object.assign({}, PRESETS.balanced), preset: 'balanced', colourMode: null,
     analysis: null, editorView: null, noticeTimer: null
@@ -866,10 +859,10 @@
       });
     });
     el.toggleSnap.checked = !!state.snapGrid;
-    [['stretch', el.lockStretch, 'Stretch'], ['skew', el.lockSkew, 'Skew']].forEach(function (lock) {
-      var on = !!state.locks[lock[0]]; lock[1].setAttribute('aria-pressed', on ? 'true' : 'false');
-      lock[1].title = on ? lock[2] + ' is locked: the edge handles cannot ' + lock[0] + '. Click to unlock.' : 'Lock ' + lock[0] + ': the edge handles stop ' + (lock[0] === 'skew' ? 'skewing' : 'stretching') + '.';
-    });
+    var all = triangle ? 6 : 8, turns = triangle ? 3 : 4, how = 'Each child copies a random parent and takes a random orientation inside its outline. Click: any of the ' + all + ' orientations. Shift-click: turns only, ' + turns + ' orientations, so a flipped child stays flipped.';
+    el.randomiseAll.title = 'Randomise every child of every parent. ' + how;
+    el.randomiseParent.title = 'Randomise every child of this parent. ' + how;
+    el.randomiseAll.disabled = !allChildren().length; el.randomiseParent.disabled = !currentLetter().children.length;
     el.colourMode.querySelectorAll('[data-colour]').forEach(function (button) { var on = button.dataset.colour === colourMode(); button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     el.toggleHull.setAttribute('aria-pressed', state.showHull ? 'true' : 'false');
     syncLimitControls(); renderLetterControls(); syncSelection(); renderNumbers(); renderPalette();
@@ -941,6 +934,35 @@
     var q = state.rule.frame === 'triangle' ? Math.PI * 2 / 3 : Math.PI / 2, c = Math.cos(q), s = Math.sin(q);
     var clockwise = (action === 'rotateRight') !== (M.determinant(matrix) < 0);
     return tidy(M.compose(matrix, about(clockwise ? [c, s, -s, c] : [c, -s, s, c], frameCentre())));
+  }
+
+  // Randomise reorients a child inside its own outline, as the orientation
+  // buttons do, so a stretched or skewed child keeps its place and shape.
+  // Turns and Flip H reach every orientation: 8 on a square, 6 on a
+  // triangle. Without flips, only the 4 or 3 turns.
+  function randomOrientation(matrix, flips) {
+    var turns = state.rule.frame === 'triangle' ? 3 : 4;
+    if (flips && Math.random() < .5) matrix = orientMatrix(matrix, 'flipH');
+    for (var i = Math.floor(Math.random() * turns); i > 0; i--) matrix = orientMatrix(matrix, 'rotateRight');
+    return matrix;
+  }
+  // Each child also copies a parent picked at random from all the parents,
+  // so a linked system can lose links: that is part of the roll. A roll
+  // that leaves every child as it was rolls again, so each click changes
+  // something.
+  function randomise(letters, flips) {
+    var children = letters.reduce(function (out, letter) { return out.concat(letter.children); }, []);
+    if (!children.length) return;
+    var ids = state.rule.letters.map(function (letter) { return letter.id; });
+    var key = function (matrix, id) { return id + ':' + matrix.join(); };
+    var before = children.map(function (child) { return key(child.matrix, child.letter); });
+    for (var tries = 0; tries < 50; tries++) {
+      var after = children.map(function (child) { return { matrix: randomOrientation(child.matrix, flips), letter: ids[Math.floor(Math.random() * ids.length)] }; });
+      if (after.some(function (next, i) { return key(next.matrix, next.letter) !== before[i]; })) {
+        children.forEach(function (child, i) { child.matrix = after[i].matrix; child.letter = after[i].letter; });
+        markEdited(); commit(); return;
+      }
+    }
   }
 
   function orient(action) {
@@ -1230,11 +1252,9 @@
   // Shift on the scale corner stretches both ways. Each edge has one handle
   // at its middle. The first few pixels of a drag pick its job: across the
   // edge stretches, along the edge skews, and the job holds for that drag.
-  // The Stretch and Skew locks remove those jobs. Each handle catches the
-  // pointer a little beyond its drawn size, less on a small child.
+  // Each handle catches the pointer a little beyond its drawn size, less on a small child.
   var KNOB = 7.5, KNOB_REACH = 11, EDGE_REACH = 8, JOB_PIXELS = 4;
   function cornerRoles() { return state.rule.frame === 'triangle' ? { rotate: 0, scale: 1 } : { rotate: 1, scale: 2 }; }
-  function edgesOn() { return !(state.locks.stretch && state.locks.skew); }
   function shortestEdge(corners) {
     var shortest = Infinity;
     for (var i = 0; i < corners.length; i++) shortest = Math.min(shortest, distance(corners[i], corners[(i + 1) % corners.length]));
@@ -1300,7 +1320,7 @@
   function drawHandles(ctx, child, view) {
     var corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view), roles = cornerRoles();
     var centre = view.point(M.apply(child.matrix, frameCentre()));
-    if (edgesOn()) corners.forEach(function (p, i) { drawEdgeHandle(ctx, p, corners[(i + 1) % corners.length]); });
+    corners.forEach(function (p, i) { drawEdgeHandle(ctx, p, corners[(i + 1) % corners.length]); });
     drawScaleKnob(ctx, corners[roles.scale], centre);
     drawRotateKnob(ctx, corners[roles.rotate]);
   }
@@ -1314,7 +1334,7 @@
     var knobReach = Math.max(4, Math.min(KNOB_REACH, shortest / 3));
     consider('rotate', roles.rotate, corners[roles.rotate], knobReach);
     consider('scale', roles.scale, corners[roles.scale], knobReach);
-    if (edgesOn()) edgePoints(corners).forEach(function (mid, i) { consider('edge', i, mid, Math.max(3, Math.min(EDGE_REACH, shortest / 4))); });
+    edgePoints(corners).forEach(function (mid, i) { consider('edge', i, mid, Math.max(3, Math.min(EDGE_REACH, shortest / 4))); });
     return best;
   }
 
@@ -1333,7 +1353,7 @@
     else hit = findChildAt(point);
     if (!hit) { startPan(event, true); return; }
     state.selectedId = hit.id; syncControls(); renderEditor();
-    var job = !handle ? 'move' : handle.type !== 'edge' ? handle.type : state.locks.stretch ? 'skew' : state.locks.skew ? 'stretch' : null;
+    var job = !handle ? 'move' : handle.type !== 'edge' ? handle.type : null;
     state.editorDrag = { pointer: event.pointerId, child: hit, start: point, pixel: [event.clientX, event.clientY], matrix: hit.matrix.slice(),
       handle: handle, job: job, mainBounds: state.lastMainBounds, moved: false };
     state.dragging = true; el.ruleEditor.setPointerCapture(event.pointerId); event.preventDefault();
@@ -1383,7 +1403,7 @@
     }
     if (job === 'scale') {
       var q = local[h.index];
-      if (shift && !state.locks.stretch) {
+      if (shift) {
         // Shift: stretch both ways in the child's own frame, about its centre.
         var u = M.apply(invert(m0), point);
         var sx = Math.abs(q[0] - cl[0]) < 1e-9 ? 1 : clampScale((u[0] - cl[0]) / (q[0] - cl[0]));
@@ -1505,7 +1525,7 @@
   }
   function snapToGrid(drag, point, m, shift) {
     if (!state.snapGrid || drag.job === 'rotate') return m;
-    if (drag.job === 'scale' && !(shift && !state.locks.stretch)) return snapScale(drag, m);
+    if (drag.job === 'scale' && !shift) return snapScale(drag, m);
     var lattice = snapLattice(), view = state.editorView, corners = M.transformedFrame(state.rule.frame, m);
     var which = movingCorners(drag, corners.length) || corners.map(function (_, i) { return i; });
     var best = null, bestDistance = SNAP_REACH;
@@ -1652,7 +1672,9 @@
     } else { state.mainDrag = null; el.limit.classList.remove('dragging'); saveAddress(); }
   }
   function zoom(factor, x, y) {
-    state.camera.zoom = Math.max(.05, Math.min(20, state.camera.zoom * factor));
+    // Pan by the zoom actually applied. At a limit that is 1, so the view holds still.
+    var next = Math.max(.05, Math.min(20, state.camera.zoom * factor));
+    factor = next / state.camera.zoom; state.camera.zoom = next;
     if (x != null) { state.camera.x = (state.camera.x - x) * factor + x; state.camera.y = (state.camera.y - y) * factor + y; }
     renderMain(); saveAddress();
   }
@@ -1698,9 +1720,6 @@
     gridButtons(el.gridSide, function (side) { state.rule.grid.side = side; markEdited(); commit(); });
     el.frameShape.querySelectorAll('[data-frame]').forEach(function (button) { button.addEventListener('click', function () { setFrame(button.dataset.frame); }); });
     el.toggleSnap.addEventListener('change', function () { state.snapGrid = el.toggleSnap.checked; renderEditor(); saveAddress(); });
-    [['stretch', el.lockStretch], ['skew', el.lockSkew]].forEach(function (lock) {
-      lock[1].addEventListener('click', function () { state.locks[lock[0]] = !state.locks[lock[0]]; saveLocks(); syncControls(); renderEditor(); });
-    });
     el.editorZoomIn.addEventListener('click', function () { zoomEditor(1.25); });
     el.editorZoomOut.addEventListener('click', function () { zoomEditor(.8); });
     el.editorFit.addEventListener('click', fitEditor);
@@ -1740,6 +1759,8 @@
     el.duplicateChild.title = 'Duplicate (' + modKey() + 'D)';
     el.duplicateChild.addEventListener('click', function () { state.focus = 'child'; duplicateChild(); });
     el.removeChild.addEventListener('click', removeSelected);
+    el.randomiseParent.addEventListener('click', function (event) { randomise([currentLetter()], !event.shiftKey); });
+    el.randomiseAll.addEventListener('click', function (event) { randomise(state.rule.letters, !event.shiftKey); });
     el.ruleEditor.addEventListener('pointerdown', startEditorPointer); el.ruleEditor.addEventListener('pointermove', moveEditorPointer); el.ruleEditor.addEventListener('pointerup', endEditorPointer); el.ruleEditor.addEventListener('pointercancel', endEditorPointer);
     el.limit.addEventListener('pointerdown', startMainPointer); el.limit.addEventListener('pointermove', moveMainPointer); el.limit.addEventListener('pointerup', endMainPointer); el.limit.addEventListener('pointercancel', endMainPointer);
     el.limit.addEventListener('wheel', function (event) { var rect = el.limit.getBoundingClientRect(); zoom(Math.exp(-event.deltaY * .001), event.clientX - rect.left - rect.width / 2, event.clientY - rect.top - rect.height / 2); event.preventDefault(); }, { passive: false });
@@ -1792,7 +1813,7 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','remove-child','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','grid-side','frame-shape','cols-field','rows-field','side-field','toggle-snap','lock-stretch','lock-skew','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','randomise-parent','remove-child','randomise-all','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','grid-side','frame-shape','cols-field','rows-field','side-field','toggle-snap','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }

@@ -88,10 +88,7 @@ first 4 pixels of a drag pick its job, which then holds: across the edge
 stretches one way, with the opposite edge fixed (a triangle: the opposite
 corner), and along the edge skews it. Zero skew holds within 6 pixels: the
 point where the dragged edge stands square to the line from the fixed side,
-so a square child's corners are right angles again. The Stretch and Skew buttons under
-Rotate L and Rotate R lock those jobs; a locked job loses its handles, and
-with both locked the edges have none. The locks are kept in the browser key
-`fractal-locks`. Together the handles reach every affine map: move, turn,
+so a square child's corners are right angles again. Together the handles reach every affine map: move, turn,
 scale, stretch and skew. The knobs catch the pointer within 11 pixels and
 the edge bars within 8, or less on a small child. A press on the selected
 child or its handles keeps it, even under another child; otherwise a press
@@ -106,7 +103,7 @@ again. A click on empty space without a drag deselects. The line under the
 editor sets its height, kept with the panel widths in `fractal-panels`;
 a double-click resets it. Each canvas redraws when its own box changes size,
 so dragging a panel line zooms the picture and never stretches it. The strip above the editor holds the view buttons
-on the left and the child buttons (add, duplicate and remove) on the right.
+on the left and the child buttons (add, duplicate, randomise and remove) on the right.
 
 Snap corners, in Options, draws the snap grid across the editor. The grid
 follows the frame: Cols by Rows (2 to 8 each) on a square, and Per side (2 to
@@ -136,7 +133,17 @@ child's frame. Each child has a letter, A, B, C
 and on, from its place in its parent's list. The letter sits at the child's
 top left (a triangle: its bottom-left corner, off the centre line, so Flip H
 shows) and relabels when the list is reordered. With no child selected they set the orientation of new children,
-shown in the preview beside the panel heading. A duplicate goes to the right
+shown in the preview beside the panel heading. The dice between Duplicate and Remove randomises the
+orientation of every child of the current parent. The dice in the parent row
+does the same for every child of every parent. Each child also copies a
+parent picked at random from all the parents, so a linked system can lose
+some of its links; that is part of the roll. A click picks one of all the
+frame's orientations, 8 on a square or 6 on a triangle: a random number of
+Rotate R steps, after a Flip H half the time. Shift-click leaves out the flip,
+so it picks one of the 4 or 3 turns and a flipped child stays flipped. Each
+child keeps its outline, as with the orientation buttons, and one Undo
+reverses the whole randomise. A roll that changes nothing rolls again. Each
+dice says this in its tooltip. A duplicate goes to the right
 of its original, or else above, left or below, whichever is free first. A duplicated parent goes after the original, and
 its children that copied the original copy the duplicate. Removing a parent
 removes every child that copied it.
@@ -297,12 +304,12 @@ copies.
 | Analysis depth | 5 | 7 | 9 |
 | Hull refinement | 16 | 32 | 64 steps |
 
-Advanced holds Maximum copies, Minimum scale and Frame time. A fourth level
-inside it, Technical, holds Minimum iterations, Analysis depth and Hull
-refinement, which most visitors never need. Each control has a tooltip.
+Maximum copies, Minimum scale and Frame time sit under the presets, in view
+whenever Options is open. Below them, Advanced folds away Minimum iterations,
+Analysis depth and Hull refinement, which most visitors never need. Each control has a tooltip.
 Maximum copies, minimum scale, and frame time use logarithmic stepped
 sliders. Iteration depths use linear
-sliders. Hull refinement uses a select. Changing one advanced value marks the
+sliders. Hull refinement uses a select. Changing one of these values marks the
 settings Custom. Selecting a preset restores all seven values.
 
 The selectable ranges are 1 to 500,000 copies, minimum scales from 1/1 to

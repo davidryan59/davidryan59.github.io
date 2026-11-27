@@ -68,6 +68,7 @@
         <button id="parent-colour" class="small-button letter-step icon-step colour-step" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="colour-picker"><span class="swatch"></span></button>
         <button id="add-letter" class="small-button letter-step" type="button" title="Add a parent" aria-label="Add a parent">+</button>
         <button id="duplicate-letter" class="small-button letter-step icon-step" type="button" aria-label="Duplicate this parent"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+        <button id="randomise-all" class="small-button letter-step icon-step" type="button" aria-label="Randomise the orientation of every child of every parent"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><g style="fill:currentColor;stroke:none"><circle cx="8.2" cy="8.2" r="1.35"/><circle cx="15.8" cy="8.2" r="1.35"/><circle cx="12" cy="12" r="1.35"/><circle cx="8.2" cy="15.8" r="1.35"/><circle cx="15.8" cy="15.8" r="1.35"/></g></svg></button>
         <button id="remove-letter" class="small-button letter-step icon-step danger" type="button" title="Remove this parent" aria-label="Remove this parent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5.5M14 11v5.5"/></svg></button>
       </div>
       <div id="colour-picker" class="colour-picker" role="dialog" aria-label="Parent colour" hidden>
@@ -89,6 +90,7 @@
         <div class="editor-children" role="group" aria-label="Children">
           <button id="add-child" type="button" title="Add a child" aria-label="Add a child"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           <button id="duplicate-child" type="button" aria-label="Duplicate the child"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+          <button id="randomise-parent" type="button" aria-label="Randomise the orientation of every child of this parent"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><g style="fill:currentColor;stroke:none"><circle cx="8.2" cy="8.2" r="1.35"/><circle cx="15.8" cy="8.2" r="1.35"/><circle cx="12" cy="12" r="1.35"/><circle cx="8.2" cy="15.8" r="1.35"/><circle cx="15.8" cy="15.8" r="1.35"/></g></svg></button>
           <button id="remove-child" class="danger" type="button" title="Remove the child (Backspace)" aria-label="Remove the child" aria-keyshortcuts="Backspace Delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5.5M14 11v5.5"/></svg></button>
         </div>
       </div>
@@ -108,10 +110,6 @@
         <button id="rotate-right" type="button" title="Rotate clockwise (T)" aria-keyshortcuts="T">Ro<u>t</u>ate R</button>
         <button id="flip-h" type="button" title="Flip left to right (H)" aria-keyshortcuts="H">Flip <u>H</u></button>
         <button id="flip-v" type="button" title="Flip top to bottom (V)" aria-keyshortcuts="V">Flip <u>V</u></button>
-      </div>
-      <div id="lock-row" class="button-row orient-row lock-row" role="group" aria-label="Locks for the edge handles">
-        <button id="lock-stretch" type="button" aria-pressed="false"><svg class="lock-open" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/></svg><svg class="lock-shut" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Stretch</button>
-        <button id="lock-skew" type="button" aria-pressed="false"><svg class="lock-open" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/></svg><svg class="lock-shut" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Skew</button>
       </div>
     </section>
 
@@ -171,17 +169,14 @@
               <button type="button" data-preset="detailed">Detailed</button>
               <button type="button" data-preset="custom" disabled>Custom</button>
             </div>
+            <label class="limit-row" title="Stop before the drawing holds more copies than this"><span>Maximum copies <output id="max-copies-value">60,000</output></span><input id="max-copies" type="range" min="0" max="8" step="1" value="5"></label>
+            <label class="limit-row" title="Stop splitting a copy once it is smaller than this, after the minimum iterations"><span>Minimum scale <output id="min-scale-value">1/10,000</output></span><input id="min-scale" type="range" min="0" max="6" step="1" value="3"></label>
+            <label class="limit-row" title="Work out and draw each frame within this time. The app measures how long a copy takes to draw and limits the copies to fit"><span>Frame time <output id="max-time-value">250 ms</output></span><input id="max-time" type="range" min="0" max="8" step="1" value="4"></label>
             <details id="advanced-limits">
               <summary>Advanced</summary>
-              <label class="limit-row" title="Stop before the drawing holds more copies than this"><span>Maximum copies <output id="max-copies-value">60,000</output></span><input id="max-copies" type="range" min="0" max="8" step="1" value="5"></label>
-              <label class="limit-row" title="Stop splitting a copy once it is smaller than this, after the minimum iterations"><span>Minimum scale <output id="min-scale-value">1/10,000</output></span><input id="min-scale" type="range" min="0" max="6" step="1" value="3"></label>
-              <label class="limit-row" title="Work out and draw each frame within this time. The app measures how long a copy takes to draw and limits the copies to fit"><span>Frame time <output id="max-time-value">250 ms</output></span><input id="max-time" type="range" min="0" max="8" step="1" value="4"></label>
-              <details id="technical-limits">
-                <summary>Technical</summary>
-                <label class="limit-row" title="Minimum scale cannot stop splitting before this many iterations"><span>Minimum iterations <output id="min-depth-value">4</output></span><input id="min-depth" type="range" min="0" max="8" step="1" value="4"></label>
-                <label class="limit-row" title="The iterations used for the readouts: box dimension, overlap and the hull. It does not change the drawing"><span>Analysis depth <output id="analysis-depth-value">7</output></span><input id="analysis-depth" type="range" min="4" max="10" step="1" value="7"></label>
-                <label class="limit-select" title="How many rounds refine each parent's hull, the dashed outline round the fractal. More rounds fit it more tightly">Hull refinement<select id="hull-iterations"><option value="8">8 steps</option><option value="16">16 steps</option><option value="32" selected>32 steps</option><option value="64">64 steps</option></select></label>
-              </details>
+              <label class="limit-row" title="Minimum scale cannot stop splitting before this many iterations"><span>Minimum iterations <output id="min-depth-value">4</output></span><input id="min-depth" type="range" min="0" max="8" step="1" value="4"></label>
+              <label class="limit-row" title="The iterations used for the readouts: box dimension, overlap and the hull. It does not change the drawing"><span>Analysis depth <output id="analysis-depth-value">7</output></span><input id="analysis-depth" type="range" min="4" max="10" step="1" value="7"></label>
+              <label class="limit-select" title="How many rounds refine each parent's hull, the dashed outline round the fractal. More rounds fit it more tightly">Hull refinement<select id="hull-iterations"><option value="8">8 steps</option><option value="16">16 steps</option><option value="32" selected>32 steps</option><option value="64">64 steps</option></select></label>
             </details>
           </div>
         </div>
@@ -243,7 +238,7 @@
     </section>
     <details class="help">
       <summary>How to edit</summary>
-      <p>Children: + adds one. Drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew. Stretch and Skew lock those jobs.</p>
+      <p>Children: + adds one. Drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew.</p>
       <p>Options: Frame draws every parent and child as a square or a triangle, and keeps the fractal the same. Snap corners snaps corners to a grid: Cols by Rows on a square, Per side on a triangle.</p>
       <p>Editor view: drag empty space to pan, and use the wheel or a pinch to zoom. Fit shows every child again. Drag the line under the editor to change its height.</p>
       <p>Keys: 1–9 and 0 pick a child's parent, and Shift with a number shows that parent. R and T rotate, H and V flip, Backspace removes, ⌘D or Ctrl+D duplicates, Esc deselects.</p>

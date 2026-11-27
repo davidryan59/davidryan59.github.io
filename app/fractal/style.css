@@ -93,11 +93,14 @@ canvas { display: block; }
 .letter-row .letter-tabs { flex: 1; min-width: 0; }
 .letter-row .letter-step { min-width: 32px; padding: 0 9px; font-size: 1.15rem; font-weight: 600; line-height: 1; }
 .letter-step.icon-step { display: grid; place-items: center; }
+/* Five buttons share the row with the tabs, so they stay narrow: three tabs
+   still fit on one line in the default panel. */
+.letter-row .letter-step:not(.colour-step) { min-width: 26px; padding: 0 4px; }
 .letter-row .danger { color: var(--red); }
 .letter-step svg, .icon-text svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; }
 .small-button:disabled { opacity: .4; cursor: default; }
 .icon-button:disabled { opacity: .35; cursor: default; }
-.letter-row { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 5px; padding: 7px 10px; }
+.letter-row { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 3px; padding: 7px 10px; }
 .letter-tabs { display: flex; flex-wrap: wrap; min-width: 0; gap: 4px; }
 /* Each number button carries its parent's colour: an underline, and a fill when chosen. */
 .letter-tab { min-width: 34px; min-height: 30px; padding: 0 8px; border: 0; background: transparent; box-shadow: inset 0 -3px 0 var(--dot, var(--gold)); font-family: var(--figures); font-size: 1.02rem; font-variant-numeric: lining-nums; }
@@ -137,13 +140,6 @@ td.child-name { font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 
 .button-row .danger { color: var(--red); }
 .orient-row { grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .orient-row button { min-width: 0; padding: 0 3px; font-size: .64rem; white-space: nowrap; }
-.lock-row { margin-top: 4px; }
-.lock-row[hidden] { display: none; }
-.lock-row button { display: flex; align-items: center; justify-content: center; gap: 3px; }
-.lock-row svg { flex: none; width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-.lock-row .lock-shut, .lock-row [aria-pressed="true"] .lock-open { display: none; }
-.lock-row [aria-pressed="true"] .lock-shut { display: block; }
-.lock-row [aria-pressed="true"] { color: var(--muted); border-color: var(--muted); background: color-mix(in srgb, var(--line) 55%, transparent); }
 .table-scroll { max-width: 100%; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: .62rem; }
 th { padding: 4px 2px; color: var(--muted); font-weight: 600; text-align: left; }
