@@ -421,10 +421,30 @@
   // Grows and Cycles have no limit shape, so the views show the first few levels.
   function growing() { return !!state.analysis && /^(Grows|Cycles)$/.test(state.analysis.status.name); }
 
+  // The time limit covers a whole frame: working out the copies and drawing
+  // them. Drawing takes most of it, and its cost is known only afterwards, so
+  // each frame measures its time per copy and the next frame turns the time
+  // limit into a copy limit. The first frame assumes 2 µs a copy.
+  var msPerCopy = .002;
+  function timeCopies(ms) { return Math.max(1, Math.floor(ms / msPerCopy)); }
+  function measureFrame(copies, ms) {
+    if (copies < 200) return;
+    var cost = Math.max(.0002, ms / copies);
+    msPerCopy = msPerCopy * .5 + cost * .5;
+  }
+
   function mainInstances() {
     var depth = state.depth, cap = state.dragging ? Math.min(DRAG_COPIES, state.limits.maxInstances) : state.limits.maxInstances;
-    var options = { maxInstances: cap, maxMs: state.dragging ? Math.min(DRAG_MS, state.limits.maxMs) : state.limits.maxMs,
-      minScale: state.limits.minScale, minDepth: Math.min(state.limits.minDepth, depth) };
+    var maxMs = state.dragging ? Math.min(DRAG_MS, state.limits.maxMs) : state.limits.maxMs;
+    var timeCap = maxMs ? timeCopies(maxMs) : Infinity, byTime = timeCap < cap;
+    if (byTime) cap = timeCap;
+    var items = expandMain(depth, cap, { maxInstances: cap, maxMs: maxMs,
+      minScale: state.limits.minScale, minDepth: Math.min(state.limits.minDepth, depth) });
+    if (byTime && items.stoppedBy === 'copies') items.stoppedBy = 'time';
+    return items;
+  }
+
+  function expandMain(depth, cap, options) {
     if (growing()) {
       var combined = [], reason = null;
       for (var level = Math.max(0, Math.min(depth, 4) - 3); level <= Math.min(depth, 4); level++) {
@@ -450,7 +470,7 @@
       ctx.fillText('Parent ' + label(state.currentLetter) + ' has no children yet.', info.width / 2, info.height / 2);
       el.instanceCount.textContent = ''; return;
     }
-    var instances = mainInstances();
+    var started = performance.now(), instances = mainInstances();
     var b = state.analysis && state.analysis.bounds && state.analysis.status.name === 'Converges' ? state.analysis.bounds : instancesBounds(instances, state.rule.frame);
     // While a child is dragged, the main view keeps the scale it had at the
     // start, so the picture does not jump as the extent changes.
@@ -462,6 +482,7 @@
       drawInstance(ctx, item, view, { letterThreshold: 8, lineWidth: .65, alpha: alpha, clip: [info.width, info.height] });
     });
     if (state.showHull && state.analysis && state.analysis.status.name === 'Converges' && !state.editorDrag) drawHull(ctx, state.analysis.hull, view);
+    measureFrame(instances.length, performance.now() - started);
     var reason = { copies: 'copy limit', time: 'time limit', scale: 'scale limit', iterations: 'iteration limit' }[instances.stoppedBy];
     el.instanceCount.textContent = count(instances.length) + (instances.length === 1 ? ' copy' : ' copies') + (reason ? ' · ' + reason : '');
   }

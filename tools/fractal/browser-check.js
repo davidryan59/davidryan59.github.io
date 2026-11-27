@@ -59,6 +59,12 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check((await page.locator('#instance-count').textContent()).startsWith('1 copy'), '0 iterations draws the parent alone');
   await page.locator('#depth').evaluate(input => { input.value = 20; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); });
   check((await page.locator('#instance-count').textContent()).includes('limit'), '20 iterations stops at a limit');
+  const slide = (id, end) => page.locator(id).evaluate((input, end) => { input.value = end === 'max' ? input.max : input.min; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); }, end);
+  await page.click('#advanced-limits summary');
+  await slide('#max-copies', 'max'); await slide('#min-scale', 'max'); await slide('#max-time', 'min');
+  await slide('#max-time', 'min');
+  check((await page.locator('#instance-count').textContent()).includes('time limit'), 'a low frame time stops the drawing');
+  await page.click('#advanced-limits summary');
   await page.click('[data-preset="balanced"]');
   check(await page.locator('[data-colour="order"]').evaluate(button => button.classList.contains('active')), 'Order is the default colour mode');
   equal(await page.locator('[data-colour]').first().textContent(), 'Order', 'Order is the first colour button');

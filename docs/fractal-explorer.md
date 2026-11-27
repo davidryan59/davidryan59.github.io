@@ -202,9 +202,12 @@ Free placement demonstrates continuous position, angle, scale, and a flip.
 Every expansion stops at the first applicable limit. The stage names that
 limit beside its copy count. No limit is ever passed by work in the
 background: a high Iterations value with a copy limit of 25,000 builds at most
-25,000 copies. Calculation time covers working out the copies, not drawing
-them. Working out 25,000 copies takes about 5 ms, so Maximum copies is the
-limit that sets how long a frame takes to draw. Minimum iterations sets the
+25,000 copies. Frame time covers a whole frame: working out the copies and
+drawing them. Drawing takes most of it: working out 25,000 Dragon copies
+takes about 5 ms, and drawing them about 35 ms. Each frame measures its time
+per copy, and the next frame turns Frame time into a copy limit. A frame
+stopped this way reads "time limit". To keep a view fast, set the other
+limits high and Frame time low, such as 50 ms. Minimum iterations sets the
 fewest iterations before Minimum scale may stop a copy splitting. Analysis
 depth sets the iterations behind the readouts (box dimension, overlap and the
 hull) and does not change the drawing. Minimum scale uses the affine map's largest
@@ -217,17 +220,17 @@ copies.
 | Minimum iterations | 3 | 4 | 5 |
 | Maximum copies | 10,000 | 60,000 | 120,000 |
 | Minimum linear scale | 1/1,000 | 1/10,000 | Unlimited |
-| Calculation time per pass | 100 ms | 250 ms | 1,000 ms |
+| Frame time | 100 ms | 250 ms | 1,000 ms |
 | Analysis depth | 5 | 7 | 9 |
 | Hull refinement | 16 | 32 | 64 steps |
 
 Advanced controls expose every value. Maximum copies, minimum scale, and
-calculation time use logarithmic stepped sliders. Iteration depths use linear
+frame time use logarithmic stepped sliders. Iteration depths use linear
 sliders. Hull refinement uses a select. Changing one advanced value marks the
 settings Custom. Selecting a preset restores all seven values.
 
 The selectable ranges are 1,000 to 250,000 copies, minimum scales from 1/10
-to 1/1,000,000 or Unlimited, and calculation times from 25 to 2,000 ms.
+to 1/1,000,000 or Unlimited, and frame times from 25 to 2,000 ms.
 Iterations run from 0, the parent alone, to 20. These limits and the selected view travel
 with a shared address.
 
