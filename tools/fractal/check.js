@@ -111,6 +111,6 @@ const even = M.expand(lopsided, 'p1', 32, { maxInstances: 20000, maxMs: 0, minSc
 const largest = Math.max.apply(null, even.map(item => M.singularValues(item.matrix)[0]));
 assert(largest < 0.01, 'the largest copy left is under 1% of the frame, not 6% as level by level');
 const paths = M.expand(demos.sieve, 'p1', 3, { maxMs: 0 }).map(item => item.path);
-assert.deepStrictEqual(paths, paths.slice().sort(), 'copies come out in child order, depth first');
+assert.deepStrictEqual(paths.filter(path => path.startsWith('00')), ['000', '001', '002'], 'the children of one split stay in child order');
 
 console.log('Fractal model: 52 checks passed.');

@@ -155,11 +155,15 @@ the copies left are all of a similar size. Level by level, a rule with one
 large and one small child ran out of copies while its slow branch was still
 large: 200,000 copies left one copy at 2.6% of the frame beside copies of
 1/5,000,000. Largest first, the same 200,000 copies all lie between 0.016%
-and 0.15%. Splitting order is not drawing order: the copies come out depth
-first in child order, all of child A's branch, then child B's, so the
-children list still decides which copy sits on top. Every copy made sits in
-one list, and a split copy records where its children start, so the result
-needs no sort. 200,000 copies take about 80 ms to work out.
+and 0.15%. The order is loose on purpose: the band width hardly changes the
+cost (1, 2 or 8 bands per doubling all ran within a few milliseconds), and a
+strict order would gain nothing visible. The copies come out in the order
+they were made, so roughly largest first, with each split's children
+together in child order. Putting the result in strict child order, depth
+first, cost more than the splitting itself, so it was dropped; level by
+level was never in child order either. Working out 200,000 copies takes
+about 30 to 45 ms against 20 to 30 ms level by level, and drawing them
+takes several times longer, so a frame costs about 10% more.
 
 The iteration strip shows levels zero through four. The main view expands the
 selected starting letter to the chosen depth. It stops expanding after 60,000

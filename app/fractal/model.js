@@ -220,9 +220,10 @@
   // vanishes, and the copies left are all of a similar size: a rule with one
   // large and one small child spends its copies where they show.
   //
-  // Splitting order is not drawing order. The result lists copies in child
-  // order, depth first: all of child A's branch, then child B's, at every
-  // level. So the children list still decides which copy sits on top.
+  // The result lists copies in the order they were made, so roughly largest
+  // first, with each split's children together in child order. Putting the
+  // whole result in strict child order, depth first, cost more than the
+  // splitting itself, and only overlapping copies would show the difference.
   function expand(rule, start, depth, options) {
     options = options || {};
     var maxInstances = options.maxInstances || 60000;
@@ -231,9 +232,9 @@
     var minDepth = Math.max(0, options.minDepth || 0);
     var cull = options.cull, started = Date.now(), byId = {};
     rule.letters.forEach(function (letter) { byId[letter.id] = letter; });
-    // Every copy made goes in one list. A split copy records where its
-    // children start in that list and how many there are.
-    var root = { letter: start || rule.letters[0].id, matrix: identity(), path: '', level: 0, scale: 1, k0: -1, kn: 0 }, all = [root];
+    // Every copy made goes in one list, in the order it was made. A split
+    // copy is marked, and the copies left unmarked are the result.
+    var root = { letter: start || rule.letters[0].id, matrix: identity(), path: '', level: 0, scale: 1, split: false }, all = [root];
     // A bucket queue: copies sorted into size bands an eighth of a power of
     // two wide, largest band first, first in first out within a band. This
     // is near enough largest-first, and far cheaper than a full sort.
@@ -260,23 +261,20 @@
       var first = all.length;
       for (var j = 0; j < parent.children.length; j++) {
         var child = parent.children[j];
-        var kid = { letter: child.letter, matrix: compose(node.matrix, child.matrix), path: node.path + j.toString(36), level: node.level + 1, scale: 0, k0: -1, kn: 0 };
+        var kid = { letter: child.letter, matrix: compose(node.matrix, child.matrix), path: node.path + j.toString(36), level: node.level + 1, scale: 0, split: false };
         // A branch wholly off screen is dropped: not drawn, not counted.
         if (cull && cull(kid)) continue;
         kid.scale = singularValues(kid.matrix)[0]; all.push(kid);
       }
       var made = all.length - first;
       if (count - 1 + made > maxInstances) { all.length = first; stoppedBy = 'copies'; break; }
-      pop(); node.k0 = first; node.kn = made; count += made - 1;
+      pop(); node.split = true; count += made - 1;
       for (j = first; j < all.length; j++) push(all[j]);
     }
-    // Collect the unsplit copies in child order.
-    var result = [], stack = [root];
-    while (stack.length) {
-      var next = stack.pop();
-      if (next.k0 >= 0) { for (var k = next.k0 + next.kn - 1; k >= next.k0; k--) stack.push(all[k]); }
-      else result.push(next);
-    }
+    // One pass in the order made: largest first, near enough. Children of
+    // one split sit together in child order.
+    var result = [];
+    for (var k = 0; k < all.length; k++) if (!all[k].split) result.push(all[k]);
     result.stoppedBy = stoppedBy || (hitScale ? 'scale' : hitDepth && depth > minDepth ? 'iterations' : null);
     result.targetDepth = depth;
     return result;
