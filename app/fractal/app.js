@@ -469,11 +469,43 @@
       });
     });
     ctx.restore();
+    var spots = {};
     marks.forEach(function (mark) {
+      var letter = mark[0].letter, spot = spots[letter] || (spots[letter] = markSpot(shapes && shapes[letter], frame));
       ctx.save(); ctx.globalAlpha = mark[2];
       ctx.transform.apply(ctx, view.transform(mark[0].matrix));
-      drawMark(ctx, mark[0].letter, mark[1], state.rule.frame); ctx.restore();
+      if (spot) { ctx.translate(spot.x, spot.y); ctx.scale(spot.k, spot.k); }
+      drawMark(ctx, letter, mark[1], state.rule.frame); ctx.restore();
     });
+  }
+
+  // On a hull, the number moves to the hull's centroid, which lies inside
+  // any convex shape. It shrinks when the hull's nearest edge is closer to
+  // the centroid than the frame's edges are to the frame's centre. The
+  // result is a shift and a scale, in the frame's own coordinates, applied
+  // before drawMark, whose own centre sits slightly off the origin.
+  function markSpot(hull, frame) {
+    if (!hull || hull.length < 3) return null;
+    var a = 0, cx = 0, cy = 0, n = hull.length, k;
+    for (k = 0; k < n; k++) {
+      var p = hull[k], q = hull[(k + 1) % n], c = p[0] * q[1] - q[0] * p[1];
+      a += c; cx += (p[0] + q[0]) * c; cy += (p[1] + q[1]) * c;
+    }
+    if (Math.abs(a) < 1e-12) return null;
+    cx /= 3 * a; cy /= 3 * a;
+    function edgeGap(poly, x, y) {
+      var gap = Infinity;
+      for (var i = 0; i < poly.length; i++) {
+        var p = poly[i], q = poly[(i + 1) % poly.length], dx = q[0] - p[0], dy = q[1] - p[1], len = Math.hypot(dx, dy);
+        if (len > 1e-12) gap = Math.min(gap, Math.abs((x - p[0]) * dy - (y - p[1]) * dx) / len);
+      }
+      return gap;
+    }
+    var tri = state.rule.frame === 'triangle', own = tri ? M.TRI_H / 15 : .02;
+    var scale = Math.min(1, edgeGap(hull, cx, cy) / edgeGap(frame, 0, 0));
+    // drawMark centres the number at (0, own) with y up, so shift by the
+    // scaled offset to land it on the centroid.
+    return { x: cx, y: cy - own * scale, k: scale };
   }
 
   // The orientation mark: the parent's number with an underline beneath it.
