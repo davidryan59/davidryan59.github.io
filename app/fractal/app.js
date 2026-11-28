@@ -2,7 +2,7 @@
   'use strict';
 
   var M = window.FractalModel;
-  var PALETTE = ['#e9b44c', '#59c3b5', '#dc6f82', '#8297e8', '#d98fd0', '#7fc66c', '#f28b54', '#a68bd7', '#57a9d8', '#d2c65e'];
+  var PALETTE = ['#e9b44c', '#59c3b5', '#dc6f82', '#8297e8', '#d98fd0', '#7fc66c', '#f28b54', '#a68bd7', '#57a9d8', '#b7e04a'];
   var DEMO_NAMES = { sieve: 'Sierpinski sieve', gasket: 'Sierpinski gasket', linked: 'Linked pair', free: 'Free placement' };
   var EXPLANATIONS = {
     sieve: 'Three half-size copies leave the top-right quarter empty. Repeating that rule makes the right-angled Sierpinski triangle.',
@@ -1300,13 +1300,29 @@
     currentLetter().children.push(child); state.selectedId = child.id; state.focus = 'child'; markEdited(); commit();
   }
 
-  // A duplicate goes beside its original: to the right, or else above, to
-  // the left or below, whichever is free first.
+  // A duplicate keeps its original's size and orientation, and moves by
+  // whole grid steps. It takes the free place nearest its original that
+  // lies wholly inside the frame. With none free, it takes the free place
+  // nearest the frame's edge, then nearest its original.
   function duplicateChild() {
     var source = selectedChild(); if (!source) return;
     var letter = currentLetter(), copy = M.clone(source); copy.id = newChildId();
-    var b = M.bounds(M.transformedFrame(state.rule.frame, source.matrix)), w = b.maxX - b.minX, h = b.maxY - b.minY;
-    copy.matrix = firstFree([[w, 0], [0, h], [-w, 0], [0, -h]].map(function (d) { var m = source.matrix.slice(); m[4] += d[0]; m[5] += d[1]; return m; }), source);
+    var grid = snapGridSize(), tri = state.rule.frame === 'triangle', frame = M.framePolygon(state.rule.frame), fb = M.bounds(frame);
+    var a = tri ? [1 / grid.side, 0] : [1 / grid.cols, 0], b = tri ? [1 / (2 * grid.side), M.TRI_H / grid.side] : [0, 1 / grid.rows];
+    var reach = 2 * (tri ? grid.side : Math.max(grid.cols, grid.rows)) + 2, places = [];
+    for (var i = -reach; i <= reach; i++) {
+      for (var j = -reach; j <= reach; j++) {
+        if (!i && !j) continue;
+        var dx = i * a[0] + j * b[0], dy = i * a[1] + j * b[1], m = source.matrix.slice(); m[4] += dx; m[5] += dy; m = tidy(m);
+        var poly = M.transformedFrame(state.rule.frame, m), pb = M.bounds(poly), area = Math.abs(M.polygonArea(poly));
+        var gap = Math.hypot(Math.max(0, fb.minX - pb.maxX, pb.minX - fb.maxX), Math.max(0, fb.minY - pb.maxY, pb.minY - fb.maxY));
+        var inside = gap === 0 && M.intersectionArea(poly, frame) >= area * (1 - 1e-6);
+        places.push({ matrix: m, inside: inside, gap: Math.round(gap * 1e9), dist: Math.round(Math.hypot(dx, dy) * 1e9) });
+      }
+    }
+    places.sort(function (p, q) { return (q.inside - p.inside) || (p.gap - q.gap) || (p.dist - q.dist); });
+    var free = places.find(function (place) { return overlapWith(place.matrix, null) < 1e-6; });
+    copy.matrix = free ? free.matrix : places[0].matrix;
     letter.children.splice(letter.children.indexOf(source) + 1, 0, copy);
     state.selectedId = copy.id; state.focus = 'child'; markEdited(); commit();
   }
@@ -1352,6 +1368,10 @@
       var next = M.clone(child); next.id = newChildId(); if (child.letter === source.id) next.letter = id; return next;
     }) };
     keepColours(function () { state.rule.letters.splice(index + 1, 0, copy); });
+    // The copy takes the first default colour no other parent shows.
+    var used = state.rule.letters.filter(function (l) { return l !== copy; }).map(function (l) { return colour(l.id); });
+    var fresh = PARENT_DEFAULTS.find(function (hex) { return used.indexOf(hex) < 0; });
+    if (fresh && fresh !== defaultColour(index + 1)) copy.colour = fresh;
     state.currentLetter = id; state.selectedId = null; state.focus = 'parent'; markEdited(); commit();
     notice('Parent ' + (index + 2) + ' is a copy of parent ' + (index + 1) + '.');
   }
