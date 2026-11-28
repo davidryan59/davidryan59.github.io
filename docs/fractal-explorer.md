@@ -78,29 +78,38 @@ inside a child to move it. A moved child sticks on each axis by itself: its
 corners' x values stick to any x within 6 pixels, and likewise y. The
 targets are the parent's corners, the other children's corners and, with
 Snap corners on, the grid lines. So a child lined up with an edge slides
-along it while the hand wobbles across it. Alt moves it freely. The selected child's knobs sit in its own
-frame, so they turn and flip with it. A square child has a knob on each
-corner and a turn knob on a 20-pixel stalk above the middle of its top
-edge. A corner drag moves that corner and holds the opposite one, so each
-edge keeps its direction and a 1 by 1 child grows to 2 by 1 or 2 by 2 on
-the grid. Shift scales evenly about the opposite corner. Alt scales evenly
-about the centre, and Alt with Shift stretches both ways about the centre.
-Past the opposite corner a side turns negative, which flips the child. A
-triangle child has two knobs: its top point turns it and its bottom-right
-point scales it about its centre, and Shift on the scale knob stretches both
-ways. The turn knob shows a circular arrow and turns the child about its
-centre. A turn holds at 0°, 90°, 180° and 270° within 4° (a triangle:
-every 60°), and at other 15° steps within 2°. With Snap corners off, a
-corner drag or a scale snaps to simple ratios such as 1/2 and 3/2. The
-editor leaves a 24-pixel inset round a square frame, so the stalk stays in
-view.
+along it while the hand wobbles across it. Alt moves it freely. The selected child's handles sit in its own
+frame, so they turn and flip with it. Each corner has a knob, each edge has
+a bar-shaped handle at its middle, and a turn knob with a circular arrow
+stands on a 20-pixel stalk: above the middle of a square's top edge, below
+the middle of a triangle's bottom edge. The turn knob turns the child about
+its centre. A turn holds at 0°, 90°, 180° and 270° within 4° (a triangle:
+every 60°), and at other 15° steps within 2°. The editor leaves a 24-pixel
+inset round the frame, so the stalk stays in view.
 
-Each edge has one bar-shaped handle at its middle, lying along the edge. The
-first 4 pixels of a drag pick its job, which then holds: across the edge
-stretches one way, with the opposite edge fixed (a triangle: the opposite
-corner), and along the edge skews it. Zero skew holds within 6 pixels: the
-point where the dragged edge stands square to the line from the fixed side,
-so a square child's corners are right angles again. Together the handles reach every affine map: move, turn,
+On a square, a corner drag moves that corner and holds the opposite one, so
+each edge keeps its direction and a 1 by 1 child grows to 2 by 1 or 2 by 2
+on the grid. Shift scales evenly about the opposite corner. Alt scales evenly
+about the centre, and Alt with Shift stretches both ways about the centre.
+Past the opposite corner a side turns negative, which flips the child. The
+first 4 pixels of an edge drag pick its job, which then holds: across the
+edge stretches one way, with the opposite edge fixed, and along the edge
+skews it. Zero skew holds within 6 pixels: the point where the dragged edge
+stands square to the line from the fixed side, so the child's corners are
+right angles again.
+
+On a triangle the two jobs swap places. A corner drag holds the other two
+corners. Its first 4 pixels pick its job, which then holds: across the
+opposite edge stretches, and along it skews. Shift frees the corner, so it
+goes straight to any grid point. The point square above the middle of the
+opposite edge holds within 6 pixels, where the triangle is isosceles. Past
+the opposite edge the height turns negative, which flips the child. An edge
+drag resizes the child evenly about the opposite corner, so per side 1
+grows to per side 2; only the part of the drag across the edge counts. Alt
+resizes about the centre instead. With Snap corners off, a corner drag, a
+stretch or a resize holds at simple ratios such as 1/2 and 3/2.
+
+Together the handles reach every affine map: move, turn,
 scale, stretch and skew. The knobs catch the pointer within 11 pixels and
 the edge bars within 8, or less on a small child. A press on the selected
 child or its handles keeps it, even under another child; otherwise a press
@@ -131,7 +140,9 @@ the nearest lattice point. The rule stores the grid as `grid.rows`,
 `grid.cols` and `grid.side`. While a drag moves a corner within 6 pixels of a grid point, the
 corner snaps to it, and it lets go when the pointer moves on. An even scale
 moves its corner along a line from its pivot, so that corner snaps onto a
-grid line, preferring a grid point. A turn snaps by angle only. A snap never
+grid line, preferring a grid point. A triangle corner on one job moves
+along a line too, so a stretch snaps onto each row and a skew onto each grid
+point along its row. A turn snaps by angle only. A snap never
 lands on a flat child, one less than 4 pixels across at its narrowest; the
 child follows the pointer there instead. During a drag the editor and the
 main view keep their scale, and refit on release.

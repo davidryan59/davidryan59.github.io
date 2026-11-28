@@ -638,6 +638,63 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
     await cornerPage.close();
   }
 
+  // Triangle handles, with Snap corners on and 2 per side. Child A is per
+  // side 1 in the bottom-left corner: apex (−0.25, h/6), bottom right
+  // (0, −h/3) and bottom left (−0.5, −h/3), with h the triangle's height.
+  {
+    const h = Math.sqrt(3) / 2;
+    const rule = { version: 3, frame: 'triangle', grid: { rows: 4, cols: 4, side: 2 }, letters: [{ id: 'p1', children: [{ id: 'a', letter: 'p1', matrix: [0.5, 0, 0, 0.5, -0.25, -h / 6] }] }] };
+    const text = Buffer.from(encodeURIComponent(JSON.stringify({ rule, current: 'p1', depth: 3, snap: true })).replace(/%([0-9A-F]{2})/g, (_, p) => String.fromCharCode(parseInt(p, 16))), 'binary')
+      .toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const triPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await triPage.goto(url + '#rule=' + text, { waitUntil: 'domcontentloaded' });
+    await triPage.waitForSelector('#status-badge');
+    // The editor fits the parent triangle plus an 8% margin inside a
+    // 24-pixel inset, centred on the middle of its height.
+    const box = await triPage.locator('#rule-editor').boundingBox(), scale = Math.min((box.width - 48) / 1.16, (box.height - 48) / (h + 0.16));
+    const px = p => [box.x + box.width / 2 + p[0] * scale, box.y + box.height / 2 + h / 6 * scale - p[1] * scale];
+    const matrix = () => triPage.evaluate(() => {
+      let t = location.hash.slice(6).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '=';
+      const bin = atob(t); let e = ''; for (let i = 0; i < bin.length; i++) e += '%' + bin.charCodeAt(i).toString(16).padStart(2, '0');
+      return JSON.parse(decodeURIComponent(e)).rule.letters[0].children[0].matrix;
+    });
+    const corners = m => [[0, 2 * h / 3], [0.5, -h / 3], [-0.5, -h / 3]].map(([x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]);
+    const same = (got, want) => got.every((p, i) => Math.abs(p[0] - want[i][0]) < 1e-9 && Math.abs(p[1] - want[i][1]) < 1e-9);
+    const show = m => corners(m).map(p => p.map(v => v.toFixed(4)).join(',')).join(' ');
+    async function triDrag(from, to, wobble, options) {
+      const a = px(from), b = px(to), o = (options && options.offset) || [0, 0];
+      await triPage.mouse.move(a[0] + o[0], a[1] + o[1]);
+      if (options && options.shift) await triPage.keyboard.down('Shift');
+      await triPage.mouse.down();
+      await triPage.mouse.move(b[0] + wobble[0], b[1] + wobble[1], { steps: 12 }); await triPage.mouse.up();
+      if (options && options.shift) await triPage.keyboard.up('Shift');
+      await triPage.waitForTimeout(50);
+      return matrix();
+    }
+    await triPage.mouse.click(...px([-0.25, -h / 6]));
+    const bl = [-0.5, -h / 3], br = [0, -h / 3], apex = [-0.25, h / 6];
+    let m = await triDrag([-0.125, -h / 12], [0.25, h / 6], [3, 2]);
+    check(same(corners(m), [[0, 2 * h / 3], [0.5, -h / 3], bl]), 'a triangle edge resizes per side 1 to 2 about the opposite corner: ' + show(m));
+    await triPage.click('#undo');
+    m = await triDrag(apex, [-0.25, 2 * h / 3], [2, -1]);
+    check(same(corners(m), [[-0.25, 2 * h / 3], br, bl]), 'a triangle corner dragged across its opposite edge stretches onto the next row: ' + show(m));
+    await triPage.click('#undo');
+    m = await triDrag(apex, [0.25, h / 6], [1, 2]);
+    check(same(corners(m), [[0.25, h / 6], br, bl]), 'a triangle corner dragged along its opposite edge skews onto a grid point: ' + show(m));
+    await triPage.click('#undo');
+    m = await triDrag(apex, [0, 2 * h / 3], [3, -2], { shift: true });
+    check(same(corners(m), [[0, 2 * h / 3], br, bl]), 'Shift frees a triangle corner onto any grid point: ' + show(m));
+    await triPage.click('#undo');
+    // The turn knob stands 20 pixels below the bottom edge. A drag from
+    // there round 62 degrees anticlockwise holds at 60.
+    const c = [-0.25, -h / 6], end = [c[0] + 0.4 * Math.cos(-28 * Math.PI / 180), c[1] + 0.4 * Math.sin(-28 * Math.PI / 180)];
+    m = await triDrag([-0.25, -h / 3], end, [0, 0], { offset: [0, 20] });
+    check(Math.abs(m[0] - 0.25) < 1e-9 && Math.abs(m[1] - 0.25 * Math.sqrt(3)) < 1e-9 && Math.abs(m[4] - c[0]) < 1e-9 && Math.abs(m[5] - c[1]) < 1e-9,
+      'the stalk below a triangle turns it and holds at 60 degrees: ' + m.join(', '));
+    await triPage.close();
+  }
+  console.log('Resized, stretched, skewed and turned a triangle child.');
+
   const restored = await browser.newPage({ viewport: { width: 900, height: 700 } });
   restored.setDefaultTimeout(8000);
   await restored.goto(await page.url(), { waitUntil: 'domcontentloaded' });

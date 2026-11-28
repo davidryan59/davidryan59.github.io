@@ -659,9 +659,9 @@
     return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
   }
 
-  // The editor's inset in pixels. A square child's turn knob stands on a
-  // stalk above its top edge, so a square frame leaves room for it.
-  function editorInset() { return state.rule.frame === 'triangle' ? 13 : 24; }
+  // The editor's inset in pixels. It leaves room for the turn knob on its
+  // stalk outside a child that lies along the parent's edge.
+  function editorInset() { return 24; }
 
   function renderEditor() {
     buildOrder();
@@ -1548,23 +1548,28 @@
   function distance(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
   function dot(a, b) { return a[0] * b[0] + a[1] * b[1]; }
 
-  // Handles. A square child has a knob on each corner and a turn knob on a
-  // stalk above the middle of its top edge. A corner drag moves that
-  // corner and holds the opposite one, so a 1 by 1 child grows to 2 by 1 or
-  // 2 by 2. Shift keeps the shape, and Alt scales about the centre instead.
-  // A triangle child's top point turns it and its bottom-right point scales
-  // it, both about its centre. All knobs sit in the child's own frame, so
-  // they move with it as it turns or flips. Each edge has one handle at its
-  // middle. The first few pixels of a drag pick its job: across the edge
-  // stretches, along the edge skews, and the job holds for that drag. Each
-  // handle catches the pointer a little beyond its drawn size, less on a
-  // small child.
+  // Handles. Every child has a knob on each corner and a turn knob on a
+  // stalk: above the middle of a square's top edge, below the middle of a
+  // triangle's bottom edge. All knobs sit in the child's own frame, so they
+  // move with it as it turns or flips. The first few pixels of some drags
+  // pick their job, which then holds for that drag.
+  //   Square corner: moves that corner and holds the opposite one, so a 1 by
+  //     1 child grows to 2 by 1 or 2 by 2. Shift keeps the shape, and Alt
+  //     scales about the centre instead.
+  //   Square edge: across the edge stretches, along it skews.
+  //   Triangle corner: the other two corners hold. Across the opposite edge
+  //     stretches, along it skews, and Shift frees the corner.
+  //   Triangle edge: resizes evenly about the opposite corner, so per side 1
+  //     grows to per side 2. Alt resizes about the centre instead.
+  // Each handle catches the pointer a little beyond its drawn size, less on
+  // a small child.
   var KNOB = 7.5, KNOB_REACH = 11, EDGE_REACH = 8, JOB_PIXELS = 4, STALK = 20;
-  function cornerRoles() { return state.rule.frame === 'triangle' ? { rotate: 0, scale: 1 } : null; }
-  // The turn knob on a square: STALK pixels out from the middle of the
-  // child's own top edge, on the line from its centre through that middle.
+  function triangleFrame() { return state.rule.frame === 'triangle'; }
+  // The turn knob: STALK pixels out from the middle of the child's own top
+  // edge (a triangle: its bottom edge), on the line from its centre.
   function stalk(corners, centre) {
-    var base = [(corners[0][0] + corners[1][0]) / 2, (corners[0][1] + corners[1][1]) / 2];
+    var i = triangleFrame() ? 1 : 0, p = corners[i], q = corners[(i + 1) % corners.length];
+    var base = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
     var d = [base[0] - centre[0], base[1] - centre[1]], len = Math.hypot(d[0], d[1]) || 1;
     return { base: base, knob: [base[0] + d[0] / len * STALK, base[1] + d[1] / len * STALK] };
   }
@@ -1622,6 +1627,11 @@
     arrowHead(ctx, [p[0] + d[0] * 4.6, p[1] + d[1] * 4.6], d, 2.6);
     arrowHead(ctx, [p[0] - d[0] * 4.6, p[1] - d[1] * 4.6], [-d[0], -d[1]], 2.6);
   }
+  // A triangle's corner knob: a dot, since the corner moves where it is dragged.
+  function drawPointKnob(ctx, p) {
+    knob(ctx, p);
+    ctx.beginPath(); ctx.arc(p[0], p[1], 2.4, 0, Math.PI * 2); ctx.fillStyle = css('--accent'); ctx.fill();
+  }
   // An edge handle: a short bar that lies along its edge.
   function drawEdgeHandle(ctx, p, q) {
     var mid = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
@@ -1631,15 +1641,10 @@
     ctx.restore();
   }
   function drawHandles(ctx, child, view) {
-    var corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view), roles = cornerRoles();
+    var corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view);
     var centre = view.point([child.matrix[4], child.matrix[5]]);
     corners.forEach(function (p, i) { drawEdgeHandle(ctx, p, corners[(i + 1) % corners.length]); });
-    if (roles) {
-      drawScaleKnob(ctx, corners[roles.scale], centre);
-      drawRotateKnob(ctx, corners[roles.rotate]);
-      return;
-    }
-    corners.forEach(function (p) { drawScaleKnob(ctx, p, centre); });
+    corners.forEach(function (p) { if (triangleFrame()) drawPointKnob(ctx, p); else drawScaleKnob(ctx, p, centre); });
     var s = stalk(corners, centre);
     ctx.beginPath(); ctx.moveTo(s.base[0], s.base[1]); ctx.lineTo(s.knob[0], s.knob[1]);
     ctx.strokeStyle = css('--accent'); ctx.lineWidth = 1.4; ctx.stroke();
@@ -1648,20 +1653,15 @@
 
   function handleAt(point, child) {
     var view = state.editorView, pointer = view.point(point), corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view);
-    var roles = cornerRoles(), shortest = shortestEdge(corners), best = null, bestDistance = Infinity;
+    var tri = triangleFrame(), shortest = shortestEdge(corners), best = null, bestDistance = Infinity;
     function consider(type, index, at, reach) {
       var d = distance(pointer, at); if (d < reach && d < bestDistance) { best = { type: type, index: index }; bestDistance = d; }
     }
     var knobReach = Math.max(4, Math.min(KNOB_REACH, shortest / 3));
-    if (roles) {
-      consider('rotate', roles.rotate, corners[roles.rotate], knobReach);
-      consider('scale', roles.scale, corners[roles.scale], knobReach);
-    } else {
-      // The stalk keeps the turn knob clear of the child, so it keeps its full reach.
-      consider('rotate', -1, stalk(corners, view.point([child.matrix[4], child.matrix[5]])).knob, KNOB_REACH);
-      corners.forEach(function (at, i) { consider('corner', i, at, knobReach); });
-    }
-    edgePoints(corners).forEach(function (mid, i) { consider('edge', i, mid, Math.max(3, Math.min(EDGE_REACH, shortest / 4))); });
+    // The stalk keeps the turn knob clear of the child, so it keeps its full reach.
+    consider('rotate', -1, stalk(corners, view.point([child.matrix[4], child.matrix[5]])).knob, KNOB_REACH);
+    corners.forEach(function (at, i) { consider(tri ? 'vertex' : 'corner', i, at, knobReach); });
+    edgePoints(corners).forEach(function (mid, i) { consider(tri ? 'resize' : 'edge', i, mid, Math.max(3, Math.min(EDGE_REACH, shortest / 4))); });
     return best;
   }
 
@@ -1680,7 +1680,7 @@
     else hit = findChildAt(point);
     if (!hit) { startPan(event, true); return; }
     state.selectedId = hit.id; syncControls(); renderEditor();
-    var job = !handle ? 'move' : handle.type !== 'edge' ? handle.type : null;
+    var job = !handle ? 'move' : handle.type === 'edge' || handle.type === 'vertex' ? null : handle.type;
     state.editorDrag = { pointer: event.pointerId, child: hit, start: point, pixel: [event.clientX, event.clientY], matrix: hit.matrix.slice(),
       handle: handle, job: job, mainBounds: state.lastMainBounds, moved: false };
     state.dragging = true; el.ruleEditor.setPointerCapture(event.pointerId); event.preventDefault();
@@ -1709,6 +1709,21 @@
     var along = Math.abs(dx * e[0] + dy * e[1]) / len, across = Math.abs(dx * e[1] - dy * e[0]) / len;
     return along > across ? 'skew' : 'stretch';
   }
+  // A triangle corner picks the same way, against its opposite edge.
+  function vertexJob(drag, dx, dy) {
+    var corners = M.transformedFrame(state.rule.frame, drag.matrix).map(state.editorView.point, state.editorView), k = drag.handle.index;
+    var p = corners[(k + 1) % 3], q = corners[(k + 2) % 3], e = [q[0] - p[0], q[1] - p[1]], len = Math.hypot(e[0], e[1]) || 1;
+    var along = Math.abs(dx * e[0] + dy * e[1]) / len, across = Math.abs(dx * e[1] - dy * e[0]) / len;
+    return along > across ? 'vskew' : 'vstretch';
+  }
+  // The map that takes the frame's corners p to the points w.
+  function mapFrom(p, w) {
+    var a = [p[1][0] - p[0][0], p[1][1] - p[0][1]], b = [p[2][0] - p[0][0], p[2][1] - p[0][1]], det = a[0] * b[1] - a[1] * b[0];
+    var u = [w[1][0] - w[0][0], w[1][1] - w[0][1]], v = [w[2][0] - w[0][0], w[2][1] - w[0][1]];
+    var m0 = (u[0] * b[1] - v[0] * a[1]) / det, m2 = (v[0] * a[0] - u[0] * b[0]) / det;
+    var m1 = (u[1] * b[1] - v[1] * a[1]) / det, m3 = (v[1] * a[0] - u[1] * b[0]) / det;
+    return [m0, m1, m2, m3, w[0][0] - m0 * p[0][0] - m2 * p[0][1], w[0][1] - m1 * p[0][0] - m3 * p[0][1]];
+  }
 
   // The new map for a drag, from the pointer's place in the editor. With
   // free set, a turn snaps to 15 degrees and a scale to simple ratios.
@@ -1718,8 +1733,8 @@
     // The child's centre: the origin of its own frame, and (m₁₃, m₂₃) here.
     var c = [m0[4], m0[5]];
     if (job === 'rotate') {
-      // The stalk knob turns from where the press began, so the child does not jump.
-      var from = h.index < 0 ? drag.start : M.apply(m0, local[h.index]);
+      // The knob turns from where the press began, so the child does not jump.
+      var from = drag.start;
       var angle = Math.atan2(point[1] - c[1], point[0] - c[0]) - Math.atan2(from[1] - c[1], from[0] - c[0]);
       // Sticky angles: a square holds at 0, 90, 180 and 270 degrees, a
       // triangle at every 60 (upright or upside down), within 4 degrees.
@@ -1751,25 +1766,41 @@
       if (free) { ax = signedRatio(ax); ay = signedRatio(ay); }
       return M.compose(m0, about([ax, 0, 0, ay], pivot));
     }
-    if (job === 'scale') {
-      var q = local[h.index];
-      if (shift) {
-        // Shift: stretch both ways in the child's own frame, about its centre.
-        var u = M.apply(invert(m0), point);
-        var sx = Math.abs(q[0]) < 1e-9 ? 1 : clampScale(u[0] / q[0]);
-        var sy = Math.abs(q[1]) < 1e-9 ? 1 : clampScale(u[1] / q[1]);
-        return M.compose(m0, [sx, 0, 0, sy, 0, 0]);
-      }
-      var corner = M.apply(m0, q), v = [corner[0] - c[0], corner[1] - c[1]];
-      var s = Math.max(.02, dot(v, [point[0] - c[0], point[1] - c[1]]) / dot(v, v));
-      if (free) s = snapRatio(s);
-      return M.compose(about([s, 0, 0, s], c), m0);
+    if (job === 'resize') {
+      // A triangle edge resizes evenly about the opposite corner (Alt: the
+      // centre). Only the part of the drag across the edge counts.
+      var A0 = M.apply(m0, local[h.index]), B0 = M.apply(m0, local[(h.index + 1) % 3]);
+      var Wr = alt ? c : M.apply(m0, local[(h.index + 2) % 3]), nr = [A0[1] - B0[1], B0[0] - A0[0]];
+      var r = dot([point[0] - Wr[0], point[1] - Wr[1]], nr) / dot([A0[0] - Wr[0], A0[1] - Wr[1]], nr);
+      r = alt ? Math.max(.02, r) : clampScale(r);
+      if (free) r = signedRatio(r);
+      return M.compose(about([r, 0, 0, r], Wr), m0);
     }
-    // Edges. The fixed line is the opposite edge (a triangle: the opposite
-    // corner). d runs from it to this edge's middle, and e runs along the edge.
+    if (job === 'vstretch' || job === 'vskew') {
+      // A triangle corner moves and the other two hold. Across the opposite
+      // edge stretches and along it skews; Shift frees the corner. Past
+      // the opposite edge the height turns negative, which flips the child.
+      var corners0 = local.map(function (p) { return M.apply(m0, p); }), kv = h.index;
+      var F1 = corners0[(kv + 1) % 3], F2 = corners0[(kv + 2) % 3], Cv = corners0[kv];
+      var fe = [F2[0] - F1[0], F2[1] - F1[1]], fl = Math.hypot(fe[0], fe[1]); fe = [fe[0] / fl, fe[1] / fl];
+      var fn = [-fe[1], fe[0]], base = [(F1[0] + F2[0]) / 2, (F1[1] + F2[1]) / 2];
+      var height = dot([Cv[0] - base[0], Cv[1] - base[1]], fn);
+      var across = dot([point[0] - base[0], point[1] - base[1]], fn), side = dot([point[0] - base[0], point[1] - base[1]], fe);
+      if (!shift && job === 'vstretch') side = dot([Cv[0] - base[0], Cv[1] - base[1]], fe);
+      if (!shift && job === 'vskew') across = height;
+      var tall = clampScale(across / height);
+      if (free && (shift || job === 'vstretch')) tall = signedRatio(tall);
+      // Square above the middle of the opposite edge is sticky within 6
+      // pixels: the triangle is isosceles there.
+      if ((shift || job === 'vskew') && Math.abs(side) * (state.editorView ? state.editorView.scale : 100) < 6) side = 0;
+      corners0[kv] = [base[0] + fn[0] * tall * height + fe[0] * side, base[1] + fn[1] * tall * height + fe[1] * side];
+      return mapFrom(local, corners0);
+    }
+    // Square edges. The fixed line is the opposite edge. d runs from it to
+    // this edge's middle, and e runs along the edge.
     var k = h.index, uu = M.apply(invert(m0), point);
     var p0 = local[k], p1 = local[(k + 1) % n], mid = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2];
-    var fixed = n === 3 ? local[(k + 2) % 3] : [(local[(k + 2) % 4][0] + local[(k + 3) % 4][0]) / 2, (local[(k + 2) % 4][1] + local[(k + 3) % 4][1]) / 2];
+    var fixed = [(local[(k + 2) % 4][0] + local[(k + 3) % 4][0]) / 2, (local[(k + 2) % 4][1] + local[(k + 3) % 4][1]) / 2];
     var dvec = [mid[0] - fixed[0], mid[1] - fixed[1]], len = Math.hypot(dvec[0], dvec[1]), dn = [dvec[0] / len, dvec[1] / len];
     var en = [p1[0] - p0[0], p1[1] - p0[1]], elen = Math.hypot(en[0], en[1]); en = [en[0] / elen, en[1] / elen];
     var rel = [uu[0] - fixed[0], uu[1] - fixed[1]], l;
@@ -1783,9 +1814,8 @@
       // Skew: the edge slides along itself; the fixed line stays put.
       var sk = dot([uu[0] - mid[0], uu[1] - mid[1]], en) / len;
       // Zero skew is sticky. It is where the dragged edge stands square to
-      // the line from the fixed side's middle (a triangle: the fixed corner):
-      // a square child's sides meet at right angles again, and a triangle is
-      // symmetric about that line. The pull reaches 6 pixels on screen.
+      // the line from the fixed side's middle: the child's sides meet at
+      // right angles again. The pull reaches 6 pixels on screen.
       var A = [m0[0], m0[1], m0[2], m0[3]], Ad = [A[0] * dvec[0] + A[2] * dvec[1], A[1] * dvec[0] + A[3] * dvec[1]], Ae = [A[0] * en[0] + A[2] * en[1], A[1] * en[0] + A[3] * en[1]];
       var ae2 = dot(Ae, Ae), square = -dot(Ad, Ae) / (len * ae2), pixels = len * Math.sqrt(ae2) * (state.editorView ? state.editorView.scale : 100);
       if (Math.abs(sk - square) * pixels < 6) sk = square;
@@ -1801,7 +1831,7 @@
   var SNAP_REACH = 6, FLAT_PIXELS = 4;
   function movingCorners(drag, n) {
     if (drag.job === 'move') return null;
-    if (drag.job === 'scale' || drag.job === 'corner') return [drag.handle.index];
+    if (drag.job === 'corner' || drag.job === 'vstretch' || drag.job === 'vskew') return [drag.handle.index];
     return [drag.handle.index, (drag.handle.index + 1) % n];
   }
   // The snap lattice follows the frame. A square frame has Cols by Rows
@@ -1849,23 +1879,39 @@
     });
     return least < FLAT_PIXELS;
   }
-  // An even scale moves the dragged corner along the line from its pivot c.
-  function snapScale(drag, m, c) {
-    var lattice = snapLattice(), view = state.editorView;
-    var corner = M.apply(m, M.framePolygon(state.rule.frame)[drag.handle.index]), v = [corner[0] - c[0], corner[1] - c[1]];
-    var best = null, bestScore = Infinity;
+  // A corner that moves along the line c + t v snaps where a grid line
+  // crosses it within SNAP_REACH pixels, a grid point first. This returns
+  // t, or null. With positive set, t must be above zero.
+  function snapAlong(c, v, corner, positive) {
+    var lattice = snapLattice(), view = state.editorView, best = null, bestScore = Infinity;
     lattice.families.forEach(function (f) {
       var nv = dot(f.n, v);
       if (Math.abs(nv) < 1e-9) return;
       var line = f.offset + Math.round((dot(f.n, corner) - f.offset) / f.spacing) * f.spacing, t = (line - dot(f.n, c)) / nv;
-      if (t <= 0) return;
+      if (positive && t <= 0) return;
       var moved = [c[0] + v[0] * t, c[1] + v[1] * t];
       if (distance(view.point(moved), view.point(corner)) > SNAP_REACH) return;
       var score = distance(view.point(moved), view.point(lattice.near(moved)));
       if (score < bestScore) { best = t; bestScore = score; }
     });
+    return best;
+  }
+  // An even scale moves the dragged corner along the line from its pivot c.
+  function snapScale(drag, m, c) {
+    var corner = M.apply(m, M.framePolygon(state.rule.frame)[drag.handle.index]);
+    var best = snapAlong(c, [corner[0] - c[0], corner[1] - c[1]], corner, true);
     if (best == null) return m;
     var snapped = M.compose(about([best, 0, 0, best], c), m);
+    return flat(snapped) ? m : snapped;
+  }
+  // A triangle corner on one job moves along a line: across its opposite
+  // edge for a stretch, along it for a skew.
+  function snapVertex(drag, m, shift, alt) {
+    var p = M.transformedFrame(state.rule.frame, m), k = drag.handle.index, a = p[(k + 1) % 3], b = p[(k + 2) % 3];
+    var v = drag.job === 'vskew' ? [b[0] - a[0], b[1] - a[1]] : [a[1] - b[1], b[0] - a[0]];
+    var t = snapAlong(p[k], v, p[k], false);
+    if (t == null) return m;
+    var snapped = dragMatrix(drag, [p[k][0] + v[0] * t, p[k][1] + v[1] * t], false, shift, alt);
     return flat(snapped) ? m : snapped;
   }
   // A moved child sticks on each axis by itself. Its corners' x values
@@ -1894,7 +1940,8 @@
   }
   function snapToGrid(drag, point, m, shift, alt) {
     if (!state.snapGrid || drag.job === 'rotate') return m;
-    if (drag.job === 'scale' && !shift) return snapScale(drag, m, [m[4], m[5]]);
+    if (drag.job === 'resize') return snapScale(drag, m, alt ? [m[4], m[5]] : M.apply(m, M.framePolygon(state.rule.frame)[(drag.handle.index + 2) % 3]));
+    if ((drag.job === 'vstretch' || drag.job === 'vskew') && !shift) return snapVertex(drag, m, shift, alt);
     if (drag.job === 'corner' && alt !== shift)
       return snapScale(drag, m, alt ? [m[4], m[5]] : M.apply(m, M.framePolygon(state.rule.frame)[(drag.handle.index + 2) % 4]));
     var lattice = snapLattice(), view = state.editorView, corners = M.transformedFrame(state.rule.frame, m);
@@ -1916,7 +1963,7 @@
     if (!drag.job) {
       var dx = event.clientX - drag.pixel[0], dy = event.clientY - drag.pixel[1];
       if (Math.hypot(dx, dy) < JOB_PIXELS) return;
-      drag.job = edgeJob(drag, dx, dy);
+      drag.job = drag.handle.type === 'vertex' ? vertexJob(drag, dx, dy) : edgeJob(drag, dx, dy);
     }
     var point = editorPoint(event), m = dragMatrix(drag, point, !state.snapGrid, event.shiftKey, event.altKey);
     m = drag.job === 'move' ? (event.altKey ? m : snapMove(drag, m)) : snapToGrid(drag, point, m, event.shiftKey, event.altKey);
