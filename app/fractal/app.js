@@ -100,11 +100,7 @@
   // The default is Order for every rule; null means default.
   var COLOUR_MODES = ['order', 'parent', 'top'];
   function colourMode() { return state.colourMode || 'order'; }
-  // Old addresses and saved fractals held a true or false for Top copy.
-  function readColourMode(value) {
-    if (typeof value === 'boolean') return value ? 'top' : 'parent';
-    return COLOUR_MODES.indexOf(value) >= 0 ? value : null;
-  }
+  function readColourMode(value) { return COLOUR_MODES.indexOf(value) >= 0 ? value : null; }
   function hslHex(h, s, l) {
     var a = s * Math.min(l, 1 - l);
     function part(n) { var k = (n + h / 30) % 12, v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return ('0' + Math.round(v * 255).toString(16)).slice(-2); }
@@ -151,26 +147,15 @@
     return JSON.parse(decodeURIComponent(escaped));
   }
 
+  function gridSize(n) { return Number.isInteger(n) && n >= 2 && n <= 8; }
   function validRule(rule) {
-    return rule && rule.version === 2 && ['square', 'triangle'].indexOf(rule.frame) >= 0 &&
+    return rule && rule.version === 3 && ['square', 'triangle'].indexOf(rule.frame) >= 0 &&
+      rule.grid && gridSize(rule.grid.rows) && gridSize(rule.grid.cols) && gridSize(rule.grid.side) &&
       Array.isArray(rule.letters) && rule.letters.length &&
       rule.letters.every(function (letter) { return typeof letter.id === 'string' && Array.isArray(letter.children) &&
         (letter.colour == null || /^#[0-9a-f]{6}$/i.test(letter.colour)) && letter.children.every(function (child) {
         return typeof child.letter === 'string' && Array.isArray(child.matrix) && child.matrix.length === 6 && child.matrix.every(Number.isFinite);
       }); });
-  }
-
-  // Free is the only mode. Rules saved while Square and Triangle modes
-  // existed carry a mode, toggles, a per-parent grid and cell placements on
-  // each child. The maps alone define the rule, so those fields are dropped.
-  function normaliseRule(rule) {
-    rule = M.clone(rule);
-    delete rule.mode; delete rule.toggles;
-    rule.grid = { rows: rule.grid && rule.grid.rows || 2, cols: rule.grid && rule.grid.cols || 2, side: rule.grid && rule.grid.side || 2 };
-    rule.letters.forEach(function (letter) { letter.children.forEach(function (child) {
-      ['cell', 'turn', 'flip', 'block', 'blockRows', 'blockCols'].forEach(function (key) { delete child[key]; });
-    }); });
-    return rule;
   }
 
   function loadAddress() {
@@ -181,7 +166,7 @@
       } else if (hash.indexOf('rule=') === 0) {
         var saved = decode(hash.slice(5));
         if (!validRule(saved.rule)) throw new Error('Invalid rule');
-        state.rule = normaliseRule(saved.rule); state.demo = null;
+        state.rule = saved.rule; state.demo = null;
         state.currentLetter = saved.current || state.rule.letters[0].id; state.depth = Math.max(0, Math.min(32, saved.depth == null ? 7 : saved.depth));
         state.showHull = saved.hull !== false; state.colourMode = readColourMode(saved.colour);
         if (saved.camera) state.camera = saved.camera;
@@ -252,7 +237,7 @@
 
   // The snap grid, shared by every parent: Cols by Rows on a square frame,
   // Per side on a triangle frame.
-  function snapGridSize() { return { rows: state.rule.grid.rows, cols: state.rule.grid.cols, side: state.rule.grid.side || 2 }; }
+  function snapGridSize() { return state.rule.grid; }
 
   // Every parent and child draws in one frame shape, a square or a triangle.
   // The frame is only a picture of the maps, so a switch keeps every map and
@@ -279,14 +264,20 @@
     ctx.clearRect(0, 0, width, height); return { ctx: ctx, width: width, height: height, dpr: dpr };
   }
 
+  // A view maps the plane, where y points up, to canvas pixels, where y
+  // points down. (x, y) is the origin's pixel. The camera's x and y are a
+  // pan in pixels.
   function makeView(width, height, bounds, margin, camera) {
     var bw = Math.max(.001, bounds.maxX - bounds.minX), bh = Math.max(.001, bounds.maxY - bounds.minY);
     var scale = Math.min((width - 2 * margin) / bw, (height - 2 * margin) / bh);
     var zoom = camera ? camera.zoom : 1, x = camera ? camera.x : 0, y = camera ? camera.y : 0;
     scale *= zoom;
     return { scale: scale, x: width / 2 - (bounds.minX + bounds.maxX) / 2 * scale + x,
-      y: height / 2 - (bounds.minY + bounds.maxY) / 2 * scale + y,
-      point: function (p) { return [this.x + p[0] * this.scale, this.y + p[1] * this.scale]; } };
+      y: height / 2 + (bounds.minY + bounds.maxY) / 2 * scale + y,
+      point: function (p) { return [this.x + p[0] * this.scale, this.y - p[1] * this.scale]; },
+      unpoint: function (q) { return [(q[0] - this.x) / this.scale, (this.y - q[1]) / this.scale]; },
+      // The canvas transform that draws a copy's own frame in pixels.
+      transform: function (m) { var s = this.scale; return [s * m[0], -s * m[1], s * m[2], -s * m[3], this.x + s * m[4], this.y - s * m[5]]; } };
   }
 
   function instancesBounds(instances, frame) {
@@ -307,8 +298,7 @@
     return maxX < -2 || maxY < -2 || minX > size[0] + 2 || minY > size[1] + 2;
   }
   function drawInstance(ctx, item, view, options) {
-    var matrix = item.matrix, scale = view.scale, tx = view.x, ty = view.y;
-    var local = M.framePolygon(state.rule.frame), framePixels = M.transformedFrame(state.rule.frame, matrix).map(view.point, view);
+    var framePixels = M.transformedFrame(state.rule.frame, item.matrix).map(view.point, view);
     // A copy wholly off the canvas is skipped. The copies are still counted.
     if (options.clip && offCanvas(framePixels, options.clip)) return;
     var edge = Math.sqrt(Math.abs(M.polygonArea(framePixels))), fillSmall = edge < (options.letterThreshold || 10);
@@ -318,7 +308,7 @@
     else { ctx.fillStyle = itemColour(item) + '28'; ctx.fill(); }
     ctx.strokeStyle = options.stroke || itemColour(item); ctx.lineWidth = options.lineWidth || 1; ctx.stroke();
     if (!fillSmall && options.letters !== false) {
-      ctx.transform(scale * matrix[0], scale * matrix[1], scale * matrix[2], scale * matrix[3], tx + scale * matrix[4], ty + scale * matrix[5]);
+      ctx.transform.apply(ctx, view.transform(item.matrix));
       drawMark(ctx, item.letter, itemColour(item), state.rule.frame, options.childName);
     }
     ctx.restore();
@@ -336,7 +326,7 @@
     for (var i = 0; i < items.length; i++) {
       var item = items[i], m = item.matrix, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, area = 0;
       for (var k = 0; k < n; k++) {
-        var p = frame[k], x = view.x + view.scale * (m[0] * p[0] + m[2] * p[1] + m[4]), y = view.y + view.scale * (m[1] * p[0] + m[3] * p[1] + m[5]);
+        var p = frame[k], x = view.x + view.scale * (m[0] * p[0] + m[2] * p[1] + m[4]), y = view.y - view.scale * (m[1] * p[0] + m[3] * p[1] + m[5]);
         xs[k] = x; ys[k] = y; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
       }
       if (clip && (maxX < -2 || maxY < -2 || minX > clip[0] + 2 || minY > clip[1] + 2)) continue;
@@ -361,9 +351,8 @@
     });
     ctx.restore();
     marks.forEach(function (mark) {
-      var m = mark[0].matrix, s = view.scale;
       ctx.save(); ctx.globalAlpha = mark[2];
-      ctx.transform(s * m[0], s * m[1], s * m[2], s * m[3], view.x + s * m[4], view.y + s * m[5]);
+      ctx.transform.apply(ctx, view.transform(mark[0].matrix));
       drawMark(ctx, mark[0].letter, mark[1], state.rule.frame); ctx.restore();
     });
   }
@@ -372,14 +361,19 @@
   // The underline shows which side is down. In the editor, the child's own
   // letter, A, B, C and on, sits at its top left (a triangle: its bottom-left
   // corner, off the centre line, so Flip H shows), so it turns and flips with
-  // the child. The letter is the child's place in
-  // its parent's list. The number uses a serif with lining figures, so every
-  // digit sits on the baseline and clears the underline.
+  // the child. The letter is the child's place in its parent's list. The
+  // number uses a serif with lining figures, so every digit sits on the
+  // baseline and clears the underline.
+  //
+  // The canvas draws the mark in the frame's own coordinates, with y
+  // flipped so the text stands upright. Below, y therefore points down: a
+  // negative y is above the frame's centre.
   var MARK_FONT = '"Times New Roman", Times, serif';
   function childName(index) { return index < 26 ? String.fromCharCode(65 + index) : 'Z' + (index - 25); }
   function drawMark(ctx, letterId, fill, frame, name) {
     var tri = frame === 'triangle', text = label(letterId);
-    var centre = tri ? [0.5, M.TRI_H * .6] : [0.5, .48], size = tri ? .34 : .42;
+    ctx.scale(1, -1);
+    var centre = tri ? [0, -M.TRI_H / 15] : [0, -.02], size = tri ? .34 : .42;
     ctx.fillStyle = fill; ctx.strokeStyle = fill; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.font = '600 ' + size + 'px ' + MARK_FONT;
     // Lining digits stand about 0.66 em tall, so this centres them.
@@ -388,9 +382,9 @@
     var half = Math.max(.09, ctx.measureText(text).width / 2), under = baseline + size * .13;
     ctx.lineWidth = size * .07; ctx.beginPath(); ctx.moveTo(centre[0] - half, under); ctx.lineTo(centre[0] + half, under); ctx.stroke();
     if (name) {
-      // A triangle's letter sits 0.19 in from the bottom-left corner, along
-      // the line to the centre, which clears both edges and the number.
-      var spot = tri ? [.19 * M.TRI_H, M.TRI_H - .095] : [.15, .14];
+      // A triangle's letter sits near the bottom-left corner, along the line
+      // to the centre, which clears both edges and the number.
+      var spot = tri ? [.19 * M.TRI_H - .5, M.TRI_H / 3 - .095] : [-.35, -.36];
       ctx.textBaseline = 'middle';
       ctx.font = '700 ' + (tri ? .13 : .16) + 'px ui-sans-serif, system-ui, sans-serif';
       ctx.fillText(name, spot[0], spot[1]);
@@ -468,8 +462,7 @@
     var pad = 2, w = info.width, h = info.height;
     return function (item) {
       var disc = discs[item.letter]; if (!disc) return false;
-      var m = item.matrix, c = disc.centre;
-      var x = view.x + view.scale * (m[0] * c[0] + m[2] * c[1] + m[4]), y = view.y + view.scale * (m[1] * c[0] + m[3] * c[1] + m[5]);
+      var at = view.point(M.apply(item.matrix, disc.centre)), x = at[0], y = at[1], m = item.matrix;
       var r = view.scale * M.singularValues(m)[0] * disc.radius + pad;
       return x + r < 0 || y + r < 0 || x - r > w || y - r > h;
     };
@@ -757,24 +750,17 @@
     });
   }
 
-  // x and y place the child's centre against the parent's centre, so (0, 0)
-  // is the middle cell of a 3 by 3 square, or the upside-down middle cell of
-  // a triangle. The stored map is unchanged: only the table and the pop-up
-  // read and write the position this way.
-  function centreOffset(m) {
-    var c = frameCentre(), p = M.apply(m, c);
-    return [p[0] - c[0], p[1] - c[1]];
-  }
-  function matrixAtOffset(linear, x, y) {
-    var c = frameCentre();
-    return [linear[0], linear[1], linear[2], linear[3],
-      c[0] + x - (linear[0] * c[0] + linear[2] * c[1]), c[1] + y - (linear[1] * c[0] + linear[3] * c[1])];
-  }
+  // x and y are the child's centre, where the map sends the origin. A
+  // child is mirrored left to right if Flip is 1, then scaled, then turned
+  // anticlockwise by Angle, from −180 to 180. A mirror sends the x axis to
+  // its negative, so a flipped child's angle is read from −(m₁₁, m₂₁).
   function childValues(child) {
-    var m = child.matrix, at = centreOffset(m);
-    if (affineTable()) return [m[0], m[1], m[2], m[3], at[0], at[1]];
-    var sv = M.singularValues(m), angle = Math.atan2(m[1], m[0]) * 180 / Math.PI;
-    return [at[0], at[1], (sv[0] + sv[1]) / 2, angle, M.determinant(m) < 0 ? 1 : 0];
+    var m = child.matrix;
+    if (affineTable()) return m.slice();
+    var flip = M.determinant(m) < 0, sv = M.singularValues(m);
+    var angle = flip ? Math.atan2(-m[1], -m[0]) : Math.atan2(m[1], m[0]);
+    angle = angle * 180 / Math.PI; if (angle <= -180 + 1e-9) angle += 360;
+    return [m[4], m[5], (sv[0] + sv[1]) / 2, angle, flip ? 1 : 0];
   }
 
   // The table lists x, y, scale, angle and flip while every child of this
@@ -857,11 +843,12 @@
       values[Number(input.dataset.index)] = value;
     });
     if (bad) return false;
-    if (affineTable()) child.matrix = tidy(matrixAtOffset(values, values[4], values[5]));
+    if (affineTable()) child.matrix = tidy(values.slice(0, 6));
     else {
+      // Flip mirrors left to right first, then the child scales and turns.
       var x = values[0], y = values[1], scale = Math.max(.001, Math.abs(values[2])), angle = values[3] * Math.PI / 180, flip = !!values[4];
-      var rotation = [scale * Math.cos(angle), scale * Math.sin(angle), -scale * Math.sin(angle), scale * Math.cos(angle), 0, 0];
-      child.matrix = tidy(matrixAtOffset(flip ? M.compose(rotation, [-1, 0, 0, 1, 1, 0]) : rotation, x, y));
+      var c = scale * Math.cos(angle), n = scale * Math.sin(angle);
+      child.matrix = tidy(flip ? [-c, -n, -n, c, x, y] : [c, n, -n, c, x, y]);
     }
     markEdited(); commit(); return true;
   }
@@ -951,18 +938,20 @@
   // the snap grid, and a second Flip V brings it back. For a new child (the
   // brush) it mirrors about the centre instead, so + still adds the child
   // where it would have gone.
-  function frameCentre() { return state.rule.frame === 'triangle' ? [0.5, M.TRI_H * 2 / 3] : [.5, .5]; }
-  function tidy(m) { return m.map(function (v) { var r = Math.round(v * 1e9) / 1e9; return Math.abs(v - r) < 1e-12 ? r : v; }); }
-  var LOCAL_FLIP = { flipH: [-1, 0, 0, 1, 1, 0], flipV: [1, 0, 0, -1, 0, 1] };
+  //
+  // Every move here is a symmetry of the frame about its centre, the
+  // origin, so it acts on the map's linear part from the right.
+  function tidy(m) { return m.map(function (v) { var r = Math.round(v * 1e9) / 1e9; return Math.abs(v - r) < 1e-12 ? r + 0 : v; }); }
+  var LOCAL_FLIP = { flipH: [-1, 0, 0, 1, 0, 0], flipV: [1, 0, 0, -1, 0, 0] };
   function orientMatrix(matrix, action, brush) {
     if (LOCAL_FLIP[action]) {
       var flip = LOCAL_FLIP[action];
-      if (state.rule.frame === 'triangle' && action === 'flipV') flip = [1, 0, 0, -1, 0, 2 * (brush ? frameCentre()[1] : M.TRI_H)];
+      if (state.rule.frame === 'triangle' && action === 'flipV' && !brush) flip = [1, 0, 0, -1, 0, -2 * M.TRI_H / 3];
       return tidy(M.compose(matrix, flip));
     }
     var q = state.rule.frame === 'triangle' ? Math.PI * 2 / 3 : Math.PI / 2, c = Math.cos(q), s = Math.sin(q);
     var clockwise = (action === 'rotateRight') !== (M.determinant(matrix) < 0);
-    return tidy(M.compose(matrix, about(clockwise ? [c, s, -s, c] : [c, -s, s, c], frameCentre())));
+    return tidy(M.compose(matrix, clockwise ? [c, -s, s, c, 0, 0] : [c, s, -s, c, 0, 0]));
   }
 
   // Randomise reorients a child inside its own outline, as the orientation
@@ -1007,25 +996,28 @@
     var grid = snapGridSize();
     return state.rule.frame === 'triangle' ? [1 / grid.side, 1 / grid.side] : [1 / grid.cols, 1 / grid.rows];
   }
-  // The centres of the grid's cells inside the frame, in reading order. A
-  // triangle with k pieces per side has k² cells: upright ones, and between
-  // them upside-down ones. New children take the cells that match the
-  // preview, upright or upside down; a cell's map keeps the frame's centre
-  // on the cell's centre, so the preview's turn and flip carry over.
+  // The centres of the grid's cells inside the frame, in reading order: top
+  // row first, left to right. A triangle with k pieces per side has k²
+  // cells: upright ones, and between them upside-down ones. New children
+  // take the cells that match the preview, upright or upside down; a cell's
+  // map puts the child's centre on the cell's centre, so the preview's turn
+  // and flip carry over.
   function gridCellCentres() {
     var grid = snapGridSize(), out = [], row, col;
     if (state.rule.frame !== 'triangle') {
-      for (row = 0; row < grid.rows; row++) for (col = 0; col < grid.cols; col++) out.push([(col + .5) / grid.cols, (row + .5) / grid.rows]);
+      for (row = 0; row < grid.rows; row++) for (col = 0; col < grid.cols; col++) out.push([(col + .5) / grid.cols - .5, .5 - (row + .5) / grid.rows]);
       return out;
     }
-    var k = grid.side, h = M.TRI_H, centre = frameCentre(), apex = M.apply(state.brush, M.framePolygon('triangle')[0]);
-    var down = apex[1] > centre[1] + 1e-9;
+    // The preview's apex points down when it lies below the centre.
+    var k = grid.side, h = M.TRI_H, down = M.apply(state.brush, M.framePolygon('triangle')[0])[1] < -1e-9;
     for (row = 0; row < k; row++) {
-      // Row r holds lattice points (i, j) with i + j = r, left to right.
+      // Lattice row r holds the r + 1 points (i, j) with i + j = r, left to
+      // right; see snapLattice. An upright cell hangs from each point; an
+      // upside-down cell sits a row lower, between two upright ones.
       for (var j = 0; j <= row; j++) {
-        var i = row - j, p = [.5 + (j - i) / (2 * k), h * row / k];
-        if (!down && row <= k - 1) out.push([p[0], p[1] + 2 * h / (3 * k)]);
-        if (down && row <= k - 2) out.push([p[0], p[1] + 4 * h / (3 * k)]);
+        var p = latticePoint(row - j, j, k);
+        if (!down) out.push([p[0], p[1] - 2 * h / (3 * k)]);
+        else if (row <= k - 2) out.push([p[0], p[1] - 4 * h / (3 * k)]);
       }
     }
     return out;
@@ -1055,14 +1047,9 @@
   // reading order, top row first. Without, it is half size, in the middle
   // or the first free corner. A duplicate keeps its original's size.
   function addFreeChild() {
-    var c = frameCentre(), candidates;
-    if (state.snapGrid) {
-      var size = gridCellSize();
-      candidates = gridCellCentres().map(function (p) { return tidy(M.compose([size[0], 0, 0, size[1], p[0] - size[0] * c[0], p[1] - size[1] * c[1]], state.brush)); });
-    } else {
-      var spots = [c].concat(M.framePolygon(state.rule.frame).map(function (v) { return [c[0] + (v[0] - c[0]) / 2, c[1] + (v[1] - c[1]) / 2]; }));
-      candidates = spots.map(function (p) { return tidy(M.compose([.5, 0, 0, .5, p[0] - .5 * c[0], p[1] - .5 * c[1]], state.brush)); });
-    }
+    var size = state.snapGrid ? gridCellSize() : [.5, .5];
+    var spots = state.snapGrid ? gridCellCentres() : [[0, 0]].concat(M.framePolygon(state.rule.frame).map(function (v) { return [v[0] / 2, v[1] / 2]; }));
+    var candidates = spots.map(function (p) { return tidy(M.compose([size[0], 0, 0, size[1], p[0], p[1]], state.brush)); });
     var child = M.child(brushLetter(), firstFree(candidates));
     currentLetter().children.push(child); state.selectedId = child.id; state.focus = 'child'; markEdited(); commit();
   }
@@ -1073,7 +1060,7 @@
     var source = selectedChild(); if (!source) return;
     var letter = currentLetter(), copy = M.clone(source); copy.id = newChildId();
     var b = M.bounds(M.transformedFrame(state.rule.frame, source.matrix)), w = b.maxX - b.minX, h = b.maxY - b.minY;
-    copy.matrix = firstFree([[w, 0], [0, -h], [-w, 0], [0, h]].map(function (d) { var m = source.matrix.slice(); m[4] += d[0]; m[5] += d[1]; return m; }), source);
+    copy.matrix = firstFree([[w, 0], [0, h], [-w, 0], [0, -h]].map(function (d) { var m = source.matrix.slice(); m[4] += d[0]; m[5] += d[1]; return m; }), source);
     letter.children.splice(letter.children.indexOf(source) + 1, 0, copy);
     state.selectedId = copy.id; state.focus = 'child'; markEdited(); commit();
   }
@@ -1146,12 +1133,9 @@
 
   // Saved fractals. The library lives in this browser's local storage. A
   // .fractal.json file holds one or more fractals in the same shape:
-  // { format: 'fractal-explorer', version: 1, fractals: [entry, ...] }, where
-  // an entry is { name, savedAt, rule, current, level, colourMode }. An older
-  // entry may hold colourByTopCopy, true or false, in place of colourMode.
-  // Version 2 numbers parents. The version 1 library is dropped unread.
-  var LIBRARY_KEY = 'fractal-library-v2', OLD_LIBRARY_KEY = 'fractal-library', FILE_FORMAT = 'fractal-explorer', FILE_VERSION = 2;
-  try { localStorage.removeItem(OLD_LIBRARY_KEY); } catch (error) {}
+  // { format: 'fractal-explorer', version: 3, fractals: [entry, ...] }, where
+  // an entry is { name, savedAt, rule, current, level, colourMode }.
+  var LIBRARY_KEY = 'fractal-library', FILE_FORMAT = 'fractal-explorer', FILE_VERSION = 3;
   function readLibrary() {
     try { var list = JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]'); return Array.isArray(list) ? list.filter(validEntry) : []; }
     catch (error) { return []; }
@@ -1175,11 +1159,11 @@
     notice((index >= 0 ? 'Updated “' : 'Saved “') + name + '”.');
   }
   function openEntry(entry) {
-    state.rule = normaliseRule(entry.rule); state.currentLetter = entry.current;
+    state.rule = M.clone(entry.rule); state.currentLetter = entry.current;
     if (!letterById(state.currentLetter)) state.currentLetter = state.rule.letters[0].id;
     state.selectedId = null; state.newLetter = null; state.focus = 'child';
     state.depth = Math.max(0, Math.min(32, entry.level == null ? state.depth : entry.level));
-    state.colourMode = readColourMode(entry.colourMode != null ? entry.colourMode : entry.colourByTopCopy);
+    state.colourMode = readColourMode(entry.colourMode);
     state.demo = null; state.savedName = entry.name; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null;
     el.saveName.value = entry.name; el.demo.value = ''; commit();
   }
@@ -1261,8 +1245,8 @@
   }
 
   function editorPoint(event) {
-    var rect = el.ruleEditor.getBoundingClientRect(), view = state.editorView;
-    return [(event.clientX - rect.left - view.x) / view.scale, (event.clientY - rect.top - view.y) / view.scale];
+    var rect = el.ruleEditor.getBoundingClientRect();
+    return state.editorView.unpoint([event.clientX - rect.left, event.clientY - rect.top]);
   }
 
   function findChildAt(point) {
@@ -1293,8 +1277,8 @@
     return corners.map(function (p, i) { var q = corners[(i + 1) % corners.length]; return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]; });
   }
   function drawSnapGrid(ctx, view, width, height) {
-    var x0 = -view.x / view.scale, x1 = (width - view.x) / view.scale, y0 = -view.y / view.scale, y1 = (height - view.y) / view.scale;
-    var corners = [[x0, y0], [x1, y0], [x0, y1], [x1, y1]], mid = [(x0 + x1) / 2, (y0 + y1) / 2], reach = Math.hypot(x1 - x0, y1 - y0);
+    var corners = [[0, 0], [width, 0], [0, height], [width, height]].map(view.unpoint, view);
+    var mid = view.unpoint([width / 2, height / 2]), reach = Math.hypot(width, height) / view.scale;
     ctx.strokeStyle = css('--line'); ctx.lineWidth = 1; ctx.globalAlpha = .7;
     snapLattice().families.forEach(function (f) {
       var values = corners.map(function (p) { return dot(f.n, p); }), lo = Math.min.apply(null, values), hi = Math.max.apply(null, values);
@@ -1348,7 +1332,7 @@
   }
   function drawHandles(ctx, child, view) {
     var corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view), roles = cornerRoles();
-    var centre = view.point(M.apply(child.matrix, frameCentre()));
+    var centre = view.point([child.matrix[4], child.matrix[5]]);
     corners.forEach(function (p, i) { drawEdgeHandle(ctx, p, corners[(i + 1) % corners.length]); });
     drawScaleKnob(ctx, corners[roles.scale], centre);
     drawRotateKnob(ctx, corners[roles.rotate]);
@@ -1402,9 +1386,10 @@
   }
 
   // An edge drag picks stretch or skew from its first few pixels: across
-  // the edge stretches, along it skews.
+  // the edge stretches, along it skews. dx and dy are in pixels, so the
+  // edge is measured in pixels too.
   function edgeJob(drag, dx, dy) {
-    var corners = M.transformedFrame(state.rule.frame, drag.matrix), k = drag.handle.index;
+    var corners = M.transformedFrame(state.rule.frame, drag.matrix).map(state.editorView.point, state.editorView), k = drag.handle.index;
     var p = corners[k], q = corners[(k + 1) % corners.length], e = [q[0] - p[0], q[1] - p[1]], len = Math.hypot(e[0], e[1]) || 1;
     var along = Math.abs(dx * e[0] + dy * e[1]) / len, across = Math.abs(dx * e[1] - dy * e[0]) / len;
     return along > across ? 'skew' : 'stretch';
@@ -1415,7 +1400,8 @@
   function dragMatrix(drag, point, free, shift) {
     var m0 = drag.matrix, h = drag.handle, local = M.framePolygon(state.rule.frame), n = local.length, job = drag.job;
     if (job === 'move') { var t = m0.slice(); t[4] += point[0] - drag.start[0]; t[5] += point[1] - drag.start[1]; return t; }
-    var cl = frameCentre(), c = M.apply(m0, cl);
+    // The child's centre: the origin of its own frame, and (m₁₃, m₂₃) here.
+    var c = [m0[4], m0[5]];
     if (job === 'rotate') {
       var from = M.apply(m0, local[h.index]);
       var angle = Math.atan2(point[1] - c[1], point[0] - c[0]) - Math.atan2(from[1] - c[1], from[0] - c[0]);
@@ -1435,9 +1421,9 @@
       if (shift) {
         // Shift: stretch both ways in the child's own frame, about its centre.
         var u = M.apply(invert(m0), point);
-        var sx = Math.abs(q[0] - cl[0]) < 1e-9 ? 1 : clampScale((u[0] - cl[0]) / (q[0] - cl[0]));
-        var sy = Math.abs(q[1] - cl[1]) < 1e-9 ? 1 : clampScale((u[1] - cl[1]) / (q[1] - cl[1]));
-        return M.compose(m0, about([sx, 0, 0, sy], cl));
+        var sx = Math.abs(q[0]) < 1e-9 ? 1 : clampScale(u[0] / q[0]);
+        var sy = Math.abs(q[1]) < 1e-9 ? 1 : clampScale(u[1] / q[1]);
+        return M.compose(m0, [sx, 0, 0, sy, 0, 0]);
       }
       var corner = M.apply(m0, q), v = [corner[0] - c[0], corner[1] - c[1]];
       var s = Math.max(.02, dot(v, [point[0] - c[0], point[1] - c[1]]) / dot(v, v));
@@ -1484,27 +1470,32 @@
     return [drag.handle.index, (drag.handle.index + 1) % n];
   }
   // The snap lattice follows the frame. A square frame has Cols by Rows
-  // cells. A triangle frame is cut into Per side pieces along each side, so
-  // its lattice is triangular, with lines parallel to its three sides. Each
-  // family of lines is n · p = offset + k × spacing, for whole k, with n a
-  // unit vector.
+  // cells, with lines through its edges. A triangle frame is cut into Per
+  // side pieces along each side, so its lattice is triangular, with lines
+  // parallel to its three sides. Each family of lines is
+  // n · p = offset + k × spacing, for whole k, with n a unit vector.
+  //
+  // Triangle lattice point (i, j) is the apex plus i steps down the left
+  // side and j down the right, each step 1/k of a side:
+  // ((j − i) / 2k, 2h/3 − h (i + j) / k), with h the triangle's height.
+  function latticePoint(i, j, k) { return [(j - i) / (2 * k), M.TRI_H * 2 / 3 - M.TRI_H * (i + j) / k]; }
   function snapLattice() {
     var grid = snapGridSize();
     if (state.rule.frame !== 'triangle') return {
-      families: [{ n: [1, 0], spacing: 1 / grid.cols, offset: 0 }, { n: [0, 1], spacing: 1 / grid.rows, offset: 0 }],
-      near: function (c) { return [Math.round(c[0] * grid.cols) / grid.cols, Math.round(c[1] * grid.rows) / grid.rows]; }
+      families: [{ n: [1, 0], spacing: 1 / grid.cols, offset: -.5 }, { n: [0, 1], spacing: 1 / grid.rows, offset: -.5 }],
+      near: function (c) { return [Math.round((c[0] + .5) * grid.cols) / grid.cols - .5, Math.round((c[1] + .5) * grid.rows) / grid.rows - .5]; }
     };
     var k = grid.side, h = M.TRI_H, step = h / k;
     return {
-      families: [{ n: [0, 1], spacing: step, offset: 0 }, { n: [h, -.5], spacing: step, offset: h / 2 }, { n: [h, .5], spacing: step, offset: h / 2 }],
-      // Lattice point (i, j) is the apex plus i steps down the left side and
-      // j down the right: (1/2 + (j − i) / 2k, h (i + j) / k). The nearest
-      // one is a corner of the rhombus cell around c.
+      // Rows, then lines along the left side (n · p = −h/3 + j h/k), then
+      // lines along the right side (n · p = h/3 − i h/k).
+      families: [{ n: [0, 1], spacing: step, offset: h * 2 / 3 }, { n: [h, -.5], spacing: step, offset: -h / 3 }, { n: [h, .5], spacing: step, offset: h / 3 }],
+      // The nearest lattice point is a corner of the rhombus cell around c.
       near: function (c) {
-        var s = c[1] * k / h, d = (c[0] - .5) * 2 * k, i = (s - d) / 2, j = (s + d) / 2, best = null, bestD = Infinity;
+        var s = (h * 2 / 3 - c[1]) * k / h, d = c[0] * 2 * k, i = (s - d) / 2, j = (s + d) / 2, best = null, bestD = Infinity;
         [Math.floor(i), Math.ceil(i)].forEach(function (a) {
           [Math.floor(j), Math.ceil(j)].forEach(function (b) {
-            var p = [.5 + (b - a) / (2 * k), h * (a + b) / k], gap = distance(p, c);
+            var p = latticePoint(a, b, k), gap = distance(p, c);
             if (gap < bestD) { bestD = gap; best = p; }
           });
         });
@@ -1513,7 +1504,7 @@
     };
   }
   function snapScale(drag, m) {
-    var lattice = snapLattice(), view = state.editorView, c = M.apply(m, frameCentre());
+    var lattice = snapLattice(), view = state.editorView, c = [m[4], m[5]];
     var corner = M.apply(m, M.framePolygon(state.rule.frame)[drag.handle.index]), v = [corner[0] - c[0], corner[1] - c[1]];
     var best = null, bestScore = Infinity;
     lattice.families.forEach(function (f) {
@@ -1842,7 +1833,7 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','randomise-parent','remove-child','randomise-all','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','main-stage','grid-fields','grid-rows','grid-cols','grid-side','frame-shape','cols-field','rows-field','side-field','toggle-snap','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','randomise-parent','remove-child','randomise-all','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','grid-rows','grid-cols','grid-side','frame-shape','cols-field','rows-field','side-field','toggle-snap','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }

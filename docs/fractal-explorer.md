@@ -40,9 +40,14 @@ x' = a x + c y + e
 y' = b x + d y + f
 ```
 
+The origin is the frame's centre, x points right, y points up, and a
+positive angle turns anticlockwise. So (e, f) is the child's centre, and the
+identity map is the parent itself.
+
 The editor changes the coefficients directly. The frame is one shape for the
-whole rule, `square` or `triangle`: the unit square, or the upright
-equilateral triangle of side 1 with its apex at (1/2, 0). Every parent and
+whole rule, `square` or `triangle`: the square of side 1 from (−1/2, −1/2) to
+(1/2, 1/2), or the upright equilateral triangle of side 1 with its centroid
+at the origin and its apex at (0, √3/3). Every parent and
 child draws in it. Frame, in Options, switches it and keeps every map, so the
 fractal stays the same and only the outlines change; the switch is one undo
 step. A triangle's Flip V mirrors the child across its own bottom edge, so
@@ -53,15 +58,7 @@ centre, so + still places the child where it would have gone. Each frame carries
 it, which fixes which side is down. The number uses Times, whose lining
 figures sit on the baseline; Georgia's old-style figures dropped onto the
 underline. In the editor, the child's letter at its top left fixes the
-orientation. The rule format is version 2; version 1 rules, which
-used letters, are not read.
-
-Until 2026-11-27 the app also had Square and Triangle grid modes, where a tap
-placed a child in a cell. They were never finished and were removed, because
-Free mode with the snap grid covers grid layouts. Rules saved then carry
-`mode`, `toggles` (Stretch, Blocks, Stacking and Grid per letter), a
-per-parent grid and cell placements on each child. `normaliseRule()` drops
-those fields on load. The maps alone define the rule, so it draws the same.
+orientation. The rule format is version 3, and the app reads no other.
 
 The pure model is in `app/fractal/model.js`. The browser controller and canvas
 views are in `app/fractal/app.js`. `tools/fractal/check.js` runs model checks
@@ -153,12 +150,10 @@ the back. Its grip reorders by drag. The pencil opens a pop-up
 that accepts decimals and the forms `1/3`, `sqrt(2)/2`, and `√2/2`, and
 applies them on OK as one undo step. The list shows x, y, scale, angle and
 flip while every child of the parent is a similarity, and the six affine
-values once one is stretched or skewed. In both, x and y place the child's
-centre against the parent's centre, in frame widths with y down: the middle
-cell of a 3 by 3 square is (0, 0), and so is the upside-down middle cell of
-a triangle. The centre of a triangle is its centroid. The stored map is
-unchanged; only the table and the pop-up convert, so a frame switch keeps
-every map and changes the x and y shown. Real values show three decimals,
+values once one is stretched or skewed. x and y are the child's centre: the
+middle cell of a 3 by 3 square is (0, 0), and so is the upside-down middle
+cell of a triangle. A child is mirrored left to right if Flip is 1, then
+scaled, then turned anticlockwise by Angle, from −180 to 180. Real values show three decimals,
 0.000 included, right-aligned in tabular figures so the points line up.
 Names, parent numbers and whole numbers are centred.
 
@@ -231,8 +226,7 @@ and child buttons and in the children table. In Parent colour mode it also
 colours every view. Top copy colours each copy by the top-level child
 it sits inside. Order is the default for every rule, so adding or removing a
 parent never changes the mode. The mode
-travels in the address as `colour`; older addresses and saved fractals held
-true or false for Top copy, and still open.
+travels in the address as `colour`.
 
 ## Readouts
 
@@ -265,7 +259,11 @@ copies, starting from Analysis depth, so a two-copy rule such as the Dragon
 has enough sample points.
 
 The convex hull comes from the transformed frame corners at the rendered
-depth. Andrew's monotone-chain algorithm returns its corners and area. The
+depth. Andrew's monotone-chain algorithm returns its corners and area. It
+rounds points to 1e-12 first, so float noise cannot sort a corner out of
+place, keeps only strict turns, then drops corners within 1e-9 of the line
+through their neighbours. A tolerance inside the turn test once dropped a
+real corner. The
 overlap flag combines direct child-polygon intersections, a similarity
 dimension above two, and a formula more than 0.35 above the box count. The
 box count reads low for a solid shape with a rough edge (the Dragon reads
@@ -337,9 +335,9 @@ that parent. R and T rotate left and right, H and V flip, Backspace or Delete
 removes the last thing clicked (a child or a parent), Cmd+D or Ctrl+D
 duplicates it, and Escape deselects.
 
-Saved fractals use the browser key `fractal-library-v2` and files with
-`{ format: "fractal-explorer", version: 2, fractals: [...] }`. The version 1
-key is deleted on load.
+Saved fractals use the browser key `fractal-library` and files with
+`{ format: "fractal-explorer", version: 3, fractals: [...] }`. Import reads
+every fractal in a file, so it also takes an Export all file.
 
 On an upright touch screen, the editor and readouts become horizontally
 scrolling cards below the limit. On a short sideways touch screen, the editor

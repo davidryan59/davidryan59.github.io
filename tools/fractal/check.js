@@ -12,9 +12,14 @@ function close(actual, expected, tolerance, message) {
 assert.deepStrictEqual(M.apply(M.identity(), [2, 3]), [2, 3], 'identity map');
 assert.deepStrictEqual(M.apply(M.compose([2, 0, 0, 2, 1, 1], [0.5, 0, 0, 0.5, 1, 0]), [0, 0]), [3, 1], 'map composition');
 
-const sieveCorners = demos.sieve.letters[0].children.map(c => c.matrix[4] + ':' + c.matrix[5]);
-assert.deepStrictEqual(sieveCorners, ['0:0', '0:0.5', '0.5:0.5'], 'Sieve children sit in three quarters');
-assert.ok(Object.values(demos).every(rule => !('mode' in rule) && !('toggles' in rule)), 'demos carry no mode or toggles');
+// The origin is each frame's centre, and y points up.
+for (const frame of ['square', 'triangle']) {
+  const corners = M.framePolygon(frame), mean = [0, 1].map(k => corners.reduce((s, p) => s + p[k], 0) / corners.length);
+  close(Math.hypot(mean[0], mean[1]), 0, 1e-12, frame + ' is centred on the origin');
+  assert(corners[0][1] > 0, frame + ' lists its top corner first');
+}
+const sieveCentres = demos.sieve.letters[0].children.map(c => c.matrix[4] + ':' + c.matrix[5]);
+assert.deepStrictEqual(sieveCentres, ['-0.25:0.25', '-0.25:-0.25', '0.25:-0.25'], 'Sieve children fill three quarters, leaving the top right empty');
 assert.strictEqual(M.enumerate(demos.sieve, 'p1', 4).length, 81, 'Sieve level 4 count');
 const capped = M.expand(demos.sieve, 'p1', 9, { maxInstances: 1000, maxMs: 1000, minDepth: 0, minScale: 0 });
 assert(capped.length <= 1000 && capped.length >= 998, 'adaptive expansion fills up to the copy cap');
@@ -48,8 +53,6 @@ close(gasket.dimension, Math.log(3) / Math.log(2), 1e-9, 'gasket dimension');
 assert.strictEqual(M.similarityDimension(demos.gasket).exact, 'log 3 / log 2', 'the gasket names log 3 / log 2');
 assert.strictEqual(gasket.overlap, false, 'the gasket has no overlap');
 close(gasket.hullArea, Math.sqrt(3) / 4, 0.01, 'the gasket hull is its triangle');
-const stretchedCell = M.squareGridMap({ row: 1, col: 2 }, 3, 5, 1, true, 2, 3);
-close(Math.abs(M.determinant(stretchedCell)), 2 / 5, 1e-9, 'rectangular square block area scale');
 
 const growing = M.clone(demos.sieve);
 growing.letters[0].children = [M.child('p1', [1.1, 0, 0, 1.1, 0, 0])];
@@ -77,6 +80,12 @@ ends.letters[0].children = [M.child('p2', [0.5, 0, 0, 0.5, 0, 0])]; ends.letters
 assert.strictEqual(M.status(ends).name, 'Converges', 'a rule that ends converges');
 assert.strictEqual(M.nextId(demos.linked), 'p3', 'next parent id');
 
+// Float noise in x must not sort a corner out of place. This set, from a
+// saved rule, lost its bottom-left corner when the turn test had a tolerance.
+const noisy = M.convexHull([[-0.5000000000000028, 0.5], [-0.5, -0.5], [-0.5, 0], [0.5, -0.5], [0.5, 0], [0.16666666666666388, 0.5]]);
+assert.strictEqual(noisy.length, 5, 'the noisy hull keeps all five corners');
+close(M.polygonArea(noisy), 11 / 12, 1e-9, 'the noisy hull keeps its area');
+
 const overlap = M.clone(demos.sieve);
 overlap.letters[0].children.push(M.child('p1', overlap.letters[0].children[0].matrix.slice()));
 assert.strictEqual(M.directOverlap(overlap), true, 'coincident children overlap');
@@ -84,7 +93,7 @@ assert.strictEqual(M.directOverlap(overlap), true, 'coincident children overlap'
 // Named formulas for one shared ratio.
 assert.strictEqual(M.similarityDimension(demos.linked).exact, '2 log φ / log 2', 'linked pair names the golden ratio');
 const dragon = M.clone(demos.sieve);
-dragon.letters[0].children = [M.child('p1', [.5, .5, -.5, .5, 0, 0]), M.child('p1', [-.5, .5, -.5, -.5, 1, 0])];
+dragon.letters[0].children = [M.child('p1', [.5, -.5, .5, .5, -.5, 0]), M.child('p1', [-.5, -.5, .5, -.5, 0, .5])];
 assert.strictEqual(M.similarityDimension(dragon).exact, 'log 2 / log √2', 'the dragon is log 2 / log √2');
 assert.strictEqual(M.similarityDimension(demos.free).exact, null, 'unequal ratios name no formula');
 assert.strictEqual(M.analyse(dragon, 'p1', 7).overlap, false, 'the dragon has no overlap');
@@ -113,4 +122,4 @@ assert(largest < 0.01, 'the largest copy left is under 1% of the frame, not 6% a
 const paths = M.expand(demos.sieve, 'p1', 3, { maxMs: 0 }).map(item => item.path);
 assert.deepStrictEqual(paths.filter(path => path.startsWith('00')), ['000', '001', '002'], 'the children of one split stay in child order');
 
-console.log('Fractal model: 46 checks passed.');
+console.log('Fractal model: 49 checks passed.');

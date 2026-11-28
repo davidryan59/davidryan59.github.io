@@ -5,6 +5,10 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // Coordinates: the origin is the frame's centre, x points right and y
+  // points up, and a positive angle turns anticlockwise. Both frames have
+  // side 1. The square runs from (−1/2, −1/2) to (1/2, 1/2). The triangle's
+  // centroid is the origin, so its apex is 2/3 of its height above it.
   var EPS = 1e-9;
   var TRI_H = Math.sqrt(3) / 2;
 
@@ -42,29 +46,17 @@
     return Math.abs(s[0] - s[1]) <= (tolerance || 1e-7) * Math.max(1, s[0]);
   }
 
+  // Corners in a fixed order, clockwise from the top: the square's top
+  // left, top right, bottom right and bottom left; the triangle's apex,
+  // bottom right and bottom left.
   function framePolygon(frame) {
     return frame === 'triangle'
-      ? [[0.5, 0], [1, TRI_H], [0, TRI_H]]
-      : [[0, 0], [1, 0], [1, 1], [0, 1]];
+      ? [[0, TRI_H * 2 / 3], [0.5, -TRI_H / 3], [-0.5, -TRI_H / 3]]
+      : [[-0.5, 0.5], [0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]];
   }
 
   function transformedFrame(frame, matrix) {
     return framePolygon(frame).map(function (p) { return apply(matrix, p); });
-  }
-
-  function squareOrientation(turn, flip) {
-    var rotations = [
-      [1, 0, 0, 1, 0, 0], [0, 1, -1, 0, 1, 0],
-      [-1, 0, 0, -1, 1, 1], [0, -1, 1, 0, 0, 1]
-    ];
-    var reflected = flip ? [-1, 0, 0, 1, 1, 0] : identity();
-    return compose(rotations[((turn % 4) + 4) % 4], reflected);
-  }
-
-  function squareGridMap(cell, rows, cols, turn, flip, blockRows, blockCols) {
-    var br = Math.max(1, blockRows || 1), bc = Math.max(1, blockCols || br);
-    var box = [bc / cols, 0, 0, br / rows, cell.col / cols, cell.row / rows];
-    return compose(box, squareOrientation(turn || 0, !!flip));
   }
 
   function polygonArea(poly) {
@@ -78,21 +70,36 @@
 
   function cross(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
 
+  // Andrew's monotone chain. Points are first rounded to 1e-12, so float
+  // noise cannot sort two points that share an x out of order: with a
+  // tolerance in the turn test, a corner sorted out of place is dropped.
+  // The chain keeps only strict left turns. Then a corner within EPS of the
+  // line through its neighbours lies on an edge, or on top of a neighbour,
+  // and is removed; that moves the hull by at most EPS.
   function convexHull(points) {
-    var pts = points.map(function (p) { return p.slice(); }).sort(function (p, q) { return p[0] - q[0] || p[1] - q[1]; });
-    var unique = pts.filter(function (p, i) { return !i || Math.abs(p[0] - pts[i - 1][0]) > EPS || Math.abs(p[1] - pts[i - 1][1]) > EPS; });
+    var round = function (v) { return Math.round(v * 1e12) / 1e12 + 0; };
+    var pts = points.map(function (p) { return [round(p[0]), round(p[1])]; }).sort(function (p, q) { return p[0] - q[0] || p[1] - q[1]; });
+    var unique = pts.filter(function (p, i) { return !i || p[0] !== pts[i - 1][0] || p[1] !== pts[i - 1][1]; });
     if (unique.length <= 2) return unique;
     var lower = [], upper = [], i;
     for (i = 0; i < unique.length; i++) {
-      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], unique[i]) <= EPS) lower.pop();
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], unique[i]) <= 0) lower.pop();
       lower.push(unique[i]);
     }
     for (i = unique.length - 1; i >= 0; i--) {
-      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], unique[i]) <= EPS) upper.pop();
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], unique[i]) <= 0) upper.pop();
       upper.push(unique[i]);
     }
     lower.pop(); upper.pop();
-    return lower.concat(upper);
+    var hull = lower.concat(upper), straight = true;
+    while (straight && hull.length > 3) {
+      straight = false;
+      for (i = 0; i < hull.length && hull.length > 3; i++) {
+        var a = hull[(i + hull.length - 1) % hull.length], b = hull[i], c = hull[(i + 1) % hull.length];
+        if (Math.abs(cross(a, b, c)) <= EPS * Math.hypot(c[0] - a[0], c[1] - a[1])) { hull.splice(i--, 1); straight = true; }
+      }
+    }
+    return hull;
   }
 
   function signedArea(poly) {
@@ -289,18 +296,18 @@
   // A disc for each parent that holds its frame and every copy below it, at
   // any depth: frame ⊆ disc, and each child map sends its letter's disc
   // inside this one. Discs are centred on the frame. The radii come from the
-  // least solution of r = max(frame radius, |f(c') − c| + σ₁(f) r'), raised
-  // a little and then checked, so a disc off screen proves its whole branch
-  // is off screen. Returns null when no such discs exist, as for a rule
+  // least solution of r = max(frame radius, |f(0)| + σ₁(f) r'), raised a
+  // little and then checked, so a disc off screen proves its whole branch is
+  // off screen. f(0) is the child's translation, since the frame's centre
+  // is the origin. Returns null when no such discs exist, as for a rule
   // whose copies do not all shrink.
   function coverDiscs(rule) {
-    var frame = framePolygon(rule.frame), centre = [0, 0];
-    frame.forEach(function (p) { centre[0] += p[0] / frame.length; centre[1] += p[1] / frame.length; });
-    var reach = Math.max.apply(null, frame.map(function (p) { return Math.hypot(p[0] - centre[0], p[1] - centre[1]); }));
+    var centre = [0, 0];
+    var reach = Math.max.apply(null, framePolygon(rule.frame).map(function (p) { return Math.hypot(p[0], p[1]); }));
     var links = rule.letters.map(function (letter) {
       return letter.children.map(function (child) {
-        var c = apply(child.matrix, centre);
-        return { letter: child.letter, offset: Math.hypot(c[0] - centre[0], c[1] - centre[1]), scale: singularValues(child.matrix)[0] };
+        var m = child.matrix;
+        return { letter: child.letter, offset: Math.hypot(m[4], m[5]), scale: singularValues(m)[0] };
       });
     });
     if (links.some(function (list) { return list.some(function (l) { return l.scale >= 1 - EPS; }); })) return null;
@@ -398,7 +405,7 @@
   }
 
   function bounds(points) {
-    if (!points.length) return { minX: 0, minY: 0, maxX: 1, maxY: 1 };
+    if (!points.length) return { minX: -0.5, minY: -0.5, maxX: 0.5, maxY: 0.5 };
     return points.reduce(function (b, p) {
       b.minX = Math.min(b.minX, p[0]); b.minY = Math.min(b.minY, p[1]);
       b.maxX = Math.max(b.maxX, p[0]); b.maxY = Math.max(b.maxY, p[1]); return b;
@@ -477,7 +484,8 @@
     var points = [], samples = [];
     leaves.forEach(function (item) {
       transformedFrame(rule.frame, item.matrix).forEach(function (p) { points.push(p); });
-      samples.push(apply(item.matrix, rule.frame === 'triangle' ? [0.5, TRI_H * 2 / 3] : [0.5, 0.5]));
+      // Each copy's centre, the image of the origin.
+      samples.push([item.matrix[4], item.matrix[5]]);
     });
     var limitHull = stat.name === 'Converges' ? attractorHulls(rule, options.hullIterations || 32, options.maxMs || 0)[start] : null;
     var hull = limitHull && limitHull.length ? limitHull : convexHull(points);
@@ -505,36 +513,48 @@
 
   // grid is the editor's snap grid; it guides dragging and never moves a child.
   function baseRule(frame, letters) {
-    return { version: 2, frame: frame, grid: { rows: 2, cols: 2, side: 2 }, letters: letters };
+    return { version: 3, frame: frame, grid: { rows: 2, cols: 2, side: 2 }, letters: letters };
+  }
+
+  // A child map scaled by s, then turned by quarter turns anticlockwise,
+  // with its centre at (x, y).
+  function placed(s, quarters, x, y) {
+    var c = [1, 0, -1, 0][quarters % 4], n = [0, 1, 0, -1][quarters % 4];
+    return [s * c, s * n, -s * n, s * c, x, y];
   }
 
   function demos() {
+    // Three half-size copies, with the top-right quarter empty.
     var sieve = baseRule('square', [{ id: 'p1', children: [
-      child('p1', squareGridMap({ row: 0, col: 0 }, 2, 2)),
-      child('p1', squareGridMap({ row: 1, col: 0 }, 2, 2)),
-      child('p1', squareGridMap({ row: 1, col: 1 }, 2, 2))
+      child('p1', placed(0.5, 0, -0.25, 0.25)),
+      child('p1', placed(0.5, 0, -0.25, -0.25)),
+      child('p1', placed(0.5, 0, 0.25, -0.25))
     ] }]);
-    // The equilateral Sierpinski triangle: a half-size copy in each corner.
+    // The equilateral Sierpinski triangle: a half-size copy in each corner,
+    // centred halfway from the centre to that corner.
     var gasket = baseRule('triangle', [{ id: 'p1', children: [
-      child('p1', [0.5, 0, 0, 0.5, 0.25, 0]),
-      child('p1', [0.5, 0, 0, 0.5, 0, TRI_H / 2]),
-      child('p1', [0.5, 0, 0, 0.5, 0.5, TRI_H / 2])
+      child('p1', placed(0.5, 0, 0, TRI_H / 3)),
+      child('p1', placed(0.5, 0, -0.25, -TRI_H / 6)),
+      child('p1', placed(0.5, 0, 0.25, -TRI_H / 6))
     ] }]);
+    // Parent 1 makes a 1 and a 2 along the bottom. Parent 2 makes a 1 turned
+    // clockwise at the top left, a 2 turned anticlockwise at the bottom left
+    // and a 2 turned halfway round at the bottom right.
     var linked = baseRule('square', [
       { id: 'p1', children: [
-        child('p1', squareGridMap({ row: 1, col: 0 }, 2, 2)),
-        child('p2', squareGridMap({ row: 1, col: 1 }, 2, 2))
+        child('p1', placed(0.5, 0, -0.25, -0.25)),
+        child('p2', placed(0.5, 0, 0.25, -0.25))
       ] },
       { id: 'p2', children: [
-        child('p1', squareGridMap({ row: 0, col: 0 }, 2, 2, 1)),
-        child('p2', squareGridMap({ row: 1, col: 0 }, 2, 2, 3)),
-        child('p2', squareGridMap({ row: 1, col: 1 }, 2, 2, 2))
+        child('p1', placed(0.5, 3, -0.25, 0.25)),
+        child('p2', placed(0.5, 1, -0.25, -0.25)),
+        child('p2', placed(0.5, 2, 0.25, -0.25))
       ] }
     ]);
     var free = baseRule('square', [{ id: 'p1', children: [
-      child('p1', [0.64, 0.22, -0.22, 0.64, 0.18, -0.03]),
-      child('p1', [0.36, -0.18, 0.18, 0.36, 0.56, 0.43]),
-      child('p1', [-0.25, 0.08, 0.08, 0.25, 0.38, 0.71])
+      child('p1', [0.64, -0.22, 0.22, 0.64, -0.11, 0.1]),
+      child('p1', [0.36, 0.18, -0.18, 0.36, 0.33, -0.02]),
+      child('p1', [-0.25, -0.08, -0.08, 0.25, -0.205, -0.375])
     ] }]);
     return { sieve: sieve, gasket: gasket, linked: linked, free: free };
   }
@@ -549,7 +569,6 @@
     EPS: EPS, TRI_H: TRI_H, clone: clone, identity: identity,
     compose: compose, apply: apply, determinant: determinant, singularValues: singularValues,
     isSimilarity: isSimilarity, framePolygon: framePolygon, transformedFrame: transformedFrame,
-    squareOrientation: squareOrientation, squareGridMap: squareGridMap,
     polygonArea: polygonArea, convexHull: convexHull, intersectionArea: intersectionArea,
     enumerate: enumerate, expand: expand, spectralRadius: spectralRadius, similarityDimension: similarityDimension,
     affinityDimension: affinityDimension, status: status, growthBounds: growthBounds, eigenRadius: eigenRadius, bounds: bounds, boxDimension: boxDimension,

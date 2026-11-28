@@ -31,13 +31,13 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   const selection = () => page.locator('#selection-name').textContent();
   const firstRow = () => page.locator('#numbers-body tr').first().textContent();
 
-  // The Sieve in Free mode has a fixed editor layout: the parent square plus
-  // an 8% margin, fitted inside a 13-pixel inset. This maps a frame point
-  // to page pixels.
+  // The Sieve has a fixed editor layout: the parent square plus an 8%
+  // margin, fitted inside a 13-pixel inset, with the frame's centre, the
+  // origin, in the middle. This maps a point, with y up, to page pixels.
   async function editorPoint(p) {
     const box = await page.locator('#rule-editor').boundingBox();
     const scale = Math.min(box.width - 26, box.height - 26) / 1.16;
-    return [box.x + box.width / 2 + (p[0] - 0.5) * scale, box.y + box.height / 2 + (p[1] - 0.5) * scale];
+    return [box.x + box.width / 2 + p[0] * scale, box.y + box.height / 2 - p[1] * scale];
   }
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
@@ -48,7 +48,6 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check(/^\d\.\d\d$/.test(await page.locator('#box-dimension').textContent()), 'box count shows two decimals');
   check(Math.abs(Number(await page.locator('#dimension-value').textContent()) - Math.log(3) / Math.log(2)) < 0.001, 'Sieve dimension');
   equal(await rows(), 3, 'Sieve has three children');
-  equal(await page.locator('#mode-row, [data-mode]').count(), 0, 'Free is the only mode, so there is no mode row');
   equal(await page.locator('#selection-heading').textContent(), 'New child', 'nothing selected at start');
   await page.click('#toggle-menu');
   check(await page.locator('[data-preset="balanced"]').evaluate(button => button.classList.contains('active')), 'Balanced preset active');
@@ -71,7 +70,6 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('[data-colour="top"]');
   check((await page.url()).includes('#rule='), 'the colour mode goes in the address');
   await page.click('[data-colour="order"]');
-  equal(await page.locator('#toggle-stacking, #toggle-per-letter').count(), 0, 'Stacking and Grid per letter are gone');
   await page.click('#toggle-menu');
 
   // Drag between two editor points, in frame units.
@@ -90,65 +88,72 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   const near = (text, value, tolerance) => Math.abs(Number(text) - value) < (tolerance || 0.01);
 
   // Child A of the Sieve fills the top-left quarter, so its centre is
-  // (0.25, 0.25), its turn corner (0.5, 0) and its scale corner (0.5, 0.5).
+  // (−0.25, 0.25), its turn corner (0, 0.5) and its scale corner (0, 0).
+  // The table's columns are grip, name, parent, then x, y, scale, angle
+  // and flip, or the six affine values.
   let cells;
-  const centre = await editorPoint([0.25, 0.25]);
+  const centre = await editorPoint([-0.25, 0.25]);
   await page.mouse.click(centre[0], centre[1]);
   equal(await selection(), 'A', 'a click selects the top-left child, A');
   const beforeHandle = await firstRow();
 
+  cells = await cellsOf();
+  check(near(cells[3], -0.25) && near(cells[4], 0.25) && near(cells[5], 0.5), 'A sits at (−0.25, 0.25), half size: ' + cells.join(' '));
   // Turn: a press just outside the top-right corner grabs the turn knob.
-  await drag([0.5, 0], [0.5, 0.5], { offset: [4, -4] });
+  // Dragging it down to the bottom-right corner turns A a quarter turn
+  // clockwise, which is −90 degrees.
+  await drag([0, 0.5], [0, 0], { offset: [4, -4] });
   equal(await selection(), 'A', 'the handle drag kept the same child');
   cells = await cellsOf();
-  check(near(cells[5], 0.5) && near(cells[6], 90, 0.01), 'the turn corner turns a quarter turn about the centre: ' + cells.join(' '));
-  check(near(cells[3], -0.25) && near(cells[4], -0.25), 'the turn kept the centre in place: ' + cells.join(' '));
+  check(near(cells[5], 0.5) && near(cells[6], -90, 0.01), 'the turn corner turns a quarter turn clockwise about the centre: ' + cells.join(' '));
+  check(near(cells[3], -0.25) && near(cells[4], 0.25), 'the turn kept the centre in place: ' + cells.join(' '));
   await page.click('#undo');
   equal(await firstRow(), beforeHandle, 'undo restores the child');
 
   // A moved child sticks to edges: A's top edge lies on the parent's, so a
-  // sideways drag that wobbles 2 pixels down keeps y at -0.25, a quarter
-  // above the parent's centre.
+  // sideways drag that wobbles 2 pixels down keeps y at 0.25.
   {
-    const from = await editorPoint([0.25, 0.25]), to = await editorPoint([0.35, 0.25]);
+    const from = await editorPoint([-0.25, 0.25]), to = await editorPoint([-0.15, 0.25]);
     await page.mouse.move(from[0], from[1]); await page.mouse.down();
     await page.mouse.move(to[0], to[1] + 2, { steps: 6 }); await page.mouse.up();
     await page.waitForTimeout(50);
     cells = await cellsOf();
-    check(near(cells[3], -0.15, 0.02) && cells[4] === '-0.250', 'a sideways drag stays on the top edge: ' + cells.join(' '));
+    check(near(cells[3], -0.15, 0.02) && cells[4] === '0.250', 'a sideways drag stays on the top edge: ' + cells.join(' '));
     await page.click('#undo');
   }
 
-  // Turns are sticky at right angles: a drag to 93 degrees lands on 90.
-  const turned = [0.25 + Math.SQRT2 * 0.25 * Math.cos((45 + 3) * Math.PI / 180), 0.25 + Math.SQRT2 * 0.25 * Math.sin((45 + 3) * Math.PI / 180)];
-  await drag([0.5, 0], turned);
+  // Turns are sticky at right angles: the turn corner starts at 45 degrees
+  // from A's centre, and a drag to −48 degrees, 93 clockwise, lands on −90.
+  const turned = [-0.25 + Math.SQRT2 * 0.25 * Math.cos(-48 * Math.PI / 180), 0.25 + Math.SQRT2 * 0.25 * Math.sin(-48 * Math.PI / 180)];
+  await drag([0, 0.5], turned);
   cells = await cellsOf();
-  equal(cells[6], '90.000', 'a turn near 90 degrees holds at 90');
+  equal(cells[6], '-90.000', 'a turn near 90 degrees clockwise holds at −90');
   await page.click('#undo');
 
   // Scale: the bottom-right corner scales about the centre.
-  await drag([0.5, 0.5], [0.625, 0.625]);
+  await drag([0, 0], [0.125, -0.125]);
   cells = await cellsOf();
   check(near(cells[5], 0.75) && near(cells[6], 0), 'the scale corner scales by 3/2: ' + cells.join(' '));
-  check(near(cells[3], -0.25) && near(cells[4], -0.25), 'the scale kept the centre in place: ' + cells.join(' '));
+  check(near(cells[3], -0.25) && near(cells[4], 0.25), 'the scale kept the centre in place: ' + cells.join(' '));
   await page.click('#undo');
   console.log('Turned and scaled a child about its centre.');
 
-  // Edges: across the right edge stretches, and along it skews.
-  await drag([0.5, 0.25], [0.75, 0.25]);
+  // Edges: across the right edge stretches, and along it skews. Stretching
+  // the right edge from x = 0 to 0.25 keeps the left edge at −0.5.
+  await drag([0, 0.25], [0.25, 0.25]);
   equal(await page.locator('#numbers-head th').count(), 10, 'a stretched child shows the six affine values');
   cells = await cellsOf();
-  check(near(cells[3], 0.75) && near(cells[4], 0) && near(cells[5], 0) && near(cells[6], 0.5), 'across the edge stretches width only: ' + cells.join(' '));
+  check(near(cells[3], 0.75) && near(cells[4], 0) && near(cells[5], 0) && near(cells[6], 0.5) && near(cells[7], -0.125) && near(cells[8], 0.25),
+    'across the edge stretches width only: ' + cells.join(' '));
   check(cells[4] === '0.000', 'zero shows three decimals');
-  // Rotate R turns the number inside the same rectangle: (x, y) goes to
-  // (1 - y, x) in the child's frame, so the 0.75 by 0.5 outline stays put.
+  // Rotate R turns the number clockwise inside the same rectangle: (x, y)
+  // goes to (y, −x) in the child's frame, so the 0.75 by 0.5 outline stays put.
   await page.click('#rotate-right');
   cells = await cellsOf();
-  check(near(cells[3], 0) && near(cells[4], 0.5) && near(cells[5], -0.75) && near(cells[6], 0) && near(cells[7], -0.125) && near(cells[8], -0.25),
+  check(near(cells[3], 0) && near(cells[4], -0.5) && near(cells[5], 0.75) && near(cells[6], 0) && near(cells[7], -0.125) && near(cells[8], 0.25),
     'Rotate R keeps the rectangle in place: ' + cells.join(' '));
   // The dice reorient each child inside its own outline. Shift-click turns
   // only, so the determinant keeps its sign. One Undo reverses a randomise.
-  // The table's x and y place the centre, so corners sit at L(p - centre) + (x, y).
   const outline = c => [[-.5, -.5], [.5, -.5], [-.5, .5], [.5, .5]].map(([x, y]) => [c[3] * x + c[5] * y + c[7], c[4] * x + c[6] * y + c[8]].map(v => Math.round(v * 1000) / 1000 + 0).join(',')).sort().join(' ');
   const det = c => Math.sign(c[3] * c[6] - c[4] * c[5]);
   const diceStart = (await cellsOf()).map(Number), turnedRow = await firstRow();
@@ -166,13 +171,13 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   console.log('Randomised orientations.');
   await page.click('#undo');
   await page.click('#undo');
-  await drag([0.5, 0.25], [0.5, 0.4]);
+  await drag([0, 0.25], [0, 0.1]);
   cells = await cellsOf();
   check(near(cells[3], 0.5) && Math.abs(Number(cells[4])) > 0.1 && near(cells[6], 0.5), 'along the edge skews: ' + cells.join(' '));
   await page.click('#undo');
   // Zero skew is sticky: a skew dragged back to within a few pixels of
   // square lands on square exactly.
-  const along = await editorPoint([0.5, 0.25]), back = await editorPoint([0.5, 0.4]);
+  const along = await editorPoint([0, 0.25]), back = await editorPoint([0, 0.1]);
   await page.mouse.move(along[0], along[1]); await page.mouse.down();
   await page.mouse.move(back[0], back[1], { steps: 6 });
   await page.mouse.move(along[0] + 1, along[1] + 3, { steps: 6 }); await page.mouse.up();
@@ -188,13 +193,13 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.mouse.wheel(0, -300);
   check(!(await page.locator('#editor-fit').isDisabled()), 'the wheel zooms the editor');
   await page.click('#editor-fit');
-  const corner2 = await editorPoint([1.07, 1.07]);
+  const corner2 = await editorPoint([0.57, -0.57]);
   await page.mouse.move(corner2[0], corner2[1]); await page.mouse.down();
   await page.mouse.move(corner2[0] - 30, corner2[1] - 20, { steps: 5 }); await page.mouse.up();
   check(!(await page.locator('#editor-fit').isDisabled()), 'a drag on empty space pans the editor');
   equal(await selection(), 'A', 'a pan keeps the selection');
   await page.click('#editor-fit');
-  const away = await editorPoint([1.07, 1.07]);
+  const away = await editorPoint([0.57, -0.57]);
   await page.mouse.click(away[0], away[1]);
   equal(await page.locator('#selection-heading').textContent(), 'New child', 'a click on empty space deselects');
   await page.mouse.click(centre[0], centre[1]);
@@ -215,7 +220,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   // Keys on a selected child: T rotates, Cmd+D duplicates, Backspace removes.
   await page.locator('#rule-editor').focus();
   await page.keyboard.press('t');
-  check((await firstRow()).includes('90'), 'T rotates the child a quarter turn');
+  check((await firstRow()).includes('−90.000'), 'T rotates the child a quarter turn clockwise');
   await page.keyboard.press('ControlOrMeta+d');
   equal(await rows(), 4, 'Cmd+D duplicates the child');
   equal(await selection(), 'B', 'the duplicate sits after its original as B and is selected');
@@ -314,30 +319,31 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check(parentsSeen.size >= 2, 'the dice pick children\'s parents at random: ' + [...parentsSeen].join(' '));
   console.log('Randomised parents.');
 
-  equal(await page.locator('#demo option[value^="blank"]').count(), 0, 'the blank square and triangle demos are gone');
-
   // The frame is only a picture: switching it keeps every map.
   await page.selectOption('#demo', 'gasket');
   equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'the gasket is log 3 / log 2');
   equal(await rows(), 3, 'the gasket has three children');
   // Flip V mirrors a triangle child across its own bottom edge: A drops
   // into the gasket's middle hole, upside down, and a second press undoes it.
-  // The middle hole shares the parent's centre, so it sits at (0, 0).
+  // The middle hole shares the parent's centre, so it sits at (0, 0), turned
+  // 180 degrees and flipped.
   await page.locator('#numbers-body tr').first().click();
   await page.click('#flip-v');
-  check((await page.locator('#numbers-body tr').first().textContent()).includes('0.0000.0000.500'), 'Flip V puts A in the middle hole, at (0, 0): ' + await page.locator('#numbers-body tr').first().textContent());
+  check((await page.locator('#numbers-body tr').first().textContent()).includes('0.0000.0000.500180.0001'), 'Flip V puts A in the middle hole, at (0, 0): ' + await page.locator('#numbers-body tr').first().textContent());
+  // OK on the pop-up, with nothing changed, leaves the flipped child as it was.
+  const flippedRow = await page.locator('#numbers-body tr').first().textContent();
+  await page.locator('#numbers-body tr').first().locator('.edit-child').click();
+  await page.locator('#edit-form button[value="ok"]').click();
+  equal(await page.locator('#numbers-body tr').first().textContent(), flippedRow, 'an unchanged pop-up leaves a flipped child as it was');
   await page.click('#flip-v');
-  check((await page.locator('#numbers-body tr').first().textContent()).includes('0.000−0.2890.500'), 'a second Flip V brings A back');
+  check((await page.locator('#numbers-body tr').first().textContent()).includes('0.0000.2890.5000.0000'), 'a second Flip V brings A back to (0, 0.289)');
   await page.selectOption('#demo', 'gasket');
   await page.click('#toggle-menu');
   equal(await page.locator('[data-frame].active').textContent(), 'Triangle', 'the gasket opens on a triangle frame');
   check(await page.locator('#side-field').isVisible() && !(await page.locator('#cols-field').isVisible()), 'a triangle frame shows Per side, not Cols and Rows');
-  // x and y are measured from the frame's centre, which moves, so compare
-  // the other columns: scale, angle and flip.
-  const shapeColumns = async () => (await page.locator('#numbers-body tr').evaluateAll(rows => rows.map(row => [...row.cells].slice(5, 8).map(cell => cell.textContent).join(' ')))).join(' | ');
-  const tableBefore = await shapeColumns();
+  const tableBefore = await page.locator('#numbers-body').textContent();
   await page.click('[data-frame="square"]');
-  equal(await shapeColumns(), tableBefore, 'switching the frame keeps every map');
+  equal(await page.locator('#numbers-body').textContent(), tableBefore, 'switching the frame keeps every map');
   equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'and the same fractal');
   check(await page.locator('#cols-field').isVisible() && !(await page.locator('#side-field').isVisible()), 'a square frame shows Cols and Rows');
   await page.click('#undo');
@@ -360,13 +366,12 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check((await page.locator('#numbers-body tr').last().textContent()).includes('0.0000.0000.500'), 'an upside-down new child fills the middle cell, at (0, 0): ' + await page.locator('#numbers-body tr').last().textContent());
   await page.selectOption('#demo', 'sieve');
   await page.click('#add-child');
-  check((await page.locator('#numbers-body tr').last().textContent()).includes('0.250−0.2500.500'), 'a new child fills the free top-right cell: ' + await page.locator('#numbers-body tr').last().textContent());
+  check((await page.locator('#numbers-body tr').last().textContent()).includes('0.2500.2500.500'), 'a new child fills the free top-right cell: ' + await page.locator('#numbers-body tr').last().textContent());
   console.log('Added children one grid cell in size.');
 
   await page.selectOption('#demo', 'free');
   console.log('Opened Free demo.');
   await page.click('#toggle-menu');
-  equal(await page.locator('#toggle-stretch').count(), 0, 'Options has no Stretch switch');
   equal(await page.locator('#numbers-head th').count(), 9, 'similar children show x, y, scale, angle and flip');
   check(await page.locator('#max-copies').isVisible(), 'Options shows the copy limit without a fold');
   check(!(await page.locator('#min-depth').isVisible()), 'Advanced folds away Minimum iterations');
@@ -384,21 +389,6 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await restored.goto(await page.url(), { waitUntil: 'domcontentloaded' });
   equal(await restored.locator('#letter-tabs button').count(), 2, 'the address restores the parents');
   await restored.close();
-
-  // An address saved while Square mode existed still opens, as a Free rule.
-  const oldRule = { version: 2, frame: 'square', mode: 'square', grid: { rows: 2, cols: 2, perLetter: {} },
-    toggles: { stretch: false, blocks: false, stacking: false, gridPerLetter: false },
-    letters: [{ id: 'p1', children: [
-      { id: 'a', letter: 'p1', matrix: [0.5, 0, 0, 0.5, 0, 0], cell: { row: 0, col: 0 }, turn: 0, flip: false, block: 1 },
-      { id: 'b', letter: 'p1', matrix: [0.5, 0, 0, 0.5, 0.5, 0.5], cell: { row: 1, col: 1 }, turn: 0, flip: false, block: 1 }
-    ] }] };
-  const old = await browser.newPage({ viewport: { width: 900, height: 700 } });
-  old.setDefaultTimeout(8000);
-  await old.goto(url.split('#')[0] + '#rule=' + Buffer.from(JSON.stringify({ rule: oldRule })).toString('base64url'), { waitUntil: 'domcontentloaded' });
-  equal(await old.locator('#numbers-body tr').count(), 2, 'an old Square-mode address opens with its children');
-  equal(await old.locator('#numbers-body .edit-child').count(), 2, 'its children edit as Free children');
-  check(!Buffer.from(old.url().split('#rule=')[1] || '', 'base64url').toString().includes('"mode"'), 'the rewritten address drops the mode');
-  await old.close();
 
   const phone = await browser.newPage({ viewport: { width: 393, height: 659 }, hasTouch: true, isMobile: true });
   phone.setDefaultTimeout(8000);
