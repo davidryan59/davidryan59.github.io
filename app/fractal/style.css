@@ -123,6 +123,7 @@ td.child-name { font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 
 .editor-tools button { width: 28px; min-height: 28px; display: grid; place-items: center; padding: 0; }
 .editor-tools button[hidden] { display: none; }
 .editor-tools svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.editor-children button { color: var(--accent); }
 .editor-tools .danger { color: var(--red); }
 /* Drag the line under the editor to set its height. */
 .divider-editor { position: relative; z-index: 3; height: 10px; margin: -5px 0; cursor: row-resize; touch-action: none; }
