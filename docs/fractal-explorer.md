@@ -231,8 +231,20 @@ limit. A parent with no proper hull, a rule that does not converge, and
 every frame of a child drag fall back to frames, since a drag leaves the
 hulls out of date until release. Numbers, beside Shape, shows or hides each
 copy's parent number. Hide is the default, because the colour and the shape
-already tell the copies apart. Both settings change the main view and the
-iterations panel. The editor always draws frames with numbers.
+already tell the copies apart. Style sets how copies fill, on four push
+buttons. The size of a copy is the side of a square of the same area, in
+pixels. Solid, the default, fills every copy in full colour with no dark
+edge, and draws numbers in dark ink. Blend runs from a faint fill (40/255)
+with an outline at 40 pixels and above to solid at 4 and below, in five
+steps on a log scale. Auto takes one style for the whole picture from its
+median copy: outlines while that copy can hold a number, solid once it
+cannot. Outline draws every copy as an outline over a faint fill at every
+size. A number goes on any copy large enough to hold one: in dark ink on a
+fill that is half solid or more, otherwise in the copy's colour. Shape,
+Numbers and Style change the main view and the iterations panel. The
+editor always draws frames with numbers. Before Style existed, a copy under
+8 pixels was solid and a larger one was an outline, so a picture mid-way
+through the iterations mixed the two looks.
 
 The main view skips branches wholly off screen, so the copy and time limits
 are spent on what shows. `coverDiscs()` in the model gives each parent a disc
@@ -386,10 +398,10 @@ from 1 to 100 steps (1 to 10, then 12, 15, 20, 25, 30, 40, 50, 60, 80 and
 the parent alone, to 32.
 
 The view settings travel with a fractal, in its address and in a saved
-fractal: Snap corners, the hull outline, Shape, Numbers and every
+fractal: Snap corners, the hull outline, Shape, Numbers, Style and every
 calculation limit. Only the camera stays behind, so a saved fractal opens
 at home. A fractal saved without them opens with the defaults: Snap
-corners off, the hull outline on, Shape Hull, Numbers hidden and the
+corners off, the hull outline on, Shape Hull, Numbers hidden, Style Solid and the
 Balanced limits. Copy and Paste, beside the Calculation limits heading,
 move the limits between fractals. Copy keeps them in the browser under
 `fractal-limits-copy`, so they survive a reload. Paste sets every limit
@@ -411,7 +423,7 @@ and Escape deselects.
 Saved fractals use the browser key `fractal-library` and files with
 `{ format: "fractal-explorer", version: 3, fractals: [...] }`. Each entry
 holds `name`, `savedAt`, `rule`, `current`, `level` and `colourMode`, then
-the view settings `snap`, `hull`, `shape`, `numbers` and `limits`. The view
+the view settings `snap`, `hull`, `shape`, `numbers`, `style` and `limits`. The view
 settings and `locked` are optional, so files saved before them still load
 and the version stays 3. Import reads every fractal in a file, so it also
 takes an Export all file.

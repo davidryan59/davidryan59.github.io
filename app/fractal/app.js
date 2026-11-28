@@ -49,7 +49,8 @@
   // The view settings a fractal saves, and the defaults for one that saved
   // none. Shape draws each copy as its parent's hull or as its frame.
   // Numbers shows or hides each copy's parent number in the views.
-  var VIEW_DEFAULTS = { snapGrid: false, showHull: true, shape: 'hull', numbers: false };
+  // Style sets how copies fill (see drawBatch); Solid is the default.
+  var VIEW_DEFAULTS = { snapGrid: false, showHull: true, shape: 'hull', numbers: false, style: 'solid' };
   // Snap each preset onto the slider stops, so a preset always matches a stop.
   Object.keys(PRESETS).forEach(function (key) {
     var preset = PRESETS[key];
@@ -65,7 +66,7 @@
     brush: M.identity(), newLetter: null, snapGrid: VIEW_DEFAULTS.snapGrid, editorCamera: null,
     depth: 7, showHull: true, camera: { zoom: 1, x: 0, y: 0 }, dragging: false,
     limits: Object.assign({}, PRESETS.balanced), preset: 'balanced', colourMode: null,
-    shape: VIEW_DEFAULTS.shape, numbers: VIEW_DEFAULTS.numbers,
+    shape: VIEW_DEFAULTS.shape, numbers: VIEW_DEFAULTS.numbers, style: VIEW_DEFAULTS.style,
     analysis: null, editorView: null, noticeTimer: null
   };
 
@@ -203,10 +204,10 @@
   }
 
   // The view settings travel with a fractal, in its address and its save:
-  // snap, hull outline, shape, numbers and the calculation limits. A
+  // snap, hull outline, shape, numbers, style and the calculation limits. A
   // fractal that saved none opens with the defaults.
   function viewSettings() {
-    return { snap: state.snapGrid, hull: state.showHull, shape: state.shape, numbers: state.numbers, limits: sanitiseLimits(state.limits) };
+    return { snap: state.snapGrid, hull: state.showHull, shape: state.shape, numbers: state.numbers, style: state.style, limits: sanitiseLimits(state.limits) };
   }
   function readView(saved) {
     saved = saved || {};
@@ -214,12 +215,13 @@
     state.showHull = typeof saved.hull === 'boolean' ? saved.hull : VIEW_DEFAULTS.showHull;
     state.shape = saved.shape === 'frame' || saved.shape === 'hull' ? saved.shape : VIEW_DEFAULTS.shape;
     state.numbers = typeof saved.numbers === 'boolean' ? saved.numbers : VIEW_DEFAULTS.numbers;
+    state.style = STYLES.indexOf(saved.style) >= 0 ? saved.style : VIEW_DEFAULTS.style;
     state.limits = sanitiseLimits(saved.limits || PRESETS.balanced);
     state.preset = matchingPreset();
   }
   function defaultView() {
     return state.snapGrid === VIEW_DEFAULTS.snapGrid && state.showHull === VIEW_DEFAULTS.showHull &&
-      state.shape === VIEW_DEFAULTS.shape && state.numbers === VIEW_DEFAULTS.numbers;
+      state.shape === VIEW_DEFAULTS.shape && state.numbers === VIEW_DEFAULTS.numbers && state.style === VIEW_DEFAULTS.style;
   }
 
   function sameRule(a, b) {
@@ -385,11 +387,44 @@
   // or not, never cancel to a hole. Copies large enough for a number still
   // get one, drawn on top. Colour groups draw in the order they first
   // appear, so the overlap order follows the colours, not each copy.
+  // Styles: how a copy's fill depends on its size on screen. The size is
+  // the side of a square of the same area, in pixels. Solid fills every
+  // copy in full colour. Outline draws every copy as an outline over a
+  // faint fill. Blend runs from faint at 40 pixels and above to solid at 4
+  // and below, in five steps on a log scale, so a mixed picture changes
+  // gradually. Auto picks one style for the whole picture from its typical
+  // copy: outlines while that copy can hold a number, solid once it cannot.
+  var STYLES = ['solid', 'blend', 'auto', 'outline'], TINT = 40 / 255, INK = '#111419';
+  function fillLevel(style, size, threshold, autoSolid) {
+    if (style === 'outline') return TINT;
+    if (style === 'auto') return autoSolid ? 1 : TINT;
+    if (style === 'blend') {
+      if (size >= 40) return TINT;
+      if (size <= 4) return 1;
+      var t = Math.round(Math.log(40 / size) / Math.LN10 * 5) / 5;
+      return TINT + (1 - TINT) * t;
+    }
+    return 1;
+  }
+
   // With options.shapes, a copy draws as its parent's hull instead of its
   // frame, where that parent has one. The number stays in the frame's place.
+  // options.style picks the fill, as above.
   function drawBatch(ctx, items, view, options) {
     var frame = M.framePolygon(state.rule.frame), shapes = options.shapes, groups = [], byKey = {}, marks = [];
-    var clip = options.clip, threshold = options.letterThreshold || 10, xs = [], ys = [];
+    var clip = options.clip, threshold = options.letterThreshold || 10, style = STYLES.indexOf(options.style) >= 0 ? options.style : 'solid', xs = [], ys = [];
+    // Auto: the median copy size, from up to 2000 copies spread through the list.
+    var autoSolid = false;
+    if (style === 'auto' && items.length) {
+      var areaOf = {}, sizes = [], stride = Math.max(1, Math.floor(items.length / 2000));
+      for (var s0 = 0; s0 < items.length; s0 += stride) {
+        var it = items[s0], shape = shapes && shapes[it.letter] || frame;
+        if (areaOf[it.letter] == null) areaOf[it.letter] = M.polygonArea(shape);
+        sizes.push(view.scale * Math.sqrt(Math.abs(M.determinant(it.matrix)) * areaOf[it.letter]));
+      }
+      sizes.sort(function (a, b) { return a - b; });
+      autoSolid = sizes[Math.floor(sizes.length / 2)] < threshold;
+    }
     for (var i = 0; i < items.length; i++) {
       var item = items[i], m = item.matrix, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, area = 0;
       var poly = shapes && shapes[item.letter] || frame, n = poly.length;
@@ -399,23 +434,31 @@
       }
       if (clip && (maxX < -2 || maxY < -2 || minX > clip[0] + 2 || minY > clip[1] + 2)) continue;
       for (k = 0; k < n; k++) { var j = (k + 1) % n; area += xs[k] * ys[j] - xs[j] * ys[k]; }
-      var small = Math.sqrt(Math.abs(area / 2)) < threshold, colour = itemColour(item);
+      var size = Math.sqrt(Math.abs(area / 2)), level = fillLevel(style, size, threshold, autoSolid), colour = itemColour(item);
       // Canvas ignores an opacity above 1, so clamp it.
       var alpha = Math.min(1, options.alphaFor ? options.alphaFor(item) : (options.alpha == null ? 1 : options.alpha)), key = colour + alpha;
       var group = byKey[key];
-      if (!group) { group = byKey[key] = { colour: colour, alpha: alpha, solid: null, tint: null }; groups.push(group); }
-      var target = small ? (group.solid || (group.solid = new Path2D())) : (group.tint || (group.tint = new Path2D()));
+      if (!group) { group = byKey[key] = { colour: colour, alpha: alpha, levels: {} }; groups.push(group); }
+      var target = group.levels[level] || (group.levels[level] = new Path2D());
       // Each outline ends with a line back to its start. Path2D's closePath
       // slows as the path grows, so it is not used.
       if (area < 0) { target.moveTo(xs[0], ys[0]); for (k = 1; k < n; k++) target.lineTo(xs[k], ys[k]); target.lineTo(xs[0], ys[0]); }
       else { target.moveTo(xs[n - 1], ys[n - 1]); for (k = n - 2; k >= 0; k--) target.lineTo(xs[k], ys[k]); target.lineTo(xs[n - 1], ys[n - 1]); }
-      if (!small && options.letters !== false) marks.push([item, colour, alpha]);
+      // A number goes on a copy large enough to hold one: in dark ink on a
+      // fill that is mostly solid, in the copy's colour on a faint one.
+      if (size >= threshold && options.letters !== false) marks.push([item, level >= .5 ? INK : colour, alpha]);
     }
+    // Each group fills its faint copies first and its solid ones last. Every
+    // copy is stroked in its own colour, which on a solid copy only closes
+    // the hairline gaps between neighbours.
     ctx.save(); ctx.lineWidth = options.lineWidth || 1; ctx.lineJoin = 'bevel';
     groups.forEach(function (group) {
-      ctx.globalAlpha = group.alpha; ctx.strokeStyle = group.colour;
-      if (group.tint) { ctx.fillStyle = group.colour + '28'; ctx.fill(group.tint); ctx.stroke(group.tint); }
-      if (group.solid) { ctx.fillStyle = group.colour; ctx.fill(group.solid); ctx.stroke(group.solid); }
+      ctx.strokeStyle = group.colour; ctx.fillStyle = group.colour;
+      Object.keys(group.levels).map(Number).sort(function (a, b) { return a - b; }).forEach(function (level) {
+        var path = group.levels[level];
+        ctx.globalAlpha = group.alpha * level; ctx.fill(path);
+        ctx.globalAlpha = group.alpha; ctx.stroke(path);
+      });
     });
     ctx.restore();
     marks.forEach(function (mark) {
@@ -475,7 +518,7 @@
       var instances = level ? M.expand(state.rule, state.currentLetter, level, { maxInstances: 12000, maxMs: 0 }) : [{ letter: state.currentLetter, matrix: M.identity() }];
       if (!instances.length) return;
       var view = makeView(info.width, info.height, instancesBounds(instances, state.rule.frame, shapes), 12, null);
-      drawBatch(info.ctx, instances, view, { letterThreshold: 7, lineWidth: .7, shapes: shapes, letters: state.numbers });
+      drawBatch(info.ctx, instances, view, { letterThreshold: 7, lineWidth: .7, shapes: shapes, letters: state.numbers, style: state.style });
     });
   }
 
@@ -559,7 +602,7 @@
     var b = known || instancesBounds(instances, state.rule.frame, shapes);
     state.lastMainBounds = b;
     if (!view) view = makeView(info.width, info.height, b, 42, state.camera);
-    drawBatch(ctx, instances, view, { letterThreshold: 8, lineWidth: .65, clip: [info.width, info.height], shapes: shapes, letters: state.numbers,
+    drawBatch(ctx, instances, view, { letterThreshold: 8, lineWidth: .65, clip: [info.width, info.height], shapes: shapes, letters: state.numbers, style: state.style,
       alphaFor: function (item) { return item.level == null ? .93 : .22 + .18 * item.level; } });
     if (state.showHull && state.analysis && state.analysis.status.name === 'Converges' && !state.editorDrag) drawHull(ctx, state.analysis.hull, view);
     measureFrame(instances.length, performance.now() - started);
@@ -1002,7 +1045,7 @@
     el.randomiseParent.title = 'Randomise every unlocked child of this parent.' + how;
     el.randomiseAll.disabled = !unlocked(allChildren()).length; el.randomiseParent.disabled = !unlocked(currentLetter().children).length;
     el.colourMode.querySelectorAll('[data-colour]').forEach(function (button) { var on = button.dataset.colour === colourMode(); button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    [[el.shapeMode, 'shape', state.shape], [el.numbersMode, 'numbers', state.numbers ? 'show' : 'hide']].forEach(function (group) {
+    [[el.shapeMode, 'shape', state.shape], [el.numbersMode, 'numbers', state.numbers ? 'show' : 'hide'], [el.styleMode, 'style', state.style]].forEach(function (group) {
       group[0].querySelectorAll('[data-' + group[1] + ']').forEach(function (button) { var on = button.dataset[group[1]] === group[2]; button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     });
     el.toggleHull.setAttribute('aria-pressed', state.showHull ? 'true' : 'false');
@@ -1298,7 +1341,7 @@
   // .fractal.json file holds one or more fractals in the same shape:
   // { format: 'fractal-explorer', version: 3, fractals: [entry, ...] }, where
   // an entry is { name, savedAt, rule, current, level, colourMode, snap,
-  // hull, shape, numbers, limits }. The last five are the view settings
+  // hull, shape, numbers, style, limits }. The last six are the view settings
   // (see viewSettings). An entry saved before they existed opens with the
   // defaults.
   var LIBRARY_KEY = 'fractal-library', FILE_FORMAT = 'fractal-explorer', FILE_VERSION = 3;
@@ -1934,6 +1977,9 @@
     el.numbersMode.querySelectorAll('[data-numbers]').forEach(function (button) {
       button.addEventListener('click', function () { state.numbers = button.dataset.numbers === 'show'; syncControls(); renderIterations(); renderMain(); saveAddress(); });
     });
+    el.styleMode.querySelectorAll('[data-style]').forEach(function (button) {
+      button.addEventListener('click', function () { state.style = button.dataset.style; syncControls(); renderIterations(); renderMain(); saveAddress(); });
+    });
     el.copyLimits.addEventListener('click', copyLimits);
     el.pasteLimits.addEventListener('click', pasteLimits);
     el.depth.addEventListener('input', function () { state.depth = Number(el.depth.value); el.depthValue.textContent = state.depth; state.dragging = true; setCustom(); syncLimitControls(); renderMain(); });
@@ -2025,7 +2071,7 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','randomise-parent','remove-child','randomise-all','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','grid-rows','grid-cols','grid-side','frame-shape','cols-field','rows-field','side-field','toggle-snap','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','hull-iterations-value','hull-cap','hull-cap-value','copy-limits','paste-limits','shape-mode','numbers-mode','toggle-strip','divider-strip','iteration-panel','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','randomise-parent','remove-child','randomise-all','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','grid-rows','grid-cols','grid-side','frame-shape','cols-field','rows-field','side-field','toggle-snap','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','hull-iterations-value','hull-cap','hull-cap-value','copy-limits','paste-limits','shape-mode','numbers-mode','style-mode','toggle-strip','divider-strip','iteration-panel','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }

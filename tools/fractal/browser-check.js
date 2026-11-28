@@ -465,6 +465,8 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   equal(await page.locator('#shape-mode .active').textContent(), 'Hull', 'Shape defaults to Hull');
   equal(await page.locator('#numbers-mode .active').textContent(), 'Hide', 'Numbers defaults to Hide');
   equal(await page.locator('#numbers-mode button').first().textContent(), 'Hide', 'Hide comes first');
+  equal((await page.locator('#style-mode button').allTextContents()).join(' '), 'Solid Blend Auto Outline', 'Style offers four push buttons, Solid first');
+  equal(await page.locator('#style-mode .active').textContent(), 'Solid', 'Style defaults to Solid');
   equal(await page.locator('#hull-cap-value').textContent(), '16', 'Balanced caps a hull at 16 corners');
   equal(await page.locator('#hull-iterations-value').textContent(), '30 steps', 'Balanced refines a hull up to 30 steps');
   await page.click('[data-preset="detailed"]');
@@ -473,7 +475,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   equal(await page.locator('#hull-cap-value').textContent(), '12', 'Fast caps a hull at 12 corners');
   await page.click('#copy-limits');
   check(!(await page.locator('#paste-limits').isDisabled()), 'Copy makes Paste available');
-  await page.click('[data-shape="frame"]'); await page.click('[data-numbers="show"]');
+  await page.click('[data-shape="frame"]'); await page.click('[data-numbers="show"]'); await page.click('[data-style="blend"]');
   check((await page.url()).includes('#rule='), 'Shape and Numbers go in the address');
   await page.fill('#save-name', 'Check settings');
   await page.click('#save-fractal');
@@ -483,6 +485,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('#toggle-menu');
   equal(await page.locator('#shape-mode .active').textContent(), 'Frame', 'a saved fractal keeps its shape');
   equal(await page.locator('#numbers-mode .active').textContent(), 'Show', 'a saved fractal keeps its numbers');
+  equal(await page.locator('#style-mode .active').textContent(), 'Blend', 'a saved fractal keeps its style');
   equal(await page.locator('[data-preset].active').textContent(), 'Fast', 'a saved fractal keeps its limits');
   await page.click('[data-preset="balanced"]');
   await page.click('#paste-limits');
@@ -501,6 +504,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('#toggle-menu');
   equal(await page.locator('#shape-mode .active').textContent(), 'Hull', 'an old save opens with Shape Hull');
   equal(await page.locator('#numbers-mode .active').textContent(), 'Hide', 'an old save opens with Numbers hidden');
+  equal(await page.locator('#style-mode .active').textContent(), 'Solid', 'an old save opens with Style Solid');
   equal(await page.locator('[data-preset].active').textContent(), 'Balanced', 'an old save opens with the Balanced limits');
   check(!(await page.locator('#toggle-snap').isChecked()), 'an old save opens with Snap corners off');
   await page.click('#toggle-menu');

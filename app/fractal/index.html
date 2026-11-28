@@ -177,8 +177,17 @@
               <span class="popover-heading">Numbers</span>
               <div id="numbers-mode" class="preset-row two-modes" role="group" aria-label="Parent numbers on copies">
                 <button type="button" data-numbers="hide" title="Hide the parent number on each copy. The colour still tells the copies apart">Hide</button>
-                <button type="button" data-numbers="show" title="Show the parent number on each copy large enough to hold one">Show</button>
+                <button type="button" data-numbers="show" title="Show the parent number on each copy large enough to hold one. Small copies have no room for a number">Show</button>
               </div>
+            </div>
+          </div>
+          <div class="style-field">
+            <span class="popover-heading">Style</span>
+            <div id="style-mode" class="preset-row" role="group" aria-label="How copies are filled">
+              <button type="button" data-style="solid" title="Fill every copy in full colour. Numbers show in dark ink">Solid</button>
+              <button type="button" data-style="blend" title="Faint fill with an outline on large copies, growing to solid on small ones, step by step">Blend</button>
+              <button type="button" data-style="auto" title="One style for the whole picture: outlines while the copies are large enough for a number, solid once they are smaller">Auto</button>
+              <button type="button" data-style="outline" title="Draw every copy as an outline over a faint fill, at every size">Outline</button>
             </div>
           </div>
           <div class="limits">
@@ -266,7 +275,7 @@
     <details class="help">
       <summary>How to edit</summary>
       <p>Children: + adds one, a grid cell in size, in the first free cell from the bottom left. The bin removes the selected child, and Shift-click removes them all. The padlock in the Children list keeps a child out of Randomise. Drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew.</p>
-      <p>Options: Frame draws every parent and child as a square or a triangle, and keeps the fractal the same. The editor always shows the grid: Cols by Rows on a square, Per side on a triangle. Snap corners snaps corners to it. Shape draws each copy as its parent's hull or as its frame, and Numbers shows or hides each copy's parent number. A saved fractal keeps all of these and the calculation limits. Copy and Paste move the limits between fractals.</p>
+      <p>Options: Frame draws every parent and child as a square or a triangle, and keeps the fractal the same. The editor always shows the grid: Cols by Rows on a square, Per side on a triangle. Snap corners snaps corners to it. Shape draws each copy as its parent's hull or as its frame, Numbers shows or hides each copy's parent number, and Style sets how copies are filled: Solid, Blend, Auto or Outline. A saved fractal keeps all of these and the calculation limits. Copy and Paste move the limits between fractals.</p>
       <p>Editor view: drag empty space to pan, and use the wheel or a pinch to zoom. Fit shows every child again. Drag the line under the editor to change its height.</p>
       <p>Keys: 1–9 and 0 pick a child's parent, and Shift with a number shows that parent. R and T rotate, H and V flip, Backspace removes, Shift+Backspace removes every child of the parent, ⌘D or Ctrl+D duplicates, Esc deselects.</p>
     </details>
