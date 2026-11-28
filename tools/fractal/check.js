@@ -152,7 +152,7 @@ const settled = M.attractorHulls(dragonRule(), 100, 0, 16);
 assert(settled.steps < 100, 'refining stops early once the hull settles: ' + settled.steps + ' steps');
 assert(settled.p1.length <= 16, 'the settled hull keeps to the corner cap');
 
-assert.deepStrictEqual(PRESETS.slice(0, 3).map(p => p.name), ['Square Cloud', 'Sierpinski Sieve', 'Fern'], 'the Rule menu starts Square Cloud, Sierpinski Sieve, Fern');
+assert.deepStrictEqual(PRESETS.slice(0, 3).map(p => p.name), ['Square Cloud', 'Cloud', 'Sierpinski Sieve'], 'the Rule menu starts Square Cloud, Cloud, Sierpinski Sieve');
 assert.strictEqual(new Set(PRESETS.map(p => p.key)).size, PRESETS.length, 'each preset has its own key');
 assert(PRESETS.every(p => M.status(p.rule).name === 'Converges'), 'every preset converges');
 assert.strictEqual(M.status(presets['square-cloud']).name, 'Converges', 'Square Cloud converges');

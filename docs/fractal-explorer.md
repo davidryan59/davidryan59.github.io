@@ -21,7 +21,7 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Number the parents; add, duplicate, remove and reorder them.
 - [x] Choose each parent's colour from a swatch in the parent row.
 - [x] Open on the Sieve, with Gasket, Linked pair and Free placement demos.
-- [x] Replace the demos with 17 presets from the fractal library, each with its own settings.
+- [x] Replace the demos with 22 presets from the fractal library, each with its own settings.
 - [x] Store edited rules in the address.
 - [x] Offer Fast, Balanced, Detailed, and editable calculation limits.
 - [x] Use the four-corner control layout and fit all six browser sizes.
@@ -387,11 +387,12 @@ box count reads low for a solid shape with a rough edge (the Dragon reads
 
 ## Address and presets
 
-The Rule menu lists the presets in `app/fractal/presets.js`, in file order:
-Square Cloud, Sierpinski Sieve, Fern, Snowflake 8, Cloud, Dragon, Bidragon,
-Doughnut, Square Stretch, Girder, Bent Girder, Warp Holes, Large and Small,
-Corn, Twisted, Warped and Jagged Strike. The first opens by default. Each
-preset is a saved fractal from the library export of 2026-11-28, renamed
+The Rule menu lists the 22 presets in `app/fractal/presets.js`, in file
+order: Square Cloud, Cloud, Sierpinski Sieve, Dragon, Bidragon, Snowflake 8,
+Snowflake 6, Twisted Snowflake, Triangular Holes, Triangular Fractal,
+Doughnut, Fern, Square Stretch, Girder, Bent Girder, Warp Holes, Large and
+Small, Corn, Twisted, Warped, Jagged Strike and Curly Thing. The first opens by default. Each
+preset is a saved fractal from the library exports of 2026-11-28, renamed
 for the menu. It opens with its own level, colours, view and limits; a
 preset saved without some of these opens with the defaults. To change the
 menu, edit `presets.js`.
