@@ -29,7 +29,39 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   const tabs = () => page.locator('#letter-tabs button').count();
   const activeTab = () => page.locator('#letter-tabs button.active').textContent();
   const selection = () => page.locator('#selection-name').textContent();
-  const firstRow = () => page.locator('#numbers-body tr').first().textContent();
+  // The table names each child and its parent. The exact values live in
+  // the page address, so the checks read each child's map from there and
+  // write it the way the edit pop-up does: x, y, scale, angle and flip, or
+  // the six affine values once a child is stretched or skewed.
+  const mapRows = () => page.evaluate(() => {
+    const M = window.FractalModel, hash = location.hash.slice(1);
+    let rule, current;
+    if (hash.startsWith('demo=')) { rule = M.demos()[hash.slice(5)]; current = rule.letters[0].id; }
+    else {
+      let text = hash.slice(5).replace(/-/g, '+').replace(/_/g, '/'); while (text.length % 4) text += '=';
+      const binary = atob(text); let escaped = '';
+      for (let i = 0; i < binary.length; i++) escaped += '%' + binary.charCodeAt(i).toString(16).padStart(2, '0');
+      const saved = JSON.parse(decodeURIComponent(escaped)); rule = saved.rule; current = saved.current || rule.letters[0].id;
+    }
+    const letter = rule.letters.find(l => l.id === current), affine = letter.children.some(c => !M.isSimilarity(c.matrix, 1e-6));
+    const fixed3 = v => (Math.abs(v) < .0005 ? '0.000' : v.toFixed(3)).replace('-', '−');
+    const rows = letter.children.map((child, index) => {
+      const m = child.matrix, parent = String(rule.letters.findIndex(l => l.id === child.letter) + 1);
+      let values;
+      if (affine) values = m.map(fixed3);
+      else {
+        const flip = M.determinant(m) < 0, sv = M.singularValues(m);
+        let angle = (flip ? Math.atan2(-m[1], -m[0]) : Math.atan2(m[1], m[0])) * 180 / Math.PI; if (angle <= -180 + 1e-9) angle += 360;
+        values = [m[4], m[5], (sv[0] + sv[1]) / 2, angle].map(fixed3).concat([flip ? '1' : '0']);
+      }
+      return ['⠿', String.fromCharCode(65 + index), parent].concat(values);
+    });
+    return { affine, rows, locked: letter.children.map(c => !!c.locked), matrices: letter.children.map(c => c.matrix) };
+  });
+  const rowText = async index => { const all = (await mapRows()).rows; return all[index < 0 ? all.length + index : index].join(''); };
+  const firstRow = () => rowText(0);
+  const lastRow = () => rowText(-1);
+  const affineShown = async () => (await mapRows()).affine;
 
   // The Sieve has a fixed editor layout: the parent square plus an 8%
   // margin, fitted inside a 13-pixel inset, with the frame's centre, the
@@ -59,6 +91,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check((await page.locator('#instance-count').textContent()).startsWith('1 copy'), '0 iterations draws the parent alone');
   await page.locator('#depth').evaluate(input => { input.value = 32; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); });
   check((await page.locator('#instance-count').textContent()).includes('limit'), '32 iterations stops at a limit');
+  const setRange = (id, value) => page.locator(id).evaluate((input, value) => { input.value = value; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); }, value);
   const slide = (id, end) => page.locator(id).evaluate((input, end) => { input.value = end === 'max' ? input.max : input.min; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); }, end);
   await slide('#max-copies', 'max'); await slide('#min-scale', 'max'); await slide('#max-time', 'min');
   await slide('#max-time', 'min');
@@ -70,6 +103,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('[data-colour="top"]');
   check((await page.url()).includes('#rule='), 'the colour mode goes in the address');
   await page.click('[data-colour="order"]');
+  check(!(await page.locator('#toggle-snap').isChecked()), 'Snap corners is off by default');
   await page.click('#toggle-menu');
 
   // Drag between two editor points, in frame units.
@@ -84,7 +118,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
     if (options && options.shift) await page.keyboard.up('Shift');
     await page.waitForTimeout(50);
   }
-  const cellsOf = async () => (await page.locator('#numbers-body tr').first().locator('td').allTextContents()).map(text => text.replace('−', '-'));
+  const cellsOf = async () => (await mapRows()).rows[0].map(text => text.replace('−', '-'));
   const near = (text, value, tolerance) => Math.abs(Number(text) - value) < (tolerance || 0.01);
 
   // Child A of the Sieve fills the top-left quarter, so its centre is
@@ -141,7 +175,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   // Edges: across the right edge stretches, and along it skews. Stretching
   // the right edge from x = 0 to 0.25 keeps the left edge at −0.5.
   await drag([0, 0.25], [0.25, 0.25]);
-  equal(await page.locator('#numbers-head th').count(), 10, 'a stretched child shows the six affine values');
+  check(await affineShown(), 'a stretched child has six affine values');
   cells = await cellsOf();
   check(near(cells[3], 0.75) && near(cells[4], 0) && near(cells[5], 0) && near(cells[6], 0.5) && near(cells[7], -0.125) && near(cells[8], 0.25),
     'across the edge stretches width only: ' + cells.join(' '));
@@ -182,7 +216,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.mouse.move(back[0], back[1], { steps: 6 });
   await page.mouse.move(along[0] + 1, along[1] + 3, { steps: 6 }); await page.mouse.up();
   await page.waitForTimeout(50);
-  equal(await page.locator('#numbers-head th').count(), 9, 'a skew dragged back near zero holds at zero');
+  check(!(await affineShown()), 'a skew dragged back near zero holds at zero');
   if (!(await page.locator('#undo').isDisabled())) await page.click('#undo');
   console.log('Stretched and skewed the edges.');
 
@@ -241,8 +275,8 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.mouse.move(grip.x + grip.width / 2, last.y + last.height - 2, { steps: 8 });
   await page.mouse.up();
   await page.waitForTimeout(50);
-  equal((await page.locator('#numbers-body tr').last().textContent()).slice(2), first.slice(2), 'dragging a row reorders the children');
-  equal((await page.locator('#numbers-body tr').last().textContent()).slice(1, 2), 'D', 'the moved child is relabelled D');
+  equal((await lastRow()).slice(2), first.slice(2), 'dragging a row reorders the children');
+  equal(await page.locator('#numbers-body tr').last().locator('.child-name').textContent(), 'D', 'the moved child is relabelled D');
 
   // The edit pop-up changes nothing until OK.
   await page.locator('#numbers-body tr').first().locator('.edit-child').click();
@@ -329,21 +363,21 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   // 180 degrees and flipped.
   await page.locator('#numbers-body tr').first().click();
   await page.click('#flip-v');
-  check((await page.locator('#numbers-body tr').first().textContent()).includes('0.0000.0000.500180.0001'), 'Flip V puts A in the middle hole, at (0, 0): ' + await page.locator('#numbers-body tr').first().textContent());
+  check((await firstRow()).includes('0.0000.0000.500180.0001'), 'Flip V puts A in the middle hole, at (0, 0): ' + await firstRow());
   // OK on the pop-up, with nothing changed, leaves the flipped child as it was.
-  const flippedRow = await page.locator('#numbers-body tr').first().textContent();
+  const flippedRow = await firstRow();
   await page.locator('#numbers-body tr').first().locator('.edit-child').click();
   await page.locator('#edit-form button[value="ok"]').click();
-  equal(await page.locator('#numbers-body tr').first().textContent(), flippedRow, 'an unchanged pop-up leaves a flipped child as it was');
+  equal(await firstRow(), flippedRow, 'an unchanged pop-up leaves a flipped child as it was');
   await page.click('#flip-v');
-  check((await page.locator('#numbers-body tr').first().textContent()).includes('0.0000.2890.5000.0000'), 'a second Flip V brings A back to (0, 0.289)');
+  check((await firstRow()).includes('0.0000.2890.5000.0000'), 'a second Flip V brings A back to (0, 0.289)');
   await page.selectOption('#demo', 'gasket');
   await page.click('#toggle-menu');
   equal(await page.locator('[data-frame].active').textContent(), 'Triangle', 'the gasket opens on a triangle frame');
   check(await page.locator('#side-field').isVisible() && !(await page.locator('#cols-field').isVisible()), 'a triangle frame shows Per side, not Cols and Rows');
-  const tableBefore = await page.locator('#numbers-body').textContent();
+  const tableBefore = JSON.stringify((await mapRows()).matrices);
   await page.click('[data-frame="square"]');
-  equal(await page.locator('#numbers-body').textContent(), tableBefore, 'switching the frame keeps every map');
+  equal(JSON.stringify((await mapRows()).matrices), tableBefore, 'switching the frame keeps every map');
   equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'and the same fractal');
   check(await page.locator('#cols-field').isVisible() && !(await page.locator('#side-field').isVisible()), 'a square frame shows Cols and Rows');
   await page.click('#undo');
@@ -363,16 +397,143 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('#flip-v');
   await page.click('#add-child');
   equal(await rows(), 4, '+ adds a fourth child to the gasket');
-  check((await page.locator('#numbers-body tr').last().textContent()).includes('0.0000.0000.500'), 'an upside-down new child fills the middle cell, at (0, 0): ' + await page.locator('#numbers-body tr').last().textContent());
+  check((await lastRow()).includes('0.0000.0000.500'), 'an upside-down new child fills the middle cell, at (0, 0): ' + await lastRow());
   await page.selectOption('#demo', 'sieve');
   await page.click('#add-child');
-  check((await page.locator('#numbers-body tr').last().textContent()).includes('0.2500.2500.500'), 'a new child fills the free top-right cell: ' + await page.locator('#numbers-body tr').last().textContent());
+  check((await lastRow()).includes('0.2500.2500.500'), 'a new child fills the free top-right cell: ' + await lastRow());
   console.log('Added children one grid cell in size.');
+
+  // + fills an empty parent from the bottom left, along the row, then up,
+  // with Snap corners off too. Once the frame is full, it goes outside,
+  // nearest the frame first.
+  const centres = async () => (await mapRows()).matrices.map(m => [m[4], m[5]].map(v => Math.round(v * 1000) / 1000 + 0).join(','));
+  await page.selectOption('#demo', 'sieve');
+  await page.click('#toggle-menu');
+  if (await page.locator('#toggle-snap').isChecked()) await page.uncheck('#toggle-snap');
+  await page.click('#toggle-menu');
+  await page.click('#add-letter');
+  for (let i = 0; i < 5; i++) await page.click('#add-child');
+  equal((await centres()).slice(0, 4).join(' '), '-0.25,-0.25 0.25,-0.25 -0.25,0.25 0.25,0.25', '+ fills the 2 by 2 grid from the bottom left, Snap corners off');
+  check((await centres())[4].split(',').map(Number).some(v => Math.abs(v) > 0.5), 'with the frame full, + goes just outside it: ' + (await centres())[4]);
+  equal((await mapRows()).matrices[0][0], 0.5, 'a new child is one grid cell in size');
+  // Shift-click on Remove clears every child of the parent as one step.
+  await page.click('#remove-child', { modifiers: ['Shift'] });
+  equal(await rows(), 0, 'Shift-click on Remove clears every child');
+  await page.click('#undo');
+  equal(await rows(), 5, 'one Undo brings them all back');
+  await page.locator('#rule-editor').focus();
+  await page.keyboard.press('Shift+Backspace');
+  equal(await rows(), 0, 'Shift+Backspace clears every child');
+  check((await page.locator('#remove-child').getAttribute('title')).includes('Shift-click'), 'the Remove tooltip names Shift-click');
+  // A triangle with 3 per side fills its 6 upright cells, then its 3
+  // upside-down cells, turned a half turn.
+  await page.selectOption('#demo', 'gasket');
+  await page.click('#add-letter');
+  await page.click('#toggle-menu');
+  await page.click('#grid-side button:text-is("3")');
+  await page.click('#toggle-menu');
+  for (let i = 0; i < 9; i++) await page.click('#add-child');
+  const tri = (await mapRows()).matrices;
+  equal(tri.slice(0, 6).map(m => Math.sign(m[3])).join(','), '1,1,1,1,1,1', 'the first 6 new children fill the upright cells');
+  equal(tri.slice(6).map(m => Math.sign(m[3])).join(','), '-1,-1,-1', 'the next 3 fill the upside-down cells');
+  check(tri.slice(6).every(m => Math.abs(m[0] + 1 / 3) < 1e-9 && Math.abs(m[3] + 1 / 3) < 1e-9), 'an upside-down cell takes a half turn, not a mirror');
+  const triCentres = await centres();
+  equal(triCentres.slice(0, 3).join(' '), '-0.333,-0.192 0,-0.192 0.333,-0.192', 'the bottom row fills first, left to right');
+  // The grid runs from 2 to 12.
+  await page.click('#toggle-menu');
+  equal((await page.locator('#grid-side button').allTextContents()).join(' '), '2 3 4 5 6 7 8 9 10 11 12', 'Per side has a button for each size from 2 to 12');
+  const sizes = await page.locator('#grid-side').boundingBox(), popover = await page.locator('#toggle-popover').boundingBox();
+  check(sizes.x + sizes.width <= popover.x + popover.width + 1, 'the 11 size buttons fit across Options');
+  await page.click('#toggle-menu');
+  console.log('Filled grids from the bottom left and cleared them.');
+
+  // A locked child keeps its orientation and parent through Randomise.
+  await page.selectOption('#demo', 'linked');
+  await page.locator('#numbers-body tr').first().locator('.lock-child').click();
+  check((await mapRows()).locked[0], 'the padlock locks child A');
+  const lockedA = JSON.stringify((await mapRows()).rows[0]);
+  for (let i = 0; i < 8; i++) await page.click('#randomise-all');
+  equal(JSON.stringify((await mapRows()).rows[0]), lockedA, 'Randomise leaves a locked child as it was');
+  check((await page.locator('#randomise-all').getAttribute('title')).includes('Locked children'), 'the Randomise tooltip mentions locked children');
+  console.log('Locked a child against Randomise.');
+
+  // Shape and Numbers: Hull and Hide by default. They travel with the
+  // address and with a saved fractal. A fractal saved without them opens
+  // with the defaults.
+  await page.selectOption('#demo', 'sieve');
+  await page.click('#toggle-menu');
+  equal(await page.locator('#shape-mode .active').textContent(), 'Hull', 'Shape defaults to Hull');
+  equal(await page.locator('#numbers-mode .active').textContent(), 'Hide', 'Numbers defaults to Hide');
+  equal(await page.locator('#numbers-mode button').first().textContent(), 'Hide', 'Hide comes first');
+  equal(await page.locator('#hull-cap-value').textContent(), '16', 'Balanced caps a hull at 16 corners');
+  equal(await page.locator('#hull-iterations-value').textContent(), '30 steps', 'Balanced refines a hull up to 30 steps');
+  await page.click('[data-preset="detailed"]');
+  equal(await page.locator('#hull-cap-value').textContent(), '24', 'Detailed caps a hull at 24 corners');
+  await page.click('[data-preset="fast"]');
+  equal(await page.locator('#hull-cap-value').textContent(), '12', 'Fast caps a hull at 12 corners');
+  await page.click('#copy-limits');
+  check(!(await page.locator('#paste-limits').isDisabled()), 'Copy makes Paste available');
+  await page.click('[data-shape="frame"]'); await page.click('[data-numbers="show"]');
+  check((await page.url()).includes('#rule='), 'Shape and Numbers go in the address');
+  await page.fill('#save-name', 'Check settings');
+  await page.click('#save-fractal');
+  await page.click('[data-preset="balanced"]'); await page.click('[data-shape="hull"]'); await page.click('[data-numbers="hide"]');
+  await page.click('#toggle-menu');
+  await page.locator('.library-list .open-saved', { hasText: 'Check settings' }).click();
+  await page.click('#toggle-menu');
+  equal(await page.locator('#shape-mode .active').textContent(), 'Frame', 'a saved fractal keeps its shape');
+  equal(await page.locator('#numbers-mode .active').textContent(), 'Show', 'a saved fractal keeps its numbers');
+  equal(await page.locator('[data-preset].active').textContent(), 'Fast', 'a saved fractal keeps its limits');
+  await page.click('[data-preset="balanced"]');
+  await page.click('#paste-limits');
+  // Paste sets the limits but not Iterations, which Fast also sets.
+  equal(await page.locator('#hull-cap-value').textContent(), '12', 'Paste sets the copied limits');
+  equal(await page.locator('#max-copies-value').textContent(), '10,000', 'Paste sets every copied limit');
+  await page.click('#toggle-menu');
+  await page.evaluate(() => {
+    const list = JSON.parse(localStorage.getItem('fractal-library'));
+    const old = list.find(entry => entry.name === 'Check settings');
+    list.push({ name: 'Old save', savedAt: old.savedAt, rule: old.rule, current: old.current, level: 7, colourMode: null });
+    localStorage.setItem('fractal-library', JSON.stringify(list));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.locator('.library-list .open-saved', { hasText: 'Old save' }).click();
+  await page.click('#toggle-menu');
+  equal(await page.locator('#shape-mode .active').textContent(), 'Hull', 'an old save opens with Shape Hull');
+  equal(await page.locator('#numbers-mode .active').textContent(), 'Hide', 'an old save opens with Numbers hidden');
+  equal(await page.locator('[data-preset].active').textContent(), 'Balanced', 'an old save opens with the Balanced limits');
+  check(!(await page.locator('#toggle-snap').isChecked()), 'an old save opens with Snap corners off');
+  await page.click('#toggle-menu');
+  await page.evaluate(() => { localStorage.removeItem('fractal-library'); localStorage.removeItem('fractal-limits-copy'); });
+  console.log('Saved the view settings with a fractal.');
+
+  // The iterations panel hides, shows and resizes, and never scrolls.
+  const strip = page.locator('#iteration-strip');
+  const stripScrolls = () => strip.evaluate(s => s.scrollHeight > s.clientHeight + 1 || s.scrollWidth > s.clientWidth + 1);
+  check(!(await stripScrolls()), 'the iterations do not scroll');
+  const panelBefore = (await page.locator('#iteration-panel').boundingBox()).height;
+  await page.click('#toggle-strip');
+  check(await strip.isHidden(), 'the arrow hides the iterations');
+  check((await page.locator('#iteration-panel').boundingBox()).height < 40, 'hidden, the panel is one thin row');
+  await page.click('#toggle-strip');
+  check(await strip.isVisible(), 'the arrow shows them again');
+  const stripLine = await page.locator('#divider-strip').boundingBox();
+  await page.mouse.move(stripLine.x + 200, stripLine.y + stripLine.height / 2); await page.mouse.down();
+  await page.mouse.move(stripLine.x + 200, stripLine.y + stripLine.height / 2 + 100, { steps: 5 }); await page.mouse.up();
+  check(Math.abs((await page.locator('#iteration-panel').boundingBox()).height - panelBefore - 100) < 3, 'the line under the iterations makes them taller');
+  check(!(await stripScrolls()), 'taller, the iterations still do not scroll');
+  await page.mouse.move(stripLine.x + 200, stripLine.y + 100 + stripLine.height / 2); await page.mouse.down();
+  await page.mouse.move(stripLine.x + 200, stripLine.y - 400, { steps: 5 }); await page.mouse.up();
+  equal((await page.locator('#iteration-panel').boundingBox()).height, 110, 'the iterations stop at 110 pixels high');
+  await page.locator('#divider-strip').dblclick();
+  check(Math.abs((await page.locator('#iteration-panel').boundingBox()).height - panelBefore) < 2, 'a double-click resets their height');
+  console.log('Hid, showed and resized the iterations.');
 
   await page.selectOption('#demo', 'free');
   console.log('Opened Free demo.');
   await page.click('#toggle-menu');
-  equal(await page.locator('#numbers-head th').count(), 9, 'similar children show x, y, scale, angle and flip');
+  check(!(await affineShown()), 'similar children have x, y, scale, angle and flip');
+  equal((await page.locator('#numbers-head th').allTextContents()).join('|'), '|Child|Parent|Lock|', 'the table shows child, parent, lock and edit only');
   check(await page.locator('#max-copies').isVisible(), 'Options shows the copy limit without a fold');
   check(!(await page.locator('#min-depth').isVisible()), 'Advanced folds away Minimum iterations');
   await page.locator('#max-copies').fill('0');
@@ -383,6 +544,32 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   equal(await tabs(), 2, 'add a parent');
   equal(await page.locator('#status-badge').textContent(), 'Empty', 'a parent with no children reads Empty');
   check((await page.url()).includes('#rule='), 'an edit encodes the rule');
+
+  // With Snap corners on, a skew lands exactly on a grid corner. A child 3
+  // cells by 2 on a 4 by 4 grid has its right edge lifted one cell.
+  {
+    const rule = { version: 3, frame: 'square', grid: { rows: 4, cols: 4, side: 2 }, letters: [{ id: 'p1', children: [{ id: 'a', letter: 'p1', matrix: [0.75, 0, 0, 0.5, -0.125, -0.25] }] }] };
+    const text = Buffer.from(encodeURIComponent(JSON.stringify({ rule, current: 'p1', depth: 3, snap: true })).replace(/%([0-9A-F]{2})/g, (_, p) => String.fromCharCode(parseInt(p, 16))), 'binary')
+      .toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const skewPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await skewPage.goto(url + '#rule=' + text, { waitUntil: 'domcontentloaded' });
+    await skewPage.waitForSelector('#status-badge');
+    const box = await skewPage.locator('#rule-editor').boundingBox(), scale = Math.min(box.width - 26, box.height - 26) / 1.16;
+    const px = p => [box.x + box.width / 2 + p[0] * scale, box.y + box.height / 2 - p[1] * scale];
+    await skewPage.mouse.click(...px([-0.3, -0.3]));
+    const a = px([0.25, -0.25]), b = px([0.25, 0]);
+    await skewPage.mouse.move(a[0], a[1]); await skewPage.mouse.down();
+    await skewPage.mouse.move(b[0] + 4, b[1] + 3, { steps: 12 }); await skewPage.mouse.up();
+    await skewPage.waitForTimeout(50);
+    const m = await skewPage.evaluate(() => {
+      let t = location.hash.slice(6).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '=';
+      const bin = atob(t); let e = ''; for (let i = 0; i < bin.length; i++) e += '%' + bin.charCodeAt(i).toString(16).padStart(2, '0');
+      return JSON.parse(decodeURIComponent(e)).rule.letters[0].children[0].matrix;
+    });
+    const topRight = [m[0] * 0.5 + m[2] * 0.5 + m[4], m[1] * 0.5 + m[3] * 0.5 + m[5]];
+    check(Math.abs(topRight[0] - 0.25) < 1e-9 && Math.abs(topRight[1] - 0.25) < 1e-9, 'a skew with Snap corners on lands exactly on a grid corner: ' + topRight.join(', '));
+    await skewPage.close();
+  }
 
   const restored = await browser.newPage({ viewport: { width: 900, height: 700 } });
   restored.setDefaultTimeout(8000);

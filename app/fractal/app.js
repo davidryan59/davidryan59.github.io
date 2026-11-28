@@ -27,6 +27,12 @@
   // Minimum scale runs from 1/1 to 1/1,000,000, then Unlimited (0).
   var SCALE_VALUES = logStops(1000000).map(function (d) { return 1 / d; }).concat([0]);
   var TIME_VALUES = logStops(2000);
+  // Hull refinement runs from 1 to 100 rounds. Hull corners caps the
+  // corners on each hull, from 3 to 1000, on a rough log scale.
+  var HULL_STEPS = logStops(100);
+  var HULL_CORNERS = [3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 64, 80, 100, 128, 160, 200, 256, 320, 400, 500, 640, 800, 1000];
+  // Grid sizes: Cols, Rows and Per side each run from 2 to 12.
+  var GRID_MIN = 2, GRID_MAX = 12;
   // Separate thousands only from 10,000 up: 1000 and 9999, then 10,000.
   function count(n) { return Math.abs(n) >= 10000 ? Math.round(n).toLocaleString('en-GB') : String(Math.round(n)); }
   // While a child or the Iterations slider is dragged, the main view draws
@@ -35,10 +41,15 @@
   // too: about 30,000 Dragon copies, where 4000 was the old fixed cap.
   var DRAG_COPIES = 200000, DRAG_MS = 12;
   var PRESETS = {
-    fast: { depth: 6, minDepth: 3, maxInstances: 10000, minScale: 1e-3, maxMs: 100, analysisDepth: 5, hullIterations: 16 },
-    balanced: { depth: 7, minDepth: 4, maxInstances: 25000, minScale: 1 / 2500, maxMs: 250, analysisDepth: 7, hullIterations: 32 },
-    detailed: { depth: 10, minDepth: 5, maxInstances: 120000, minScale: 0, maxMs: 1000, analysisDepth: 9, hullIterations: 64 }
+    fast: { depth: 6, minDepth: 3, maxInstances: 10000, minScale: 1e-3, maxMs: 100, analysisDepth: 5, hullIterations: 10, hullCorners: 12 },
+    balanced: { depth: 7, minDepth: 4, maxInstances: 25000, minScale: 1 / 2500, maxMs: 250, analysisDepth: 7, hullIterations: 30, hullCorners: 16 },
+    detailed: { depth: 10, minDepth: 5, maxInstances: 120000, minScale: 0, maxMs: 1000, analysisDepth: 9, hullIterations: 100, hullCorners: 24 }
   };
+  var LIMIT_FIELDS = ['minDepth', 'maxInstances', 'minScale', 'maxMs', 'analysisDepth', 'hullIterations', 'hullCorners'];
+  // The view settings a fractal saves, and the defaults for one that saved
+  // none. Shape draws each copy as its parent's hull or as its frame.
+  // Numbers shows or hides each copy's parent number in the views.
+  var VIEW_DEFAULTS = { snapGrid: false, showHull: true, shape: 'hull', numbers: false };
   // Snap each preset onto the slider stops, so a preset always matches a stop.
   Object.keys(PRESETS).forEach(function (key) {
     var preset = PRESETS[key];
@@ -51,9 +62,10 @@
     // currentLetter is the parent being edited, and also the one the views draw.
     // focus says what Backspace and Cmd+D act on: a 'child' or the 'parent'.
     rule: M.clone(demos.sieve), demo: 'sieve', currentLetter: 'p1', selectedId: null, focus: 'child',
-    brush: M.identity(), newLetter: null, snapGrid: false, editorCamera: null,
+    brush: M.identity(), newLetter: null, snapGrid: VIEW_DEFAULTS.snapGrid, editorCamera: null,
     depth: 7, showHull: true, camera: { zoom: 1, x: 0, y: 0 }, dragging: false,
     limits: Object.assign({}, PRESETS.balanced), preset: 'balanced', colourMode: null,
+    shape: VIEW_DEFAULTS.shape, numbers: VIEW_DEFAULTS.numbers,
     analysis: null, editorView: null, noticeTimer: null
   };
 
@@ -147,7 +159,7 @@
     return JSON.parse(decodeURIComponent(escaped));
   }
 
-  function gridSize(n) { return Number.isInteger(n) && n >= 2 && n <= 8; }
+  function gridSize(n) { return Number.isInteger(n) && n >= GRID_MIN && n <= GRID_MAX; }
   function validRule(rule) {
     return rule && rule.version === 3 && ['square', 'triangle'].indexOf(rule.frame) >= 0 &&
       rule.grid && gridSize(rule.grid.rows) && gridSize(rule.grid.cols) && gridSize(rule.grid.side) &&
@@ -168,11 +180,9 @@
         if (!validRule(saved.rule)) throw new Error('Invalid rule');
         state.rule = saved.rule; state.demo = null;
         state.currentLetter = saved.current || state.rule.letters[0].id; state.depth = Math.max(0, Math.min(32, saved.depth == null ? 7 : saved.depth));
-        state.showHull = saved.hull !== false; state.colourMode = readColourMode(saved.colour);
+        state.colourMode = readColourMode(saved.colour);
         if (saved.camera) state.camera = saved.camera;
-        state.snapGrid = !!saved.snap;
-        if (saved.limits) state.limits = sanitiseLimits(saved.limits);
-        state.preset = matchingPreset();
+        readView(saved);
       }
     } catch (error) {
       state.rule = M.clone(demos.sieve); state.demo = 'sieve';
@@ -183,13 +193,33 @@
 
   function saveAddress() {
     var hash;
-    if (state.demo && sameRule(state.rule, demos[state.demo]) && state.currentLetter === state.rule.letters[0].id && matchingPreset() === 'balanced' && state.showHull && !state.snapGrid && state.colourMode == null && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
+    if (state.demo && sameRule(state.rule, demos[state.demo]) && state.currentLetter === state.rule.letters[0].id && matchingPreset() === 'balanced' && defaultView() && state.colourMode == null && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
       hash = 'demo=' + state.demo;
     } else {
-      hash = 'rule=' + encode({ rule: state.rule, current: state.currentLetter, depth: state.depth,
-        hull: state.showHull, camera: state.camera, limits: state.limits, snap: state.snapGrid || undefined, colour: state.colourMode || undefined });
+      hash = 'rule=' + encode(Object.assign({ rule: state.rule, current: state.currentLetter, depth: state.depth,
+        camera: state.camera, colour: state.colourMode || undefined }, viewSettings()));
     }
     history.replaceState(null, '', location.pathname + location.search + '#' + hash);
+  }
+
+  // The view settings travel with a fractal, in its address and its save:
+  // snap, hull outline, shape, numbers and the calculation limits. A
+  // fractal that saved none opens with the defaults.
+  function viewSettings() {
+    return { snap: state.snapGrid, hull: state.showHull, shape: state.shape, numbers: state.numbers, limits: sanitiseLimits(state.limits) };
+  }
+  function readView(saved) {
+    saved = saved || {};
+    state.snapGrid = typeof saved.snap === 'boolean' ? saved.snap : VIEW_DEFAULTS.snapGrid;
+    state.showHull = typeof saved.hull === 'boolean' ? saved.hull : VIEW_DEFAULTS.showHull;
+    state.shape = saved.shape === 'frame' || saved.shape === 'hull' ? saved.shape : VIEW_DEFAULTS.shape;
+    state.numbers = typeof saved.numbers === 'boolean' ? saved.numbers : VIEW_DEFAULTS.numbers;
+    state.limits = sanitiseLimits(saved.limits || PRESETS.balanced);
+    state.preset = matchingPreset();
+  }
+  function defaultView() {
+    return state.snapGrid === VIEW_DEFAULTS.snapGrid && state.showHull === VIEW_DEFAULTS.showHull &&
+      state.shape === VIEW_DEFAULTS.shape && state.numbers === VIEW_DEFAULTS.numbers;
   }
 
   function sameRule(a, b) {
@@ -209,16 +239,37 @@
       minScale: nearest(Number(limits.minScale) || 0, SCALE_VALUES),
       maxMs: nearest(Number(limits.maxMs) || 250, TIME_VALUES),
       analysisDepth: Math.max(4, Math.min(10, Math.round(limits.analysisDepth || 7))),
-      hullIterations: nearest(Number(limits.hullIterations) || 32, [8, 16, 32, 64])
+      hullIterations: nearest(Number(limits.hullIterations) || PRESETS.balanced.hullIterations, HULL_STEPS),
+      hullCorners: nearest(Number(limits.hullCorners) || PRESETS.balanced.hullCorners, HULL_CORNERS)
     };
   }
 
   function matchingPreset() {
     var name = Object.keys(PRESETS).find(function (key) {
       var preset = PRESETS[key];
-      return state.depth === preset.depth && ['minDepth','maxInstances','minScale','maxMs','analysisDepth','hullIterations'].every(function (field) { return state.limits[field] === preset[field]; });
+      return state.depth === preset.depth && LIMIT_FIELDS.every(function (field) { return state.limits[field] === preset[field]; });
     });
     return name || 'custom';
+  }
+
+  // Copy and Paste move the calculation limits from one fractal to
+  // another. The copy is kept in this browser, so it survives a reload.
+  var LIMITS_KEY = 'fractal-limits-copy', copiedLimits = null;
+  function readCopiedLimits() {
+    if (copiedLimits) return copiedLimits;
+    try { var saved = JSON.parse(localStorage.getItem(LIMITS_KEY) || 'null'); if (saved && typeof saved === 'object') copiedLimits = sanitiseLimits(saved); } catch (error) {}
+    return copiedLimits;
+  }
+  function copyLimits() {
+    copiedLimits = sanitiseLimits(state.limits);
+    try { localStorage.setItem(LIMITS_KEY, JSON.stringify(copiedLimits)); } catch (error) {}
+    syncLimitControls(); notice('Copied the calculation limits.');
+  }
+  function pasteLimits() {
+    var limits = readCopiedLimits(); if (!limits) return;
+    state.limits = sanitiseLimits(limits); state.preset = matchingPreset();
+    updateAnalysis(); syncLimitControls(); renderReadouts(); renderIterations(); renderMain(); saveAddress();
+    notice('Pasted the calculation limits.');
   }
 
   function applyPreset(name) {
@@ -250,8 +301,8 @@
 
   function setGrid(rows, cols) {
     // The grid only guides snapping; it never moves a child.
-    state.rule.grid.rows = Math.max(2, Math.min(8, Math.round(rows || 2)));
-    state.rule.grid.cols = Math.max(2, Math.min(8, Math.round(cols || rows)));
+    state.rule.grid.rows = Math.max(GRID_MIN, Math.min(GRID_MAX, Math.round(rows || 2)));
+    state.rule.grid.cols = Math.max(GRID_MIN, Math.min(GRID_MAX, Math.round(cols || rows)));
   }
 
   function prepareCanvas(canvas) {
@@ -280,10 +331,24 @@
       transform: function (m) { var s = this.scale; return [s * m[0], -s * m[1], s * m[2], -s * m[3], this.x + s * m[4], this.y - s * m[5]]; } };
   }
 
-  function instancesBounds(instances, frame) {
-    var points = [];
-    instances.forEach(function (item) { M.transformedFrame(frame, item.matrix).forEach(function (p) { points.push(p); }); });
+  function instancesBounds(instances, frame, shapes) {
+    var points = [], outline = M.framePolygon(frame);
+    instances.forEach(function (item) {
+      (shapes && shapes[item.letter] || outline).forEach(function (p) { points.push(M.apply(item.matrix, p)); });
+    });
     return M.bounds(points);
+  }
+
+  // The shapes the views draw: each parent's hull, when Shape is Hull and
+  // the rule converges. A parent without a proper hull keeps its frame.
+  // While a child is dragged the hulls are out of date, so copies draw as
+  // frames until the drag ends.
+  function copyShapes() {
+    var a = state.analysis;
+    if (state.shape !== 'hull' || state.editorDrag || !a || !a.hulls || a.status.name !== 'Converges') return null;
+    var shapes = {};
+    state.rule.letters.forEach(function (letter) { var hull = a.hulls[letter.id]; if (hull && hull.length >= 3) shapes[letter.id] = hull; });
+    return shapes;
   }
 
   function path(ctx, points) {
@@ -320,13 +385,16 @@
   // or not, never cancel to a hole. Copies large enough for a number still
   // get one, drawn on top. Colour groups draw in the order they first
   // appear, so the overlap order follows the colours, not each copy.
+  // With options.shapes, a copy draws as its parent's hull instead of its
+  // frame, where that parent has one. The number stays in the frame's place.
   function drawBatch(ctx, items, view, options) {
-    var frame = M.framePolygon(state.rule.frame), n = frame.length, groups = [], byKey = {}, marks = [];
-    var clip = options.clip, threshold = options.letterThreshold || 10, xs = new Array(n), ys = new Array(n);
+    var frame = M.framePolygon(state.rule.frame), shapes = options.shapes, groups = [], byKey = {}, marks = [];
+    var clip = options.clip, threshold = options.letterThreshold || 10, xs = [], ys = [];
     for (var i = 0; i < items.length; i++) {
       var item = items[i], m = item.matrix, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, area = 0;
+      var poly = shapes && shapes[item.letter] || frame, n = poly.length;
       for (var k = 0; k < n; k++) {
-        var p = frame[k], x = view.x + view.scale * (m[0] * p[0] + m[2] * p[1] + m[4]), y = view.y - view.scale * (m[1] * p[0] + m[3] * p[1] + m[5]);
+        var p = poly[k], x = view.x + view.scale * (m[0] * p[0] + m[2] * p[1] + m[4]), y = view.y - view.scale * (m[1] * p[0] + m[3] * p[1] + m[5]);
         xs[k] = x; ys[k] = y; if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
       }
       if (clip && (maxX < -2 || maxY < -2 || minX > clip[0] + 2 || minY > clip[1] + 2)) continue;
@@ -398,14 +466,16 @@
 
   function renderIterations() {
     buildOrder();
+    if (state.stripHidden) return;
+    var shapes = copyShapes();
     document.querySelectorAll('#iteration-strip canvas').forEach(function (canvas) {
       var level = Number(canvas.dataset.level), info = prepareCanvas(canvas);
       info.ctx.fillStyle = '#11151b'; info.ctx.fillRect(0, 0, info.width, info.height);
       // expand keeps unsplit parents at the copy cap, so a big rule still shows whole.
       var instances = level ? M.expand(state.rule, state.currentLetter, level, { maxInstances: 12000, maxMs: 0 }) : [{ letter: state.currentLetter, matrix: M.identity() }];
       if (!instances.length) return;
-      var view = makeView(info.width, info.height, instancesBounds(instances, state.rule.frame), 12, null);
-      drawBatch(info.ctx, instances, view, { letterThreshold: 7, lineWidth: .7 });
+      var view = makeView(info.width, info.height, instancesBounds(instances, state.rule.frame, shapes), 12, null);
+      drawBatch(info.ctx, instances, view, { letterThreshold: 7, lineWidth: .7, shapes: shapes, letters: state.numbers });
     });
   }
 
@@ -485,11 +555,11 @@
     // start, so the picture does not jump as the extent changes.
     if (state.editorDrag && state.editorDrag.mainBounds) known = state.editorDrag.mainBounds;
     var view = known ? makeView(info.width, info.height, known, 42, state.camera) : null;
-    var instances = mainInstances(view && !growing() ? offScreen(view, info) : null);
-    var b = known || instancesBounds(instances, state.rule.frame);
+    var instances = mainInstances(view && !growing() ? offScreen(view, info) : null), shapes = copyShapes();
+    var b = known || instancesBounds(instances, state.rule.frame, shapes);
     state.lastMainBounds = b;
     if (!view) view = makeView(info.width, info.height, b, 42, state.camera);
-    drawBatch(ctx, instances, view, { letterThreshold: 8, lineWidth: .65, clip: [info.width, info.height],
+    drawBatch(ctx, instances, view, { letterThreshold: 8, lineWidth: .65, clip: [info.width, info.height], shapes: shapes, letters: state.numbers,
       alphaFor: function (item) { return item.level == null ? .93 : .22 + .18 * item.level; } });
     if (state.showHull && state.analysis && state.analysis.status.name === 'Converges' && !state.editorDrag) drawHull(ctx, state.analysis.hull, view);
     measureFrame(instances.length, performance.now() - started);
@@ -517,7 +587,8 @@
     el.editorFit.disabled = !cam;
     var parent = M.framePolygon(state.rule.frame).map(view.point, view);
     path(ctx, parent); ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1.2; ctx.setLineDash([6, 5]); ctx.stroke(); ctx.setLineDash([]);
-    if (state.snapGrid) drawSnapGrid(ctx, view, info.width, info.height);
+    // The grid always shows. Snap corners only decides whether corners snap to it.
+    drawSnapGrid(ctx, view, info.width, info.height);
     currentLetter().children.forEach(function (child, index) {
       var selected = child.id === state.selectedId, item = { letter: child.letter, matrix: child.matrix, path: index.toString(36) };
       drawInstance(ctx, item, view, { letterThreshold: 5, lineWidth: selected ? 2.6 : 1.2, stroke: selected ? '#ffffff' : itemColour(item), alpha: selected ? 1 : .83, childName: childName(index) });
@@ -529,10 +600,9 @@
 
   function updateAnalysis() {
     state.analysis = M.analyse(state.rule, state.currentLetter, state.limits.analysisDepth,
-      { maxInstances: state.limits.maxInstances, hullIterations: state.limits.hullIterations, maxMs: state.limits.maxMs });
+      { maxInstances: state.limits.maxInstances, hullIterations: state.limits.hullIterations, hullCorners: state.limits.hullCorners, maxMs: state.limits.maxMs });
   }
 
-  function fixed3(value) { var text = Math.abs(value) < .0005 ? '0.000' : value.toFixed(3); return text.replace('-', '−'); }
   function formatNumber(value, digits) { return value == null || !isFinite(value) ? '—' : Number(value).toFixed(digits == null ? 3 : digits).replace(/\.000$/, ''); }
 
   function scaleLabel(value) {
@@ -548,8 +618,11 @@
     el.minScale.value = SCALE_VALUES.indexOf(state.limits.minScale); el.minScaleValue.textContent = scaleLabel(state.limits.minScale);
     el.maxTime.value = TIME_VALUES.indexOf(state.limits.maxMs); el.maxTimeValue.textContent = count(state.limits.maxMs) + ' ms';
     el.analysisDepth.value = state.limits.analysisDepth; el.analysisDepthValue.textContent = state.limits.analysisDepth;
-    el.hullIterations.value = state.limits.hullIterations;
+    el.hullIterations.value = HULL_STEPS.indexOf(state.limits.hullIterations); el.hullIterationsValue.textContent = stepsLabel(state.limits.hullIterations);
+    el.hullCap.value = HULL_CORNERS.indexOf(state.limits.hullCorners); el.hullCapValue.textContent = state.limits.hullCorners;
+    el.pasteLimits.disabled = !readCopiedLimits();
   }
+  function stepsLabel(n) { return n + (n === 1 ? ' step' : ' steps'); }
 
   function renderReadouts() {
     var a = state.analysis, status = a.status.name, empty = !currentLetter().children.length;
@@ -750,6 +823,47 @@
     });
   }
 
+  // The iterations panel: the arrow hides or shows it, and the line under
+  // it sets its height, from 110 pixels to half the views' height. The
+  // five views shrink to fit, so the panel never scrolls. Both are a
+  // per-viewer preference, kept in local storage when allowed.
+  var STRIP_KEY = 'fractal-strip', STRIP_MIN = 110;
+  function wireIterationPanel() {
+    var visuals = document.querySelector('.visuals'), saved = null, height = null;
+    try { saved = JSON.parse(localStorage.getItem(STRIP_KEY) || 'null'); } catch (error) {}
+    function save() { try { localStorage.setItem(STRIP_KEY, JSON.stringify({ hidden: !!state.stripHidden, height: height || undefined })); } catch (error) {} }
+    function maxHeight() { return Math.max(STRIP_MIN, visuals.getBoundingClientRect().height / 2); }
+    function apply() {
+      if (height) visuals.style.setProperty('--strip-h', Math.round(Math.max(STRIP_MIN, Math.min(height, maxHeight()))) + 'px');
+      else visuals.style.removeProperty('--strip-h');
+    }
+    function setHidden(hidden) {
+      state.stripHidden = hidden; visuals.classList.toggle('strip-hidden', hidden);
+      el.toggleStrip.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+      var tip = hidden ? 'Show the iterations' : 'Hide the iterations';
+      el.toggleStrip.title = tip; el.toggleStrip.setAttribute('aria-label', tip);
+      if (!hidden) requestAnimationFrame(renderIterations);
+    }
+    if (saved && saved.height) height = saved.height;
+    apply(); setHidden(!!(saved && saved.hidden));
+    el.toggleStrip.addEventListener('click', function () { setHidden(!state.stripHidden); save(); });
+    var line = el.dividerStrip, start = null;
+    line.addEventListener('pointerdown', function (event) {
+      start = { y: event.clientY, h: el.iterationPanel.getBoundingClientRect().height };
+      line.setPointerCapture(event.pointerId); line.classList.add('dragging'); event.preventDefault();
+    });
+    line.addEventListener('pointermove', function (event) { if (start) { height = start.h + event.clientY - start.y; apply(); } });
+    function end() { if (start) { start = null; line.classList.remove('dragging'); height = Math.max(STRIP_MIN, Math.min(height, maxHeight())); save(); } }
+    line.addEventListener('pointerup', end); line.addEventListener('pointercancel', end);
+    line.addEventListener('dblclick', function () { height = null; apply(); save(); });
+    line.addEventListener('keydown', function (event) {
+      var step = event.key === 'ArrowUp' ? -16 : event.key === 'ArrowDown' ? 16 : 0;
+      if (!step) return;
+      event.preventDefault(); height = Math.max(STRIP_MIN, Math.min(el.iterationPanel.getBoundingClientRect().height + step, maxHeight())); apply(); save();
+    });
+    window.addEventListener('resize', apply);
+  }
+
   // x and y are the child's centre, where the map sends the origin. A
   // child is mirrored left to right if Flip is 1, then scaled, then turned
   // anticlockwise by Angle, from −180 to 180. A mirror sends the x axis to
@@ -763,9 +877,9 @@
     return [m[4], m[5], (sv[0] + sv[1]) / 2, angle, flip ? 1 : 0];
   }
 
-  // The table lists x, y, scale, angle and flip while every child of this
-  // parent is a similarity. Once one is stretched or skewed, it lists the
-  // six affine values instead.
+  // The edit pop-up shows x, y, scale, angle and flip while every child of
+  // this parent is a similarity. Once one is stretched or skewed, it shows
+  // the six affine values instead.
   function affineTable() {
     return currentLetter().children.some(function (child) { return !M.isSimilarity(child.matrix, 1e-6); });
   }
@@ -776,12 +890,13 @@
 
   // The children list, in drawing order: the first child is drawn first, so
   // it sits at the back, and the last sits in front. Drag a row's grip to
-  // reorder. The pencil opens a pop-up to set exact values.
+  // reorder. Each row names the child and the parent it copies. The
+  // padlock keeps the child out of Randomise. The pencil opens a pop-up
+  // that shows and sets the child's exact values.
+  var LOCK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  var UNLOCK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/></svg>';
   function renderNumbers() {
-    var headers = tableHeaders();
-    function header(index) { return headers[index + 1]; }
-    el.numbersHead.innerHTML = '<th aria-label="Reorder"></th><th class="whole">Child</th>' + headers.map(function (h, i) {
-      return '<th class="' + (i === 0 || h === 'Flip' ? 'whole' : 'real') + '">' + h + '</th>'; }).join('') + '<th aria-label="Edit"></th>';
+    el.numbersHead.innerHTML = '<th aria-label="Reorder"></th><th class="whole">Child</th><th class="whole">Parent</th><th class="whole">Lock</th><th class="edit-head" aria-label="Edit"></th>';
     el.numbersBody.innerHTML = '';
     el.numbersKind.textContent = 'back to front';
     currentLetter().children.forEach(function (child, index) {
@@ -789,15 +904,17 @@
       var grip = document.createElement('td'); grip.className = 'grip'; grip.textContent = '⠿'; grip.title = 'Drag to reorder'; row.appendChild(grip);
       var own = document.createElement('td'); own.className = 'child-name'; own.textContent = childName(index); row.appendChild(own);
       var first = document.createElement('td'); first.className = 'child-number'; first.textContent = label(child.letter); first.style.setProperty('--dot', colour(child.letter)); row.appendChild(first);
-      childValues(child).forEach(function (value, column) {
-        // Real values show three decimals, 0.000 too, so the points line up.
-        // Flip stays a whole number, centred.
-        var cell = document.createElement('td'), whole = typeof value !== 'number' || header(column) === 'Flip';
-        cell.className = whole ? 'whole' : 'real';
-        cell.textContent = whole ? value : fixed3(value); row.appendChild(cell);
-      });
+      var lockCell = document.createElement('td'), lock = document.createElement('button');
+      lockCell.className = 'whole'; lock.type = 'button'; lock.className = 'lock-child' + (child.locked ? ' locked' : '');
+      lock.setAttribute('aria-pressed', child.locked ? 'true' : 'false');
+      lock.setAttribute('aria-label', (child.locked ? 'Unlock child ' : 'Lock child ') + childName(index));
+      lock.title = child.locked ? 'Locked: Randomise leaves this child as it is. Click to unlock' : 'Unlocked: Randomise can change this child. Click to lock';
+      lock.innerHTML = child.locked ? LOCK_ICON : UNLOCK_ICON;
+      lock.addEventListener('click', function (event) { event.stopPropagation(); toggleLock(child); });
+      lockCell.appendChild(lock); row.appendChild(lockCell);
       var editCell = document.createElement('td'), edit = document.createElement('button');
-        edit.type = 'button'; edit.className = 'edit-child'; edit.setAttribute('aria-label', 'Edit child ' + childName(index)); edit.title = 'Edit values';
+      editCell.className = 'edit-cell';
+        edit.type = 'button'; edit.className = 'edit-child'; edit.setAttribute('aria-label', 'Edit child ' + childName(index)); edit.title = 'Show and edit the exact values';
         edit.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>';
         edit.addEventListener('click', function (event) { event.stopPropagation(); openEditDialog(child); });
       editCell.appendChild(edit); row.appendChild(editCell);
@@ -857,7 +974,11 @@
     var child = selectedChild(), children = currentLetter().children;
     el.selectionHeading.textContent = child ? 'Selected child' : 'New child';
     el.selectionName.textContent = child ? childName(children.indexOf(child)) : '';
-    el.removeChild.disabled = !child; el.duplicateChild.disabled = !child;
+    // Remove stays live while the parent has children, so Shift-click can
+    // clear them all with none selected.
+    el.removeChild.disabled = !children.length; el.duplicateChild.disabled = !child;
+    el.removeChild.title = (child ? 'Click: remove child ' + childName(children.indexOf(child)) + ' (Backspace).' : 'Click: remove the selected child (Backspace). Select a child first.') +
+      ' Shift-click: remove every child of this parent (Shift+Backspace).';
     renderChildLetters(); renderBrushPreview();
   }
 
@@ -875,11 +996,15 @@
       });
     });
     el.toggleSnap.checked = !!state.snapGrid;
-    var all = triangle ? 6 : 8, turns = triangle ? 3 : 4, how = 'Each child copies a random parent and takes a random orientation inside its outline. Click: any of the ' + all + ' orientations. Shift-click: turns only, ' + turns + ' orientations, so a flipped child stays flipped.';
-    el.randomiseAll.title = 'Randomise every child of every parent. ' + how;
-    el.randomiseParent.title = 'Randomise every child of this parent. ' + how;
-    el.randomiseAll.disabled = !allChildren().length; el.randomiseParent.disabled = !currentLetter().children.length;
+    var all = triangle ? 6 : 8, turns = triangle ? 3 : 4;
+    var how = ' Each child copies a random parent and takes a random orientation inside its outline. Click: any of the ' + all + ' orientations. Shift-click: turns only, ' + turns + ' orientations, so a flipped child stays flipped. Locked children stay as they are.';
+    el.randomiseAll.title = 'Randomise every unlocked child of every parent.' + how;
+    el.randomiseParent.title = 'Randomise every unlocked child of this parent.' + how;
+    el.randomiseAll.disabled = !unlocked(allChildren()).length; el.randomiseParent.disabled = !unlocked(currentLetter().children).length;
     el.colourMode.querySelectorAll('[data-colour]').forEach(function (button) { var on = button.dataset.colour === colourMode(); button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+    [[el.shapeMode, 'shape', state.shape], [el.numbersMode, 'numbers', state.numbers ? 'show' : 'hide']].forEach(function (group) {
+      group[0].querySelectorAll('[data-' + group[1] + ']').forEach(function (button) { var on = button.dataset[group[1]] === group[2]; button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+    });
     el.toggleHull.setAttribute('aria-pressed', state.showHull ? 'true' : 'false');
     syncLimitControls(); renderLetterControls(); syncSelection(); renderNumbers(); renderPalette();
   }
@@ -968,8 +1093,10 @@
   // so a linked system can lose links: that is part of the roll. A roll
   // that leaves every child as it was rolls again, so each click changes
   // something.
+  // A locked child is left out: its orientation and its parent stay put.
+  function unlocked(children) { return children.filter(function (child) { return !child.locked; }); }
   function randomise(letters, flips) {
-    var children = letters.reduce(function (out, letter) { return out.concat(letter.children); }, []);
+    var children = unlocked(letters.reduce(function (out, letter) { return out.concat(letter.children); }, []));
     if (!children.length) return;
     var ids = state.rule.letters.map(function (letter) { return letter.id; });
     var key = function (matrix, id) { return id + ':' + matrix.join(); };
@@ -981,6 +1108,13 @@
         markEdited(); commit(); return;
       }
     }
+  }
+
+  // The lock is part of the rule, so it saves with the fractal and each
+  // change is one undo step.
+  function toggleLock(child) {
+    if (child.locked) delete child.locked; else child.locked = true;
+    markEdited(); commit();
   }
 
   function orient(action) {
@@ -996,31 +1130,57 @@
     var grid = snapGridSize();
     return state.rule.frame === 'triangle' ? [1 / grid.side, 1 / grid.side] : [1 / grid.cols, 1 / grid.rows];
   }
-  // The centres of the grid's cells inside the frame, in reading order: top
-  // row first, left to right. A triangle with k pieces per side has k²
-  // cells: upright ones, and between them upside-down ones. New children
-  // take the cells that match the preview, upright or upside down; a cell's
-  // map puts the child's centre on the cell's centre, so the preview's turn
-  // and flip carry over.
-  function gridCellCentres() {
-    var grid = snapGridSize(), out = [], row, col;
-    if (state.rule.frame !== 'triangle') {
-      for (row = 0; row < grid.rows; row++) for (col = 0; col < grid.cols; col++) out.push([(col + .5) / grid.cols - .5, .5 - (row + .5) / grid.rows]);
-      return out;
+  // The grid's cells, in the order + fills them. Inside the frame: the
+  // bottom row first, left to right, then the next row up. A triangle with
+  // k pieces per side has k² cells: upright ones, and between them
+  // upside-down ones. The cells that point the same way as the preview
+  // come first, then the others, where the child takes a half turn. After
+  // the frame is full come the cells outside it, nearest the frame first,
+  // then anticlockwise from the bottom left. Cells reach out one frame
+  // width. Each cell is { centre, turn }: the child's centre goes on the
+  // cell's centre, so the preview's orientation carries over.
+  var OUTSIDE_REACH = 1;
+  function polygonDistance(point, poly) {
+    if (pointInPolygon(point, poly)) return 0;
+    var best = Infinity;
+    for (var i = 0; i < poly.length; i++) {
+      var a = poly[i], b = poly[(i + 1) % poly.length], e = [b[0] - a[0], b[1] - a[1]];
+      var t = Math.max(0, Math.min(1, dot([point[0] - a[0], point[1] - a[1]], e) / dot(e, e)));
+      best = Math.min(best, distance(point, [a[0] + t * e[0], a[1] + t * e[1]]));
     }
-    // The preview's apex points down when it lies below the centre.
-    var k = grid.side, h = M.TRI_H, down = M.apply(state.brush, M.framePolygon('triangle')[0])[1] < -1e-9;
-    for (row = 0; row < k; row++) {
-      // Lattice row r holds the r + 1 points (i, j) with i + j = r, left to
-      // right; see snapLattice. An upright cell hangs from each point; an
-      // upside-down cell sits a row lower, between two upright ones.
-      for (var j = 0; j <= row; j++) {
-        var p = latticePoint(row - j, j, k);
-        if (!down) out.push([p[0], p[1] - 2 * h / (3 * k)]);
-        else if (row <= k - 2) out.push([p[0], p[1] - 4 * h / (3 * k)]);
+    return best;
+  }
+  function gridCells() {
+    var grid = snapGridSize(), frame = M.framePolygon(state.rule.frame), inside = [], outside = [], row, col;
+    function add(centre, turn) {
+      var gap = polygonDistance(centre, frame);
+      if (gap === 0) inside.push({ centre: centre, turn: turn });
+      else if (gap <= OUTSIDE_REACH) outside.push({ centre: centre, turn: turn, gap: gap });
+    }
+    if (state.rule.frame !== 'triangle') {
+      var reachCols = Math.ceil(OUTSIDE_REACH * grid.cols), reachRows = Math.ceil(OUTSIDE_REACH * grid.rows);
+      for (row = -reachRows; row < grid.rows + reachRows; row++) {
+        for (col = -reachCols; col < grid.cols + reachCols; col++) add([(col + .5) / grid.cols - .5, (row + .5) / grid.rows - .5], false);
+      }
+    } else {
+      // An upright cell hangs from each lattice point (see snapLattice), and
+      // an upside-down one sits below it, between two upright ones. The
+      // preview's apex points down when it lies below the centre.
+      var k = grid.side, h = M.TRI_H, down = M.apply(state.brush, frame[0])[1] < -1e-9, reach = Math.ceil(OUTSIDE_REACH * k) + 2;
+      for (var i = -reach; i < k + reach; i++) {
+        for (var j = -reach; j < k + reach; j++) {
+          var p = latticePoint(i, j, k);
+          add([p[0], p[1] - 2 * h / (3 * k)], down);
+          add([p[0], p[1] - 4 * h / (3 * k)], !down);
+        }
       }
     }
-    return out;
+    function round(v) { return Math.round(v * 1e9); }
+    // The angle anticlockwise from the bottom-left direction, −135 degrees.
+    function turnFrom(c) { return (Math.atan2(c[1], c[0]) + Math.PI * 11 / 4) % (Math.PI * 2); }
+    inside.sort(function (a, b) { return (a.turn - b.turn) || (round(a.centre[1]) - round(b.centre[1])) || (round(a.centre[0]) - round(b.centre[0])); });
+    outside.sort(function (a, b) { return (round(a.gap) - round(b.gap)) || (turnFrom(a.centre) - turnFrom(b.centre)); });
+    return inside.concat(outside);
   }
 
   function newChildId() { return Math.random().toString(36).slice(2, 9); }
@@ -1043,13 +1203,16 @@
   }
 
   // + adds a child with the number and orientation shown in the preview.
-  // With Snap corners on, it fills one grid cell: the first free cell in
-  // reading order, top row first. Without, it is half size, in the middle
-  // or the first free corner. A duplicate keeps its original's size.
+  // It fills one grid cell, with Snap corners on or off: the first free
+  // cell in the order gridCells gives. A cell that points the other way
+  // gives the child a half turn. A duplicate keeps its original's size.
+  var HALF_TURN = [-1, 0, 0, -1, 0, 0];
   function addFreeChild() {
-    var size = state.snapGrid ? gridCellSize() : [.5, .5];
-    var spots = state.snapGrid ? gridCellCentres() : [[0, 0]].concat(M.framePolygon(state.rule.frame).map(function (v) { return [v[0] / 2, v[1] / 2]; }));
-    var candidates = spots.map(function (p) { return tidy(M.compose([size[0], 0, 0, size[1], p[0], p[1]], state.brush)); });
+    var size = gridCellSize();
+    var candidates = gridCells().map(function (cell) {
+      var p = cell.centre, orient = cell.turn ? M.compose(HALF_TURN, state.brush) : state.brush;
+      return tidy(M.compose([size[0], 0, 0, size[1], p[0], p[1]], orient));
+    });
     var child = M.child(brushLetter(), firstFree(candidates));
     currentLetter().children.push(child); state.selectedId = child.id; state.focus = 'child'; markEdited(); commit();
   }
@@ -1134,7 +1297,10 @@
   // Saved fractals. The library lives in this browser's local storage. A
   // .fractal.json file holds one or more fractals in the same shape:
   // { format: 'fractal-explorer', version: 3, fractals: [entry, ...] }, where
-  // an entry is { name, savedAt, rule, current, level, colourMode }.
+  // an entry is { name, savedAt, rule, current, level, colourMode, snap,
+  // hull, shape, numbers, limits }. The last five are the view settings
+  // (see viewSettings). An entry saved before they existed opens with the
+  // defaults.
   var LIBRARY_KEY = 'fractal-library', FILE_FORMAT = 'fractal-explorer', FILE_VERSION = 3;
   function readLibrary() {
     try { var list = JSON.parse(localStorage.getItem(LIBRARY_KEY) || '[]'); return Array.isArray(list) ? list.filter(validEntry) : []; }
@@ -1146,8 +1312,8 @@
   }
   function validEntry(entry) { return entry && typeof entry.name === 'string' && validRule(entry.rule); }
   function currentEntry(name) {
-    return { name: name, savedAt: new Date().toISOString(), rule: M.clone(state.rule), current: state.currentLetter,
-      level: state.depth, colourMode: state.colourMode };
+    return Object.assign({ name: name, savedAt: new Date().toISOString(), rule: M.clone(state.rule), current: state.currentLetter,
+      level: state.depth, colourMode: state.colourMode }, viewSettings());
   }
   function defaultName() { return state.savedName || (state.demo ? DEMO_NAMES[state.demo] : 'Fractal ' + (readLibrary().length + 1)); }
   function saveFractal() {
@@ -1163,7 +1329,7 @@
     if (!letterById(state.currentLetter)) state.currentLetter = state.rule.letters[0].id;
     state.selectedId = null; state.newLetter = null; state.focus = 'child';
     state.depth = Math.max(0, Math.min(32, entry.level == null ? state.depth : entry.level));
-    state.colourMode = readColourMode(entry.colourMode);
+    state.colourMode = readColourMode(entry.colourMode); readView(entry);
     state.demo = null; state.savedName = entry.name; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null;
     el.saveName.value = entry.name; el.demo.value = ''; commit();
   }
@@ -1232,7 +1398,17 @@
 
   function removeSelected() {
     var letter = currentLetter(), index = letter.children.findIndex(function (child) { return child.id === state.selectedId; });
-    if (index >= 0) letter.children.splice(index, 1); state.selectedId = null; markEdited(); commit();
+    if (index < 0) { if (letter.children.length) notice('Select a child to remove it, or Shift-click to remove them all.'); return; }
+    letter.children.splice(index, 1); state.selectedId = null; markEdited(); commit();
+  }
+  // Shift-click on Remove, or Shift+Backspace, clears every child of this
+  // parent as one step. Locked children go too: the lock only guards
+  // against Randomise.
+  function removeAllChildren() {
+    var letter = currentLetter(), n = letter.children.length;
+    if (!n) return;
+    letter.children = []; state.selectedId = null; state.focus = 'child'; markEdited(); commit();
+    notice('Removed ' + n + (n === 1 ? ' child' : ' children') + ' of parent ' + label(letter.id) + '. Undo brings them back.');
   }
 
   function pointInPolygon(point, poly) {
@@ -1701,7 +1877,7 @@
 
   function wireEvents() {
     el.demo.addEventListener('change', function () {
-      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.selectedId = null; state.focus = 'child'; state.brush = M.identity(); state.depth = PRESETS.balanced.depth; state.limits = sanitiseLimits(PRESETS.balanced); state.preset = 'balanced'; state.showHull = true; state.colourMode = null; state.savedName = null; state.newLetter = null; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null; commit();
+      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.selectedId = null; state.focus = 'child'; state.brush = M.identity(); state.depth = PRESETS.balanced.depth; readView(null); state.colourMode = null; state.savedName = null; state.newLetter = null; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null; commit();
     });
     el.addLetter.addEventListener('click', addLetter);
     el.removeLetter.addEventListener('click', removeLetter);
@@ -1730,14 +1906,15 @@
     renderLibrary();
     el.undo.addEventListener('click', undo); el.redo.addEventListener('click', redo);
     el.undo.title = 'Undo (' + modKey() + 'Z)'; el.redo.title = 'Redo (' + (MAC ? '⇧⌘Z' : 'Ctrl+Y') + ')';
-    wireDividers();
+    wireDividers(); wireIterationPanel();
+    // Grid sizes: one button for each size from 2 to 12. Each pick is one undo step.
     function gridButtons(container, onPick) {
-      for (var n = 2; n <= 8; n++) { var b = document.createElement('button'); b.type = 'button'; b.textContent = n; container.appendChild(b); }
-      container.addEventListener('click', function (event) { var b = event.target.closest('button'); if (b) onPick(Number(b.textContent)); });
+      for (var n = GRID_MIN; n <= GRID_MAX; n++) { var b = document.createElement('button'); b.type = 'button'; b.textContent = n; container.appendChild(b); }
+      container.addEventListener('click', function (event) { var b = event.target.closest('button'); if (b) { onPick(Number(b.textContent)); markEdited(); commit(); } });
     }
-    gridButtons(el.gridRows, function (rows) { setGrid(rows, snapGridSize().cols); markEdited(); commit(); });
-    gridButtons(el.gridCols, function (cols) { setGrid(snapGridSize().rows, cols); markEdited(); commit(); });
-    gridButtons(el.gridSide, function (side) { state.rule.grid.side = side; markEdited(); commit(); });
+    gridButtons(el.gridRows, function (rows) { setGrid(rows, snapGridSize().cols); });
+    gridButtons(el.gridCols, function (cols) { setGrid(snapGridSize().rows, cols); });
+    gridButtons(el.gridSide, function (side) { state.rule.grid.side = side; });
     el.frameShape.querySelectorAll('[data-frame]').forEach(function (button) { button.addEventListener('click', function () { setFrame(button.dataset.frame); }); });
     el.toggleSnap.addEventListener('change', function () { state.snapGrid = el.toggleSnap.checked; renderEditor(); saveAddress(); });
     el.editorZoomIn.addEventListener('click', function () { zoomEditor(1.25); });
@@ -1751,6 +1928,14 @@
     el.colourMode.querySelectorAll('[data-colour]').forEach(function (button) {
       button.addEventListener('click', function () { state.colourMode = button.dataset.colour; syncControls(); renderEditor(); renderIterations(); renderMain(); saveAddress(); });
     });
+    el.shapeMode.querySelectorAll('[data-shape]').forEach(function (button) {
+      button.addEventListener('click', function () { state.shape = button.dataset.shape; syncControls(); renderIterations(); renderMain(); saveAddress(); });
+    });
+    el.numbersMode.querySelectorAll('[data-numbers]').forEach(function (button) {
+      button.addEventListener('click', function () { state.numbers = button.dataset.numbers === 'show'; syncControls(); renderIterations(); renderMain(); saveAddress(); });
+    });
+    el.copyLimits.addEventListener('click', copyLimits);
+    el.pasteLimits.addEventListener('click', pasteLimits);
     el.depth.addEventListener('input', function () { state.depth = Number(el.depth.value); el.depthValue.textContent = state.depth; state.dragging = true; setCustom(); syncLimitControls(); renderMain(); });
     el.depth.addEventListener('change', function () { state.dragging = false; updateAnalysis(); renderReadouts(); renderMain(); saveAddress(); });
     el.toggleMenu.addEventListener('click', function () { var open = el.togglePopover.hidden; el.togglePopover.hidden = !open; el.toggleMenu.setAttribute('aria-expanded', open); el.toggleMenu.parentNode.classList.toggle('open', open); });
@@ -1771,14 +1956,21 @@
     bindLimit(el.minScale, function () { state.limits.minScale = SCALE_VALUES[Number(el.minScale.value)]; }, function () { el.minScaleValue.textContent = scaleLabel(state.limits.minScale); }, false);
     bindLimit(el.maxTime, function () { state.limits.maxMs = TIME_VALUES[Number(el.maxTime.value)]; }, function () { el.maxTimeValue.textContent = count(state.limits.maxMs) + ' ms'; }, false);
     bindLimit(el.analysisDepth, function () { state.limits.analysisDepth = Number(el.analysisDepth.value); }, function () { el.analysisDepthValue.textContent = state.limits.analysisDepth; }, true);
-    el.hullIterations.addEventListener('change', function () { state.limits.hullIterations = Number(el.hullIterations.value); setCustom(); updateAnalysis(); syncLimitControls(); renderReadouts(); renderMain(); saveAddress(); });
+    // The hull sliders redo the hulls on release, and the views redraw with them.
+    [[el.hullIterations, HULL_STEPS, 'hullIterations'], [el.hullCap, HULL_CORNERS, 'hullCorners']].forEach(function (row) {
+      var input = row[0], values = row[1], field = row[2];
+      input.max = values.length - 1;
+      bindLimit(input, function () { state.limits[field] = values[Number(input.value)]; },
+        function () { el.hullIterationsValue.textContent = stepsLabel(state.limits.hullIterations); el.hullCapValue.textContent = state.limits.hullCorners; }, true);
+      input.addEventListener('change', renderIterations);
+    });
     [['rotateLeft', el.rotateLeft], ['rotateRight', el.rotateRight], ['flipH', el.flipH], ['flipV', el.flipV]].forEach(function (pair) {
       pair[1].addEventListener('click', function () { orient(pair[0]); });
     });
     el.addChild.addEventListener('click', addFreeChild);
     el.duplicateChild.title = 'Duplicate (' + modKey() + 'D)';
     el.duplicateChild.addEventListener('click', function () { state.focus = 'child'; duplicateChild(); });
-    el.removeChild.addEventListener('click', removeSelected);
+    el.removeChild.addEventListener('click', function (event) { state.focus = 'child'; if (event.shiftKey) removeAllChildren(); else removeSelected(); });
     el.randomiseParent.addEventListener('click', function (event) { randomise([currentLetter()], !event.shiftKey); });
     el.randomiseAll.addEventListener('click', function (event) { randomise(state.rule.letters, !event.shiftKey); });
     el.ruleEditor.addEventListener('pointerdown', startEditorPointer); el.ruleEditor.addEventListener('pointermove', moveEditorPointer); el.ruleEditor.addEventListener('pointerup', endEditorPointer); el.ruleEditor.addEventListener('pointercancel', endEditorPointer);
@@ -1812,8 +2004,8 @@
         if (letter) { if (event.shiftKey) selectParent(letter.id); else pickChildLetter(letter.id); }
         event.preventDefault(); return;
       }
+      if (key === 'backspace' || key === 'delete') { event.preventDefault(); if (event.shiftKey) removeAllChildren(); else removeFocused(); return; }
       if (event.shiftKey) return;
-      if (key === 'backspace' || key === 'delete') { event.preventDefault(); removeFocused(); return; }
       if (key === 'escape') { if (state.selectedId) { state.selectedId = null; syncControls(); renderEditor(); } return; }
       var action = { r: 'rotateLeft', t: 'rotateRight', h: 'flipH', v: 'flipV' }[key];
       if (action) { event.preventDefault(); orient(action); }
@@ -1833,7 +2025,7 @@
   }
 
   function collectElements() {
-    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','randomise-parent','remove-child','randomise-all','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','grid-rows','grid-cols','grid-side','frame-shape','cols-field','rows-field','side-field','toggle-snap','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
+    ['demo','rule-name','letter-tabs','add-letter','duplicate-letter','remove-letter','undo','redo','divider-left','divider-right','rule-editor','selection-heading','selection-name','brush-preview','rotate-left','rotate-right','flip-h','flip-v','add-child','duplicate-child','randomise-parent','remove-child','randomise-all','child-letters','save-name','save-fractal','library-list','library-empty','export-fractal','export-all','import-fractal','import-file','numbers-kind','numbers-head','numbers-body','edit-dialog','edit-form','edit-title','edit-fields','limit','grid-rows','grid-cols','grid-side','frame-shape','cols-field','rows-field','side-field','toggle-snap','editor-zoom-in','editor-zoom-out','editor-fit','divider-editor','editor-wrap','colour-mode','palette-label','parent-colour','colour-picker','colour-swatches','colour-custom','colour-default','dimension-label','depth','depth-value','toggle-menu','toggle-popover','min-depth','min-depth-value','max-copies','max-copies-value','min-scale','min-scale-value','max-time','max-time-value','analysis-depth','analysis-depth-value','hull-iterations','hull-iterations-value','hull-cap','hull-cap-value','copy-limits','paste-limits','shape-mode','numbers-mode','toggle-strip','divider-strip','iteration-panel','palette-key','zoom-out','zoom-in','home-view','toggle-hull','notice','instance-count','status-badge','status-detail','dimension','dimension-value','box-dimension','overlap','hull-corners','hull-area','explanation-text','copy-link','fullscreen'].forEach(function (id) {
       var key = id.replace(/-([a-z])/g, function (_, c) { return c.toUpperCase(); }); el[key] = $(id);
     });
   }

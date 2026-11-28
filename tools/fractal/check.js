@@ -122,4 +122,32 @@ assert(largest < 0.01, 'the largest copy left is under 1% of the frame, not 6% a
 const paths = M.expand(demos.sieve, 'p1', 3, { maxMs: 0 }).map(item => item.path);
 assert.deepStrictEqual(paths.filter(path => path.startsWith('00')), ['000', '001', '002'], 'the children of one split stay in child order');
 
-console.log('Fractal model: 49 checks passed.');
+// The corner cap keeps everything the hull held: a circle of 400 points
+// cut to 16 corners still holds every point, and grows by under 3%.
+const circle = M.convexHull(Array.from({ length: 400 }, (_, i) => [Math.cos(i * Math.PI / 200), Math.sin(i * Math.PI / 200)]));
+const cut = M.simplifyHull(circle, 16);
+assert.strictEqual(cut.length, 16, 'the cap cuts a hull to 16 corners');
+const inside = (p, poly) => poly.every((a, i) => { const b = poly[(i + 1) % poly.length]; return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= -1e-12; });
+assert(circle.every(p => inside(p, cut)), 'the cut hull holds every corner of the full one');
+assert(M.polygonArea(cut) / M.polygonArea(circle) < 1.03, 'the cut hull is under 3% larger');
+assert.strictEqual(M.simplifyHull(circle, 0), circle, 'no cap leaves the hull alone');
+
+// The Dragon's hull starts large, so every step holds the whole fractal,
+// even a step that is far from the true hull. Its true area is 35/12.
+const dragonHull = steps => M.attractorHulls(dragonRule(), steps, 0, 16).p1;
+function dragonRule() {
+  const rule = M.baseRule('square', [{ id: 'p1', children: [] }]), r = Math.SQRT1_2;
+  rule.letters[0].children = [M.child('p1', [r * Math.cos(Math.PI / 4), r * Math.sin(Math.PI / 4), -r * Math.sin(Math.PI / 4), r * Math.cos(Math.PI / 4), 0, 0]),
+    M.child('p1', [r * Math.cos(3 * Math.PI / 4), r * Math.sin(3 * Math.PI / 4), -r * Math.sin(3 * Math.PI / 4), r * Math.cos(3 * Math.PI / 4), 1, 0])];
+  return rule;
+}
+const dragonPoints = M.expand(dragonRule(), 'p1', 16, { maxInstances: 70000, maxMs: 0 }).map(item => [item.matrix[4], item.matrix[5]]);
+for (const steps of [2, 5, 10, 30]) {
+  const hull = dragonHull(steps);
+  assert(dragonPoints.every(p => inside(p, hull)), 'the Dragon hull after ' + steps + ' steps holds every copy');
+}
+const settled = M.attractorHulls(dragonRule(), 100, 0, 16);
+assert(settled.steps < 100, 'refining stops early once the hull settles: ' + settled.steps + ' steps');
+assert(settled.p1.length <= 16, 'the settled hull keeps to the corner cap');
+
+console.log('Fractal model: 59 checks passed.');

@@ -441,24 +441,74 @@
     });
   }
 
-  function attractorHulls(rule, iterations, maxMs) {
-    var hulls = {};
-    var started = Date.now();
-    rule.letters.forEach(function (letter) { hulls[letter.id] = framePolygon(rule.frame); });
-    for (var step = 0; step < (iterations || 30); step++) {
-      var next = {}, tooLarge = false;
+  // Cuts a convex polygon, anticlockwise, down to at most maxCorners
+  // corners, and keeps everything it held. Each cut removes one edge: the
+  // two edges either side of it are extended until they meet, and that
+  // point replaces the edge's two ends. The cut that adds the least area
+  // goes first. Two edges that turn through half a turn or more between
+  // them never meet ahead, so that edge stays.
+  function simplifyHull(hull, maxCorners) {
+    var cap = Math.max(3, Math.round(maxCorners || 0));
+    if (!maxCorners || hull.length <= cap) return hull;
+    var poly = hull.slice();
+    while (poly.length > cap) {
+      var n = poly.length, best = -1, bestArea = Infinity, bestPoint = null;
+      for (var i = 0; i < n; i++) {
+        var a = poly[(i + n - 1) % n], b = poly[i], c = poly[(i + 1) % n], d = poly[(i + 2) % n];
+        // The meeting point is b + t (b − a) = c + u (c − d), with t and u above 0.
+        var r = [b[0] - a[0], b[1] - a[1]], s = [c[0] - d[0], c[1] - d[1]], den = r[0] * s[1] - r[1] * s[0];
+        if (Math.abs(den) < 1e-18) continue;
+        var w = [c[0] - b[0], c[1] - b[1]], t = (w[0] * s[1] - w[1] * s[0]) / den, u = (w[0] * r[1] - w[1] * r[0]) / den;
+        if (t < 0 || u < 0) continue;
+        var p = [b[0] + t * r[0], b[1] + t * r[1]], added = Math.abs(cross(b, p, c)) / 2;
+        if (added < bestArea) { bestArea = added; best = i; bestPoint = p; }
+      }
+      if (best < 0) break;
+      if (best === n - 1) { poly[n - 1] = bestPoint; poly.shift(); }
+      else poly.splice(best, 2, bestPoint);
+    }
+    return poly;
+  }
+
+  // Each parent's hull: the smallest convex polygon round its part of the
+  // fractal, with at most maxCorners corners. A parent's hull is the hull
+  // of its children's copies of their own parents' hulls, refined over and
+  // over. The first hulls are big enough to hold the whole fractal: discs
+  // that every child's copy maps back inside (see coverDiscs), each inside
+  // the frame scaled up to fit round it. Every later hull then holds the
+  // fractal too, and each round shrinks it towards the true hull. Where
+  // no such discs exist, the first hulls are the frame at 10 times its
+  // size. Refining stops after the given number of rounds, at the time
+  // limit, or once no hull's area changes by more than 1 part in 10⁸ for
+  // two rounds running. hulls.steps says how many rounds ran.
+  function attractorHulls(rule, iterations, maxMs, maxCorners) {
+    var hulls = {}, started = Date.now(), discs = coverDiscs(rule), frame = framePolygon(rule.frame);
+    var inradius = rule.frame === 'triangle' ? TRI_H / 3 : 0.5;
+    rule.letters.forEach(function (letter) {
+      var grow = discs ? discs[letter.id].radius / inradius : 10;
+      hulls[letter.id] = frame.map(function (p) { return [p[0] * grow, p[1] * grow]; });
+    });
+    var areas = {}, still = 0, step;
+    for (step = 0; step < (iterations || 30); step++) {
+      var next = {}, tooLarge = false, settled = true;
       rule.letters.forEach(function (letter) {
         var points = [];
         letter.children.forEach(function (child) {
-          (hulls[child.letter] || framePolygon(rule.frame)).forEach(function (p) { points.push(apply(child.matrix, p)); });
+          (hulls[child.letter] || frame).forEach(function (p) { points.push(apply(child.matrix, p)); });
         });
         if (points.length > 20000) tooLarge = true;
-        next[letter.id] = points.length ? convexHull(points) : [];
+        var hull = points.length ? simplifyHull(convexHull(points), maxCorners) : [];
+        var area = polygonArea(hull), before = areas[letter.id];
+        if (before == null || Math.abs(area - before) > 1e-8 * Math.max(area, 1e-9)) settled = false;
+        next[letter.id] = hull; areas[letter.id] = area;
       });
       if (tooLarge) break;
       hulls = next;
-      if (maxMs && Date.now() - started >= maxMs) break;
+      still = settled ? still + 1 : 0;
+      if (still >= 2) { step++; break; }
+      if (maxMs && Date.now() - started >= maxMs) { step++; break; }
     }
+    hulls.steps = step;
     return hulls;
   }
 
@@ -487,8 +537,9 @@
       // Each copy's centre, the image of the origin.
       samples.push([item.matrix[4], item.matrix[5]]);
     });
-    var limitHull = stat.name === 'Converges' ? attractorHulls(rule, options.hullIterations || 32, options.maxMs || 0)[start] : null;
-    var hull = limitHull && limitHull.length ? limitHull : convexHull(points);
+    var hulls = stat.name === 'Converges' ? attractorHulls(rule, options.hullIterations || 30, options.maxMs || 0, options.hullCorners) : null;
+    var limitHull = hulls ? hulls[start] : null;
+    var hull = limitHull && limitHull.length ? limitHull : simplifyHull(convexHull(points), options.hullCorners);
     var sim = similarityDimension(rule);
     var affinity = sim ? null : affinityDimension(rule, start, options);
     var formula = sim ? sim.value : affinity;
@@ -500,7 +551,8 @@
     return {
       status: stat, dimension: formula, exactDimension: sim && sim.exact,
       dimensionKind: sim ? 'Similarity' : 'Affinity estimate', boxDimension: box,
-      hull: hull, hullArea: polygonArea(hull), overlap: overlap, instances: leaves.length,
+      // hulls holds every parent's hull, so copies can be drawn as hulls.
+      hull: hull, hulls: hulls, hullArea: polygonArea(hull), overlap: overlap, instances: leaves.length,
       clipped: !!leaves.clipped, level: level,
       // The limit's hull contains the whole fractal, so it frames the camera.
       bounds: limitHull && limitHull.length ? bounds(limitHull) : bounds(points)
@@ -569,7 +621,7 @@
     EPS: EPS, TRI_H: TRI_H, clone: clone, identity: identity,
     compose: compose, apply: apply, determinant: determinant, singularValues: singularValues,
     isSimilarity: isSimilarity, framePolygon: framePolygon, transformedFrame: transformedFrame,
-    polygonArea: polygonArea, convexHull: convexHull, intersectionArea: intersectionArea,
+    polygonArea: polygonArea, convexHull: convexHull, simplifyHull: simplifyHull, intersectionArea: intersectionArea,
     enumerate: enumerate, expand: expand, spectralRadius: spectralRadius, similarityDimension: similarityDimension,
     affinityDimension: affinityDimension, status: status, growthBounds: growthBounds, eigenRadius: eigenRadius, bounds: bounds, boxDimension: boxDimension,
     coverDiscs: coverDiscs, analyse: analyse, directOverlap: directOverlap, attractorHulls: attractorHulls, child: child, baseRule: baseRule,

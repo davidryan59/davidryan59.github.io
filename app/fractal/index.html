@@ -128,8 +128,12 @@
   </aside>
 
   <section class="visuals" aria-label="Fractal views">
-    <div class="iteration-panel">
-      <div class="iteration-title"><span class="eyebrow">Iterations</span><span>level 0 → 4</span></div>
+    <div class="iteration-panel" id="iteration-panel">
+      <div class="iteration-side">
+        <button id="toggle-strip" class="strip-toggle" type="button" aria-expanded="true" aria-controls="iteration-strip" title="Hide the iterations" aria-label="Hide the iterations"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
+        <div class="iteration-title"><span class="eyebrow">Iterations</span><span>level 0 → 4</span></div>
+      </div>
+      <div class="divider-strip" id="divider-strip" role="separator" aria-orientation="horizontal" aria-label="Resize the iterations" title="Drag to resize the iterations. Double-click to reset" tabindex="0"></div>
       <div class="iteration-strip" id="iteration-strip">
         <figure><canvas data-level="0"></canvas><figcaption>0</figcaption></figure>
         <figure><canvas data-level="1"></canvas><figcaption>1</figcaption></figure>
@@ -149,9 +153,9 @@
           <div id="grid-fields" class="grid-fields">
             <div class="grid-head"><span class="popover-heading">Grid</span><label id="snap-field"><input id="toggle-snap" type="checkbox"> Snap corners</label></div>
             <div class="grid-line"><span>Frame</span><div id="frame-shape" class="grid-buttons" role="group" aria-label="Frame shape"><button type="button" data-frame="square" title="Draw every parent and child as a square">Square</button><button type="button" data-frame="triangle" title="Draw every parent and child as a triangle">Triangle</button></div></div>
-            <div class="grid-line" id="cols-field"><span>Cols</span><div id="grid-cols" class="grid-buttons" role="group" aria-label="Grid columns"></div></div>
-            <div class="grid-line" id="rows-field"><span>Rows</span><div id="grid-rows" class="grid-buttons" role="group" aria-label="Grid rows"></div></div>
-            <div class="grid-line" id="side-field" hidden><span>Per side</span><div id="grid-side" class="grid-buttons" role="group" aria-label="Grid pieces per side"></div></div>
+            <div class="grid-line" id="cols-field"><span>Cols</span><div id="grid-cols" class="grid-buttons grid-sizes" role="group" aria-label="Grid columns"></div></div>
+            <div class="grid-line" id="rows-field"><span>Rows</span><div id="grid-rows" class="grid-buttons grid-sizes" role="group" aria-label="Grid rows"></div></div>
+            <div class="grid-line" id="side-field" hidden><span>Per side</span><div id="grid-side" class="grid-buttons grid-sizes" role="group" aria-label="Grid pieces per side"></div></div>
           </div>
           <div class="colour-field">
             <span class="popover-heading">Colour</span>
@@ -161,8 +165,30 @@
               <button type="button" data-colour="top" title="Each copy takes the colour of the top-level child it sits inside">Top copy</button>
             </div>
           </div>
+          <div class="draw-fields">
+            <div>
+              <span class="popover-heading">Shape</span>
+              <div id="shape-mode" class="preset-row two-modes" role="group" aria-label="Shape of each copy">
+                <button type="button" data-shape="hull" title="Draw each copy as its parent's hull, the outline round its part of the fractal">Hull</button>
+                <button type="button" data-shape="frame" title="Draw each copy as its frame, a square or a triangle">Frame</button>
+              </div>
+            </div>
+            <div>
+              <span class="popover-heading">Numbers</span>
+              <div id="numbers-mode" class="preset-row two-modes" role="group" aria-label="Parent numbers on copies">
+                <button type="button" data-numbers="hide" title="Hide the parent number on each copy. The colour still tells the copies apart">Hide</button>
+                <button type="button" data-numbers="show" title="Show the parent number on each copy large enough to hold one">Show</button>
+              </div>
+            </div>
+          </div>
           <div class="limits">
-            <span class="popover-heading">Calculation limits</span>
+            <div class="limits-head">
+              <span class="popover-heading">Calculation limits</span>
+              <div class="limits-copy">
+                <button id="copy-limits" type="button" title="Copy every calculation limit, to paste into another fractal">Copy</button>
+                <button id="paste-limits" type="button" title="Set every calculation limit to the copied ones" disabled>Paste</button>
+              </div>
+            </div>
             <div class="preset-row" role="group" aria-label="Calculation preset">
               <button type="button" data-preset="fast">Fast</button>
               <button type="button" data-preset="balanced">Balanced</button>
@@ -176,7 +202,8 @@
               <summary>Advanced</summary>
               <label class="limit-row" title="Minimum scale cannot stop splitting before this many iterations"><span>Minimum iterations <output id="min-depth-value">4</output></span><input id="min-depth" type="range" min="0" max="8" step="1" value="4"></label>
               <label class="limit-row" title="The iterations used for the readouts: box dimension, overlap and the hull. It does not change the drawing"><span>Analysis depth <output id="analysis-depth-value">7</output></span><input id="analysis-depth" type="range" min="4" max="10" step="1" value="7"></label>
-              <label class="limit-select" title="How many rounds refine each parent's hull, the dashed outline round the fractal. More rounds fit it more tightly">Hull refinement<select id="hull-iterations"><option value="8">8 steps</option><option value="16">16 steps</option><option value="32" selected>32 steps</option><option value="64">64 steps</option></select></label>
+              <label class="limit-row" title="The most rounds that refine each parent's hull, the dashed outline round the fractal. The hull starts large and always holds the whole fractal; each round fits it more tightly. Refining stops early once the hull stops changing"><span>Hull refinement <output id="hull-iterations-value">30 steps</output></span><input id="hull-iterations" type="range" min="0" max="19" step="1" value="13"></label>
+              <label class="limit-row" title="The most corners each hull may have. Fewer corners give a simpler outline, a little larger, that still holds the whole fractal, and draw faster"><span>Hull corners <output id="hull-cap-value">16</output></span><input id="hull-cap" type="range" min="0" max="29" step="1" value="10"></label>
             </details>
           </div>
         </div>
@@ -238,10 +265,10 @@
     </section>
     <details class="help">
       <summary>How to edit</summary>
-      <p>Children: + adds one. Drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew.</p>
-      <p>Options: Frame draws every parent and child as a square or a triangle, and keeps the fractal the same. Snap corners snaps corners to a grid: Cols by Rows on a square, Per side on a triangle.</p>
+      <p>Children: + adds one, a grid cell in size, in the first free cell from the bottom left. The bin removes the selected child, and Shift-click removes them all. The padlock in the Children list keeps a child out of Randomise. Drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew.</p>
+      <p>Options: Frame draws every parent and child as a square or a triangle, and keeps the fractal the same. The editor always shows the grid: Cols by Rows on a square, Per side on a triangle. Snap corners snaps corners to it. Shape draws each copy as its parent's hull or as its frame, and Numbers shows or hides each copy's parent number. A saved fractal keeps all of these and the calculation limits. Copy and Paste move the limits between fractals.</p>
       <p>Editor view: drag empty space to pan, and use the wheel or a pinch to zoom. Fit shows every child again. Drag the line under the editor to change its height.</p>
-      <p>Keys: 1–9 and 0 pick a child's parent, and Shift with a number shows that parent. R and T rotate, H and V flip, Backspace removes, ⌘D or Ctrl+D duplicates, Esc deselects.</p>
+      <p>Keys: 1–9 and 0 pick a child's parent, and Shift with a number shows that parent. R and T rotate, H and V flip, Backspace removes, Shift+Backspace removes every child of the parent, ⌘D or Ctrl+D duplicates, Esc deselects.</p>
     </details>
   </aside>
 </main>

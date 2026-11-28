@@ -14,7 +14,7 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Draw levels zero to four and a deeper limit view.
 - [x] Report convergence, dimension, box count, convex hull, and overlap.
 - [x] Move, turn, scale, flip, stretch, and skew children.
-- [x] Snap children to an optional grid of 2 to 8 columns and rows.
+- [x] Show a grid of 2 to 12 columns and rows, and snap corners to it on request.
 - [x] Switch the frame between square and triangle, with a triangular snap grid.
 - [x] List the children in drawing order, reorder them by drag, and edit
       exact values in a pop-up.
@@ -26,6 +26,13 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Use the four-corner control layout and fit all six browser sizes.
 - [x] Add the builder-page entry and `/fractal` short address.
 - [x] Draw copies in colour batches and skip branches wholly off screen.
+- [x] Start each hull large, cap its corners, and stop refining once it settles.
+- [x] Draw copies as their parent's hull or their frame, with numbers shown or hidden.
+- [x] Fill the grid from the bottom left with +, then the cells outside the frame.
+- [x] Lock a child against Randomise, and clear every child of a parent at once.
+- [x] Hide, show and resize the iterations panel, which never scrolls.
+- [x] Save the view settings and calculation limits with a fractal, and copy
+      the limits between fractals.
 
 ## Rule model
 
@@ -101,10 +108,15 @@ editor sets its height, kept with the panel widths in `fractal-panels`;
 a double-click resets it. Each canvas redraws when its own box changes size,
 so dragging a panel line zooms the picture and never stretches it. The strip above the editor holds the view buttons
 on the left and the child buttons (add, duplicate, randomise and remove) on the right.
+Remove takes away the selected child. Shift-click on Remove, or
+Shift+Backspace, removes every child of the current parent as one undo step,
+and the tooltip says so. A plain click with no child selected only shows a
+notice.
 
-Snap corners, in Options, draws the snap grid across the editor. The grid
-follows the frame: Cols by Rows (2 to 8 each) on a square, and Per side (2 to
-8) on a triangle, which cuts each side into that many pieces. The triangular
+The editor always draws the grid across its canvas. Snap corners, in Options,
+decides only whether corners snap to it. The grid follows the frame: Cols by
+Rows on a square, and Per side on a triangle, which cuts each side into that
+many pieces. Each is a row of 11 buttons, 2 to 12, narrow enough to fit across Options. The triangular
 lattice has lines parallel to the triangle's three sides. `snapLattice()`
 holds each grid as families of lines, n · p = offset + k × spacing, and finds
 the nearest lattice point. The rule stores the grid as `grid.rows`,
@@ -112,13 +124,20 @@ the nearest lattice point. The rule stores the grid as `grid.rows`,
 corner snaps to it, and it lets go when the pointer moves on. A scale moves
 its corner along a line from the centre, so that corner snaps onto a grid
 line, preferring a grid point. A turn snaps by angle only. During a drag the editor and the
-main view keep their scale, and refit on release. With Snap corners on,
-the + button adds a child one grid cell in size, in the first free cell in
-reading order: 1/Cols by 1/Rows on a square, and 1/Per side on a triangle.
-On a triangle it takes an upright cell, or an upside-down one when the
-preview is upside down. With Snap corners off, + adds a half-size child in
-the centre, or in the first free corner. A duplicate keeps its original's
-size.
+main view keep their scale, and refit on release.
+
+The + button adds a child one grid cell in size, with Snap corners on or
+off: 1/Cols by 1/Rows on a square, and 1/Per side on a triangle. It takes
+the first free cell in the order `gridCells()` gives. Inside the frame, the
+bottom row fills first, left to right, then the next row up. A triangle with
+k pieces per side has k(k + 1)/2 cells that point the same way as the
+preview, and k(k − 1)/2 that point the other way. The first kind fill first.
+A cell of the second kind gives the child a half turn, 180° about its
+centre, so a mirrored child stays mirrored. With 3 per side, + fills 6
+upright cells, then 3 upside-down ones. Once the frame is full, + takes the
+cells outside it, up to one frame width away: nearest the frame first, then
+anticlockwise from the bottom left. A cell is free when no child covers any
+of it. A duplicate keeps its original's size.
 
 Rotate L, Rotate R, Flip H and Flip V act inside the child's own frame. Each
 is a symmetry of the frame (a quarter turn or mirror of the square; a third
@@ -139,23 +158,27 @@ frame's orientations, 8 on a square or 6 on a triangle: a random number of
 Rotate R steps, after a Flip H half the time. Shift-click leaves out the flip,
 so it picks one of the 4 or 3 turns and a flipped child stays flipped. Each
 child keeps its outline, as with the orientation buttons, and one Undo
-reverses the whole randomise. A roll that changes nothing rolls again. Each
-dice says this in its tooltip. A duplicate goes to the right
+reverses the whole randomise. A roll that changes nothing rolls again. A
+locked child stays out of the roll: its orientation and its parent stay put.
+A dice with no unlocked child to roll is greyed out. Each dice says all this
+in its tooltip. A duplicate goes to the right
 of its original, or else above, left or below, whichever is free first. A duplicated parent goes after the original, and
 its children that copied the original copy the duplicate. Removing a parent
 removes every child that copied it.
 
 The children list shows each child in drawing order: the first is drawn at
-the back. Its grip reorders by drag. The pencil opens a pop-up
-that accepts decimals and the forms `1/3`, `sqrt(2)/2`, and `√2/2`, and
-applies them on OK as one undo step. The list shows x, y, scale, angle and
-flip while every child of the parent is a similarity, and the six affine
+the back. Each row has a grip, the child's letter, the parent it copies, a
+padlock and a pencil. The grip reorders by drag. The padlock locks or
+unlocks the child against Randomise. The lock is stored as `locked: true` on
+the child, so it travels in the address and in saved fractals, and each
+change is one undo step. The pencil opens a pop-up that shows the exact
+values. It accepts decimals and the forms `1/3`, `sqrt(2)/2`, and `√2/2`,
+and applies them on OK as one undo step. The pop-up shows x, y, scale, angle
+and flip while every child of the parent is a similarity, and the six affine
 values once one is stretched or skewed. x and y are the child's centre: the
 middle cell of a 3 by 3 square is (0, 0), and so is the upside-down middle
 cell of a triangle. A child is mirrored left to right if Flip is 1, then
-scaled, then turned anticlockwise by Angle, from −180 to 180. Real values show three decimals,
-0.000 included, right-aligned in tabular figures so the points line up.
-Names, parent numbers and whole numbers are centred.
+scaled, then turned anticlockwise by Angle, from −180 to 180.
 
 ## Rendering
 
@@ -177,7 +200,12 @@ level was never in child order either. Working out 200,000 copies takes
 about 30 to 45 ms against 20 to 30 ms level by level, and drawing them
 takes several times longer, so a frame costs about 10% more.
 
-The iteration strip shows levels zero through four. The main view expands the
+The iterations panel shows levels zero through four. Its arrow hides it
+down to one thin row, and shows it again. The line under it sets its height,
+from 110 pixels to half the height of the views, and a double-click resets
+it. The five views shrink to fit the panel, so it never scrolls. Both
+choices are kept per viewer in `fractal-strip`. On a short sideways touch
+screen the panel shows only its arrow beside the views. The main view expands the
 selected parent to the chosen depth, unless Maximum copies, Minimum scale or
 Frame time stops it first, so a large branching rule stays responsive. During a child drag or a
 Iterations drag it draws within 12 ms a frame, at most 200,000 copies, then
@@ -195,6 +223,16 @@ as the path grows, and took 15 s of a 3 s-per-frame profile. Copies large
 enough for a number get one, drawn on top. Colour groups draw in the order
 they first appear, so overlap order follows the colours. 500,000 Dragon
 copies draw in about 240 ms in Chrome on an M-series Mac.
+
+Shape, in Options, draws each copy as its parent's hull or as its frame.
+Hull is the default. A copy then draws as the hull of its parent's part of
+the fractal, under the copy's map, so a few levels already look like the
+limit. A parent with no proper hull, a rule that does not converge, and
+every frame of a child drag fall back to frames, since a drag leaves the
+hulls out of date until release. Numbers, beside Shape, shows or hides each
+copy's parent number. Hide is the default, because the colour and the shape
+already tell the copies apart. Both settings change the main view and the
+iterations panel. The editor always draws frames with numbers.
 
 The main view skips branches wholly off screen, so the copy and time limits
 are spent on what shows. `coverDiscs()` in the model gives each parent a disc
@@ -258,12 +296,34 @@ A converging rule is analysed at the deepest level holding at most 20,000
 copies, starting from Analysis depth, so a two-copy rule such as the Dragon
 has enough sample points.
 
-The convex hull comes from the transformed frame corners at the rendered
-depth. Andrew's monotone-chain algorithm returns its corners and area. It
+For a converging rule, `attractorHulls()` finds every parent's hull: a
+convex polygon round its part of the fractal. A parent's hull is the convex
+hull of its children's copies of their own parents' hulls, refined round
+after round. The first hulls are large: each is the frame scaled up to hold
+that parent's disc from `coverDiscs()`. Each child's copy of its parent's
+disc lies inside the disc, so every round's hull holds the whole fractal and
+shrinks towards the true hull. Where those discs do not exist, the first
+hulls are the frame at 10 times its size. Starting from the frame instead,
+the Dragon's hull grew from inside, and after 8 steps it was 5% too small.
+
+`simplifyHull()` then caps each hull's corners. Each cut removes one edge:
+the edges either side are extended until they meet, and that point replaces
+the edge's two ends. The cut that adds the least area goes first. So a cut
+hull still holds everything the full one held. Uncapped, a curved hull
+gained corners every round: "Something weird" reached 1018 corners at 32
+rounds for no visible change in area. Capped at 16, its area is within 0.1%
+of the true hull. Refining stops at Hull refinement rounds, at the time
+limit, or once no hull's area changes by more than 1 part in 10⁸ for two
+rounds running. On the 21 test fractals, Balanced (30 rounds, 16 corners)
+came within 0.4% of the true area, and Detailed (100 rounds, 24 corners)
+matched it.
+
+Andrew's monotone-chain algorithm finds each convex hull. It
 rounds points to 1e-12 first, so float noise cannot sort a corner out of
 place, keeps only strict turns, then drops corners within 1e-9 of the line
 through their neighbours. A tolerance inside the turn test once dropped a
-real corner. The
+real corner. A rule that does not converge shows the hull of its frame
+corners at the analysed level instead, with the same corner cap. The
 overlap flag combines direct child-polygon intersections, a similarity
 dimension above two, and a formula more than 0.35 above the box count. The
 box count reads low for a solid shape with a rough edge (the Dragon reads
@@ -308,20 +368,32 @@ copies.
 | Minimum linear scale | 1/1000 | 1/2500 | Unlimited |
 | Frame time | 100 ms | 250 ms | 1,000 ms |
 | Analysis depth | 5 | 7 | 9 |
-| Hull refinement | 16 | 32 | 64 steps |
+| Hull refinement | 10 | 30 | 100 steps |
+| Hull corners | 12 | 16 | 24 |
 
 Maximum copies, Minimum scale and Frame time sit under the presets, in view
 whenever Options is open. Below them, Advanced folds away Minimum iterations,
-Analysis depth and Hull refinement, which most visitors never need. Each control has a tooltip.
-Maximum copies, minimum scale, and frame time use logarithmic stepped
-sliders. Iteration depths use linear
-sliders. Hull refinement uses a select. Changing one of these values marks the
-settings Custom. Selecting a preset restores all seven values.
+Analysis depth, Hull refinement and Hull corners, which most visitors never
+need. Each control has a tooltip. Maximum copies, minimum scale, frame time,
+Hull refinement and Hull corners use logarithmic stepped sliders. Iteration
+depths use linear sliders. Changing one of these values marks the settings
+Custom. Selecting a preset restores all eight values.
 
 The selectable ranges are 1 to 500,000 copies, minimum scales from 1/1 to
-1/1,000,000 or Unlimited, and frame times from 1 to 2000 ms.
-Iterations run from 0, the parent alone, to 32. These limits and the selected view travel
-with a shared address.
+1/1,000,000 or Unlimited, frame times from 1 to 2000 ms, Hull refinement
+from 1 to 100 steps (1 to 10, then 12, 15, 20, 25, 30, 40, 50, 60, 80 and
+100), and Hull corners from 3 to 1000 in 30 stops. Iterations run from 0,
+the parent alone, to 32.
+
+The view settings travel with a fractal, in its address and in a saved
+fractal: Snap corners, the hull outline, Shape, Numbers and every
+calculation limit. Only the camera stays behind, so a saved fractal opens
+at home. A fractal saved without them opens with the defaults: Snap
+corners off, the hull outline on, Shape Hull, Numbers hidden and the
+Balanced limits. Copy and Paste, beside the Calculation limits heading,
+move the limits between fractals. Copy keeps them in the browser under
+`fractal-limits-copy`, so they survive a reload. Paste sets every limit
+slider but leaves Iterations alone.
 
 ## Layout and input
 
@@ -332,12 +404,17 @@ colour; and camera. The views draw the parent selected in the parent row.
 
 Keys: 1 to 9, and 0 for 10, set a child's parent; Shift with a digit selects
 that parent. R and T rotate left and right, H and V flip, Backspace or Delete
-removes the last thing clicked (a child or a parent), Cmd+D or Ctrl+D
-duplicates it, and Escape deselects.
+removes the last thing clicked (a child or a parent), Shift+Backspace
+removes every child of the current parent, Cmd+D or Ctrl+D duplicates it,
+and Escape deselects.
 
 Saved fractals use the browser key `fractal-library` and files with
-`{ format: "fractal-explorer", version: 3, fractals: [...] }`. Import reads
-every fractal in a file, so it also takes an Export all file.
+`{ format: "fractal-explorer", version: 3, fractals: [...] }`. Each entry
+holds `name`, `savedAt`, `rule`, `current`, `level` and `colourMode`, then
+the view settings `snap`, `hull`, `shape`, `numbers` and `limits`. The view
+settings and `locked` are optional, so files saved before them still load
+and the version stays 3. Import reads every fractal in a file, so it also
+takes an Export all file.
 
 On an upright touch screen, the editor and readouts become horizontally
 scrolling cards below the limit. On a short sideways touch screen, the editor
@@ -347,4 +424,6 @@ button appears only where the browser supports it.
 ## Later
 
 Three-dimensional rules, PNG and SVG export, more colour modes, and a larger
-demo gallery remain outside version 1.
+demo gallery remain outside version 1. So does selecting several children at
+once, for example with a marquee: a drag on empty space pans the editor, so a
+marquee would need a modifier such as Shift-drag.
