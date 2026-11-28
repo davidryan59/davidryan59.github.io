@@ -659,6 +659,10 @@
     return { minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad };
   }
 
+  // The editor's inset in pixels. A square child's turn knob stands on a
+  // stalk above its top edge, so a square frame leaves room for it.
+  function editorInset() { return state.rule.frame === 'triangle' ? 13 : 24; }
+
   function renderEditor() {
     buildOrder();
     var info = prepareCanvas(el.ruleEditor), ctx = info.ctx;
@@ -666,7 +670,7 @@
     // The editor keeps its view during a drag, so the frame stays under the pointer.
     // With a zoom or pan in force, the editor's camera sets the view instead.
     var cam = state.editorCamera;
-    var view = state.editorDrag && state.editorView ? state.editorView : makeView(info.width, info.height, cam ? cam.bounds : editorBounds(), 13, cam); state.editorView = view;
+    var view = state.editorDrag && state.editorView ? state.editorView : makeView(info.width, info.height, cam ? cam.bounds : editorBounds(), editorInset(), cam); state.editorView = view;
     el.editorFit.disabled = !cam;
     var parent = M.framePolygon(state.rule.frame).map(view.point, view);
     path(ctx, parent); ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1.2; ctx.setLineDash([6, 5]); ctx.stroke(); ctx.setLineDash([]);
@@ -1544,16 +1548,26 @@
   function distance(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
   function dot(a, b) { return a[0] * b[0] + a[1] * b[1]; }
 
-  // Handles. The child's own top-right corner turns it and its
-  // bottom-right corner scales it, both about the child's centre (a
-  // triangle: its top point turns and its bottom-right point scales). They
-  // are the child's own corners, so they move with it as it turns or flips.
-  // Shift on the scale corner stretches both ways. Each edge has one handle
-  // at its middle. The first few pixels of a drag pick its job: across the
-  // edge stretches, along the edge skews, and the job holds for that drag.
-  // Each handle catches the pointer a little beyond its drawn size, less on a small child.
-  var KNOB = 7.5, KNOB_REACH = 11, EDGE_REACH = 8, JOB_PIXELS = 4;
-  function cornerRoles() { return state.rule.frame === 'triangle' ? { rotate: 0, scale: 1 } : { rotate: 1, scale: 2 }; }
+  // Handles. A square child has a knob on each corner and a turn knob on a
+  // stalk above the middle of its top edge. A corner drag moves that
+  // corner and holds the opposite one, so a 1 by 1 child grows to 2 by 1 or
+  // 2 by 2. Shift keeps the shape, and Alt scales about the centre instead.
+  // A triangle child's top point turns it and its bottom-right point scales
+  // it, both about its centre. All knobs sit in the child's own frame, so
+  // they move with it as it turns or flips. Each edge has one handle at its
+  // middle. The first few pixels of a drag pick its job: across the edge
+  // stretches, along the edge skews, and the job holds for that drag. Each
+  // handle catches the pointer a little beyond its drawn size, less on a
+  // small child.
+  var KNOB = 7.5, KNOB_REACH = 11, EDGE_REACH = 8, JOB_PIXELS = 4, STALK = 20;
+  function cornerRoles() { return state.rule.frame === 'triangle' ? { rotate: 0, scale: 1 } : null; }
+  // The turn knob on a square: STALK pixels out from the middle of the
+  // child's own top edge, on the line from its centre through that middle.
+  function stalk(corners, centre) {
+    var base = [(corners[0][0] + corners[1][0]) / 2, (corners[0][1] + corners[1][1]) / 2];
+    var d = [base[0] - centre[0], base[1] - centre[1]], len = Math.hypot(d[0], d[1]) || 1;
+    return { base: base, knob: [base[0] + d[0] / len * STALK, base[1] + d[1] / len * STALK] };
+  }
   function shortestEdge(corners) {
     var shortest = Infinity;
     for (var i = 0; i < corners.length; i++) shortest = Math.min(shortest, distance(corners[i], corners[(i + 1) % corners.length]));
@@ -1620,8 +1634,16 @@
     var corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view), roles = cornerRoles();
     var centre = view.point([child.matrix[4], child.matrix[5]]);
     corners.forEach(function (p, i) { drawEdgeHandle(ctx, p, corners[(i + 1) % corners.length]); });
-    drawScaleKnob(ctx, corners[roles.scale], centre);
-    drawRotateKnob(ctx, corners[roles.rotate]);
+    if (roles) {
+      drawScaleKnob(ctx, corners[roles.scale], centre);
+      drawRotateKnob(ctx, corners[roles.rotate]);
+      return;
+    }
+    corners.forEach(function (p) { drawScaleKnob(ctx, p, centre); });
+    var s = stalk(corners, centre);
+    ctx.beginPath(); ctx.moveTo(s.base[0], s.base[1]); ctx.lineTo(s.knob[0], s.knob[1]);
+    ctx.strokeStyle = css('--accent'); ctx.lineWidth = 1.4; ctx.stroke();
+    drawRotateKnob(ctx, s.knob);
   }
 
   function handleAt(point, child) {
@@ -1631,8 +1653,14 @@
       var d = distance(pointer, at); if (d < reach && d < bestDistance) { best = { type: type, index: index }; bestDistance = d; }
     }
     var knobReach = Math.max(4, Math.min(KNOB_REACH, shortest / 3));
-    consider('rotate', roles.rotate, corners[roles.rotate], knobReach);
-    consider('scale', roles.scale, corners[roles.scale], knobReach);
+    if (roles) {
+      consider('rotate', roles.rotate, corners[roles.rotate], knobReach);
+      consider('scale', roles.scale, corners[roles.scale], knobReach);
+    } else {
+      // The stalk keeps the turn knob clear of the child, so it keeps its full reach.
+      consider('rotate', -1, stalk(corners, view.point([child.matrix[4], child.matrix[5]])).knob, KNOB_REACH);
+      corners.forEach(function (at, i) { consider('corner', i, at, knobReach); });
+    }
     edgePoints(corners).forEach(function (mid, i) { consider('edge', i, mid, Math.max(3, Math.min(EDGE_REACH, shortest / 4))); });
     return best;
   }
@@ -1670,6 +1698,7 @@
     SIMPLE_RATIOS.forEach(function (candidate) { if (Math.abs(ratio / candidate - 1) < .025) ratio = candidate; });
     return ratio;
   }
+  function signedRatio(ratio) { return ratio < 0 ? -snapRatio(-ratio) : snapRatio(ratio); }
 
   // An edge drag picks stretch or skew from its first few pixels: across
   // the edge stretches, along it skews. dx and dy are in pixels, so the
@@ -1683,13 +1712,14 @@
 
   // The new map for a drag, from the pointer's place in the editor. With
   // free set, a turn snaps to 15 degrees and a scale to simple ratios.
-  function dragMatrix(drag, point, free, shift) {
+  function dragMatrix(drag, point, free, shift, alt) {
     var m0 = drag.matrix, h = drag.handle, local = M.framePolygon(state.rule.frame), n = local.length, job = drag.job;
     if (job === 'move') { var t = m0.slice(); t[4] += point[0] - drag.start[0]; t[5] += point[1] - drag.start[1]; return t; }
     // The child's centre: the origin of its own frame, and (m₁₃, m₂₃) here.
     var c = [m0[4], m0[5]];
     if (job === 'rotate') {
-      var from = M.apply(m0, local[h.index]);
+      // The stalk knob turns from where the press began, so the child does not jump.
+      var from = h.index < 0 ? drag.start : M.apply(m0, local[h.index]);
       var angle = Math.atan2(point[1] - c[1], point[0] - c[0]) - Math.atan2(from[1] - c[1], from[0] - c[0]);
       // Sticky angles: a square holds at 0, 90, 180 and 270 degrees, a
       // triangle at every 60 (upright or upside down), within 4 degrees.
@@ -1701,6 +1731,25 @@
       else if (Math.abs(target - near15) < 2 * Math.PI / 180) angle = near15 - base;
       var co = Math.cos(angle), si = Math.sin(angle);
       return M.compose(about([co, si, -si, co], c), m0);
+    }
+    if (job === 'corner') {
+      // A square corner. The opposite corner holds still and the dragged
+      // corner follows the pointer, so each edge keeps its direction.
+      // Shift scales evenly about the opposite corner. Alt pivots on the
+      // centre: alone it scales evenly, and with Shift it stretches both
+      // ways. Past the pivot a side turns negative, which flips the child.
+      var qc = local[h.index], pivot = alt ? [0, 0] : local[(h.index + 2) % 4];
+      if (alt !== shift) {
+        var C = M.apply(m0, qc), W = M.apply(m0, pivot), w = [C[0] - W[0], C[1] - W[1]];
+        var even = dot(w, [point[0] - W[0], point[1] - W[1]]) / dot(w, w);
+        even = alt ? Math.max(.02, even) : clampScale(even);
+        if (free) even = signedRatio(even);
+        return M.compose(about([even, 0, 0, even], W), m0);
+      }
+      var uc = M.apply(invert(m0), point);
+      var ax = clampScale((uc[0] - pivot[0]) / (qc[0] - pivot[0])), ay = clampScale((uc[1] - pivot[1]) / (qc[1] - pivot[1]));
+      if (free) { ax = signedRatio(ax); ay = signedRatio(ay); }
+      return M.compose(m0, about([ax, 0, 0, ay], pivot));
     }
     if (job === 'scale') {
       var q = local[h.index];
@@ -1749,10 +1798,10 @@
   // within SNAP_REACH pixels, and lets go once the pointer moves on. A turn
   // snaps by angle instead. A scale about the centre moves its corner along
   // a line, so that corner snaps onto a grid line, a grid point first.
-  var SNAP_REACH = 6;
+  var SNAP_REACH = 6, FLAT_PIXELS = 4;
   function movingCorners(drag, n) {
     if (drag.job === 'move') return null;
-    if (drag.job === 'scale') return [drag.handle.index];
+    if (drag.job === 'scale' || drag.job === 'corner') return [drag.handle.index];
     return [drag.handle.index, (drag.handle.index + 1) % n];
   }
   // The snap lattice follows the frame. A square frame has Cols by Rows
@@ -1789,8 +1838,20 @@
       }
     };
   }
-  function snapScale(drag, m) {
-    var lattice = snapLattice(), view = state.editorView, c = [m[4], m[5]];
+  // A snap never lands on a flat child: one less than FLAT_PIXELS across
+  // at its narrowest, measured square to each edge in turn.
+  function flat(m) {
+    var view = state.editorView, p = M.transformedFrame(state.rule.frame, m).map(view.point, view), least = Infinity;
+    p.forEach(function (a, i) {
+      var b = p[(i + 1) % p.length], len = distance(a, b) || 1e-9, most = 0;
+      p.forEach(function (q) { most = Math.max(most, Math.abs((b[0] - a[0]) * (q[1] - a[1]) - (b[1] - a[1]) * (q[0] - a[0])) / len); });
+      least = Math.min(least, most);
+    });
+    return least < FLAT_PIXELS;
+  }
+  // An even scale moves the dragged corner along the line from its pivot c.
+  function snapScale(drag, m, c) {
+    var lattice = snapLattice(), view = state.editorView;
     var corner = M.apply(m, M.framePolygon(state.rule.frame)[drag.handle.index]), v = [corner[0] - c[0], corner[1] - c[1]];
     var best = null, bestScore = Infinity;
     lattice.families.forEach(function (f) {
@@ -1803,7 +1864,9 @@
       var score = distance(view.point(moved), view.point(lattice.near(moved)));
       if (score < bestScore) { best = t; bestScore = score; }
     });
-    return best == null ? m : M.compose(about([best, 0, 0, best], c), m);
+    if (best == null) return m;
+    var snapped = M.compose(about([best, 0, 0, best], c), m);
+    return flat(snapped) ? m : snapped;
   }
   // A moved child sticks on each axis by itself. Its corners' x values
   // stick to any x within SNAP_REACH pixels, and likewise y: the parent's
@@ -1829,9 +1892,11 @@
     });
     return out;
   }
-  function snapToGrid(drag, point, m, shift) {
+  function snapToGrid(drag, point, m, shift, alt) {
     if (!state.snapGrid || drag.job === 'rotate') return m;
-    if (drag.job === 'scale' && !shift) return snapScale(drag, m);
+    if (drag.job === 'scale' && !shift) return snapScale(drag, m, [m[4], m[5]]);
+    if (drag.job === 'corner' && alt !== shift)
+      return snapScale(drag, m, alt ? [m[4], m[5]] : M.apply(m, M.framePolygon(state.rule.frame)[(drag.handle.index + 2) % 4]));
     var lattice = snapLattice(), view = state.editorView, corners = M.transformedFrame(state.rule.frame, m);
     var which = movingCorners(drag, corners.length) || corners.map(function (_, i) { return i; });
     var best = null, bestDistance = SNAP_REACH;
@@ -1841,7 +1906,8 @@
       if (d < bestDistance) { best = [g[0] - c[0], g[1] - c[1]]; bestDistance = d; }
     });
     if (!best) return m;
-    return dragMatrix(drag, [point[0] + best[0], point[1] + best[1]], false, shift);
+    var snapped = dragMatrix(drag, [point[0] + best[0], point[1] + best[1]], false, shift, alt);
+    return flat(snapped) ? m : snapped;
   }
 
   function moveEditorPointer(event) {
@@ -1852,8 +1918,8 @@
       if (Math.hypot(dx, dy) < JOB_PIXELS) return;
       drag.job = edgeJob(drag, dx, dy);
     }
-    var point = editorPoint(event), m = dragMatrix(drag, point, !state.snapGrid, event.shiftKey);
-    m = drag.job === 'move' ? (event.altKey ? m : snapMove(drag, m)) : snapToGrid(drag, point, m, event.shiftKey);
+    var point = editorPoint(event), m = dragMatrix(drag, point, !state.snapGrid, event.shiftKey, event.altKey);
+    m = drag.job === 'move' ? (event.altKey ? m : snapMove(drag, m)) : snapToGrid(drag, point, m, event.shiftKey, event.altKey);
     if (!m.every(Number.isFinite) || Math.abs(M.determinant(m)) < 1e-9) return;
     drag.moved = true; drag.child.matrix = m; markEdited(); scheduleDragFrame(); event.preventDefault();
   }

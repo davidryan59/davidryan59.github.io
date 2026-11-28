@@ -78,14 +78,22 @@ inside a child to move it. A moved child sticks on each axis by itself: its
 corners' x values stick to any x within 6 pixels, and likewise y. The
 targets are the parent's corners, the other children's corners and, with
 Snap corners on, the grid lines. So a child lined up with an edge slides
-along it while the hand wobbles across it. Alt moves it freely. The selected child has two corner knobs, on its
-own corners, so they turn and flip with it. The top-right corner (a
-triangle: its top point) shows a circular arrow and turns the child about
-its centre. A turn holds at 0°, 90°, 180° and 270° within 4° (a triangle:
-every 60°), and at other 15° steps within 2°. The bottom-right corner shows a
-two-headed arrow and scales the child about its centre, snapping to simple
-ratios such as 1/2 and 3/2. Shift on the scale corner stretches both ways in
-the child's own frame. The other corners have no handle.
+along it while the hand wobbles across it. Alt moves it freely. The selected child's knobs sit in its own
+frame, so they turn and flip with it. A square child has a knob on each
+corner and a turn knob on a 20-pixel stalk above the middle of its top
+edge. A corner drag moves that corner and holds the opposite one, so each
+edge keeps its direction and a 1 by 1 child grows to 2 by 1 or 2 by 2 on
+the grid. Shift scales evenly about the opposite corner. Alt scales evenly
+about the centre, and Alt with Shift stretches both ways about the centre.
+Past the opposite corner a side turns negative, which flips the child. A
+triangle child has two knobs: its top point turns it and its bottom-right
+point scales it about its centre, and Shift on the scale knob stretches both
+ways. The turn knob shows a circular arrow and turns the child about its
+centre. A turn holds at 0°, 90°, 180° and 270° within 4° (a triangle:
+every 60°), and at other 15° steps within 2°. With Snap corners off, a
+corner drag or a scale snaps to simple ratios such as 1/2 and 3/2. The
+editor leaves a 24-pixel inset round a square frame, so the stalk stays in
+view.
 
 Each edge has one bar-shaped handle at its middle, lying along the edge. The
 first 4 pixels of a drag pick its job, which then holds: across the edge
@@ -121,9 +129,11 @@ lattice has lines parallel to the triangle's three sides. `snapLattice()`
 holds each grid as families of lines, n · p = offset + k × spacing, and finds
 the nearest lattice point. The rule stores the grid as `grid.rows`,
 `grid.cols` and `grid.side`. While a drag moves a corner within 6 pixels of a grid point, the
-corner snaps to it, and it lets go when the pointer moves on. A scale moves
-its corner along a line from the centre, so that corner snaps onto a grid
-line, preferring a grid point. A turn snaps by angle only. During a drag the editor and the
+corner snaps to it, and it lets go when the pointer moves on. An even scale
+moves its corner along a line from its pivot, so that corner snaps onto a
+grid line, preferring a grid point. A turn snaps by angle only. A snap never
+lands on a flat child, one less than 4 pixels across at its narrowest; the
+child follows the pointer there instead. During a drag the editor and the
 main view keep their scale, and refit on release.
 
 The + button adds a child one grid cell in size, with Snap corners on or

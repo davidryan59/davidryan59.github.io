@@ -64,11 +64,11 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   const affineShown = async () => (await mapRows()).affine;
 
   // The Sieve has a fixed editor layout: the parent square plus an 8%
-  // margin, fitted inside a 13-pixel inset, with the frame's centre, the
+  // margin, fitted inside a 24-pixel inset, with the frame's centre, the
   // origin, in the middle. This maps a point, with y up, to page pixels.
   async function editorPoint(p) {
     const box = await page.locator('#rule-editor').boundingBox();
-    const scale = Math.min(box.width - 26, box.height - 26) / 1.16;
+    const scale = Math.min(box.width - 48, box.height - 48) / 1.16;
     return [box.x + box.width / 2 + p[0] * scale, box.y + box.height / 2 - p[1] * scale];
   }
 
@@ -112,17 +112,20 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
     const offset = (options && options.offset) || [0, 0];
     await page.mouse.move(a[0] + offset[0], a[1] + offset[1]);
     if (options && options.shift) await page.keyboard.down('Shift');
+    if (options && options.alt) await page.keyboard.down('Alt');
     await page.mouse.down();
     await page.mouse.move(b[0], b[1], { steps: 8 });
     await page.mouse.up();
     if (options && options.shift) await page.keyboard.up('Shift');
+    if (options && options.alt) await page.keyboard.up('Alt');
     await page.waitForTimeout(50);
   }
   const cellsOf = async () => (await mapRows()).rows[0].map(text => text.replace('−', '-'));
   const near = (text, value, tolerance) => Math.abs(Number(text) - value) < (tolerance || 0.01);
 
   // Child A of the Sieve fills the top-left quarter, so its centre is
-  // (−0.25, 0.25), its turn corner (0, 0.5) and its scale corner (0, 0).
+  // (−0.25, 0.25), its top edge's middle (−0.25, 0.5), with the turn knob
+  // on a stalk 20 pixels above it, and its bottom-right corner (0, 0).
   // The table's columns are grip, name, parent, then x, y, scale, angle
   // and flip, or the six affine values.
   let cells;
@@ -133,13 +136,13 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
 
   cells = await cellsOf();
   check(near(cells[3], -0.25) && near(cells[4], 0.25) && near(cells[5], 0.5), 'A sits at (−0.25, 0.25), half size: ' + cells.join(' '));
-  // Turn: a press just outside the top-right corner grabs the turn knob.
-  // Dragging it down to the bottom-right corner turns A a quarter turn
-  // clockwise, which is −90 degrees.
-  await drag([0, 0.5], [0, 0], { offset: [4, -4] });
+  // Turn: the stalk knob starts straight above the centre. Dragging it
+  // round to the right of the centre turns A a quarter turn clockwise,
+  // which is −90 degrees.
+  await drag([-0.25, 0.5], [0.2, 0.25], { offset: [0, -20] });
   equal(await selection(), 'A', 'the handle drag kept the same child');
   cells = await cellsOf();
-  check(near(cells[5], 0.5) && near(cells[6], -90, 0.01), 'the turn corner turns a quarter turn clockwise about the centre: ' + cells.join(' '));
+  check(near(cells[5], 0.5) && near(cells[6], -90, 0.01), 'the stalk knob turns a quarter turn clockwise about the centre: ' + cells.join(' '));
   check(near(cells[3], -0.25) && near(cells[4], 0.25), 'the turn kept the centre in place: ' + cells.join(' '));
   await page.click('#undo');
   equal(await firstRow(), beforeHandle, 'undo restores the child');
@@ -156,21 +159,40 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
     await page.click('#undo');
   }
 
-  // Turns are sticky at right angles: the turn corner starts at 45 degrees
-  // from A's centre, and a drag to −48 degrees, 93 clockwise, lands on −90.
-  const turned = [-0.25 + Math.SQRT2 * 0.25 * Math.cos(-48 * Math.PI / 180), 0.25 + Math.SQRT2 * 0.25 * Math.sin(-48 * Math.PI / 180)];
-  await drag([0, 0.5], turned);
+  // Turns are sticky at right angles: the stalk knob starts at 90 degrees
+  // from A's centre, and a drag to −3 degrees, 93 clockwise, lands on −90.
+  const turned = [-0.25 + 0.4 * Math.cos(-3 * Math.PI / 180), 0.25 + 0.4 * Math.sin(-3 * Math.PI / 180)];
+  await drag([-0.25, 0.5], turned, { offset: [0, -20] });
   cells = await cellsOf();
   equal(cells[6], '-90.000', 'a turn near 90 degrees clockwise holds at −90');
   await page.click('#undo');
 
-  // Scale: the bottom-right corner scales about the centre.
-  await drag([0, 0], [0.125, -0.125]);
+  // Corners: a corner drag holds the opposite corner, here the top left at
+  // (−0.5, 0.5), and stretches each way to meet the pointer. The six
+  // affine values are a, b, c, d, e, f in columns 3 to 8.
+  await drag([0, 0], [0.25, -0.125]);
   cells = await cellsOf();
-  check(near(cells[5], 0.75) && near(cells[6], 0), 'the scale corner scales by 3/2: ' + cells.join(' '));
-  check(near(cells[3], -0.25) && near(cells[4], 0.25), 'the scale kept the centre in place: ' + cells.join(' '));
+  check(near(cells[3], 0.75) && near(cells[4], 0) && near(cells[5], 0) && near(cells[6], 0.625) && near(cells[7], -0.125) && near(cells[8], 0.1875),
+    'a corner drag stretches each way about the opposite corner: ' + cells.join(' '));
   await page.click('#undo');
-  console.log('Turned and scaled a child about its centre.');
+  // Shift keeps the shape: 3/2 the size, still about the top-left corner.
+  await drag([0, 0], [0.25, -0.24], { shift: true });
+  cells = await cellsOf();
+  check(near(cells[3], -0.125) && near(cells[4], 0.125) && near(cells[5], 0.75) && near(cells[6], 0), 'Shift on a corner scales by 3/2 about the opposite corner: ' + cells.join(' '));
+  await page.click('#undo');
+  // Alt scales about the centre, as the old scale corner did.
+  await drag([0, 0], [0.125, -0.125], { alt: true });
+  cells = await cellsOf();
+  check(near(cells[3], -0.25) && near(cells[4], 0.25) && near(cells[5], 0.75) && near(cells[6], 0), 'Alt on a corner scales by 3/2 about the centre: ' + cells.join(' '));
+  await page.click('#undo');
+  // Past the opposite corner the width turns negative, which flips the
+  // child: it now spans x from −0.75 to −0.5.
+  await drag([0, 0], [-0.75, 0]);
+  cells = await cellsOf();
+  check(near(cells[3], -0.25) && near(cells[4], 0) && near(cells[5], 0) && near(cells[6], 0.5) && near(cells[7], -0.625) && near(cells[8], 0.25),
+    'a corner dragged past the opposite corner flips the child: ' + cells.join(' '));
+  await page.click('#undo');
+  console.log('Turned a child on its stalk and dragged its corners.');
 
   // Edges: across the right edge stretches, and along it skews. Stretching
   // the right edge from x = 0 to 0.25 keeps the left edge at −0.5.
@@ -558,7 +580,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
     const skewPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await skewPage.goto(url + '#rule=' + text, { waitUntil: 'domcontentloaded' });
     await skewPage.waitForSelector('#status-badge');
-    const box = await skewPage.locator('#rule-editor').boundingBox(), scale = Math.min(box.width - 26, box.height - 26) / 1.16;
+    const box = await skewPage.locator('#rule-editor').boundingBox(), scale = Math.min(box.width - 48, box.height - 48) / 1.16;
     const px = p => [box.x + box.width / 2 + p[0] * scale, box.y + box.height / 2 - p[1] * scale];
     await skewPage.mouse.click(...px([-0.3, -0.3]));
     const a = px([0.25, -0.25]), b = px([0.25, 0]);
@@ -573,6 +595,47 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
     const topRight = [m[0] * 0.5 + m[2] * 0.5 + m[4], m[1] * 0.5 + m[3] * 0.5 + m[5]];
     check(Math.abs(topRight[0] - 0.25) < 1e-9 && Math.abs(topRight[1] - 0.25) < 1e-9, 'a skew with Snap corners on lands exactly on a grid corner: ' + topRight.join(', '));
     await skewPage.close();
+  }
+
+  // With Snap corners on, a 1 by 1 child in the bottom-left cell of a 4 by
+  // 4 grid grows to 2 by 1 and 2 by 2 from its top-right corner, and its
+  // bottom-left corner stays at (−0.5, −0.5). A snap never lands on a flat
+  // child: dragged to 3 pixels from the opposite corner's line, the width
+  // follows the pointer instead of snapping to zero.
+  {
+    const rule = { version: 3, frame: 'square', grid: { rows: 4, cols: 4, side: 2 }, letters: [{ id: 'p1', children: [{ id: 'a', letter: 'p1', matrix: [0.25, 0, 0, 0.25, -0.375, -0.375] }] }] };
+    const text = Buffer.from(encodeURIComponent(JSON.stringify({ rule, current: 'p1', depth: 3, snap: true })).replace(/%([0-9A-F]{2})/g, (_, p) => String.fromCharCode(parseInt(p, 16))), 'binary')
+      .toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const cornerPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await cornerPage.goto(url + '#rule=' + text, { waitUntil: 'domcontentloaded' });
+    await cornerPage.waitForSelector('#status-badge');
+    const box = await cornerPage.locator('#rule-editor').boundingBox(), scale = Math.min(box.width - 48, box.height - 48) / 1.16;
+    const px = p => [box.x + box.width / 2 + p[0] * scale, box.y + box.height / 2 - p[1] * scale];
+    const matrix = () => cornerPage.evaluate(() => {
+      let t = location.hash.slice(6).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '=';
+      const bin = atob(t); let e = ''; for (let i = 0; i < bin.length; i++) e += '%' + bin.charCodeAt(i).toString(16).padStart(2, '0');
+      return JSON.parse(decodeURIComponent(e)).rule.letters[0].children[0].matrix;
+    });
+    const same = (m, want) => m.every((v, i) => Math.abs(v - want[i]) < 1e-9);
+    await cornerPage.mouse.click(...px([-0.375, -0.375]));
+    for (const [to, want, what] of [
+      [[0, -0.25], [0.5, 0, 0, 0.25, -0.25, -0.375], '2 by 1'],
+      [[0, 0], [0.5, 0, 0, 0.5, -0.25, -0.25], '2 by 2']]) {
+      const a = px([-0.25, -0.25]), b = px(to);
+      await cornerPage.mouse.move(a[0], a[1]); await cornerPage.mouse.down();
+      await cornerPage.mouse.move(b[0] + 4, b[1] - 3, { steps: 12 }); await cornerPage.mouse.up();
+      await cornerPage.waitForTimeout(50);
+      const m = await matrix();
+      check(same(m, want), 'a corner drag with Snap corners on makes ' + what + ': ' + m.join(', '));
+      await cornerPage.click('#undo');
+    }
+    const a = px([-0.25, -0.25]), b = px([-0.5, -0.25]);
+    await cornerPage.mouse.move(a[0], a[1]); await cornerPage.mouse.down();
+    await cornerPage.mouse.move(b[0] + 3, b[1], { steps: 12 }); await cornerPage.mouse.up();
+    await cornerPage.waitForTimeout(50);
+    const m = await matrix();
+    check(m[0] > 0 && Math.abs(m[0] - 3 / scale) < 0.3 * 3 / scale, 'a corner snap never makes a flat child: width ' + m[0]);
+    await cornerPage.close();
   }
 
   const restored = await browser.newPage({ viewport: { width: 900, height: 700 } });
