@@ -978,27 +978,56 @@
   // The children list, in drawing order: the first child is drawn first, so
   // it sits at the back, and the last sits in front. Drag a row's grip to
   // reorder. Each row names the child and the parent it copies. The
-  // padlock keeps the child out of Randomise. The pencil opens a pop-up
-  // that shows and sets the child's exact values.
+  // padlock in the Parent cell keeps the parent out of Randomise. The
+  // Direction button sets how far Randomise may turn the child: any
+  // symmetry of the frame, only some (a rectangle's on a square, Flip H on
+  // a triangle), or none. The pencil opens a pop-up that shows and sets the
+  // child's exact values.
   var LOCK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var UNLOCK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/></svg>';
+  var RECT_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7.5" y="3.5" width="9" height="17" rx="1"/></svg>';
+  var MIRROR_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5 20 19H4z"/><path d="M12 2v20" stroke-dasharray="2 2"/></svg>';
+  // A child saved before the two locks has `locked: true`, which reads as
+  // both locks set. Any change to a lock rewrites it as the two fields.
+  function parentLocked(child) { return !!(child.lockParent || child.locked); }
+  function directionOf(child) { return child.locked ? 'lock' : child.direction === 'part' || child.direction === 'lock' ? child.direction : 'all'; }
+  function splitLegacyLock(child) { if (child.locked) { delete child.locked; child.lockParent = true; child.direction = 'lock'; } }
+  var NEXT_DIRECTION = { all: 'part', part: 'lock', lock: 'all' };
+  var DIRECTION_NAMES = {
+    all: function () { return 'Any symmetry'; },
+    part: function (tri) { return tri ? 'Flip H only' : 'Rectangle symmetries'; },
+    lock: function () { return 'Locked'; }
+  };
+  var DIRECTION_TIPS = {
+    all: function (tri) { return 'Direction unlocked: Randomise can apply any of the ' + (tri ? 6 : 8) + ' symmetries of the ' + (tri ? 'triangle' : 'square') + '.'; },
+    part: function (tri) { return tri ? 'Direction partly locked: Randomise can only flip this child left to right.' : 'Direction partly locked: Randomise can only apply the 4 symmetries of a rectangle (a half turn, Flip H, Flip V), so a stretched child keeps its long side where it is.'; },
+    lock: function () { return 'Direction locked: Randomise keeps this child\'s orientation.'; }
+  };
   function renderNumbers() {
-    el.numbersHead.innerHTML = '<th aria-label="Reorder"></th><th class="whole">Child</th><th class="whole">Parent</th><th class="whole">Lock</th><th class="edit-head" aria-label="Edit"></th>';
+    el.numbersHead.innerHTML = '<th aria-label="Reorder"></th><th class="whole">Child</th><th class="whole">Parent</th><th class="whole">Direction</th><th class="edit-head" aria-label="Edit"></th>';
     el.numbersBody.innerHTML = '';
     el.numbersKind.textContent = 'back to front';
     currentLetter().children.forEach(function (child, index) {
       var row = document.createElement('tr'); if (child.id === state.selectedId) row.className = 'selected';
       var grip = document.createElement('td'); grip.className = 'grip'; grip.textContent = '⠿'; grip.title = 'Drag to reorder'; row.appendChild(grip);
       var own = document.createElement('td'); own.className = 'child-name'; own.textContent = childName(index); row.appendChild(own);
-      var first = document.createElement('td'); first.className = 'child-number'; first.textContent = label(child.letter); first.style.setProperty('--dot', colour(child.letter)); row.appendChild(first);
-      var lockCell = document.createElement('td'), lock = document.createElement('button');
-      lockCell.className = 'whole'; lock.type = 'button'; lock.className = 'lock-child' + (child.locked ? ' locked' : '');
-      lock.setAttribute('aria-pressed', child.locked ? 'true' : 'false');
-      lock.setAttribute('aria-label', (child.locked ? 'Unlock child ' : 'Lock child ') + childName(index));
-      lock.title = child.locked ? 'Locked: Randomise leaves this child as it is. Click to unlock' : 'Unlocked: Randomise can change this child. Click to lock';
-      lock.innerHTML = child.locked ? LOCK_ICON : UNLOCK_ICON;
-      lock.addEventListener('click', function (event) { event.stopPropagation(); toggleLock(child); });
-      lockCell.appendChild(lock); row.appendChild(lockCell);
+      var first = document.createElement('td'); first.className = 'child-number'; first.style.setProperty('--dot', colour(child.letter));
+      var parentLabel = document.createElement('span'); parentLabel.textContent = label(child.letter); first.appendChild(parentLabel);
+      var pLock = document.createElement('button'), pOn = parentLocked(child);
+      pLock.type = 'button'; pLock.className = 'lock-child lock-parent' + (pOn ? ' locked' : '');
+      pLock.setAttribute('aria-pressed', pOn ? 'true' : 'false');
+      pLock.setAttribute('aria-label', (pOn ? 'Unlock the parent of child ' : 'Lock the parent of child ') + childName(index));
+      pLock.title = pOn ? 'Parent locked: Randomise keeps the parent this child copies. Click to unlock' : 'Parent unlocked: Randomise can change the parent this child copies. Click to lock';
+      pLock.innerHTML = pOn ? LOCK_ICON : UNLOCK_ICON;
+      pLock.addEventListener('click', function (event) { event.stopPropagation(); toggleParentLock(child); });
+      first.appendChild(pLock); row.appendChild(first);
+      var dirCell = document.createElement('td'), dir = document.createElement('button'), mode = directionOf(child), tri = state.rule.frame === 'triangle';
+      dirCell.className = 'whole'; dir.type = 'button'; dir.className = 'lock-child' + (mode === 'lock' ? ' locked' : mode === 'part' ? ' partial' : '');
+      dir.setAttribute('aria-label', 'Direction of child ' + childName(index) + ': ' + DIRECTION_NAMES[mode](tri) + '. Click to change');
+      dir.title = DIRECTION_TIPS[mode](tri) + ' Click for ' + DIRECTION_NAMES[NEXT_DIRECTION[mode]](tri).toLowerCase() + '.';
+      dir.innerHTML = mode === 'lock' ? LOCK_ICON : mode === 'part' ? (tri ? MIRROR_ICON : RECT_ICON) : UNLOCK_ICON;
+      dir.addEventListener('click', function (event) { event.stopPropagation(); cycleDirection(child); });
+      dirCell.appendChild(dir); row.appendChild(dirCell);
       var editCell = document.createElement('td'), edit = document.createElement('button');
       editCell.className = 'edit-cell';
         edit.type = 'button'; edit.className = 'edit-child'; edit.setAttribute('aria-label', 'Edit child ' + childName(index)); edit.title = 'Show and edit the exact values';
@@ -1084,9 +1113,9 @@
     });
     el.toggleSnap.checked = !!state.snapGrid;
     var all = triangle ? 6 : 8, turns = triangle ? 3 : 4;
-    var how = ' Each child copies a random parent and takes a random orientation inside its outline. Click: any of the ' + all + ' orientations. Shift-click: turns only, ' + turns + ' orientations, so a flipped child stays flipped. Locked children stay as they are.';
-    el.randomiseAll.title = 'Randomise every unlocked child of every parent.' + how;
-    el.randomiseParent.title = 'Randomise every unlocked child of this parent.' + how;
+    var how = ' Each child copies a random parent and takes a random orientation inside its outline. Click: any of the ' + all + ' orientations. Shift-click: turns only, ' + turns + ' orientations, so a flipped child stays flipped. Each child\'s parent lock and Direction limit what changes.';
+    el.randomiseAll.title = 'Randomise every child of every parent.' + how;
+    el.randomiseParent.title = 'Randomise every child of this parent.' + how;
     el.randomiseAll.disabled = !unlocked(allChildren()).length; el.randomiseParent.disabled = !unlocked(currentLetter().children).length;
     el.colourMode.querySelectorAll('[data-colour]').forEach(function (button) { var on = button.dataset.colour === colourMode(); button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     [[el.shapeMode, 'shape', state.shape], [el.numbersMode, 'numbers', state.numbers ? 'show' : 'hide'], [el.styleMode, 'style', state.style]].forEach(function (group) {
@@ -1169,9 +1198,21 @@
   // Randomise reorients a child inside its own outline, as the orientation
   // buttons do, so a stretched or skewed child keeps its place and shape.
   // Turns and Flip H reach every orientation: 8 on a square, 6 on a
-  // triangle. Without flips, only the 4 or 3 turns.
-  function randomOrientation(matrix, flips) {
-    var turns = state.rule.frame === 'triangle' ? 3 : 4;
+  // triangle. Without flips, only the 4 or 3 turns. A child whose Direction
+  // is partly locked takes only Flip H and Flip V on a square, the 4
+  // symmetries of a rectangle, so a stretched child keeps its long side;
+  // without flips that leaves a half turn. On a triangle it takes only Flip
+  // H, so without flips it stays as it is.
+  function randomOrientation(matrix, flips, mode) {
+    var triangle = state.rule.frame === 'triangle';
+    if (mode === 'lock') return matrix;
+    if (mode === 'part') {
+      if (triangle) return flips && Math.random() < .5 ? orientMatrix(matrix, 'flipH') : matrix;
+      if (!flips) return Math.random() < .5 ? orientMatrix(orientMatrix(matrix, 'flipH'), 'flipV') : matrix;
+      if (Math.random() < .5) matrix = orientMatrix(matrix, 'flipH');
+      return Math.random() < .5 ? orientMatrix(matrix, 'flipV') : matrix;
+    }
+    var turns = triangle ? 3 : 4;
     if (flips && Math.random() < .5) matrix = orientMatrix(matrix, 'flipH');
     for (var i = Math.floor(Math.random() * turns); i > 0; i--) matrix = orientMatrix(matrix, 'rotateRight');
     return matrix;
@@ -1180,8 +1221,8 @@
   // so a linked system can lose links: that is part of the roll. A roll
   // that leaves every child as it was rolls again, so each click changes
   // something.
-  // A locked child is left out: its orientation and its parent stay put.
-  function unlocked(children) { return children.filter(function (child) { return !child.locked; }); }
+  // A child is left out when both its parent and its direction are locked.
+  function unlocked(children) { return children.filter(function (child) { return !parentLocked(child) || directionOf(child) !== 'lock'; }); }
   function randomise(letters, flips) {
     var children = unlocked(letters.reduce(function (out, letter) { return out.concat(letter.children); }, []));
     if (!children.length) return;
@@ -1189,7 +1230,9 @@
     var key = function (matrix, id) { return id + ':' + matrix.join(); };
     var before = children.map(function (child) { return key(child.matrix, child.letter); });
     for (var tries = 0; tries < 50; tries++) {
-      var after = children.map(function (child) { return { matrix: randomOrientation(child.matrix, flips), letter: ids[Math.floor(Math.random() * ids.length)] }; });
+      var after = children.map(function (child) {
+        return { matrix: randomOrientation(child.matrix, flips, directionOf(child)), letter: parentLocked(child) ? child.letter : ids[Math.floor(Math.random() * ids.length)] };
+      });
       if (after.some(function (next, i) { return key(next.matrix, next.letter) !== before[i]; })) {
         children.forEach(function (child, i) { child.matrix = after[i].matrix; child.letter = after[i].letter; });
         markEdited(); commit(); return;
@@ -1197,10 +1240,17 @@
     }
   }
 
-  // The lock is part of the rule, so it saves with the fractal and each
+  // The locks are part of the rule, so they save with the fractal and each
   // change is one undo step.
-  function toggleLock(child) {
-    if (child.locked) delete child.locked; else child.locked = true;
+  function toggleParentLock(child) {
+    splitLegacyLock(child);
+    if (child.lockParent) delete child.lockParent; else child.lockParent = true;
+    markEdited(); commit();
+  }
+  function cycleDirection(child) {
+    splitLegacyLock(child);
+    var next = NEXT_DIRECTION[directionOf(child)];
+    if (next === 'all') delete child.direction; else child.direction = next;
     markEdited(); commit();
   }
 
@@ -1516,7 +1566,7 @@
     letter.children.splice(index, 1); state.selectedId = null; markEdited(); commit();
   }
   // Shift-click on Remove, or Shift+Backspace, clears every child of this
-  // parent as one step. Locked children go too: the lock only guards
+  // parent as one step. Locked children go too: the locks only guard
   // against Randomise.
   function removeAllChildren() {
     var letter = currentLetter(), n = letter.children.length;

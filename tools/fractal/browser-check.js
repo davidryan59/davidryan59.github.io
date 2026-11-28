@@ -56,7 +56,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
       }
       return ['⠿', String.fromCharCode(65 + index), parent].concat(values);
     });
-    return { affine, rows, locked: letter.children.map(c => !!c.locked), matrices: letter.children.map(c => c.matrix) };
+    return { affine, rows, lockParent: letter.children.map(c => !!c.lockParent), direction: letter.children.map(c => c.direction || 'all'), frame: rule.frame, matrices: letter.children.map(c => c.matrix) };
   });
   const rowText = async index => { const all = (await mapRows()).rows; return all[index < 0 ? all.length + index : index].join(''); };
   const firstRow = () => rowText(0);
@@ -477,15 +477,39 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('#toggle-menu');
   console.log('Filled grids from the bottom left and cleared them.');
 
-  // A locked child keeps its orientation and parent through Randomise.
+  // Each child has a parent lock and a three-state Direction. With both
+  // locked, Randomise leaves the child as it was. Partly locked on a square
+  // allows only the rectangle's flips, so each entry keeps its size.
   await page.selectOption('#demo', 'linked');
-  await page.locator('#numbers-body tr').first().locator('.lock-child').click();
-  check((await mapRows()).locked[0], 'the padlock locks child A');
+  const firstLocks = () => page.locator('#numbers-body tr').first();
+  equal(await page.locator('#numbers-head th').nth(3).textContent(), 'Direction', 'the Lock column is now Direction');
+  await firstLocks().locator('.lock-parent').click();
+  check((await mapRows()).lockParent[0], 'the padlock in the Parent cell locks the parent of child A');
+  await firstLocks().locator('td.whole .lock-child').click();
+  equal((await mapRows()).direction[0], 'part', 'one click on Direction locks it partly');
+  check((await firstLocks().locator('td.whole .lock-child').innerHTML()).includes('<rect x="7.5"'), 'a partly locked square child shows a tall rectangle');
+  await firstLocks().locator('td.whole .lock-child').click();
+  equal((await mapRows()).direction[0], 'lock', 'a second click locks Direction');
   const lockedA = JSON.stringify((await mapRows()).rows[0]);
   for (let i = 0; i < 8; i++) await page.click('#randomise-all');
-  equal(JSON.stringify((await mapRows()).rows[0]), lockedA, 'Randomise leaves a locked child as it was');
-  check((await page.locator('#randomise-all').getAttribute('title')).includes('Locked children'), 'the Randomise tooltip mentions locked children');
-  console.log('Locked a child against Randomise.');
+  equal(JSON.stringify((await mapRows()).rows[0]), lockedA, 'Randomise leaves a child with both locks as it was');
+  check((await page.locator('#randomise-all').getAttribute('title')).includes('parent lock and Direction'), 'the Randomise tooltip mentions the locks');
+  await firstLocks().locator('td.whole .lock-child').click();
+  equal((await mapRows()).direction[0], 'all', 'a third click unlocks Direction');
+  await firstLocks().locator('td.whole .lock-child').click();
+  await firstLocks().locator('.lock-parent').click();
+  check(!(await mapRows()).lockParent[0], 'a second click unlocks the parent');
+  equal((await mapRows()).frame, 'square', 'the linked demo uses the square frame');
+  const startA = (await mapRows()).matrices[0].map(v => Math.abs(v).toFixed(6));
+  const lockTestParents = new Set();
+  for (let i = 0; i < 16; i++) {
+    await page.click('#randomise-all');
+    const now = await mapRows();
+    equal(JSON.stringify(now.matrices[0].slice(0, 4).map(v => Math.abs(v).toFixed(6))), JSON.stringify(startA.slice(0, 4)), 'a partly locked child takes only rectangle symmetries');
+    lockTestParents.add(now.rows[0][2]);
+  }
+  check(lockTestParents.size > 1, 'an unlocked parent still changes under Randomise');
+  console.log('Locked a child\'s parent and direction against Randomise.');
 
   // Shape and Numbers: Hull and Hide by default. They travel with the
   // address and with a saved fractal. A fractal saved without them opens
@@ -567,7 +591,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   console.log('Opened Free demo.');
   await page.click('#toggle-menu');
   check(!(await affineShown()), 'similar children have x, y, scale, angle and flip');
-  equal((await page.locator('#numbers-head th').allTextContents()).join('|'), '|Child|Parent|Lock|', 'the table shows child, parent, lock and edit only');
+  equal((await page.locator('#numbers-head th').allTextContents()).join('|'), '|Child|Parent|Direction|', 'the table shows child, parent, lock and edit only');
   check(await page.locator('#max-copies').isVisible(), 'Options shows the copy limit without a fold');
   check(!(await page.locator('#min-depth').isVisible()), 'Advanced folds away Minimum iterations');
   await page.locator('#max-copies').fill('0');

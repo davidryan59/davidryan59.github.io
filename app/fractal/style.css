@@ -159,7 +159,10 @@ tr.insert-after td { box-shadow: inset 0 -2px 0 var(--accent); }
 .edit-child, .lock-child { width: 20px; min-height: 24px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--muted); }
 .edit-child svg, .lock-child svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 td .lock-child { margin: 0 auto; color: var(--quiet); }
-td .lock-child.locked { color: var(--accent); }
+td .lock-child.locked, td .lock-child.partial { color: var(--accent); }
+td.child-number span { vertical-align: middle; }
+td .lock-parent { display: inline-grid; vertical-align: middle; margin: 0 0 0 2px; width: 16px; }
+td .lock-parent svg { width: 12px; height: 12px; }
 /* The pencil sits at the right-hand end of each row. */
 th.edit-head, td.edit-cell { width: 24px; }
 td.edit-cell .edit-child { margin-left: auto; }

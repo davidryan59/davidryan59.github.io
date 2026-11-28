@@ -30,6 +30,7 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Draw copies as their parent's hull or their frame, with numbers shown or hidden.
 - [x] Fill the grid from the bottom left with +, then the cells outside the frame.
 - [x] Lock a child against Randomise, and clear every child of a parent at once.
+- [x] Lock a child's parent and its direction apart, with a partial direction lock.
 - [x] Hide, show and resize the iterations panel, which never scrolls.
 - [x] Save the view settings and calculation limits with a fractal, and copy
       the limits between fractals.
@@ -180,10 +181,15 @@ frame's orientations, 8 on a square or 6 on a triangle: a random number of
 Rotate R steps, after a Flip H half the time. Shift-click leaves out the flip,
 so it picks one of the 4 or 3 turns and a flipped child stays flipped. Each
 child keeps its outline, as with the orientation buttons, and one Undo
-reverses the whole randomise. A roll that changes nothing rolls again. A
-locked child stays out of the roll: its orientation and its parent stay put.
-A dice with no unlocked child to roll is greyed out. Each dice says all this
-in its tooltip. A duplicate child keeps its original's size and orientation
+reverses the whole randomise. A roll that changes nothing rolls again. Two
+locks on each child limit the roll. The parent lock keeps the parent the
+child copies. The Direction setting has three states. Unlocked allows any of
+the frame's symmetries. Partly locked allows only Flip H and Flip V on a
+square, the 4 symmetries of a rectangle, so a stretched child keeps its long
+side; Shift-click then leaves only a half turn. On a triangle, partly locked
+allows only Flip H, and Shift-click leaves the child as it is. Locked keeps
+the orientation. A dice is greyed out when every child it would roll has
+both locks set. Each dice says all this in its tooltip. A duplicate child keeps its original's size and orientation
 and moves by whole grid steps. It takes the free place nearest its original
 that lies wholly inside the frame; with none free, the free place nearest the
 frame's edge, then nearest its original. A duplicated parent goes after the
@@ -194,10 +200,14 @@ Shift-click on the parent bin removes those children instead.
 
 The children list shows each child in drawing order: the first is drawn at
 the back. Each row has a grip, the child's letter, the parent it copies, a
-padlock and a pencil. The grip reorders by drag. The padlock locks or
-unlocks the child against Randomise. The lock is stored as `locked: true` on
-the child, so it travels in the address and in saved fractals, and each
-change is one undo step. The pencil opens a pop-up that shows the exact
+parent lock, a Direction button and a pencil. The grip reorders by drag.
+The parent lock is a padlock beside the parent letter. The Direction button
+cycles through an open padlock (unlocked), a tall rectangle on a square or a
+mirrored triangle on a triangle (partly locked), and a closed padlock
+(locked). The locks are stored on the child as `lockParent: true` and
+`direction: "part"` or `"lock"`, so they travel in the address and in saved
+fractals, and each change is one undo step. A child saved with the earlier
+single lock, `locked: true`, reads as both locks set. The pencil opens a pop-up that shows the exact
 values. It accepts decimals and the forms `1/3`, `sqrt(2)/2`, and `√2/2`,
 and applies them on OK as one undo step. The pop-up shows x, y, scale, angle
 and flip while every child of the parent is a similarity, and the six affine
