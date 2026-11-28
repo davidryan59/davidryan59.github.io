@@ -96,7 +96,8 @@ first 4 pixels of an edge drag pick its job, which then holds: across the
 edge stretches one way, with the opposite edge fixed, and along the edge
 skews it. Zero skew holds within 6 pixels: the point where the dragged edge
 stands square to the line from the fixed side, so the child's corners are
-right angles again.
+right angles again. Shift frees the edge, so it stretches and skews at once,
+and the opposite edge still stays put.
 
 On a triangle the two jobs swap places. A corner drag holds the other two
 corners. Its first 4 pixels pick its job, which then holds: across the

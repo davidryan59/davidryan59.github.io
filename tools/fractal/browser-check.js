@@ -231,6 +231,14 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   cells = await cellsOf();
   check(near(cells[3], 0.5) && Math.abs(Number(cells[4])) > 0.1 && near(cells[6], 0.5), 'along the edge skews: ' + cells.join(' '));
   await page.click('#undo');
+  // Shift frees the edge: the right edge's middle follows the pointer to
+  // (0.25, 0.1), so the child stretches by 3/2 and skews at once, and the
+  // left edge stays put.
+  await drag([0, 0.25], [0.25, 0.1], { shift: true });
+  cells = await cellsOf();
+  check(near(cells[3], 0.75) && near(cells[4], -0.15) && near(cells[5], 0) && near(cells[6], 0.5) && near(cells[7], -0.125) && near(cells[8], 0.175),
+    'Shift on an edge stretches and skews at once: ' + cells.join(' '));
+  await page.click('#undo');
   // Zero skew is sticky: a skew dragged back to within a few pixels of
   // square lands on square exactly.
   const along = await editorPoint([0, 0.25]), back = await editorPoint([0, 0.1]);

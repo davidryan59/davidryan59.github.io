@@ -1556,7 +1556,8 @@
   //   Square corner: moves that corner and holds the opposite one, so a 1 by
   //     1 child grows to 2 by 1 or 2 by 2. Shift keeps the shape, and Alt
   //     scales about the centre instead.
-  //   Square edge: across the edge stretches, along it skews.
+  //   Square edge: across the edge stretches, along it skews, and Shift
+  //     does both at once.
   //   Triangle corner: the other two corners hold. Across the opposite edge
   //     stretches, along it skews, and Shift frees the corner.
   //   Triangle edge: resizes evenly about the opposite corner, so per side 1
@@ -1803,24 +1804,27 @@
     var fixed = [(local[(k + 2) % 4][0] + local[(k + 3) % 4][0]) / 2, (local[(k + 2) % 4][1] + local[(k + 3) % 4][1]) / 2];
     var dvec = [mid[0] - fixed[0], mid[1] - fixed[1]], len = Math.hypot(dvec[0], dvec[1]), dn = [dvec[0] / len, dvec[1] / len];
     var en = [p1[0] - p0[0], p1[1] - p0[1]], elen = Math.hypot(en[0], en[1]); en = [en[0] / elen, en[1] / elen];
-    var rel = [uu[0] - fixed[0], uu[1] - fixed[1]], l;
-    if (job === 'stretch') {
+    // Shift frees the edge: it stretches and skews at once, and the
+    // opposite edge still stays put.
+    var rel = [uu[0] - fixed[0], uu[1] - fixed[1]], ratio = 1, sk = 0;
+    if (job === 'stretch' || shift) {
       // Stretch one way: only the distance from the fixed line changes.
-      var ratio = clampScale(dot(rel, dn) / len);
+      ratio = clampScale(dot(rel, dn) / len);
       if (free) ratio = snapRatio(ratio);
-      var f = ratio - 1;
-      l = [1 + f * dn[0] * dn[0], f * dn[1] * dn[0], f * dn[0] * dn[1], 1 + f * dn[1] * dn[1]];
-    } else {
+    }
+    if (job === 'skew' || shift) {
       // Skew: the edge slides along itself; the fixed line stays put.
-      var sk = dot([uu[0] - mid[0], uu[1] - mid[1]], en) / len;
+      sk = dot([uu[0] - mid[0], uu[1] - mid[1]], en) / len;
       // Zero skew is sticky. It is where the dragged edge stands square to
       // the line from the fixed side's middle: the child's sides meet at
       // right angles again. The pull reaches 6 pixels on screen.
       var A = [m0[0], m0[1], m0[2], m0[3]], Ad = [A[0] * dvec[0] + A[2] * dvec[1], A[1] * dvec[0] + A[3] * dvec[1]], Ae = [A[0] * en[0] + A[2] * en[1], A[1] * en[0] + A[3] * en[1]];
-      var ae2 = dot(Ae, Ae), square = -dot(Ad, Ae) / (len * ae2), pixels = len * Math.sqrt(ae2) * (state.editorView ? state.editorView.scale : 100);
+      var ae2 = dot(Ae, Ae), square = -ratio * dot(Ad, Ae) / (len * ae2), pixels = len * Math.sqrt(ae2) * (state.editorView ? state.editorView.scale : 100);
       if (Math.abs(sk - square) * pixels < 6) sk = square;
-      l = [1 + sk * en[0] * dn[0], sk * en[1] * dn[0], sk * en[0] * dn[1], 1 + sk * en[1] * dn[1]];
     }
+    // The map adds (ratio − 1) dn dnᵀ for the stretch and sk en dnᵀ for the skew.
+    var f = ratio - 1, l = [1 + f * dn[0] * dn[0] + sk * en[0] * dn[0], f * dn[1] * dn[0] + sk * en[1] * dn[0],
+      f * dn[0] * dn[1] + sk * en[0] * dn[1], 1 + f * dn[1] * dn[1] + sk * en[1] * dn[1]];
     return M.compose(m0, about(l, fixed));
   }
 
