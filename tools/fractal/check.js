@@ -15,7 +15,7 @@ assert.deepStrictEqual(M.apply(M.identity(), [2, 3]), [2, 3], 'identity map');
 assert.deepStrictEqual(M.apply(M.compose([2, 0, 0, 2, 1, 1], [0.5, 0, 0, 0.5, 1, 0]), [0, 0]), [3, 1], 'map composition');
 
 // The origin is each frame's centre, and y points up.
-for (const frame of ['square', 'triangle']) {
+for (const frame of M.FRAME_NAMES) {
   const corners = M.framePolygon(frame), mean = [0, 1].map(k => corners.reduce((s, p) => s + p[k], 0) / corners.length);
   close(Math.hypot(mean[0], mean[1]), 0, 1e-12, frame + ' is centred on the origin');
   assert(corners[0][1] > 0, frame + ' lists its top corner first');
@@ -55,6 +55,20 @@ close(gasket.dimension, Math.log(3) / Math.log(2), 1e-9, 'gasket dimension');
 assert.strictEqual(M.similarityDimension(examples.gasket).exact, 'log 3 / log 2', 'the gasket names log 3 / log 2');
 assert.strictEqual(gasket.overlap, false, 'the gasket has no overlap');
 close(gasket.hullArea, Math.sqrt(3) / 4, 0.01, 'the gasket hull is its triangle');
+
+// The hexaflake: seven third-size hexagons, touching only at corners.
+const hexaflake = M.analyse(examples.hexaflake, 'p1', 6);
+assert.strictEqual(hexaflake.status.name, 'Converges', 'the hexaflake converges');
+assert.strictEqual(hexaflake.exactDimension, 'log 7 / log 3', 'the hexaflake names log 7 / log 3');
+assert.strictEqual(hexaflake.overlap, false, 'the hexaflake has no overlap');
+close(hexaflake.hullArea, 3 * Math.sqrt(3) / 2, 1e-6, 'the hexaflake hull is its hexagon');
+assert.deepStrictEqual(M.FRAME_NAMES, ['square', 'triangle', 'hexagon'], 'three frame shapes');
+for (const frame of M.FRAME_NAMES) {
+  const info = M.frameInfo(frame), corners = info.corners;
+  corners.forEach((p, i) => close(Math.hypot(p[0] - corners[(i + 1) % corners.length][0], p[1] - corners[(i + 1) % corners.length][1]), 1, 1e-12, frame + ' has side 1'));
+  assert(corners.every((p, i) => { const q = corners[(i + 1) % corners.length], r = corners[(i + 2) % corners.length]; return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]) < 0; }), frame + ' runs clockwise');
+  assert.strictEqual(corners.length, frame === 'triangle' ? 3 : info.turns, frame + ' has as many corners as turns');
+}
 
 const growing = M.clone(examples.sieve);
 growing.letters[0].children = [M.child('p1', [1.1, 0, 0, 1.1, 0, 0])];
@@ -157,4 +171,4 @@ assert.strictEqual(new Set(PRESETS.map(p => p.key)).size, PRESETS.length, 'each 
 assert(PRESETS.every(p => M.status(p.rule).name === 'Converges'), 'every preset converges');
 assert.strictEqual(M.status(presets['square-cloud']).name, 'Converges', 'Square Cloud converges');
 assert.strictEqual(JSON.stringify(presets['sierpinski-sieve'].letters[0].children.map(c => c.matrix)), JSON.stringify(examples.gasket.letters[0].children.map(c => c.matrix)), 'Sierpinski Sieve is the gasket');
-console.log('Fractal model: 64 checks passed.');
+console.log('Fractal model: 72 checks passed.');

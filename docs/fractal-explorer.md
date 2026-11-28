@@ -3,8 +3,8 @@
 ## Summary
 
 The Fractal Explorer edits graph-directed iterated function systems in the
-browser. A visitor places labelled copies of a square or triangle inside a
-parent frame. The app applies those affine maps repeatedly, draws levels zero
+browser. A visitor places labelled copies of a square, triangle or hexagon
+inside a parent frame. The app applies those affine maps repeatedly, draws levels zero
 to four, and renders the limit. It also reports convergence, dimension, the
 convex hull, and likely overlap. The complete rule lives in the address.
 
@@ -16,6 +16,8 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Move, turn, scale, flip, stretch, and skew children.
 - [x] Show a grid of 2 to 12 columns and rows, and snap corners to it on request.
 - [x] Switch the frame between square and triangle, with a triangular snap grid.
+- [x] Keep each frame shape's facts in one table, and add a hexagon frame on
+      the triangular snap grid, with the Hexaflake preset.
 - [x] List the children in drawing order, reorder them by drag, and edit
       exact values in a pop-up.
 - [x] Number the parents; add, duplicate, remove and reorder them.
@@ -54,10 +56,16 @@ positive angle turns anticlockwise. So (e, f) is the child's centre, and the
 identity map is the parent itself.
 
 The editor changes the coefficients directly. The frame is one shape for the
-whole rule, `square` or `triangle`: the square of side 1 from (−1/2, −1/2) to
-(1/2, 1/2), or the upright equilateral triangle of side 1 with its centroid
-at the origin and its apex at (0, √3/3). Every parent and
-child draws in it. Frame, in Options, switches it and keeps every map, so the
+whole rule, `square`, `triangle` or `hexagon`: the square of side 1 from
+(−1/2, −1/2) to (1/2, 1/2), the upright equilateral triangle of side 1 with
+its centroid at the origin and its apex at (0, √3/3), or the regular hexagon
+of side 1 centred on the origin, with flat top and bottom edges and its side
+corners at (±1, 0). Every parent and child draws in it. `FRAMES` in the model
+holds each shape's geometry: its corners, its turns, whether Flip V is a
+symmetry, its inradius and its lattice. `FRAME_UI` in the app holds what the
+editor does with it: the mark's place, the handles, the turn knob's edge, the
+sticky angle, the partial Direction lock and what + fills. A new shape needs
+one entry in each, plus whatever its handles need that no shape has yet. Frame, in Options, switches it and keeps every map, so the
 fractal stays the same and only the outlines change; the switch is one undo
 step. A triangle's Flip V mirrors the child across its own bottom edge, so
 it lands upside down on the other side of that edge. The edge is a grid line,
@@ -85,8 +93,9 @@ frame, so they turn and flip with it. Each corner has a knob, each edge has
 a bar-shaped handle at its middle, and a turn knob with a circular arrow
 stands on a 20-pixel stalk: above the middle of a square's top edge, below
 the middle of a triangle's bottom edge. The turn knob turns the child about
-its centre. A turn holds at 0°, 90°, 180° and 270° within 4° (a triangle:
-every 60°), and at other 15° steps within 2°. The editor leaves a 24-pixel
+its centre. A turn holds at 0°, 90°, 180° and 270° within 4° (a triangle
+or a hexagon: every 60°), and at other 15° steps within 2°. A hexagon's
+stalk stands above its top edge, as a square's does. The editor leaves a 24-pixel
 inset round the frame, so the stalk stays in view.
 
 On a square, a corner drag moves that corner and holds the opposite one, so
@@ -100,6 +109,11 @@ skews it. Zero skew holds within 6 pixels: the point where the dragged edge
 stands square to the line from the fixed side, so the child's corners are
 right angles again. Shift frees the edge, so it stretches and skews at once,
 and the opposite edge still stays put.
+
+On a hexagon, a corner drag scales evenly about the opposite corner, and Alt
+scales evenly about the centre. Past the opposite corner the scale turns
+negative, a half turn. An edge drag works as on a square: the opposite edge
+is parallel and stays put, across the edge stretches, and along it skews.
 
 On a triangle the two jobs swap places. A corner drag holds the other two
 corners. Its first 4 pixels pick its job, which then holds: across the
@@ -135,8 +149,9 @@ notice.
 
 The editor always draws the grid across its canvas. Snap corners, in Options,
 decides only whether corners snap to it. The grid follows the frame: Cols by
-Rows on a square, and Per side on a triangle, which cuts each side into that
-many pieces. Each is a row of 11 buttons, 2 to 12, narrow enough to fit across Options. The triangular
+Rows on a square, and Per side on a triangle or hexagon, which cuts each side
+into that many pieces. The hexagon's lattice is the triangle's, placed so its
+centre and corners are lattice points. Each is a row of 11 buttons, 2 to 12, narrow enough to fit across Options. The triangular
 lattice has lines parallel to the triangle's three sides. `snapLattice()`
 holds each grid as families of lines, n · p = offset + k × spacing, and finds
 the nearest lattice point. The rule stores the grid as `grid.rows`,
@@ -163,9 +178,19 @@ cells outside it, up to one frame width away: nearest the frame first, then
 anticlockwise from the bottom left. A cell is free when no child covers any
 of it. A duplicate keeps its original's size.
 
+Hexagons do not tile a hexagon, so on a hexagon frame + centres a child of
+side 1/Per side on a lattice point instead, and its corners land on lattice
+points too. A point is inside when the child fits in the frame: its centre
+lies in the frame shrunk to side 1 − 1/Per side. The points fill in the same
+order, and a point whose child would overlap one already placed is skipped.
+With 2 per side, + places 3 children that meet edge to edge. With 3 per
+side, the first 7 make the hexaflake: one in the middle and one at each
+corner, touching at corners. After that, + goes outside the frame.
+
 Rotate L, Rotate R, Flip H and Flip V act inside the child's own frame. Each
 is a symmetry of the frame (a quarter turn or mirror of the square; a third
-of a turn or mirror of the triangle), so the child's outline stays exactly in
+of a turn or mirror of the triangle; a sixth of a turn or mirror of the
+hexagon), so the child's outline stays exactly in
 place, whether it is a square, a rectangle or a skewed shape. Only the number
 and underline turn or reverse inside it. Rotate R turns the number clockwise
 as seen on screen, so on a flipped child it turns the other way in the
@@ -178,15 +203,16 @@ orientation of every child of the current parent. The dice in the parent row
 does the same for every child of every parent. Each child also copies a
 parent picked at random from all the parents, so a linked system can lose
 some of its links; that is part of the roll. A click picks one of all the
-frame's orientations, 8 on a square or 6 on a triangle: a random number of
-Rotate R steps, after a Flip H half the time. Shift-click leaves out the flip,
-so it picks one of the 4 or 3 turns and a flipped child stays flipped. Each
+frame's orientations, 8 on a square, 6 on a triangle or 12 on a hexagon: a
+random number of Rotate R steps, after a Flip H half the time. Shift-click
+leaves out the flip, so it picks one of the 4, 3 or 6 turns and a flipped
+child stays flipped. Each
 child keeps its outline, as with the orientation buttons, and one Undo
 reverses the whole randomise. A roll that changes nothing rolls again. Two
 locks on each child limit the roll. The parent lock keeps the parent the
 child copies. The Direction setting has three states. Unlocked allows any of
 the frame's symmetries. Partly locked allows only Flip H and Flip V on a
-square, the 4 symmetries of a rectangle, so a stretched child keeps its long
+square or hexagon, the 4 symmetries of a rectangle, so a stretched child keeps its long
 side; Shift-click then leaves only a half turn. On a triangle, partly locked
 allows only Flip H, and Shift-click leaves the child as it is. Locked keeps
 the orientation. Option-click on a dice sets each child upright instead. Of
@@ -387,14 +413,15 @@ box count reads low for a solid shape with a rough edge (the Dragon reads
 
 ## Address and presets
 
-The Rule menu lists the 22 presets in `app/fractal/presets.js`, in file
+The Rule menu lists the 23 presets in `app/fractal/presets.js`, in file
 order: Square Cloud, Cloud, Sierpinski Sieve, Dragon, Bidragon, Snowflake 8,
 Snowflake 6, Twisted Snowflake, Triangular Holes, Triangular Fractal,
-Doughnut, Fern, Square Stretch, Girder, Bent Girder, Warp Holes, Large and
+Hexaflake, Doughnut, Fern, Square Stretch, Girder, Bent Girder, Warp Holes, Large and
 Small, Corn, Twisted, Warped, Jagged Strike and Curly Thing. The first opens by default. Each
 preset is a saved fractal from the library exports of 2026-11-28, renamed
-for the menu. It opens with its own level, colours, view and limits; a
-preset saved without some of these opens with the defaults. To change the
+for the menu, except Hexaflake, added on 2026-11-28 with the hexagon frame.
+It opens with its own level, colours, view and limits; a preset saved
+without some of these opens with the defaults. To change the
 menu, edit `presets.js`.
 
 An unedited preset uses a short hash, `#demo=<key>`, such as `#demo=fern`.
@@ -407,13 +434,15 @@ Square Cloud has three half-size copies with the top-right quarter empty.
 The bottom-right copy turns a quarter anticlockwise and the top-left copy a
 quarter clockwise. Sierpinski Sieve is the equilateral Sierpinski triangle:
 a triangle frame with a half-size copy in each corner, which reports
-`log 3 / log 2`. These two show an explanation under the readouts; the
-others show the general one.
+`log 3 / log 2`. Hexaflake has seven third-size hexagons, one in the middle
+and one at each corner, and reports `log 7 / log 3`. These three show an
+explanation under the readouts; the others show the general one.
 
-The model also keeps four example rules, which the checks build on: the
+The model also keeps five example rules, which the checks build on: the
 square sieve (three half-size upright copies, `log 3 / log 2`), the gasket,
-a linked pair with the child-count matrix `[[1,1],[1,2]]`, and a free
-placement with continuous position, angle, scale and a flip.
+a linked pair with the child-count matrix `[[1,1],[1,2]]`, a free
+placement with continuous position, angle, scale and a flip, and the
+hexaflake.
 
 ## Calculation limits
 

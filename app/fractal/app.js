@@ -163,7 +163,7 @@
 
   function gridSize(n) { return Number.isInteger(n) && n >= GRID_MIN && n <= GRID_MAX; }
   function validRule(rule) {
-    return rule && rule.version === 3 && ['square', 'triangle'].indexOf(rule.frame) >= 0 &&
+    return rule && rule.version === 3 && M.FRAME_NAMES.indexOf(rule.frame) >= 0 &&
       rule.grid && gridSize(rule.grid.rows) && gridSize(rule.grid.cols) && gridSize(rule.grid.side) &&
       Array.isArray(rule.letters) && rule.letters.length &&
       rule.letters.every(function (letter) { return typeof letter.id === 'string' && Array.isArray(letter.children) &&
@@ -316,10 +316,29 @@
   }
 
   // The snap grid, shared by every parent: Cols by Rows on a square frame,
-  // Per side on a triangle frame.
+  // Per side on a triangle or hexagon frame.
   function snapGridSize() { return state.rule.grid; }
 
-  // Every parent and child draws in one frame shape, a square or a triangle.
+  // What the editor does with each frame shape; the geometry is in
+  // M.FRAMES. One entry each:
+  //   mark: the parent number's lift above the centre and its size, and
+  //     the child letter's spot and size (y down, see drawMark).
+  //   corner, edge: the handle on each corner and on each edge (see
+  //     dragMatrix). stalkEdge: the edge the turn knob stands beyond.
+  //   sticky: the turn, in degrees, that a turn drag holds at.
+  //   part: what a partly locked Direction allows. 'rect' is the 4
+  //     symmetries of a rectangle; 'mirror' is Flip H alone.
+  //   cells: what + fills. 'rect' and 'tri' are grid cells; 'points'
+  //     centres the child on a lattice point.
+  var FRAME_UI = {
+    square: { mark: { lift: .02, size: .42, spot: [-.35, -.36], letter: .16 }, corner: 'corner', edge: 'edge', stalkEdge: 0, sticky: 90, part: 'rect', cells: 'rect' },
+    triangle: { mark: { lift: M.TRI_H / 15, size: .34, spot: [.19 * M.TRI_H - .5, M.TRI_H / 3 - .095], letter: .13 }, corner: 'vertex', edge: 'resize', stalkEdge: 1, sticky: 60, part: 'mirror', cells: 'tri' },
+    hexagon: { mark: { lift: .03, size: .62, spot: [-.43, -.64], letter: .21 }, corner: 'scale', edge: 'edge', stalkEdge: 0, sticky: 60, part: 'rect', cells: 'points' }
+  };
+  function frameUi() { return FRAME_UI[state.rule.frame] || FRAME_UI.square; }
+  function frameInfo() { return M.frameInfo(state.rule.frame); }
+
+  // Every parent and child draws in one frame shape: a square, a triangle or a hexagon.
   // The frame is only a picture of the maps, so a switch keeps every map and
   // the fractal stays the same; only the outlines change.
   function setFrame(frame) {
@@ -528,7 +547,7 @@
       }
       return gap;
     }
-    var tri = state.rule.frame === 'triangle', own = tri ? M.TRI_H / 15 : .02;
+    var own = frameUi().mark.lift;
     var scale = Math.min(1, edgeGap(hull, cx, cy) / edgeGap(frame, 0, 0));
     // drawMark centres the number at (0, own) with y up, so shift by the
     // scaled offset to land it on the centroid.
@@ -549,9 +568,9 @@
   var MARK_FONT = '"Times New Roman", Times, serif';
   function childName(index) { return index < 26 ? String.fromCharCode(65 + index) : 'Z' + (index - 25); }
   function drawMark(ctx, letterId, fill, frame, name) {
-    var tri = frame === 'triangle', text = label(letterId);
+    var mark = (FRAME_UI[frame] || FRAME_UI.square).mark, text = label(letterId);
     ctx.scale(1, -1);
-    var centre = tri ? [0, -M.TRI_H / 15] : [0, -.02], size = tri ? .34 : .42;
+    var centre = [0, -mark.lift], size = mark.size;
     ctx.fillStyle = fill; ctx.strokeStyle = fill; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.font = '600 ' + size + 'px ' + MARK_FONT;
     // Lining digits stand about 0.66 em tall, so this centres them.
@@ -562,10 +581,9 @@
     if (name) {
       // A triangle's letter sits near the bottom-left corner, along the line
       // to the centre, which clears both edges and the number.
-      var spot = tri ? [.19 * M.TRI_H - .5, M.TRI_H / 3 - .095] : [-.35, -.36];
       ctx.textBaseline = 'middle';
-      ctx.font = '700 ' + (tri ? .13 : .16) + 'px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillText(name, spot[0], spot[1]);
+      ctx.font = '700 ' + mark.letter + 'px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillText(name, mark.spot[0], mark.spot[1]);
     }
   }
 
@@ -1020,14 +1038,15 @@
   function directionOf(child) { return child.locked ? 'lock' : child.direction === 'part' || child.direction === 'lock' ? child.direction : 'all'; }
   function splitLegacyLock(child) { if (child.locked) { delete child.locked; child.lockParent = true; child.direction = 'lock'; } }
   var NEXT_DIRECTION = { all: 'part', part: 'lock', lock: 'all' };
+  // Each name and tip takes the frame shape's name.
   var DIRECTION_NAMES = {
     all: function () { return 'Any symmetry'; },
-    part: function (tri) { return tri ? 'Flip H only' : 'Rectangle symmetries'; },
+    part: function (frame) { return FRAME_UI[frame].part === 'mirror' ? 'Flip H only' : 'Rectangle symmetries'; },
     lock: function () { return 'Locked'; }
   };
   var DIRECTION_TIPS = {
-    all: function (tri) { return 'Direction unlocked: Randomise can apply any of the ' + (tri ? 6 : 8) + ' symmetries of the ' + (tri ? 'triangle' : 'square') + '.'; },
-    part: function (tri) { return tri ? 'Direction partly locked: Randomise can only flip this child left to right.' : 'Direction partly locked: Randomise can only apply the 4 symmetries of a rectangle (a half turn, Flip H, Flip V), so a stretched child keeps its long side where it is.'; },
+    all: function (frame) { return 'Direction unlocked: Randomise can apply any of the ' + 2 * M.frameInfo(frame).turns + ' symmetries of the ' + frame + '.'; },
+    part: function (frame) { return FRAME_UI[frame].part === 'mirror' ? 'Direction partly locked: Randomise can only flip this child left to right.' : 'Direction partly locked: Randomise can only apply the 4 symmetries of a rectangle (a half turn, Flip H, Flip V), so a stretched child keeps its long side where it is.'; },
     lock: function () { return 'Direction locked: Randomise keeps this child\'s orientation.'; }
   };
   function renderNumbers() {
@@ -1047,11 +1066,11 @@
       pLock.innerHTML = pOn ? LOCK_ICON : UNLOCK_ICON;
       pLock.addEventListener('click', function (event) { event.stopPropagation(); toggleParentLock(child); });
       first.appendChild(pLock); row.appendChild(first);
-      var dirCell = document.createElement('td'), dir = document.createElement('button'), mode = directionOf(child), tri = state.rule.frame === 'triangle';
+      var dirCell = document.createElement('td'), dir = document.createElement('button'), mode = directionOf(child), shape = state.rule.frame;
       dirCell.className = 'whole'; dir.type = 'button'; dir.className = 'lock-child' + (mode === 'lock' ? ' locked' : mode === 'part' ? ' partial' : '');
-      dir.setAttribute('aria-label', 'Direction of child ' + childName(index) + ': ' + DIRECTION_NAMES[mode](tri) + '. Click to change');
-      dir.title = DIRECTION_TIPS[mode](tri) + ' Click for ' + DIRECTION_NAMES[NEXT_DIRECTION[mode]](tri).toLowerCase() + '.';
-      dir.innerHTML = mode === 'lock' ? LOCK_ICON : mode === 'part' ? (tri ? MIRROR_ICON : RECT_ICON) : UNLOCK_ICON;
+      dir.setAttribute('aria-label', 'Direction of child ' + childName(index) + ': ' + DIRECTION_NAMES[mode](shape) + '. Click to change');
+      dir.title = DIRECTION_TIPS[mode](shape) + ' Click for ' + DIRECTION_NAMES[NEXT_DIRECTION[mode]](shape).toLowerCase() + '.';
+      dir.innerHTML = mode === 'lock' ? LOCK_ICON : mode === 'part' ? (frameUi().part === 'mirror' ? MIRROR_ICON : RECT_ICON) : UNLOCK_ICON;
       dir.addEventListener('click', function (event) { event.stopPropagation(); cycleDirection(child); });
       dirCell.appendChild(dir); row.appendChild(dirCell);
       var editCell = document.createElement('td'), edit = document.createElement('button');
@@ -1128,9 +1147,9 @@
     el.ruleName.textContent = state.demo ? DEMO_NAMES[state.demo] : state.savedName || 'Custom rule';
     el.demo.value = state.demo || '';
     el.depth.value = state.depth; el.depthValue.textContent = state.depth;
-    var grid = snapGridSize(), triangle = state.rule.frame === 'triangle';
+    var grid = snapGridSize(), perSide = frameInfo().lattice === 'tri';
     el.frameShape.querySelectorAll('[data-frame]').forEach(function (button) { var on = button.dataset.frame === state.rule.frame; button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    el.colsField.hidden = triangle; el.rowsField.hidden = triangle; el.sideField.hidden = !triangle;
+    el.colsField.hidden = perSide; el.rowsField.hidden = perSide; el.sideField.hidden = !perSide;
     [[el.gridRows, grid.rows], [el.gridCols, grid.cols], [el.gridSide, grid.side]].forEach(function (pair) {
       pair[0].querySelectorAll('button').forEach(function (button) {
         var n = Number(button.textContent);
@@ -1138,7 +1157,7 @@
       });
     });
     el.toggleSnap.checked = !!state.snapGrid;
-    var all = triangle ? 6 : 8, turns = triangle ? 3 : 4;
+    var turns = frameInfo().turns, all = 2 * turns;
     var how = ' Each child copies a random parent and takes a random orientation inside its outline. Click: any of the ' + all + ' orientations. Shift-click: turns only, ' + turns + ' orientations, so a flipped child stays flipped. Option-click: reset every child to its own parent, upright and unmirrored. Each child\'s parent lock and Direction limit what changes.';
     el.randomiseAll.title = 'Randomise every child of every parent (D; Shift+D turns only; Option+D resets).' + how;
     el.randomiseParent.title = 'Randomise every child of this parent.' + how;
@@ -1213,10 +1232,10 @@
   function orientMatrix(matrix, action, brush) {
     if (LOCAL_FLIP[action]) {
       var flip = LOCAL_FLIP[action];
-      if (state.rule.frame === 'triangle' && action === 'flipV' && !brush) flip = [1, 0, 0, -1, 0, -2 * M.TRI_H / 3];
+      if (!frameInfo().mirrorV && action === 'flipV' && !brush) flip = [1, 0, 0, -1, 0, -2 * M.TRI_H / 3];
       return tidy(M.compose(matrix, flip));
     }
-    var q = state.rule.frame === 'triangle' ? Math.PI * 2 / 3 : Math.PI / 2, c = Math.cos(q), s = Math.sin(q);
+    var q = Math.PI * 2 / frameInfo().turns, c = Math.cos(q), s = Math.sin(q);
     var clockwise = (action === 'rotateRight') !== (M.determinant(matrix) < 0);
     return tidy(M.compose(matrix, clockwise ? [c, -s, s, c, 0, 0] : [c, s, -s, c, 0, 0]));
   }
@@ -1224,21 +1243,21 @@
   // Randomise reorients a child inside its own outline, as the orientation
   // buttons do, so a stretched or skewed child keeps its place and shape.
   // Turns and Flip H reach every orientation: 8 on a square, 6 on a
-  // triangle. Without flips, only the 4 or 3 turns. A child whose Direction
-  // is partly locked takes only Flip H and Flip V on a square, the 4
-  // symmetries of a rectangle, so a stretched child keeps its long side;
-  // without flips that leaves a half turn. On a triangle it takes only Flip
-  // H, so without flips it stays as it is.
+  // triangle, 12 on a hexagon. Without flips, only the 4, 3 or 6 turns. A
+  // child whose Direction is partly locked takes only Flip H and Flip V on
+  // a square or hexagon, the 4 symmetries of a rectangle, so a stretched
+  // child keeps its long side; without flips that leaves a half turn. On a
+  // triangle it takes only Flip H, so without flips it stays as it is.
   function randomOrientation(matrix, flips, mode) {
-    var triangle = state.rule.frame === 'triangle';
+    var mirrorOnly = frameUi().part === 'mirror';
     if (mode === 'lock') return matrix;
     if (mode === 'part') {
-      if (triangle) return flips && Math.random() < .5 ? orientMatrix(matrix, 'flipH') : matrix;
+      if (mirrorOnly) return flips && Math.random() < .5 ? orientMatrix(matrix, 'flipH') : matrix;
       if (!flips) return Math.random() < .5 ? orientMatrix(orientMatrix(matrix, 'flipH'), 'flipV') : matrix;
       if (Math.random() < .5) matrix = orientMatrix(matrix, 'flipH');
       return Math.random() < .5 ? orientMatrix(matrix, 'flipV') : matrix;
     }
-    var turns = triangle ? 3 : 4;
+    var turns = frameInfo().turns;
     if (flips && Math.random() < .5) matrix = orientMatrix(matrix, 'flipH');
     for (var i = Math.floor(Math.random() * turns); i > 0; i--) matrix = orientMatrix(matrix, 'rotateRight');
     return matrix;
@@ -1276,13 +1295,12 @@
   // back to copying the parent it belongs to, unless its parent is locked.
   // One undo reverses it all.
   function orientations(matrix, mode) {
-    var triangle = state.rule.frame === 'triangle';
     if (mode === 'part') {
-      if (triangle) return [matrix, orientMatrix(matrix, 'flipH')];
+      if (frameUi().part === 'mirror') return [matrix, orientMatrix(matrix, 'flipH')];
       var h = orientMatrix(matrix, 'flipH');
       return [matrix, h, orientMatrix(matrix, 'flipV'), orientMatrix(h, 'flipV')];
     }
-    var out = [], turns = triangle ? 3 : 4;
+    var out = [], turns = frameInfo().turns;
     [matrix, orientMatrix(matrix, 'flipH')].forEach(function (m) {
       for (var i = 0; i < turns; i++) { out.push(m); m = orientMatrix(m, 'rotateRight'); }
     });
@@ -1328,10 +1346,11 @@
   }
 
   // One grid cell's scale, across and down: 1/Cols by 1/Rows on a square
-  // (a rectangle when they differ), 1/Per side both ways on a triangle.
+  // (a rectangle when they differ), 1/Per side both ways on a triangle or
+  // hexagon.
   function gridCellSize() {
     var grid = snapGridSize();
-    return state.rule.frame === 'triangle' ? [1 / grid.side, 1 / grid.side] : [1 / grid.cols, 1 / grid.rows];
+    return frameInfo().lattice === 'tri' ? [1 / grid.side, 1 / grid.side] : [1 / grid.cols, 1 / grid.rows];
   }
   // The grid's cells, in the order + fills them. Inside the frame: the
   // bottom row first, left to right, then the next row up. A triangle with
@@ -1342,6 +1361,14 @@
   // then anticlockwise from the bottom left. Cells reach out one frame
   // width. Each cell is { centre, turn }: the child's centre goes on the
   // cell's centre, so the preview's orientation carries over.
+  //
+  // Hexagons do not tile a hexagon, so on a hexagon frame a new child is
+  // centred on a lattice point instead. The child's corners then lie on
+  // lattice points too. A child fits inside the frame when its centre lies
+  // in the frame shrunk by one child, a hexagon of side 1 − 1/Per side.
+  // The order is the same, and firstFree skips each point whose child
+  // would overlap one already placed. With 3 per side, the first 7 make
+  // the hexaflake.
   var OUTSIDE_REACH = 1;
   function polygonDistance(point, poly) {
     if (pointInPolygon(point, poly)) return 0;
@@ -1354,13 +1381,20 @@
     return best;
   }
   function gridCells() {
-    var grid = snapGridSize(), frame = M.framePolygon(state.rule.frame), inside = [], outside = [], row, col;
+    var grid = snapGridSize(), frame = M.framePolygon(state.rule.frame), inside = [], outside = [], row, col, cells = frameUi().cells;
+    var fb = M.bounds(frame), reachOut = OUTSIDE_REACH * (fb.maxX - fb.minX);
+    // A centre in `fit` puts its child inside the frame.
+    var fit = cells === 'points' ? frame.map(function (p) { return [p[0] * (1 - 1 / grid.side), p[1] * (1 - 1 / grid.side)]; }) : frame;
     function add(centre, turn) {
-      var gap = polygonDistance(centre, frame);
-      if (gap === 0) inside.push({ centre: centre, turn: turn });
-      else if (gap <= OUTSIDE_REACH) outside.push({ centre: centre, turn: turn, gap: gap });
+      var gap = polygonDistance(centre, fit);
+      if (gap < 1e-9) inside.push({ centre: centre, turn: turn });
+      else if (gap <= reachOut) outside.push({ centre: centre, turn: turn, gap: gap });
     }
-    if (state.rule.frame !== 'triangle') {
+    if (cells === 'points') {
+      // Reach every point within 3 of the centre: the frame plus two frame radii.
+      var kp = grid.side, rp = 4 * kp + 2;
+      for (var ip = -rp; ip <= rp; ip++) for (var jp = -rp; jp <= rp; jp++) add(latticePoint(ip, jp, kp), false);
+    } else if (cells === 'rect') {
       var reachCols = Math.ceil(OUTSIDE_REACH * grid.cols), reachRows = Math.ceil(OUTSIDE_REACH * grid.rows);
       for (row = -reachRows; row < grid.rows + reachRows; row++) {
         for (col = -reachCols; col < grid.cols + reachCols; col++) add([(col + .5) / grid.cols - .5, (row + .5) / grid.rows - .5], false);
@@ -1427,9 +1461,9 @@
   function duplicateChild() {
     var source = selectedChild(); if (!source) return;
     var letter = currentLetter(), copy = M.clone(source); copy.id = newChildId();
-    var grid = snapGridSize(), tri = state.rule.frame === 'triangle', frame = M.framePolygon(state.rule.frame), fb = M.bounds(frame);
+    var grid = snapGridSize(), tri = frameInfo().lattice === 'tri', frame = M.framePolygon(state.rule.frame), fb = M.bounds(frame);
     var a = tri ? [1 / grid.side, 0] : [1 / grid.cols, 0], b = tri ? [1 / (2 * grid.side), M.TRI_H / grid.side] : [0, 1 / grid.rows];
-    var reach = 2 * (tri ? grid.side : Math.max(grid.cols, grid.rows)) + 2, places = [];
+    var reach = 2 * (tri ? grid.side : Math.max(grid.cols, grid.rows)) * Math.ceil(fb.maxX - fb.minX - 1e-9) + 2, places = [];
     for (var i = -reach; i <= reach; i++) {
       for (var j = -reach; j <= reach; j++) {
         if (!i && !j) continue;
@@ -1678,14 +1712,16 @@
   //     stretches, along it skews, and Shift frees the corner.
   //   Triangle edge: resizes evenly about the opposite corner, so per side 1
   //     grows to per side 2. Alt resizes about the centre instead.
+  //   Hexagon corner: scales evenly about the opposite corner, and Alt
+  //     scales about the centre instead.
+  //   Hexagon edge: as a square edge, with the opposite edge fixed.
   // Each handle catches the pointer a little beyond its drawn size, less on
   // a small child.
   var KNOB = 7.5, KNOB_REACH = 11, EDGE_REACH = 8, JOB_PIXELS = 4, STALK = 20;
-  function triangleFrame() { return state.rule.frame === 'triangle'; }
   // The turn knob: STALK pixels out from the middle of the child's own top
   // edge (a triangle: its bottom edge), on the line from its centre.
   function stalk(corners, centre) {
-    var i = triangleFrame() ? 1 : 0, p = corners[i], q = corners[(i + 1) % corners.length];
+    var i = frameUi().stalkEdge, p = corners[i], q = corners[(i + 1) % corners.length];
     var base = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
     var d = [base[0] - centre[0], base[1] - centre[1]], len = Math.hypot(d[0], d[1]) || 1;
     return { base: base, knob: [base[0] + d[0] / len * STALK, base[1] + d[1] / len * STALK] };
@@ -1761,7 +1797,7 @@
     var corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view);
     var centre = view.point([child.matrix[4], child.matrix[5]]);
     corners.forEach(function (p, i) { drawEdgeHandle(ctx, p, corners[(i + 1) % corners.length]); });
-    corners.forEach(function (p) { if (triangleFrame()) drawPointKnob(ctx, p); else drawScaleKnob(ctx, p, centre); });
+    corners.forEach(function (p) { if (frameUi().corner === 'vertex') drawPointKnob(ctx, p); else drawScaleKnob(ctx, p, centre); });
     var s = stalk(corners, centre);
     ctx.beginPath(); ctx.moveTo(s.base[0], s.base[1]); ctx.lineTo(s.knob[0], s.knob[1]);
     ctx.strokeStyle = css('--accent'); ctx.lineWidth = 1.4; ctx.stroke();
@@ -1770,15 +1806,15 @@
 
   function handleAt(point, child) {
     var view = state.editorView, pointer = view.point(point), corners = M.transformedFrame(state.rule.frame, child.matrix).map(view.point, view);
-    var tri = triangleFrame(), shortest = shortestEdge(corners), best = null, bestDistance = Infinity;
+    var ui = frameUi(), shortest = shortestEdge(corners), best = null, bestDistance = Infinity;
     function consider(type, index, at, reach) {
       var d = distance(pointer, at); if (d < reach && d < bestDistance) { best = { type: type, index: index }; bestDistance = d; }
     }
     var knobReach = Math.max(4, Math.min(KNOB_REACH, shortest / 3));
     // The stalk keeps the turn knob clear of the child, so it keeps its full reach.
     consider('rotate', -1, stalk(corners, view.point([child.matrix[4], child.matrix[5]])).knob, KNOB_REACH);
-    corners.forEach(function (at, i) { consider(tri ? 'vertex' : 'corner', i, at, knobReach); });
-    edgePoints(corners).forEach(function (mid, i) { consider(tri ? 'resize' : 'edge', i, mid, Math.max(3, Math.min(EDGE_REACH, shortest / 4))); });
+    corners.forEach(function (at, i) { consider(ui.corner, i, at, knobReach); });
+    edgePoints(corners).forEach(function (mid, i) { consider(ui.edge, i, mid, Math.max(3, Math.min(EDGE_REACH, shortest / 4))); });
     return best;
   }
 
@@ -1854,10 +1890,11 @@
       var from = drag.start;
       var angle = Math.atan2(point[1] - c[1], point[0] - c[0]) - Math.atan2(from[1] - c[1], from[0] - c[0]);
       // Sticky angles: a square holds at 0, 90, 180 and 270 degrees, a
-      // triangle at every 60 (upright or upside down), within 4 degrees.
+      // triangle (upright or upside down) and a hexagon at every 60,
+      // within 4 degrees.
       // Every 15 degrees holds more lightly, within 2.
       var base = Math.atan2(m0[1], m0[0]), target = base + angle;
-      var strong = (state.rule.frame === 'triangle' ? 60 : 90) * Math.PI / 180, light = Math.PI / 12;
+      var strong = frameUi().sticky * Math.PI / 180, light = Math.PI / 12;
       var held = Math.round(target / strong) * strong, near15 = Math.round(target / light) * light;
       if (Math.abs(target - held) < 4 * Math.PI / 180) angle = held - base;
       else if (Math.abs(target - near15) < 2 * Math.PI / 180) angle = near15 - base;
@@ -1882,6 +1919,16 @@
       var ax = clampScale((uc[0] - pivot[0]) / (qc[0] - pivot[0])), ay = clampScale((uc[1] - pivot[1]) / (qc[1] - pivot[1]));
       if (free) { ax = signedRatio(ax); ay = signedRatio(ay); }
       return M.compose(m0, about([ax, 0, 0, ay], pivot));
+    }
+    if (job === 'scale') {
+      // A hexagon corner scales evenly about the opposite corner (Alt: the
+      // centre). Only the part of the drag along the line from the pivot
+      // counts. Past the opposite corner the scale turns negative, a half turn.
+      var Cs = M.apply(m0, local[h.index]), Ws = alt ? c : M.apply(m0, local[(h.index + n / 2) % n]), ws = [Cs[0] - Ws[0], Cs[1] - Ws[1]];
+      var es = dot(ws, [point[0] - Ws[0], point[1] - Ws[1]]) / dot(ws, ws);
+      es = alt ? Math.max(.02, es) : clampScale(es);
+      if (free) es = signedRatio(es);
+      return M.compose(about([es, 0, 0, es], Ws), m0);
     }
     if (job === 'resize') {
       // A triangle edge resizes evenly about the opposite corner (Alt: the
@@ -1913,11 +1960,12 @@
       corners0[kv] = [base[0] + fn[0] * tall * height + fe[0] * side, base[1] + fn[1] * tall * height + fe[1] * side];
       return mapFrom(local, corners0);
     }
-    // Square edges. The fixed line is the opposite edge. d runs from it to
-    // this edge's middle, and e runs along the edge.
-    var k = h.index, uu = M.apply(invert(m0), point);
+    // Square and hexagon edges. The fixed line is the opposite edge, which
+    // is parallel. d runs from it to this edge's middle, and e runs along
+    // the edge.
+    var k = h.index, uu = M.apply(invert(m0), point), o0 = local[(k + n / 2) % n], o1 = local[(k + n / 2 + 1) % n];
     var p0 = local[k], p1 = local[(k + 1) % n], mid = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2];
-    var fixed = [(local[(k + 2) % 4][0] + local[(k + 3) % 4][0]) / 2, (local[(k + 2) % 4][1] + local[(k + 3) % 4][1]) / 2];
+    var fixed = [(o0[0] + o1[0]) / 2, (o0[1] + o1[1]) / 2];
     var dvec = [mid[0] - fixed[0], mid[1] - fixed[1]], len = Math.hypot(dvec[0], dvec[1]), dn = [dvec[0] / len, dvec[1] / len];
     var en = [p1[0] - p0[0], p1[1] - p0[1]], elen = Math.hypot(en[0], en[1]); en = [en[0] / elen, en[1] / elen];
     // Shift frees the edge: it stretches and skews at once, and the
@@ -1951,33 +1999,39 @@
   var SNAP_REACH = 6, FLAT_PIXELS = 4;
   function movingCorners(drag, n) {
     if (drag.job === 'move') return null;
-    if (drag.job === 'corner' || drag.job === 'vstretch' || drag.job === 'vskew') return [drag.handle.index];
+    if (drag.job === 'corner' || drag.job === 'scale' || drag.job === 'vstretch' || drag.job === 'vskew') return [drag.handle.index];
     return [drag.handle.index, (drag.handle.index + 1) % n];
   }
   // The snap lattice follows the frame. A square frame has Cols by Rows
   // cells, with lines through its edges. A triangle frame is cut into Per
   // side pieces along each side, so its lattice is triangular, with lines
-  // parallel to its three sides. Each family of lines is
+  // parallel to its three sides. A hexagon frame uses the same lattice,
+  // with its sides cut the same way, so its six corners and its centre
+  // are lattice points. Each family of lines is
   // n · p = offset + k × spacing, for whole k, with n a unit vector.
   //
-  // Triangle lattice point (i, j) is the apex plus i steps down the left
-  // side and j down the right, each step 1/k of a side:
-  // ((j − i) / 2k, 2h/3 − h (i + j) / k), with h the triangle's height.
-  function latticePoint(i, j, k) { return [(j - i) / (2 * k), M.TRI_H * 2 / 3 - M.TRI_H * (i + j) / k]; }
+  // Lattice point (i, j) is the top point (0, t) plus i steps down and
+  // left and j steps down and right, each step 1/k long:
+  // ((j − i) / 2k, t − h (i + j) / k), with h = √3/2. On a triangle t is
+  // 2h/3, so the top point is the apex and the steps run down its sides.
+  // On a hexagon t is 0, the centre.
+  function latticePoint(i, j, k) { var t = frameInfo().latticeTop; return [(j - i) / (2 * k), t - M.TRI_H * (i + j) / k]; }
   function snapLattice() {
     var grid = snapGridSize();
-    if (state.rule.frame !== 'triangle') return {
+    if (frameInfo().lattice !== 'tri') return {
       families: [{ n: [1, 0], spacing: 1 / grid.cols, offset: -.5 }, { n: [0, 1], spacing: 1 / grid.rows, offset: -.5 }],
       near: function (c) { return [Math.round((c[0] + .5) * grid.cols) / grid.cols - .5, Math.round((c[1] + .5) * grid.rows) / grid.rows - .5]; }
     };
-    var k = grid.side, h = M.TRI_H, step = h / k;
+    var k = grid.side, h = M.TRI_H, step = h / k, t = frameInfo().latticeTop;
     return {
-      // Rows, then lines along the left side (n · p = −h/3 + j h/k), then
-      // lines along the right side (n · p = h/3 − i h/k).
-      families: [{ n: [0, 1], spacing: step, offset: h * 2 / 3 }, { n: [h, -.5], spacing: step, offset: -h / 3 }, { n: [h, .5], spacing: step, offset: h / 3 }],
+      // Rows, then the lines down and right from the top point, then the
+      // lines down and left. Each family's offset puts a line through the
+      // top point: on a triangle, n · p = −h/3 + j h/k along its left
+      // side and h/3 − i h/k along its right.
+      families: [{ n: [0, 1], spacing: step, offset: t }, { n: [h, -.5], spacing: step, offset: -t / 2 }, { n: [h, .5], spacing: step, offset: t / 2 }],
       // The nearest lattice point is a corner of the rhombus cell around c.
       near: function (c) {
-        var s = (h * 2 / 3 - c[1]) * k / h, d = c[0] * 2 * k, i = (s - d) / 2, j = (s + d) / 2, best = null, bestD = Infinity;
+        var s = (t - c[1]) * k / h, d = c[0] * 2 * k, i = (s - d) / 2, j = (s + d) / 2, best = null, bestD = Infinity;
         [Math.floor(i), Math.ceil(i)].forEach(function (a) {
           [Math.floor(j), Math.ceil(j)].forEach(function (b) {
             var p = latticePoint(a, b, k), gap = distance(p, c);
@@ -2064,6 +2118,8 @@
     if ((drag.job === 'vstretch' || drag.job === 'vskew') && !shift) return snapVertex(drag, m, shift, alt);
     if (drag.job === 'corner' && alt !== shift)
       return snapScale(drag, m, alt ? [m[4], m[5]] : M.apply(m, M.framePolygon(state.rule.frame)[(drag.handle.index + 2) % 4]));
+    if (drag.job === 'scale')
+      return snapScale(drag, m, alt ? [m[4], m[5]] : M.apply(m, M.framePolygon(state.rule.frame)[(drag.handle.index + 3) % 6]));
     var lattice = snapLattice(), view = state.editorView, corners = M.transformedFrame(state.rule.frame, m);
     var which = movingCorners(drag, corners.length) || corners.map(function (_, i) { return i; });
     var best = null, bestDistance = SNAP_REACH;

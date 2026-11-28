@@ -439,8 +439,13 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   equal(await page.locator('[data-frame].active').textContent(), 'Triangle', 'undo brings the triangle frame back');
   await page.click('#grid-side button:text-is("4")');
   check((await page.url()).includes('#rule='), 'Per side is an edit');
+  await page.click('[data-frame="hexagon"]');
+  equal(await page.locator('[data-frame].active').textContent(), 'Hexagon', 'the frame switches to a hexagon');
+  check(await page.locator('#side-field').isVisible() && !(await page.locator('#cols-field').isVisible()), 'a hexagon frame shows Per side, not Cols and Rows');
+  equal(JSON.stringify((await mapRows()).matrices), tableBefore, 'switching to a hexagon keeps every map');
   await page.click('#toggle-menu');
   console.log('Switched frames on the gasket.');
+
 
   // With Snap corners on, + fills one grid cell: the first free one that
   // matches the preview, upright or upside down.
@@ -501,6 +506,28 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check(sizes.x + sizes.width <= popover.x + popover.width + 1, 'the 11 size buttons fit across Options');
   await page.click('#toggle-menu');
   console.log('Filled grids from the bottom left and cleared them.');
+
+  // A hexagon with 3 per side: + centres each new child on a lattice point
+  // that keeps it inside the frame, skipping points whose child would
+  // overlap one already placed. The first 7 make the hexaflake, and the
+  // 8th goes outside the frame.
+  {
+    await openExample('hexaflake');
+    equal(await page.locator('#dimension').textContent(), 'log 7 / log 3', 'the hexaflake is log 7 / log 3');
+    await page.click('#add-letter');
+    for (let i = 0; i < 8; i++) await page.click('#add-child');
+    const hex = await centres(), h3 = Math.round(2 * Math.sqrt(3) / 6 * 1000) / 1000;
+    equal(hex.slice(0, 7).join(' '), ['-0.333,-' + h3, '0.333,-' + h3, '-0.667,0', '0,0', '0.667,0', '-0.333,' + h3, '0.333,' + h3].join(' '),
+      '+ fills a hexagon from the bottom left with the hexaflake');
+    check(Math.hypot(...hex[7].split(',').map(Number)) > 0.9, 'with the hexagon full, + goes outside it: ' + hex[7]);
+    equal((await mapRows()).matrices[0][0], 1 / 3, 'a new hexagon child is 1/Per side in size');
+    // Rotate R turns a hexagon child a sixth of a turn, inside its outline.
+    await page.locator('#numbers-body tr').first().click();
+    await page.click('#rotate-right');
+    const turned = (await mapRows()).matrices[0];
+    check(Math.abs(turned[0] - 1 / 6) < 1e-9 && Math.abs(turned[1] + Math.sqrt(3) / 6) < 1e-9, 'Rotate R turns a hexagon child 60 degrees clockwise: ' + turned.join(', '));
+  }
+  console.log('Filled a hexagon with the hexaflake.');
 
   // Each child has a parent lock and a three-state Direction. With both
   // locked, Randomise leaves the child as it was. Partly locked on a square
@@ -769,6 +796,59 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
     await triPage.close();
   }
   console.log('Resized, stretched, skewed and turned a triangle child.');
+
+  // Hexagon handles, with Snap corners on and 2 per side. Child A has side
+  // 1/2 and sits at the centre: corners (±1/4, ±h/2) and (±1/2, 0), with
+  // h = √3/2.
+  {
+    const h = Math.sqrt(3) / 2;
+    const rule = { version: 3, frame: 'hexagon', grid: { rows: 4, cols: 4, side: 2 }, letters: [{ id: 'p1', children: [{ id: 'a', letter: 'p1', matrix: [0.5, 0, 0, 0.5, 0, 0] }] }] };
+    const text = Buffer.from(encodeURIComponent(JSON.stringify({ rule, current: 'p1', depth: 3, snap: true })).replace(/%([0-9A-F]{2})/g, (_, p) => String.fromCharCode(parseInt(p, 16))), 'binary')
+      .toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const hexPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await hexPage.goto(url + '#rule=' + text, { waitUntil: 'domcontentloaded' });
+    await hexPage.waitForSelector('#status-badge');
+    // The editor fits the parent hexagon, 2 by 2h, plus an 8% margin of its
+    // width on each side, inside a 24-pixel inset, centred on the origin.
+    const box = await hexPage.locator('#rule-editor').boundingBox(), scale = Math.min((box.width - 48) / 2.32, (box.height - 48) / (2 * h + 0.32));
+    const px = p => [box.x + box.width / 2 + p[0] * scale, box.y + box.height / 2 - p[1] * scale];
+    const matrix = () => hexPage.evaluate(() => {
+      let t = location.hash.slice(6).replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '=';
+      const bin = atob(t); let e = ''; for (let i = 0; i < bin.length; i++) e += '%' + bin.charCodeAt(i).toString(16).padStart(2, '0');
+      return JSON.parse(decodeURIComponent(e)).rule.letters[0].children[0].matrix;
+    });
+    const corners = m => [[-0.5, h], [0.5, h], [1, 0], [0.5, -h], [-0.5, -h], [-1, 0]].map(([x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]);
+    const near = (p, q) => Math.abs(p[0] - q[0]) < 1e-9 && Math.abs(p[1] - q[1]) < 1e-9;
+    const show = m => corners(m).map(p => p.map(v => v.toFixed(4)).join(',')).join(' ');
+    async function hexDrag(from, to, wobble, options) {
+      const a = px(from), b = px(to), o = (options && options.offset) || [0, 0];
+      await hexPage.mouse.move(a[0] + o[0], a[1] + o[1]);
+      await hexPage.mouse.down();
+      await hexPage.mouse.move(b[0] + wobble[0], b[1] + wobble[1], { steps: 12 }); await hexPage.mouse.up();
+      await hexPage.waitForTimeout(50);
+      return matrix();
+    }
+    await hexPage.mouse.click(...px([0, 0]));
+    // The right corner scales evenly about the left one, onto a grid point.
+    let m = await hexDrag([0.5, 0], [1, 0], [2, 3]);
+    check(near(corners(m)[2], [1, 0]) && near(corners(m)[5], [-0.5, 0]) && Math.abs(m[0] - 0.75) < 1e-9 && Math.abs(m[1]) < 1e-9 && Math.abs(m[2]) < 1e-9,
+      'a hexagon corner scales evenly about the opposite corner: ' + show(m));
+    await hexPage.click('#undo');
+    // The top edge stretches with the bottom edge fixed, onto the grid.
+    m = await hexDrag([0, h / 2], [0, 3 * h / 2], [1, -2]);
+    const c = corners(m);
+    check(near(c[0], [-0.25, 3 * h / 2]) && near(c[1], [0.25, 3 * h / 2]) && near(c[3], [0.25, -h / 2]) && near(c[4], [-0.25, -h / 2]),
+      'a hexagon edge stretches with the opposite edge fixed: ' + show(m));
+    await hexPage.click('#undo');
+    // The turn knob stands 20 pixels above the top edge. A drag from there
+    // round 62 degrees anticlockwise holds at 60.
+    const end = [0.6 * Math.cos(152 * Math.PI / 180), 0.6 * Math.sin(152 * Math.PI / 180)];
+    m = await hexDrag([0, h / 2], end, [0, 0], { offset: [0, -20] });
+    check(Math.abs(m[0] - 0.25) < 1e-9 && Math.abs(m[1] - 0.25 * Math.sqrt(3)) < 1e-9 && Math.abs(m[4]) < 1e-9 && Math.abs(m[5]) < 1e-9,
+      'the stalk above a hexagon turns it and holds at 60 degrees: ' + m.join(', '));
+    await hexPage.close();
+  }
+  console.log('Scaled, stretched and turned a hexagon child.');
 
   const restored = await browser.newPage({ viewport: { width: 900, height: 700 } });
   restored.setDefaultTimeout(8000);

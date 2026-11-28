@@ -6,11 +6,31 @@
   'use strict';
 
   // Coordinates: the origin is the frame's centre, x points right and y
-  // points up, and a positive angle turns anticlockwise. Both frames have
+  // points up, and a positive angle turns anticlockwise. Every frame has
   // side 1. The square runs from (−1/2, −1/2) to (1/2, 1/2). The triangle's
-  // centroid is the origin, so its apex is 2/3 of its height above it.
+  // centroid is the origin, so its apex is 2/3 of its height above it. The
+  // hexagon has flat top and bottom edges, and its corners at left and
+  // right lie at (±1, 0).
   var EPS = 1e-9;
   var TRI_H = Math.sqrt(3) / 2;
+
+  // The frame shapes, one entry each. Every other part of the app reads a
+  // shape's facts from here.
+  //   corners: in a fixed order, clockwise from the top. The square and the
+  //     hexagon start at the top left, the triangle at its apex.
+  //   turns: how many turns map the frame onto itself.
+  //   mirrorV: true when a top-to-bottom mirror maps the frame onto itself.
+  //   inradius: the distance from the centre to each edge.
+  //   lattice: the snap grid. 'rect' is Cols by Rows; 'tri' is a triangular
+  //     lattice with Per side pieces along each side of length 1, and
+  //     latticeTop is the height of its lattice point on the centre line.
+  var FRAMES = {
+    square: { corners: [[-0.5, 0.5], [0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]], turns: 4, mirrorV: true, inradius: 0.5, lattice: 'rect' },
+    triangle: { corners: [[0, TRI_H * 2 / 3], [0.5, -TRI_H / 3], [-0.5, -TRI_H / 3]], turns: 3, mirrorV: false, inradius: TRI_H / 3, lattice: 'tri', latticeTop: TRI_H * 2 / 3 },
+    hexagon: { corners: [[-0.5, TRI_H], [0.5, TRI_H], [1, 0], [0.5, -TRI_H], [-0.5, -TRI_H], [-1, 0]], turns: 6, mirrorV: true, inradius: TRI_H, lattice: 'tri', latticeTop: 0 }
+  };
+  var FRAME_NAMES = Object.keys(FRAMES);
+  function frameInfo(frame) { return FRAMES[frame] || FRAMES.square; }
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function identity() { return [1, 0, 0, 1, 0, 0]; }
@@ -46,13 +66,9 @@
     return Math.abs(s[0] - s[1]) <= (tolerance || 1e-7) * Math.max(1, s[0]);
   }
 
-  // Corners in a fixed order, clockwise from the top: the square's top
-  // left, top right, bottom right and bottom left; the triangle's apex,
-  // bottom right and bottom left.
+  // The frame's corners, as fresh points the caller may change.
   function framePolygon(frame) {
-    return frame === 'triangle'
-      ? [[0, TRI_H * 2 / 3], [0.5, -TRI_H / 3], [-0.5, -TRI_H / 3]]
-      : [[-0.5, 0.5], [0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]];
+    return frameInfo(frame).corners.map(function (p) { return p.slice(); });
   }
 
   function transformedFrame(frame, matrix) {
@@ -483,7 +499,7 @@
   // two rounds running. hulls.steps says how many rounds ran.
   function attractorHulls(rule, iterations, maxMs, maxCorners) {
     var hulls = {}, started = Date.now(), discs = coverDiscs(rule), frame = framePolygon(rule.frame);
-    var inradius = rule.frame === 'triangle' ? TRI_H / 3 : 0.5;
+    var inradius = frameInfo(rule.frame).inradius;
     rule.letters.forEach(function (letter) {
       var grow = discs ? discs[letter.id].radius / inradius : 10;
       hulls[letter.id] = frame.map(function (p) { return [p[0] * grow, p[1] * grow]; });
@@ -610,7 +626,13 @@
       child('p1', [0.36, 0.18, -0.18, 0.36, 0.33, -0.02]),
       child('p1', [-0.25, -0.08, -0.08, 0.25, -0.205, -0.375])
     ] }]);
-    return { sieve: sieve, gasket: gasket, linked: linked, free: free };
+    // The hexaflake: a third-size copy in the middle and one at each
+    // corner, centred two thirds of the way out, so each corner copy
+    // touches the middle one at a corner.
+    var hexaflake = baseRule('hexagon', [{ id: 'p1', children: [child('p1', placed(1 / 3, 0, 0, 0))].concat(
+      [0, 1, 2, 3, 4, 5].map(function (k) { return child('p1', placed(1 / 3, 0, 2 / 3 * Math.cos(k * Math.PI / 3), 2 / 3 * Math.sin(k * Math.PI / 3))); })) }]);
+    hexaflake.grid.side = 3;
+    return { sieve: sieve, gasket: gasket, linked: linked, free: free, hexaflake: hexaflake };
   }
 
   // Parents carry internal ids, p1, p2 and so on. A parent's number on screen
@@ -620,7 +642,7 @@
   }
 
   return {
-    EPS: EPS, TRI_H: TRI_H, clone: clone, identity: identity,
+    EPS: EPS, TRI_H: TRI_H, FRAMES: FRAMES, FRAME_NAMES: FRAME_NAMES, frameInfo: frameInfo, clone: clone, identity: identity,
     compose: compose, apply: apply, determinant: determinant, singularValues: singularValues,
     isSimilarity: isSimilarity, framePolygon: framePolygon, transformedFrame: transformedFrame,
     polygonArea: polygonArea, convexHull: convexHull, simplifyHull: simplifyHull, intersectionArea: intersectionArea,
