@@ -410,6 +410,7 @@
   // With options.shapes, a copy draws as its parent's hull instead of its
   // frame, where that parent has one. The number stays in the frame's place.
   // options.style picks the fill, as above.
+  var PATH_POINTS = 500000;
   function drawBatch(ctx, items, view, options) {
     var frame = M.framePolygon(state.rule.frame), shapes = options.shapes, groups = [], byKey = {}, marks = [];
     var clip = options.clip, threshold = options.letterThreshold || 10, style = STYLES.indexOf(options.style) >= 0 ? options.style : 'solid', xs = [], ys = [];
@@ -439,7 +440,13 @@
       var alpha = Math.min(1, options.alphaFor ? options.alphaFor(item) : (options.alpha == null ? 1 : options.alpha)), key = colour + alpha;
       var group = byKey[key];
       if (!group) { group = byKey[key] = { colour: colour, alpha: alpha, levels: {} }; groups.push(group); }
-      var target = group.levels[level] || (group.levels[level] = new Path2D());
+      // Chrome silently drops a frame holding a path of about 3 million
+      // points, so each group and level starts a new path every
+      // PATH_POINTS points.
+      var paths = group.levels[level] || (group.levels[level] = []), last = paths[paths.length - 1];
+      if (!last || last.points + n + 1 > PATH_POINTS) paths.push(last = { path: new Path2D(), points: 0 });
+      last.points += n + 1;
+      var target = last.path;
       // Each outline ends with a line back to its start. Path2D's closePath
       // slows as the path grows, so it is not used.
       if (area < 0) { target.moveTo(xs[0], ys[0]); for (k = 1; k < n; k++) target.lineTo(xs[k], ys[k]); target.lineTo(xs[0], ys[0]); }
@@ -455,9 +462,10 @@
     groups.forEach(function (group) {
       ctx.strokeStyle = group.colour; ctx.fillStyle = group.colour;
       Object.keys(group.levels).map(Number).sort(function (a, b) { return a - b; }).forEach(function (level) {
-        var path = group.levels[level];
-        ctx.globalAlpha = group.alpha * level; ctx.fill(path);
-        ctx.globalAlpha = group.alpha; ctx.stroke(path);
+        group.levels[level].forEach(function (chunk) {
+          ctx.globalAlpha = group.alpha * level; ctx.fill(chunk.path);
+          ctx.globalAlpha = group.alpha; ctx.stroke(chunk.path);
+        });
       });
     });
     ctx.restore();
