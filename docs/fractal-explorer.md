@@ -188,8 +188,15 @@ the frame's symmetries. Partly locked allows only Flip H and Flip V on a
 square, the 4 symmetries of a rectangle, so a stretched child keeps its long
 side; Shift-click then leaves only a half turn. On a triangle, partly locked
 allows only Flip H, and Shift-click leaves the child as it is. Locked keeps
-the orientation. A dice is greyed out when every child it would roll has
-both locks set. Each dice says all this in its tooltip. A duplicate child keeps its original's size and orientation
+the orientation. Option-click on a dice sets each child upright instead. Of
+the orientations the child may take inside its outline, it picks one that is
+not mirrored and whose turn, once any stretch or skew is set aside, is
+nearest to none. A child placed at an angle keeps that angle, since turning
+it would move its outline. A partly locked Direction limits the choice in
+the same way, and a locked Direction leaves the orientation alone. Each
+child also goes back to copying the parent it belongs to, unless its parent
+lock is set. A dice is
+greyed out when every child it would roll has both locks set. Each dice says all this in its tooltip. A duplicate child keeps its original's size and orientation
 and moves by whole grid steps. It takes the free place nearest its original
 that lies wholly inside the frame; with none free, the free place nearest the
 frame's edge, then nearest its original. A duplicated parent goes after the
@@ -453,14 +460,17 @@ colour; and camera. The views draw the parent selected in the parent row.
 Keys: 1 to 9, and 0 for 10, set a child's parent; Shift with a digit selects
 that parent. R and T rotate left and right, H and V flip, Backspace or Delete
 removes the last thing clicked (a child or a parent), Shift+Backspace
-removes every child of the current parent, N adds a child, Cmd+D or Ctrl+D
-duplicates, and Escape deselects.
+removes every child of the current parent, N adds a child, P adds a
+parent, Cmd+D or Ctrl+D duplicates, and Escape deselects. D rolls the dice
+for every parent, Shift+D rolls turns only, and Option+D resets every child
+to its own parent, upright.
 
 Saved fractals use the browser key `fractal-library` and files with
 `{ format: "fractal-explorer", version: 3, fractals: [...] }`. Each entry
 holds `name`, `savedAt`, `rule`, `current`, `level` and `colourMode`, then
 the view settings `snap`, `hull`, `shape`, `numbers`, `style` and `limits`. The view
-settings and `locked` are optional, so files saved before them still load
+settings and the locks (`lockParent`, `direction`, and the earlier
+`locked`) are optional, so files saved before them still load
 and the version stays 3. Import reads every fractal in a file, so it also
 takes an Export all file.
 

@@ -56,7 +56,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
       }
       return ['⠿', String.fromCharCode(65 + index), parent].concat(values);
     });
-    return { affine, rows, lockParent: letter.children.map(c => !!c.lockParent), direction: letter.children.map(c => c.direction || 'all'), frame: rule.frame, matrices: letter.children.map(c => c.matrix) };
+    return { affine, rows, own: letter.children.map(c => c.letter === current), lockParent: letter.children.map(c => !!c.lockParent), direction: letter.children.map(c => c.direction || 'all'), frame: rule.frame, matrices: letter.children.map(c => c.matrix) };
   });
   const rowText = async index => { const all = (await mapRows()).rows; return all[index < 0 ? all.length + index : index].join(''); };
   const firstRow = () => rowText(0);
@@ -509,6 +509,24 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
     lockTestParents.add(now.rows[0][2]);
   }
   check(lockTestParents.size > 1, 'an unlocked parent still changes under Randomise');
+  // Option-click on a dice sets every child upright: unmirrored, no turn.
+  for (let i = 0; i < 3; i++) await page.click('#randomise-all');
+  await page.click('#randomise-all', { modifiers: ['Alt'] });
+  for (const m of (await mapRows()).matrices) check(m[0] > 0 && m[3] > 0 && Math.abs(m[1]) < 1e-9 && Math.abs(m[2]) < 1e-9, 'Option-click sets each child upright: ' + m.join(','));
+  check((await mapRows()).own.every(Boolean), 'Option-click points each child back at its own parent');
+  check((await page.locator('#randomise-all').getAttribute('title')).includes('Option-click'), 'the dice tooltip mentions Option-click');
+  await page.locator('#rule-editor').click({ position: { x: 5, y: 5 } }).catch(() => {});
+  await page.keyboard.press('Escape');
+  const tabsBefore = await tabs();
+  await page.keyboard.press('p');
+  equal(await tabs(), tabsBefore + 1, 'P adds a parent');
+  await page.keyboard.press('Meta+z');
+  equal(await tabs(), tabsBefore, 'one undo removes the added parent');
+  const beforeD = JSON.stringify((await mapRows()).matrices) + JSON.stringify((await mapRows()).rows.map(r => r[2]));
+  await page.keyboard.press('d');
+  check(JSON.stringify((await mapRows()).matrices) + JSON.stringify((await mapRows()).rows.map(r => r[2])) !== beforeD, 'D rolls the dice for every parent');
+  await page.keyboard.press('Alt+d');
+  check((await mapRows()).own.every(Boolean), 'Option+D resets every child to its own parent');
   console.log('Locked a child\'s parent and direction against Randomise.');
 
   // Shape and Numbers: Hull and Hide by default. They travel with the

@@ -1112,8 +1112,8 @@
     });
     el.toggleSnap.checked = !!state.snapGrid;
     var all = triangle ? 6 : 8, turns = triangle ? 3 : 4;
-    var how = ' Each child copies a random parent and takes a random orientation inside its outline. Click: any of the ' + all + ' orientations. Shift-click: turns only, ' + turns + ' orientations, so a flipped child stays flipped. Each child\'s parent lock and Direction limit what changes.';
-    el.randomiseAll.title = 'Randomise every child of every parent.' + how;
+    var how = ' Each child copies a random parent and takes a random orientation inside its outline. Click: any of the ' + all + ' orientations. Shift-click: turns only, ' + turns + ' orientations, so a flipped child stays flipped. Option-click: reset every child to its own parent, upright and unmirrored. Each child\'s parent lock and Direction limit what changes.';
+    el.randomiseAll.title = 'Randomise every child of every parent (D; Shift+D turns only; Option+D resets).' + how;
     el.randomiseParent.title = 'Randomise every child of this parent.' + how;
     el.randomiseAll.disabled = !unlocked(allChildren()).length; el.randomiseParent.disabled = !unlocked(currentLetter().children).length;
     el.colourMode.querySelectorAll('[data-colour]').forEach(function (button) { var on = button.dataset.colour === colourMode(); button.classList.toggle('active', on); button.setAttribute('aria-pressed', on ? 'true' : 'false'); });
@@ -1237,6 +1237,46 @@
         markEdited(); commit(); return;
       }
     }
+  }
+
+  // Option-click on a dice sets each child upright. Of the orientations the
+  // child may take inside its outline, it picks one that is not mirrored
+  // and whose turn, once any stretch or skew is set aside, is nearest to
+  // none. A square or stretched child then reads upright; a child placed
+  // at an angle keeps that angle, since turning it would move its outline.
+  // A partly locked Direction limits the choice as it limits Randomise, and
+  // a locked Direction leaves the orientation alone. Each child also goes
+  // back to copying the parent it belongs to, unless its parent is locked.
+  // One undo reverses it all.
+  function orientations(matrix, mode) {
+    var triangle = state.rule.frame === 'triangle';
+    if (mode === 'part') {
+      if (triangle) return [matrix, orientMatrix(matrix, 'flipH')];
+      var h = orientMatrix(matrix, 'flipH');
+      return [matrix, h, orientMatrix(matrix, 'flipV'), orientMatrix(h, 'flipV')];
+    }
+    var out = [], turns = triangle ? 3 : 4;
+    [matrix, orientMatrix(matrix, 'flipH')].forEach(function (m) {
+      for (var i = 0; i < turns; i++) { out.push(m); m = orientMatrix(m, 'rotateRight'); }
+    });
+    return out;
+  }
+  function tilt(m) {
+    if (M.determinant(m) < 0) return Infinity;
+    return Math.abs(Math.atan2(m[1] - m[2], m[0] + m[3]));
+  }
+  function upright(letters) {
+    var changed = false;
+    letters.forEach(function (letter) {
+      letter.children.forEach(function (child) {
+        if (!parentLocked(child) && child.letter !== letter.id) { child.letter = letter.id; changed = true; }
+        var mode = directionOf(child); if (mode === 'lock') return;
+        var best = child.matrix, bestTilt = tilt(best);
+        orientations(child.matrix, mode).forEach(function (m) { var t = tilt(m); if (t < bestTilt - 1e-9) { best = m; bestTilt = t; } });
+        if (best !== child.matrix && best.join() !== child.matrix.join()) { child.matrix = best; changed = true; }
+      });
+    });
+    if (changed) { markEdited(); commit(); }
   }
 
   // The locks are part of the rule, so they save with the fractal and each
@@ -2250,8 +2290,8 @@
     el.duplicateChild.title = 'Duplicate (' + modKey() + 'D)';
     el.duplicateChild.addEventListener('click', function () { state.focus = 'child'; duplicateChild(); });
     el.removeChild.addEventListener('click', function (event) { state.focus = 'child'; if (event.shiftKey) removeAllChildren(); else removeSelected(); });
-    el.randomiseParent.addEventListener('click', function (event) { randomise([currentLetter()], !event.shiftKey); });
-    el.randomiseAll.addEventListener('click', function (event) { randomise(state.rule.letters, !event.shiftKey); });
+    el.randomiseParent.addEventListener('click', function (event) { if (event.altKey) upright([currentLetter()]); else randomise([currentLetter()], !event.shiftKey); });
+    el.randomiseAll.addEventListener('click', function (event) { if (event.altKey) upright(state.rule.letters); else randomise(state.rule.letters, !event.shiftKey); });
     el.ruleEditor.addEventListener('pointerdown', startEditorPointer); el.ruleEditor.addEventListener('pointermove', moveEditorPointer); el.ruleEditor.addEventListener('pointerup', endEditorPointer); el.ruleEditor.addEventListener('pointercancel', endEditorPointer);
     el.limit.addEventListener('pointerdown', startMainPointer); el.limit.addEventListener('pointermove', moveMainPointer); el.limit.addEventListener('pointerup', endMainPointer); el.limit.addEventListener('pointercancel', endMainPointer);
     el.limit.addEventListener('wheel', function (event) { var rect = el.limit.getBoundingClientRect(); zoom(Math.exp(-event.deltaY * .001), event.clientX - rect.left - rect.width / 2, event.clientY - rect.top - rect.height / 2); event.preventDefault(); }, { passive: false });
@@ -2262,7 +2302,8 @@
     el.fullscreen.addEventListener('click', function () { var doc = document, target = document.documentElement; var request = target.requestFullscreen || target.webkitRequestFullscreen; if (request) Promise.resolve(request.call(target)).catch(function () {}); el.fullscreen.blur(); });
     // Keys. Digits 1 to 9 and 0 (for 10) set a child's parent; Shift with a
     // digit shows that parent. R and T rotate left and right, H and V flip,
-    // Backspace or Delete removes, Cmd+D duplicates, Escape deselects.
+    // Backspace or Delete removes, Cmd+D duplicates, Escape deselects. N adds
+    // a child, P adds a parent, and D rolls the dice for every parent.
     document.addEventListener('keydown', function (event) {
       // Cmd+Z or Ctrl+Z undoes; adding Shift, or Ctrl+Y, redoes. A text box
       // keeps its own undo while it has focus.
@@ -2276,6 +2317,14 @@
       }
       if (typing) return;
       if (mod && !event.altKey && !event.shiftKey && key === 'd') { event.preventDefault(); duplicateFocused(); return; }
+      // D rolls the dice for every parent, as a click on the top dice does:
+      // Shift+D turns only, Option+D resets. Option changes the typed
+      // letter on a Mac, so D is read from the key's place.
+      if (!mod && event.code === 'KeyD') {
+        event.preventDefault();
+        if (event.altKey) upright(state.rule.letters); else randomise(state.rule.letters, !event.shiftKey);
+        return;
+      }
       if (mod || event.altKey) return;
       var digit = /^(?:Digit|Numpad)([0-9])$/.exec(event.code || '');
       if (digit) {
@@ -2287,6 +2336,7 @@
       if (event.shiftKey) return;
       if (key === 'escape') { if (state.selectedId) { state.selectedId = null; syncControls(); renderEditor(); } return; }
       if (key === 'n') { event.preventDefault(); addFreeChild(); return; }
+      if (key === 'p') { event.preventDefault(); addLetter(); return; }
       var action = { r: 'rotateLeft', t: 'rotateRight', h: 'flipH', v: 'flipV' }[key];
       if (action) { event.preventDefault(); orient(action); }
     });
