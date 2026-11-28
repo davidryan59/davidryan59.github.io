@@ -757,11 +757,24 @@
     });
   }
 
+  // x and y place the child's centre against the parent's centre, so (0, 0)
+  // is the middle cell of a 3 by 3 square, or the upside-down middle cell of
+  // a triangle. The stored map is unchanged: only the table and the pop-up
+  // read and write the position this way.
+  function centreOffset(m) {
+    var c = frameCentre(), p = M.apply(m, c);
+    return [p[0] - c[0], p[1] - c[1]];
+  }
+  function matrixAtOffset(linear, x, y) {
+    var c = frameCentre();
+    return [linear[0], linear[1], linear[2], linear[3],
+      c[0] + x - (linear[0] * c[0] + linear[2] * c[1]), c[1] + y - (linear[1] * c[0] + linear[3] * c[1])];
+  }
   function childValues(child) {
-    var m = child.matrix;
-    if (affineTable()) return [m[0], m[1], m[2], m[3], m[4], m[5]];
+    var m = child.matrix, at = centreOffset(m);
+    if (affineTable()) return [m[0], m[1], m[2], m[3], at[0], at[1]];
     var sv = M.singularValues(m), angle = Math.atan2(m[1], m[0]) * 180 / Math.PI;
-    return [m[4], m[5], (sv[0] + sv[1]) / 2, angle, M.determinant(m) < 0 ? 1 : 0];
+    return [at[0], at[1], (sv[0] + sv[1]) / 2, angle, M.determinant(m) < 0 ? 1 : 0];
   }
 
   // The table lists x, y, scale, angle and flip while every child of this
@@ -844,11 +857,11 @@
       values[Number(input.dataset.index)] = value;
     });
     if (bad) return false;
-    if (affineTable()) child.matrix = values.slice(0, 6);
+    if (affineTable()) child.matrix = tidy(matrixAtOffset(values, values[4], values[5]));
     else {
       var x = values[0], y = values[1], scale = Math.max(.001, Math.abs(values[2])), angle = values[3] * Math.PI / 180, flip = !!values[4];
-      var rotation = [scale * Math.cos(angle), scale * Math.sin(angle), -scale * Math.sin(angle), scale * Math.cos(angle), x, y];
-      child.matrix = tidy(flip ? M.compose(rotation, [-1, 0, 0, 1, 1, 0]) : rotation);
+      var rotation = [scale * Math.cos(angle), scale * Math.sin(angle), -scale * Math.sin(angle), scale * Math.cos(angle), 0, 0];
+      child.matrix = tidy(matrixAtOffset(flip ? M.compose(rotation, [-1, 0, 0, 1, 1, 0]) : rotation, x, y));
     }
     markEdited(); commit(); return true;
   }

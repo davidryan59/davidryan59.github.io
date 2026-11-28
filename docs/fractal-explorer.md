@@ -153,7 +153,12 @@ the back. Its grip reorders by drag. The pencil opens a pop-up
 that accepts decimals and the forms `1/3`, `sqrt(2)/2`, and `√2/2`, and
 applies them on OK as one undo step. The list shows x, y, scale, angle and
 flip while every child of the parent is a similarity, and the six affine
-values once one is stretched or skewed. Real values show three decimals,
+values once one is stretched or skewed. In both, x and y place the child's
+centre against the parent's centre, in frame widths with y down: the middle
+cell of a 3 by 3 square is (0, 0), and so is the upside-down middle cell of
+a triangle. The centre of a triangle is its centroid. The stored map is
+unchanged; only the table and the pop-up convert, so a frame switch keeps
+every map and changes the x and y shown. Real values show three decimals,
 0.000 included, right-aligned in tabular figures so the points line up.
 Names, parent numbers and whole numbers are centred.
 
