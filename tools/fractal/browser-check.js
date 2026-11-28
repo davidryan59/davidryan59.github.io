@@ -36,7 +36,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   const mapRows = () => page.evaluate(() => {
     const M = window.FractalModel, hash = location.hash.slice(1);
     let rule, current;
-    if (hash.startsWith('demo=')) { rule = M.demos()[hash.slice(5)]; current = rule.letters[0].id; }
+    if (hash.startsWith('demo=')) { const preset = window.FractalPresets.find(p => p.key === hash.slice(5)); rule = preset.rule; current = preset.current || rule.letters[0].id; }
     else {
       let text = hash.slice(5).replace(/-/g, '+').replace(/_/g, '/'); while (text.length % 4) text += '=';
       const binary = atob(text); let escaped = '';
@@ -72,9 +72,34 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
     return [box.x + box.width / 2 + p[0] * scale, box.y + box.height / 2 - p[1] * scale];
   }
 
+  // The Rule menu holds the presets. The checks below build on the four
+  // example rules in the model, opened by address with default settings.
+  const M = require('../../app/fractal/model.js');
+  async function openExample(name) {
+    const text = Buffer.from(JSON.stringify({ rule: M.examples()[name] }), 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    await page.goto('about:blank');
+    await page.goto(url + '#rule=' + text, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#status-badge');
+    await page.waitForTimeout(100);
+  }
+
   await page.goto(url, { waitUntil: 'domcontentloaded' });
-  console.log('Opened default demo.');
   await page.waitForSelector('#status-badge');
+  equal((await page.locator('#demo option').allTextContents()).join('|'), require('../../app/fractal/presets.js').map(p => p.name).concat('Custom rule').join('|'), 'the Rule menu lists every preset in order, then Custom rule');
+  await page.selectOption('#demo', 'fern');
+  equal(await page.locator('#rule-name').textContent(), 'Fern', 'the menu opens Fern');
+  check(page.url().endsWith('#demo=fern'), 'Fern keeps its short address');
+  await page.selectOption('#demo', 'square-cloud');
+  equal(await page.locator('#rule-name').textContent(), 'Square Cloud', 'Square Cloud opens by default');
+  equal(await page.locator('#depth-value').textContent(), '32', 'Square Cloud opens at level 32');
+  check(page.url().endsWith('#demo=square-cloud'), 'an untouched preset keeps its short address');
+  await page.selectOption('#demo', 'sierpinski-sieve');
+  equal(await page.locator('#rule-name').textContent(), 'Sierpinski Sieve', 'the menu opens Sierpinski Sieve');
+  equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'Sierpinski Sieve formula');
+  check(page.url().endsWith('#demo=sierpinski-sieve'), 'Sierpinski Sieve keeps its short address');
+  console.log('Opened the presets.');
+  await openExample('sieve');
+  console.log('Opened the sieve example.');
   equal(await page.locator('#status-badge').textContent(), 'Converges', 'Sieve converges');
   equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'Sieve formula');
   check(/^\d\.\d\d$/.test(await page.locator('#box-dimension').textContent()), 'box count shows two decimals');
@@ -317,8 +342,8 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check((await firstRow()).includes('0.250'), 'OK applies the scale');
   console.log('Edited children by key, drag and pop-up.');
 
-  await page.selectOption('#demo', 'linked');
-  console.log('Opened linked demo.');
+  await openExample('linked');
+  console.log('Opened the linked example.');
   await page.waitForTimeout(100);
   equal(await tabs(), 2, 'linked demo has two parents');
   equal(await page.locator('#letter-tabs button').first().textContent(), '1', 'parents are numbered');
@@ -384,7 +409,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   console.log('Randomised parents.');
 
   // The frame is only a picture: switching it keeps every map.
-  await page.selectOption('#demo', 'gasket');
+  await openExample('gasket');
   equal(await page.locator('#dimension').textContent(), 'log 3 / log 2', 'the gasket is log 3 / log 2');
   equal(await rows(), 3, 'the gasket has three children');
   // Flip V mirrors a triangle child across its own bottom edge: A drops
@@ -401,7 +426,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   equal(await firstRow(), flippedRow, 'an unchanged pop-up leaves a flipped child as it was');
   await page.click('#flip-v');
   check((await firstRow()).includes('0.0000.2890.5000.0000'), 'a second Flip V brings A back to (0, 0.289)');
-  await page.selectOption('#demo', 'gasket');
+  await openExample('gasket');
   await page.click('#toggle-menu');
   equal(await page.locator('[data-frame].active').textContent(), 'Triangle', 'the gasket opens on a triangle frame');
   check(await page.locator('#side-field').isVisible() && !(await page.locator('#cols-field').isVisible()), 'a triangle frame shows Per side, not Cols and Rows');
@@ -419,7 +444,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
 
   // With Snap corners on, + fills one grid cell: the first free one that
   // matches the preview, upright or upside down.
-  await page.selectOption('#demo', 'gasket');
+  await openExample('gasket');
   await page.click('#toggle-menu');
   if (!(await page.locator('#toggle-snap').isChecked())) await page.check('#toggle-snap');
   await page.click('#grid-side button:text-is("2")');
@@ -428,7 +453,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   await page.click('#add-child');
   equal(await rows(), 4, '+ adds a fourth child to the gasket');
   check((await lastRow()).includes('0.0000.0000.500'), 'an upside-down new child fills the middle cell, at (0, 0): ' + await lastRow());
-  await page.selectOption('#demo', 'sieve');
+  await openExample('sieve');
   await page.click('#add-child');
   check((await lastRow()).includes('0.2500.2500.500'), 'a new child fills the free top-right cell: ' + await lastRow());
   console.log('Added children one grid cell in size.');
@@ -437,7 +462,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   // with Snap corners off too. Once the frame is full, it goes outside,
   // nearest the frame first.
   const centres = async () => (await mapRows()).matrices.map(m => [m[4], m[5]].map(v => Math.round(v * 1000) / 1000 + 0).join(','));
-  await page.selectOption('#demo', 'sieve');
+  await openExample('sieve');
   await page.click('#toggle-menu');
   if (await page.locator('#toggle-snap').isChecked()) await page.uncheck('#toggle-snap');
   await page.click('#toggle-menu');
@@ -457,7 +482,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check((await page.locator('#remove-child').getAttribute('title')).includes('Shift-click'), 'the Remove tooltip names Shift-click');
   // A triangle with 3 per side fills its 6 upright cells, then its 3
   // upside-down cells, turned a half turn.
-  await page.selectOption('#demo', 'gasket');
+  await openExample('gasket');
   await page.click('#add-letter');
   await page.click('#toggle-menu');
   await page.click('#grid-side button:text-is("3")');
@@ -480,7 +505,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   // Each child has a parent lock and a three-state Direction. With both
   // locked, Randomise leaves the child as it was. Partly locked on a square
   // allows only the rectangle's flips, so each entry keeps its size.
-  await page.selectOption('#demo', 'linked');
+  await openExample('linked');
   const firstLocks = () => page.locator('#numbers-body tr').first();
   equal(await page.locator('#numbers-head th').nth(3).textContent(), 'Direction', 'the Lock column is now Direction');
   await firstLocks().locator('.lock-parent').click();
@@ -532,7 +557,7 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   // Shape and Numbers: Hull and Hide by default. They travel with the
   // address and with a saved fractal. A fractal saved without them opens
   // with the defaults.
-  await page.selectOption('#demo', 'sieve');
+  await openExample('sieve');
   await page.click('#toggle-menu');
   equal(await page.locator('#shape-mode .active').textContent(), 'Hull', 'Shape defaults to Hull');
   equal(await page.locator('#numbers-mode .active').textContent(), 'Hide', 'Numbers defaults to Hide');
@@ -605,8 +630,8 @@ function equal(actual, expected, message) { assert.strictEqual(actual, expected,
   check(Math.abs((await page.locator('#iteration-panel').boundingBox()).height - panelBefore) < 2, 'a double-click resets their height');
   console.log('Hid, showed and resized the iterations.');
 
-  await page.selectOption('#demo', 'free');
-  console.log('Opened Free demo.');
+  await openExample('free');
+  console.log('Opened the free example.');
   await page.click('#toggle-menu');
   check(!(await affineShown()), 'similar children have x, y, scale, angle and flip');
   equal((await page.locator('#numbers-head th').allTextContents()).join('|'), '|Child|Parent|Direction|', 'the table shows child, parent, lock and edit only');

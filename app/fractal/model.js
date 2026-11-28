@@ -575,7 +575,9 @@
     return [s * c, s * n, -s * n, s * c, x, y];
   }
 
-  function demos() {
+  // Example rules. The model and browser checks build on them. The
+  // Sierpinski Sieve preset in presets.js is the gasket.
+  function examples() {
     // Three half-size copies, with the top-right quarter empty.
     var sieve = baseRule('square', [{ id: 'p1', children: [
       child('p1', placed(0.5, 0, -0.25, 0.25)),
@@ -625,6 +627,6 @@
     enumerate: enumerate, expand: expand, spectralRadius: spectralRadius, similarityDimension: similarityDimension,
     affinityDimension: affinityDimension, status: status, growthBounds: growthBounds, eigenRadius: eigenRadius, bounds: bounds, boxDimension: boxDimension,
     coverDiscs: coverDiscs, analyse: analyse, directOverlap: directOverlap, attractorHulls: attractorHulls, child: child, baseRule: baseRule,
-    demos: demos, nextId: nextId
+    examples: examples, nextId: nextId
   };
 });

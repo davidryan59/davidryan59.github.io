@@ -21,6 +21,7 @@ convex hull, and likely overlap. The complete rule lives in the address.
 - [x] Number the parents; add, duplicate, remove and reorder them.
 - [x] Choose each parent's colour from a swatch in the parent row.
 - [x] Open on the Sieve, with Gasket, Linked pair and Free placement demos.
+- [x] Replace the demos with 17 presets from the fractal library, each with its own settings.
 - [x] Store edited rules in the address.
 - [x] Offer Fast, Balanced, Detailed, and editable calculation limits.
 - [x] Use the four-corner control layout and fit all six browser sizes.
@@ -384,18 +385,34 @@ dimension above two, and a formula more than 0.35 above the box count. The
 box count reads low for a solid shape with a rough edge (the Dragon reads
 1.75 for 2), so a smaller gap gives false alarms.
 
-## Address and demos
+## Address and presets
 
-Unedited demos use short hashes: `#demo=sieve`, `#demo=gasket`,
-`#demo=linked`, and `#demo=free`. An edit replaces this with a URL-safe base-64 encoding of the
-rule and view settings. Loading that address restores the complete design.
+The Rule menu lists the presets in `app/fractal/presets.js`, in file order:
+Square Cloud, Sierpinski Sieve, Fern, Snowflake 8, Cloud, Dragon, Bidragon,
+Doughnut, Square Stretch, Girder, Bent Girder, Warp Holes, Large and Small,
+Corn, Twisted, Warped and Jagged Strike. The first opens by default. Each
+preset is a saved fractal from the library export of 2026-11-28, renamed
+for the menu. It opens with its own level, colours, view and limits; a
+preset saved without some of these opens with the defaults. To change the
+menu, edit `presets.js`.
 
-The Sieve opens by default. It has three half-size upright
-copies and reports `log 3 / log 2`. Gasket is the equilateral Sierpinski
-triangle: a triangle frame with a half-size copy in each corner, also
-`log 3 / log 2`. Linked pair uses the child-count matrix
-`[[1,1],[1,2]]`.
-Free placement demonstrates continuous position, angle, scale, and a flip.
+An unedited preset uses a short hash, `#demo=<key>`, such as `#demo=fern`.
+An edit, or any change to a preset's settings, replaces this with a
+URL-safe base-64 encoding of the rule and view settings. Loading that
+address restores the complete design. An address with an unknown preset
+opens the first preset.
+
+Square Cloud has three half-size copies with the top-right quarter empty.
+The bottom-right copy turns a quarter anticlockwise and the top-left copy a
+quarter clockwise. Sierpinski Sieve is the equilateral Sierpinski triangle:
+a triangle frame with a half-size copy in each corner, which reports
+`log 3 / log 2`. These two show an explanation under the readouts; the
+others show the general one.
+
+The model also keeps four example rules, which the checks build on: the
+square sieve (three half-size upright copies, `log 3 / log 2`), the gasket,
+a linked pair with the child-count matrix `[[1,1],[1,2]]`, and a free
+placement with continuous position, angle, scale and a flip.
 
 ## Calculation limits
 
@@ -452,7 +469,7 @@ slider but leaves Iterations alone.
 
 ## Layout and input
 
-The left panel holds the rule name and demos, the parent row, the frame editor, the child panel and the children
+The left panel holds the rule name and presets, the parent row, the frame editor, the child panel and the children
 list. Readouts and saved fractals sit at the right. The iteration strip and
 limit fill the centre, with three corner groups: levels, grid and toggles;
 colour; and camera. The views draw the parent selected in the parent row.

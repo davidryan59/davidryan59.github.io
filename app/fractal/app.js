@@ -3,14 +3,15 @@
 
   var M = window.FractalModel;
   var PALETTE = ['#e9b44c', '#59c3b5', '#dc6f82', '#8297e8', '#d98fd0', '#7fc66c', '#f28b54', '#a68bd7', '#57a9d8', '#b7e04a'];
-  var DEMO_NAMES = { sieve: 'Sierpinski sieve', gasket: 'Sierpinski gasket', linked: 'Linked pair', free: 'Free placement' };
-  var EXPLANATIONS = {
-    sieve: 'Three half-size copies leave the top-right quarter empty. Repeating that rule makes the right-angled Sierpinski triangle.',
-    gasket: 'Three half-size triangles sit in the corners of their parent, leaving the middle empty. Repeating that rule makes the equilateral Sierpinski triangle.',
-    linked: 'Parent 1 makes one 1 and one 2. Parent 2 makes one 1 and two 2s. The two parents share one limit through a linked rule.',
-    free: 'Three freely placed copies show continuous position, angle, scale, and reflection. The dashed frame is their parent.'
-  };
-  var demos = M.demos();
+  // The Rule menu's presets come from presets.js, in menu order. Each opens
+  // with its own level, colours, view and limits, as a saved fractal does.
+  var PRESET_LIST = window.FractalPresets, demos = {}, DEMO_NAMES = {}, EXPLANATIONS = {}, DEMO_SETTINGS = {};
+  PRESET_LIST.forEach(function (preset) {
+    demos[preset.key] = preset.rule; DEMO_NAMES[preset.key] = preset.name; DEMO_SETTINGS[preset.key] = preset;
+    if (preset.explanation) EXPLANATIONS[preset.key] = preset.explanation;
+  });
+  var DEFAULT_DEMO = PRESET_LIST[0].key;
+  var CUSTOM_EXPLANATION = 'The selected parent expands through the linked affine rule. Change a child to see every view and measurement update.';
   // Slider stops: every whole number from 1 to 10, then round numbers in each
   // decade (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6 and 8 times ten to a power). Round
   // numbers come first, even where that bends the log spacing a little.
@@ -62,7 +63,7 @@
   var state = {
     // currentLetter is the parent being edited, and also the one the views draw.
     // focus says what Backspace and Cmd+D act on: a 'child' or the 'parent'.
-    rule: M.clone(demos.sieve), demo: 'sieve', currentLetter: 'p1', selectedId: null, focus: 'child',
+    rule: M.clone(demos[DEFAULT_DEMO]), demo: DEFAULT_DEMO, currentLetter: 'p1', selectedId: null, focus: 'child',
     brush: M.identity(), newLetter: null, snapGrid: VIEW_DEFAULTS.snapGrid, editorCamera: null,
     depth: 7, showHull: true, camera: { zoom: 1, x: 0, y: 0 }, dragging: false,
     limits: Object.assign({}, PRESETS.balanced), preset: 'balanced', colourMode: null,
@@ -174,8 +175,8 @@
   function loadAddress() {
     try {
       var hash = location.hash.slice(1);
-      if (hash.indexOf('demo=') === 0 && demos[hash.slice(5)]) {
-        state.demo = hash.slice(5); state.rule = M.clone(demos[state.demo]);
+      if (hash.indexOf('rule=') !== 0) {
+        applyDemo(demos[hash.slice(5)] && hash.indexOf('demo=') === 0 ? hash.slice(5) : DEFAULT_DEMO);
       } else if (hash.indexOf('rule=') === 0) {
         var saved = decode(hash.slice(5));
         if (!validRule(saved.rule)) throw new Error('Invalid rule');
@@ -186,15 +187,15 @@
         readView(saved);
       }
     } catch (error) {
-      state.rule = M.clone(demos.sieve); state.demo = 'sieve';
-      setTimeout(function () { notice('That address did not contain a valid rule. The Sieve opened instead.'); }, 0);
+      applyDemo(DEFAULT_DEMO);
+      setTimeout(function () { notice('That address did not contain a valid rule. ' + DEMO_NAMES[DEFAULT_DEMO] + ' opened instead.'); }, 0);
     }
     if (!letterById(state.currentLetter)) state.currentLetter = state.rule.letters[0].id;
   }
 
   function saveAddress() {
     var hash;
-    if (state.demo && sameRule(state.rule, demos[state.demo]) && state.currentLetter === state.rule.letters[0].id && matchingPreset() === 'balanced' && defaultView() && state.colourMode == null && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
+    if (state.demo && sameRule(state.rule, demos[state.demo]) && state.currentLetter === (DEMO_SETTINGS[state.demo].current || state.rule.letters[0].id) && demoSettingsKept() && state.camera.zoom === 1 && !state.camera.x && !state.camera.y) {
       hash = 'demo=' + state.demo;
     } else {
       hash = 'rule=' + encode(Object.assign({ rule: state.rule, current: state.currentLetter, depth: state.depth,
@@ -209,19 +210,45 @@
   function viewSettings() {
     return { snap: state.snapGrid, hull: state.showHull, shape: state.shape, numbers: state.numbers, style: state.style, limits: sanitiseLimits(state.limits) };
   }
-  function readView(saved) {
+  function viewFrom(saved) {
     saved = saved || {};
-    state.snapGrid = typeof saved.snap === 'boolean' ? saved.snap : VIEW_DEFAULTS.snapGrid;
-    state.showHull = typeof saved.hull === 'boolean' ? saved.hull : VIEW_DEFAULTS.showHull;
-    state.shape = saved.shape === 'frame' || saved.shape === 'hull' ? saved.shape : VIEW_DEFAULTS.shape;
-    state.numbers = typeof saved.numbers === 'boolean' ? saved.numbers : VIEW_DEFAULTS.numbers;
-    state.style = STYLES.indexOf(saved.style) >= 0 ? saved.style : VIEW_DEFAULTS.style;
-    state.limits = sanitiseLimits(saved.limits || PRESETS.balanced);
+    return {
+      snap: typeof saved.snap === 'boolean' ? saved.snap : VIEW_DEFAULTS.snapGrid,
+      hull: typeof saved.hull === 'boolean' ? saved.hull : VIEW_DEFAULTS.showHull,
+      shape: saved.shape === 'frame' || saved.shape === 'hull' ? saved.shape : VIEW_DEFAULTS.shape,
+      numbers: typeof saved.numbers === 'boolean' ? saved.numbers : VIEW_DEFAULTS.numbers,
+      style: STYLES.indexOf(saved.style) >= 0 ? saved.style : VIEW_DEFAULTS.style,
+      limits: sanitiseLimits(saved.limits || PRESETS.balanced)
+    };
+  }
+  function readView(saved) {
+    var view = viewFrom(saved);
+    state.snapGrid = view.snap; state.showHull = view.hull; state.shape = view.shape;
+    state.numbers = view.numbers; state.style = view.style; state.limits = view.limits;
     state.preset = matchingPreset();
   }
   function defaultView() {
     return state.snapGrid === VIEW_DEFAULTS.snapGrid && state.showHull === VIEW_DEFAULTS.showHull &&
       state.shape === VIEW_DEFAULTS.shape && state.numbers === VIEW_DEFAULTS.numbers && state.style === VIEW_DEFAULTS.style;
+  }
+
+  // Opens a preset with its rule and its settings, and nothing selected.
+  function applyDemo(key) {
+    var settings = DEMO_SETTINGS[key];
+    state.demo = key; state.rule = M.clone(demos[key]); state.currentLetter = letterById(settings.current) ? settings.current : state.rule.letters[0].id;
+    state.selectedId = null; state.focus = 'child'; state.brush = M.identity(); state.newLetter = null; state.savedName = null;
+    state.depth = settings.level == null ? PRESETS.balanced.depth : settings.level; state.colourMode = readColourMode(settings.colourMode); readView(settings);
+    state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null;
+  }
+  // A preset keeps its short address while its settings stay as it opened.
+  // A preset that saved no view or limits opens with the defaults, so this
+  // compares against what applyDemo set.
+  function demoSettingsKept() {
+    var settings = DEMO_SETTINGS[state.demo], view = viewSettings(), expected = viewFrom(settings);
+    var level = settings.level == null ? PRESETS.balanced.depth : settings.level;
+    return state.depth === level && state.colourMode === readColourMode(settings.colourMode) &&
+      ['snap', 'hull', 'shape', 'numbers', 'style'].every(function (field) { return view[field] === expected[field]; }) &&
+      LIMIT_FIELDS.every(function (field) { return view.limits[field] === expected.limits[field]; });
   }
 
   function sameRule(a, b) {
@@ -724,7 +751,7 @@
     el.boxDimension.textContent = empty || a.boxDimension == null ? '—' : formatNumber(a.boxDimension, 2);
     el.overlap.textContent = empty ? '—' : a.overlap ? 'Likely' : 'None found';
     el.hullCorners.textContent = empty ? '—' : a.hull.length; el.hullArea.textContent = empty ? '—' : formatNumber(a.hullArea, 4);
-    el.explanationText.textContent = state.demo ? EXPLANATIONS[state.demo] : 'The selected parent expands through the linked affine rule. Change a child to see every view and measurement update.';
+    el.explanationText.textContent = state.demo && EXPLANATIONS[state.demo] || CUSTOM_EXPLANATION;
   }
 
   function renderPalette() {
@@ -2193,7 +2220,7 @@
 
   function wireEvents() {
     el.demo.addEventListener('change', function () {
-      if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.selectedId = null; state.focus = 'child'; state.brush = M.identity(); state.depth = PRESETS.balanced.depth; readView(null); state.colourMode = null; state.savedName = null; state.newLetter = null; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null; commit();
+      if (!demos[el.demo.value]) return; applyDemo(el.demo.value); commit();
     });
     el.addLetter.addEventListener('click', addLetter);
     el.removeLetter.addEventListener('click', function (event) { removeLetter(event.shiftKey); });
@@ -2363,6 +2390,7 @@
   function init() {
     collectElements();
     el.maxCopies.max = COPY_VALUES.length - 1; el.minScale.max = SCALE_VALUES.length - 1; el.maxTime.max = TIME_VALUES.length - 1;
+    PRESET_LIST.forEach(function (preset) { var option = document.createElement('option'); option.value = preset.key; option.textContent = preset.name; el.demo.appendChild(option); });
     var custom = document.createElement('option'); custom.value = ''; custom.textContent = 'Custom rule'; el.demo.appendChild(custom);
     loadAddress(); Theme.wireThemeToggle();
     var fullscreenEnabled = document.fullscreenEnabled || document.webkitFullscreenEnabled; el.fullscreen.hidden = !fullscreenEnabled;
