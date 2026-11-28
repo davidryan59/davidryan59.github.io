@@ -762,7 +762,7 @@
     el.parentColour.title = 'Colour of parent ' + number; el.parentColour.setAttribute('aria-label', 'Choose the colour of parent ' + number);
     if (!el.colourPicker.hidden) renderColourPicker();
     el.removeLetter.disabled = only;
-    el.removeLetter.title = only ? 'A rule needs at least one parent' : 'Remove parent ' + number + ' and the children that use it (Backspace)';
+    el.removeLetter.title = only ? 'A rule needs at least one parent' : 'Click: remove parent ' + number + '. Children that use it switch to their own parent (Backspace). Shift-click: remove those children too.';
     el.duplicateLetter.title = 'Duplicate parent ' + number + ' (' + modKey() + 'D)';
   }
 
@@ -1483,20 +1483,27 @@
   }
 
   // Removing a parent also removes every child, in any parent, that copied it.
-  function removeLetter() {
+  // Removing a parent keeps the children that used it: each one switches
+  // to the parent it belongs to. Shift-click removes those children instead.
+  function removeLetter(dropUsers) {
     if (state.rule.letters.length < 2) return;
-    var id = state.currentLetter, index = state.rule.letters.findIndex(function (letter) { return letter.id === id; }), lost = 0;
+    var id = state.currentLetter, index = state.rule.letters.findIndex(function (letter) { return letter.id === id; }), changed = 0;
     if (index < 0) return;
     keepColours(function () { state.rule.letters.splice(index, 1); });
     state.rule.letters.forEach(function (letter) {
       var before = letter.children.length;
-      letter.children = letter.children.filter(function (child) { return child.letter !== id; });
-      lost += before - letter.children.length;
+      if (dropUsers) {
+        letter.children = letter.children.filter(function (child) { return child.letter !== id; });
+        changed += before - letter.children.length;
+      } else {
+        letter.children.forEach(function (child) { if (child.letter === id) { child.letter = letter.id; changed++; } });
+      }
     });
     state.currentLetter = state.rule.letters[Math.max(0, index - 1)].id;
     if (state.newLetter === id) state.newLetter = null;
     state.selectedId = null; state.focus = 'parent'; markEdited(); commit();
-    notice('Removed parent ' + (index + 1) + (lost ? ' and ' + lost + (lost === 1 ? ' child that used it' : ' children that used it') : '') + '. Undo brings it back.');
+    var children = changed === 1 ? ' child that used it' : ' children that used it';
+    notice('Removed parent ' + (index + 1) + (!changed ? '' : dropUsers ? ' and ' + changed + children : '. ' + changed + children + (changed === 1 ? ' now uses its own parent' : ' now use their own parent')) + '. Undo brings it back.');
   }
 
   function removeSelected() {
@@ -1983,7 +1990,7 @@
       if (!demos[el.demo.value]) return; state.demo = el.demo.value; state.rule = M.clone(demos[state.demo]); state.currentLetter = state.rule.letters[0].id; state.selectedId = null; state.focus = 'child'; state.brush = M.identity(); state.depth = PRESETS.balanced.depth; readView(null); state.colourMode = null; state.savedName = null; state.newLetter = null; state.camera = { zoom: 1, x: 0, y: 0 }; state.editorCamera = null; commit();
     });
     el.addLetter.addEventListener('click', addLetter);
-    el.removeLetter.addEventListener('click', removeLetter);
+    el.removeLetter.addEventListener('click', function (event) { removeLetter(event.shiftKey); });
     el.duplicateLetter.addEventListener('click', duplicateLetter);
     makeSortable(el.letterTabs, '.letter-tab', null, 'x', moveLetter);
     makeSortable(el.numbersBody, 'tr', '.grip', 'y', moveChild);
@@ -2113,6 +2120,7 @@
       if (key === 'backspace' || key === 'delete') { event.preventDefault(); if (event.shiftKey) removeAllChildren(); else removeFocused(); return; }
       if (event.shiftKey) return;
       if (key === 'escape') { if (state.selectedId) { state.selectedId = null; syncControls(); renderEditor(); } return; }
+      if (key === 'n') { event.preventDefault(); addFreeChild(); return; }
       var action = { r: 'rotateLeft', t: 'rotateRight', h: 'flipH', v: 'flipV' }[key];
       if (action) { event.preventDefault(); orient(action); }
     });

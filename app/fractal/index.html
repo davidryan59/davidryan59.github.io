@@ -88,7 +88,7 @@
           <button id="editor-zoom-in" type="button" title="Zoom the editor in (or use the wheel)" aria-label="Zoom the editor in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5M10.5 8v5M8 10.5h5"/></svg></button>
         </div>
         <div class="editor-children" role="group" aria-label="Children">
-          <button id="add-child" type="button" title="Add a child" aria-label="Add a child"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button id="add-child" type="button" title="Add a child (N)" aria-label="Add a child"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           <button id="duplicate-child" type="button" aria-label="Duplicate the child"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
           <button id="randomise-parent" type="button" aria-label="Randomise the orientation of every child of this parent"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><g style="fill:currentColor;stroke:none"><circle cx="8.2" cy="8.2" r="1.35"/><circle cx="15.8" cy="8.2" r="1.35"/><circle cx="12" cy="12" r="1.35"/><circle cx="8.2" cy="15.8" r="1.35"/><circle cx="15.8" cy="15.8" r="1.35"/></g></svg></button>
           <button id="remove-child" class="danger" type="button" title="Remove the child (Backspace)" aria-label="Remove the child" aria-keyshortcuts="Backspace Delete"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5.5M14 11v5.5"/></svg></button>
@@ -274,10 +274,11 @@
     </section>
     <details class="help">
       <summary>How to edit</summary>
+      <p>Parents: the bin beside the parent numbers removes the selected parent. Children that used it switch to their own parent, and Shift-click removes those children instead.</p>
       <p>Children: + adds one, a grid cell in size, in the first free cell from the bottom left. The bin removes the selected child, and Shift-click removes them all. The padlock in the Children list keeps a child out of Randomise. Drag a child to move it. Its top-right corner (the circular arrow) turns it, and its bottom-right corner scales it, both about its centre. Shift with the scale corner stretches both ways. Drag an edge handle across the edge to stretch, or along it to skew.</p>
       <p>Options: Frame draws every parent and child as a square or a triangle, and keeps the fractal the same. The editor always shows the grid: Cols by Rows on a square, Per side on a triangle. Snap corners snaps corners to it. Shape draws each copy as its parent's hull or as its frame, Numbers shows or hides each copy's parent number, and Style sets how copies are filled: Solid, Blend, Auto or Outline. A saved fractal keeps all of these and the calculation limits. Copy and Paste move the limits between fractals.</p>
       <p>Editor view: drag empty space to pan, and use the wheel or a pinch to zoom. Fit shows every child again. Drag the line under the editor to change its height.</p>
-      <p>Keys: 1–9 and 0 pick a child's parent, and Shift with a number shows that parent. R and T rotate, H and V flip, Backspace removes, Shift+Backspace removes every child of the parent, ⌘D or Ctrl+D duplicates, Esc deselects.</p>
+      <p>Keys: 1–9 and 0 pick a child's parent, and Shift with a number shows that parent. N adds a child, R and T rotate, H and V flip, Backspace removes, Shift+Backspace removes every child of the parent, ⌘D or Ctrl+D duplicates, Esc deselects.</p>
     </details>
   </aside>
 </main>

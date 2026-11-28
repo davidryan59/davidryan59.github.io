@@ -161,10 +161,14 @@ child keeps its outline, as with the orientation buttons, and one Undo
 reverses the whole randomise. A roll that changes nothing rolls again. A
 locked child stays out of the roll: its orientation and its parent stay put.
 A dice with no unlocked child to roll is greyed out. Each dice says all this
-in its tooltip. A duplicate goes to the right
-of its original, or else above, left or below, whichever is free first. A duplicated parent goes after the original, and
-its children that copied the original copy the duplicate. Removing a parent
-removes every child that copied it.
+in its tooltip. A duplicate child keeps its original's size and orientation
+and moves by whole grid steps. It takes the free place nearest its original
+that lies wholly inside the frame; with none free, the free place nearest the
+frame's edge, then nearest its original. A duplicated parent goes after the
+original, and its children that copied the original copy the duplicate. It
+takes the first default colour that no other parent shows. Removing a parent
+switches every child that copied it to the parent that child belongs to.
+Shift-click on the parent bin removes those children instead.
 
 The children list shows each child in drawing order: the first is drawn at
 the back. Each row has a grip, the child's letter, the parent it copies, a
@@ -417,8 +421,8 @@ colour; and camera. The views draw the parent selected in the parent row.
 Keys: 1 to 9, and 0 for 10, set a child's parent; Shift with a digit selects
 that parent. R and T rotate left and right, H and V flip, Backspace or Delete
 removes the last thing clicked (a child or a parent), Shift+Backspace
-removes every child of the current parent, Cmd+D or Ctrl+D duplicates it,
-and Escape deselects.
+removes every child of the current parent, N adds a child, Cmd+D or Ctrl+D
+duplicates, and Escape deselects.
 
 Saved fractals use the browser key `fractal-library` and files with
 `{ format: "fractal-explorer", version: 3, fractals: [...] }`. Each entry
